@@ -543,6 +543,19 @@
             height: 100%;
             object-fit: contain;
         }
+        #deleteAllCustomGamesButton, #deleteAllApiGamesButton {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
         #authorCredit {
             position: fixed;
             top: 50%;
@@ -1053,11 +1066,13 @@
             <span class="close">&times;</span>
             <h2>Список добавленных игр</h2>
             <div id="customGameList"></div>
-            <button id="deleteAllCustomGamesButton">Удалить все</button>
+            <button id="deleteAllCustomGamesButton">Удалить все ручные</button>
+            <button id="deleteAllApiGamesButton">Удалить все из API</button>
         </div>
     </div>
 
     <script>
+        console.log('Скрипт начал выполнение');
         const mainContent = document.getElementById('mainContent');
         const grid = document.getElementById('grid');
         const counter = document.getElementById('counter');
@@ -1234,12 +1249,11 @@
         function createCell(game) {
             const cell = document.createElement('div');
             cell.className = 'cell';
-            cell.dataset.gameId = game.id;
+            cell.setAttribute('data-game-id', game.id);
+            cell.title = game.name;
+
             if (game.completed) {
                 cell.classList.add('completed');
-                if (hideCompleted) {
-                    cell.classList.add('hidden');
-                }
             }
             if (game.inProgress) {
                 cell.classList.add('in-progress');
@@ -1247,25 +1261,38 @@
             if (game.isCustom) {
                 cell.classList.add('custom-game');
             }
-            
+
             if (game.imageUrl) {
-                cell.innerHTML = `<img src="${game.imageUrl}" alt="${game.name}">`;
+                const img = document.createElement('img');
+                img.src = game.imageUrl;
+                img.alt = game.name;
+                img.onerror = function() {
+                    this.style.display = 'none';
+                    createAbbreviationPlaceholder(cell, game);
+                };
+                cell.appendChild(img);
             } else {
-                const color = game.color || getRandomPastelColor();
-                if (!game.color) {
-                    game.color = color;
-                }
-                cell.innerHTML = `<div class="abbreviation-placeholder"><span style="color: ${color};">${game.name}</span></div>`;
+                createAbbreviationPlaceholder(cell, game);
             }
-            
-            cell.title = game.name;
+
             cell.addEventListener('click', () => toggleCell(cell, game.id));
             cell.addEventListener('mousemove', (e) => showPreviewOrTitle(e, game));
             cell.addEventListener('mouseleave', hidePreviewAndTitle);
-            
+
             updateCellSize(cell, game.inProgress);
-            
+
             return cell;
+        }
+
+        function createAbbreviationPlaceholder(cell, game) {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'abbreviation-placeholder';
+            const color = game.color || getRandomPastelColor();
+            if (!game.color) {
+                game.color = color;
+            }
+            placeholder.innerHTML = `<span style="color: ${color};">${game.name}</span>`;
+            cell.appendChild(placeholder);
         }
 
         function getRandomPastelColor() {
@@ -1960,6 +1987,7 @@
         let customGames = JSON.parse(localStorage.getItem('customGames')) || [];
 
         const deleteAllCustomGamesButton = document.getElementById('deleteAllCustomGamesButton');
+        const deleteAllApiGamesButton = document.getElementById('deleteAllApiGamesButton');
 
         deleteAllCustomGamesButton.addEventListener('click', () => {
             if (confirm('Вы уверены, что хотите удалить все вручную добавленные игры?')) {
@@ -1980,6 +2008,34 @@
                 alert('Все вручную добавленные игры были удалены.');
             }
         });
+
+        deleteAllApiGamesButton.addEventListener('click', () => {
+            if (confirm('Вы уверены, что хотите удалить все игры, добавленные через API?')) {
+                const apiGames = games.filter(game => game.importedFromApi);
+                apiGames.forEach(game => {
+                    const index = games.findIndex(g => g.id === game.id);
+                    if (index !== -1) {
+                        games.splice(index, 1);
+                    }
+                    removeGameCell(game.id);
+                });
+                customGames = customGames.filter(game => !game.importedFromApi);
+                localStorage.setItem('games', JSON.stringify(games));
+                localStorage.setItem('customGames', JSON.stringify(customGames));
+                updateCustomGameList();
+                updateCounter();
+                populateFilters();
+                applyFilters();
+                alert('Все игры, добавленные через API, были удалены.');
+            }
+        });
+
+        function removeGameCell(gameId) {
+            const cell = document.querySelector(`.cell[data-game-id="${gameId}"]`);
+            if (cell) {
+                cell.remove();
+            }
+        }
 
         function closeModal(modal) {
             modal.style.display = 'none';
@@ -2050,24 +2106,54 @@
         }
 
         function addNewGame(gameData) {
+            console.log('Начало добавления новой игры:', gameData.name);
             const newGame = {
                 id: Date.now(),
                 ...gameData,
                 isCustom: true,
-                importedFromApi: true,
+                importedFromApi: gameData.importedFromApi || false,
                 completed: false,
                 inProgress: false,
-                isCustom: true,
                 color: getRandomPastelColor()
             };
             
+            console.log('Добавление игры в массив customGames');
             customGames.push(newGame);
+            console.log('Добавление игры в основной массив games');
             games.push(newGame);
+            console.log('Сохранение обновленного списка customGames в localStorage');
             localStorage.setItem('customGames', JSON.stringify(customGames));
             
+            console.log('Создание ячейки для новой игры');
             const cell = createCell(newGame);
+            console.log('Добавление ячейки в сетку');
             grid.appendChild(cell);
+            console.log('Обновление счетчика');
             updateCounter();
+            console.log('Игра успешно добавлена:', newGame.name);
+        }
+
+        function saveGamesToLocalStorage() {
+            localStorage.setItem('games', JSON.stringify(games));
+            localStorage.setItem('customGames', JSON.stringify(customGames));
+        }
+
+        function loadGamesFromLocalStorage() {
+            const savedGames = JSON.parse(localStorage.getItem('games'));
+            const savedCustomGames = JSON.parse(localStorage.getItem('customGames'));
+            if (savedGames) {
+                games = savedGames;
+                customGames = savedCustomGames || [];
+                grid.innerHTML = '';
+                games.forEach(game => {
+                    const cell = createCell(game);
+                    grid.appendChild(cell);
+                });
+                updateCounter();
+                updateGridSize();
+                populateFilters();
+                applyFilters();
+            }
         }
 
         function updateGame(gameId, gameData) {
@@ -2117,46 +2203,14 @@
 
         addGameForm.addEventListener('submit', handleFormSubmit);
 
-        function createCell(game) {
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            cell.dataset.gameId = game.id;
-            if (game.completed) {
-                cell.classList.add('completed');
-            }
-            if (game.inProgress) {
-                cell.classList.add('in-progress');
-            }
-            if (game.isCustom) {
-                cell.classList.add('custom-game');
-            }
-            
-            if (game.imageUrl) {
-                cell.innerHTML = `<img src="${game.imageUrl}" alt="${game.name}">`;
-            } else {
-                const color = game.color || getRandomPastelColor();
-                if (!game.color) {
-                    game.color = color;
-                }
-                cell.innerHTML = `<div class="abbreviation-placeholder"><span style="color: ${color};">${game.name}</span></div>`;
-            }
-            
-            cell.title = game.name;
-            cell.addEventListener('click', () => toggleCell(cell, game.id));
-            cell.addEventListener('mousemove', (e) => showPreviewOrTitle(e, game));
-            cell.addEventListener('mouseleave', hidePreviewAndTitle);
-            
-            updateCellSize(cell, game.inProgress);
-            
-            return cell;
-        }
-
         function getRandomPastelColor() {
             const hue = Math.floor(Math.random() * 360);
             const saturation = 70 + Math.random() * 10;
             const lightness = 60 + Math.random() * 10;
             return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
         }
+
+        loadGamesFromLocalStorage();
 
         function updateCustomGameList() {
             customGameList.innerHTML = '';
@@ -2305,112 +2359,157 @@
             }
         });
 
+        function initializeImportButton() {
+            console.log('Инициализация кнопок импорта');
+            const importButton = document.getElementById('importFromApiButton');
+            const importModalButton = document.getElementById('importFromApiModalButton');
+            if (importButton) {
+                console.log('Кнопка импорта в шапке найдена');
+                importButton.addEventListener('click', () => {
+                    console.log('Кнопка импорта из API в шапке нажата');
+                    importFromIGDB();
+                });
+            } else {
+                console.error('Кнопка импорта в шапке не найдена');
+            }
+            if (importModalButton) {
+                console.log('Кнопка импорта в модальном окне найдена');
+                importModalButton.addEventListener('click', () => {
+                    console.log('Кнопка импорта из API в модальном окне нажата');
+                    importFromIGDB();
+                });
+            } else {
+                console.error('Кнопка импорта в модальном окне не найдена');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM полностью загружен');
+            initializeImportButton();
+        });
+
+        document.addEventListener('click', (event) => {
+            console.log('Клик по элементу:', event.target);
+            if (event.target.id === 'importFromApiButton' || event.target.id === 'importFromApiModalButton') {
+                console.log('Клик по кнопке импорта зарегистрирован через делегирование событий');
+                importFromIGDB();
+            }
+        });
+
         async function importFromIGDB() {
+            console.log('Начало импорта игр из IGDB');
             try {
+                console.log('Отправка запроса на получение топ-2000 игр');
                 const response = await fetch('https://nu3ichego5ti2suda7prishel.uhadi.workers.dev');
+                console.log('Получен ответ от сервера');
+
                 if (!response.ok) {
+                    console.error('Ошибка ответа сервера:', response.status, response.statusText);
                     throw new Error('Network response was not ok');
                 }
-                const games = await response.json();
-                const top2000Games = games.slice(0, 2000);  // Берем только первые 2000 игр
-                top2000Games.forEach(game => {
-                    const newGame = {
-                        id: Date.now() + Math.random(),
-                        name: game.name,
-                        imageUrl: game.cover ? game.cover.url.replace('t_thumb', 't_cover_big') : '',
-                        year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
-                        genres: game.genres ? game.genres.map(g => g.name) : [],
-                        platforms: game.platforms ? game.platforms.map(p => p.name) : [],
-                        rating: game.aggregated_rating,
-                        isCustom: true,
-                        completed: false,
-                        inProgress: false,
-                        color: getRandomPastelColor()
-                    };
-                    addNewGame(newGame);
-                });
-                alert('Игры успешно импортированы!');
+
+                console.log('Начало парсинга JSON ответа');
+                const newGames = await response.json();
+                console.log('JSON успешно распарсен, получено игр:', newGames.length);
+
+                const maxGames = 2000;
+                const currentGameIds = new Set(games.map(g => g.name.toLowerCase()));
+                let addedGames = 0;
+
+                // Сортируем игры по рейтингу (от высшего к низшему)
+                newGames.sort((a, b) => (b.aggregated_rating || 0) - (a.aggregated_rating || 0));
+
+                console.log('Начало обработки полученных игр');
+                for (const game of newGames) {
+                    if (games.length >= maxGames) break;
+                    const gameName = game.name.toLowerCase();
+                    if (!currentGameIds.has(gameName)) {
+                        console.log(`Добавление новой игры: ${game.name}`);
+                        const newGame = {
+                            id: Date.now() + Math.random(),
+                            name: game.name,
+                            imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
+                            year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
+                            genres: game.genres ? game.genres.map(g => g.name) : [],
+                            platforms: game.platforms ? game.platforms.map(p => p.name) : [],
+                            rating: game.aggregated_rating,
+                            isCustom: true,
+                            importedFromApi: true,
+                            completed: false,
+                            inProgress: false,
+                            color: getRandomPastelColor()
+                        };
+
+                        games.push(newGame);
+                        customGames.push(newGame);
+                        currentGameIds.add(gameName);
+                        addedGames++;
+
+                        const cell = createCell(newGame);
+                        grid.appendChild(cell);
+
+                        // Добавляем небольшую задержку между загрузками
+                        await new Promise(resolve => setTimeout(resolve, 20));
+                    }
+                }
+
+                // Обновляем интерфейс после добавления всех игр
+                updateGridSize();
+                populateFilters();
+                applyFilters();
+                updateCounter();
+
+                console.log('Импорт завершен успешно');
+                alert(`Импорт завершен. Добавлено ${addedGames} новых игр.`);
+                saveGamesToLocalStorage();
             } catch (error) {
-                console.error('Failed to import games from IGDB:', error);
+                console.error('Ошибка при импорте игр из IGDB:', error);
                 alert('Не удалось импортировать игры. Проверьте консоль для деталей.');
             }
         }
 
-        async function searchGame() {
-            const gameName = prompt("Введите название игры:");
-            if (gameName) {
-                try {
-                    const response = await fetch(`https://nu3ichego5ti2suda7prishel.uhadi.workers.dev/search?name=${encodeURIComponent(gameName)}`);
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    const games = await response.json();
-                    if (games.length > 0) {
-                        const modal = document.createElement('div');
-                        modal.style.position = 'fixed';
-                        modal.style.left = '50%';
-                        modal.style.top = '50%';
-                        modal.style.transform = 'translate(-50%, -50%)';
-                        modal.style.backgroundColor = '#333';
-                        modal.style.padding = '20px';
-                        modal.style.borderRadius = '10px';
-                        modal.style.maxHeight = '80vh';
-                        modal.style.overflowY = 'auto';
-                        modal.style.zIndex = '1000';
-
-                        const title = document.createElement('h2');
-                        title.textContent = 'Выберите игру:';
-                        title.style.color = 'white';
-                        modal.appendChild(title);
-
-                        games.forEach(game => {
-                            const button = document.createElement('button');
-                            button.textContent = `${game.name} (${game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : 'Год неизвестен'})`;
-                            button.style.display = 'block';
-                            button.style.width = '100%';
-                            button.style.marginBottom = '10px';
-                            button.style.padding = '10px';
-                            button.style.backgroundColor = '#4CAF50';
-                            button.style.color = 'white';
-                            button.style.border = 'none';
-                            button.style.borderRadius = '5px';
-                            button.style.cursor = 'pointer';
-
-                            button.onclick = () => {
-                                const newGame = {
-                                    id: Date.now() + Math.random(),
-                                    name: game.name,
-                                    imageUrl: game.cover ? game.cover.url.replace('t_thumb', 't_cover_big') : '',
-                                    year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
-                                    genres: game.genres ? game.genres.map(g => g.name) : [],
-                                    platforms: game.platforms ? game.platforms.map(p => p.name) : [],
-                                    rating: game.aggregated_rating,
-                                    isCustom: true,
-                                    completed: false,
-                                    inProgress: false,
-                                    color: getRandomPastelColor()
-                                };
-                                addNewGame(newGame);
-                                document.body.removeChild(modal);
-                                alert('Игра успешно добавлена!');
-                            };
-
-                            modal.appendChild(button);
-                        });
-
-                        document.body.appendChild(modal);
-                    } else {
-                        alert('Игры не найдены.');
-                    }
-                } catch (error) {
-                    console.error('Failed to search game:', error);
-                    alert('Не удалось найти игру. Проверьте консоль для деталей.');
-                }
-            }
+        function convertImageUrl(url) {
+            // Извлекаем имя файла из URL
+            const fileName = url.split('/').pop();
+            // Создаем новый URL с большим размером изображения
+            return `https://images.igdb.com/igdb/image/upload/t_cover_big/${fileName}`;
         }
 
-        document.getElementById('importFromApiButton').addEventListener('click', importFromIGDB);
-        document.getElementById('searchGameButton').addEventListener('click', searchGame);
+        function loadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error(`Failed to load image's URL: ${url}`));
+                img.src = url;
+            });
+        }
+
+        const importApiButton = document.getElementById('importFromApiButton');
+        const importApiModalButton = document.getElementById('importFromApiModalButton');
+        const searchGameButton = document.getElementById('searchGameButton');
+
+        if (importApiButton) {
+            importApiButton.removeEventListener('click', importFromIGDB);
+            importApiButton.addEventListener('click', () => {
+                console.log('Кнопка импорта из API в шапке нажата (из основного обработчика)');
+                importFromIGDB();
+            });
+        }
+
+        if (importApiModalButton) {
+            importApiModalButton.removeEventListener('click', importFromIGDB);
+            importApiModalButton.addEventListener('click', () => {
+                console.log('Кнопка импорта из API в модальном окне нажата (из основного обработчика)');
+                importFromIGDB();
+            });
+        }
+
+        if (searchGameButton) {
+            searchGameButton.addEventListener('click', () => {
+                console.log('Кнопка поиска игры нажата');
+                searchGame();
+            });
+        }
     </script>
 </body>
 </html>
