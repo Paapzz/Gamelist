@@ -3630,7 +3630,13 @@
                 .replace(/[^a-zа-я0-9\s]/g, '')
                 .replace(/\s+/g, ' ')
                 .replace(/^(the|a|an)\s+/, '')
+                .replace(/\s*\d+$/, '')
                 .trim();
+        }
+
+        function getGameNumber(name) {
+            const match = name.match(/\d+$/);
+            return match ? parseInt(match[0]) : null;
         }
 
         function removeVersionSuffixes(name) {
@@ -3700,13 +3706,29 @@
 
         function isDuplicateGame(newGame) {
             const normalizedNewName = normalizeGameName(newGame.name);
+            const newGameNumber = getGameNumber(newGame.name);
             
             if (isSpecialVersion(newGame.name)) {
                 console.log(`"${newGame.name}" является специальной версией, пропускаем`);
                 return true;
             }
             
-            const existingGame = findExistingGame(newGame);
+            const existingGame = games.find(game => {
+                const normalizedExistingName = normalizeGameName(game.name);
+                const existingGameNumber = getGameNumber(game.name);
+
+                const namesMatch = normalizedExistingName === normalizedNewName;
+
+                if (namesMatch) {
+                    if (newGameNumber === null && existingGameNumber === null) {
+                        return true;
+                    }
+                    return newGameNumber === existingGameNumber;
+                }
+
+                return false;
+            });
+
             if (existingGame) {
                 console.log(`"${newGame.name}" уже существует или очень похожа на "${existingGame.name}", пропускаем`);
                 return true;
