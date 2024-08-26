@@ -1175,7 +1175,7 @@
             <h2>Добавить новую игру</h2>
             <form id="addGameForm">
                 <div id="buttonContainer">
-                    <button type="button" id="importFromApiModalButton">Добавить игр</button>
+                    <button type="button" id="importFromApiModalButton">Добавить 100 игр</button>
                     <button type="button" id="searchGameModalButton">Найти игру</button>
                 </div>
                 <div id="searchInputContainer" style="display: none;">
@@ -3673,17 +3673,18 @@
         }
 
         function findExistingGame(newGame) {
-            const newGameId = generateGameId(newGame.name);
-            return games.find(game => generateGameId(game.name) === newGameId);
+            const normalizedNewName = normalizeGameName(newGame.name);
+            return games.find(game => {
+                const normalizedExistingName = normalizeGameName(game.name);
+                return normalizedExistingName === normalizedNewName || 
+                       levenshteinDistance(normalizedExistingName, normalizedNewName) <= 2;
+            });
         }
 
         function isRemakeOrRemaster(existingName, newName) {
-            const remakeKeywords = ['remake', 'remaster', 'remastered', 'hd', 'definitive edition', 'special edition', 'complete edition', 'directors cut', 'director\'s cut'];
-            
-            const cleanExistingName = remakeKeywords.reduce((name, keyword) => name.replace(new RegExp(keyword, 'gi'), ''), existingName).trim();
-            const cleanNewName = remakeKeywords.reduce((name, keyword) => name.replace(new RegExp(keyword, 'gi'), ''), newName).trim();
-            
-            return cleanExistingName === cleanNewName || levenshteinDistance(cleanExistingName, cleanNewName) <= 2;
+            const normalizedExisting = normalizeGameName(existingName);
+            const normalizedNew = normalizeGameName(newName);
+            return normalizedExisting === normalizedNew || levenshteinDistance(normalizedExisting, normalizedNew) <= 2;
         }
 
         function isSpecialVersion(name) {
@@ -3699,29 +3700,19 @@
 
         function isDuplicateGame(newGame) {
             const normalizedNewName = normalizeGameName(newGame.name);
-            const isNewGameSpecial = isSpecialVersion(newGame.name);
-
-            return games.some(game => 
-                game.name.toLowerCase() === newGame.name.toLowerCase() && 
-                game.year === newGame.year
-            );
-
-            return games.some(existingGame => {
-                const normalizedExistingName = normalizeGameName(existingGame.name);
-                const isExistingGameSpecial = isSpecialVersion(existingGame.name);
-
-                if (isNewGameSpecial && !isExistingGameSpecial) {
-                    return normalizedNewName.includes(normalizedExistingName) || 
-                           normalizedExistingName.includes(normalizedNewName);
-                }
-
-                if (!isNewGameSpecial && !isExistingGameSpecial) {
-                    return normalizedNewName === normalizedExistingName || 
-                           levenshteinDistance(normalizedNewName, normalizedExistingName) <= 2;
-                }
-
-                return false;
-            });
+            
+            if (isSpecialVersion(newGame.name)) {
+                console.log(`"${newGame.name}" является специальной версией, пропускаем`);
+                return true;
+            }
+            
+            const existingGame = findExistingGame(newGame);
+            if (existingGame) {
+                console.log(`"${newGame.name}" уже существует или очень похожа на "${existingGame.name}", пропускаем`);
+                return true;
+            }
+            
+            return false;
         }
 
         function levenshteinDistance(a, b) {
@@ -3853,50 +3844,53 @@
                 console.log('Импорт уже выполняется');
                 return;
             }
+
+            if (games.length >= 3000) {
+                alert('Достигнут лимит в 3000 игр');
+                return;
+            }
+
             isImporting = true;
             console.log('Начало импорта игр из IGDB');
             try {
                 console.log('Отправка запроса на получение новых игр');
                 const existingIds = games.map(game => game.id.toString());
-                const chunks = chunkArray(existingIds, 1000);
+                const response = await fetch(`https://nu3ichego5ti2suda7prishel.uhadi.workers.dev/games?existingIds=${existingIds.join(',')}&limit=100`);
+                console.log('Получен ответ от сервера');
+
+                if (!response.ok) {
+                    throw new Error(`Ошибка ответа сервера: ${response.status} ${response.statusText}`);
+                }
+
+                const newGames = await response.json();
+                console.log('JSON успешно распарсен, получено игр:', newGames.length);
+
                 let addedGames = 0;
 
-                for (const chunk of chunks) {
-                    const response = await fetch(`https://nu3ichego5ti2suda7prishel.uhadi.workers.dev/games?existingIds=${chunk.join(',')}`);
-                    console.log('Получен ответ от сервера');
-
-                    if (!response.ok) {
-                        throw new Error(`Ошибка ответа сервера: ${response.status} ${response.statusText}`);
+                for (const game of newGames) {
+                    if (games.length >= 3000 || addedGames >= 100) {
+                        console.log('Достигнут лимит');
+                        break;
                     }
-
-                    const newGames = await response.json();
-                    console.log('JSON успешно распарсен, получено игр:', newGames.length);
-
-                    for (const game of newGames) {
-                        if (games.length >= 2000) {
-                            console.log('Достигнуто максимальное количество игр');
-                            break;
-                        }
-                        if (!isDuplicateGame(game)) {
-                            console.log(`Добавление новой игры: ${game.name}`);
-                            const newGame = {
-                                id: game.id,
-                                name: game.name,
-                                imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
-                                year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
-                                genres: game.genres ? game.genres.map(g => g.name) : [],
-                                platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null) : [],
-                                rating: game.aggregated_rating || game.rating,
-                                isCustom: true,
-                                importedFromApi: true,
-                                completed: false,
-                                inProgress: false
-                            };
-                            await addNewGameWithDelay(newGame);
-                            addedGames++;
-                        } else {
-                            console.log(`Игра "${game.name}" уже существует, пропускаем`);
-                        }
+                    const newGame = {
+                        id: game.id,
+                        name: game.name,
+                        imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
+                        year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
+                        genres: game.genres ? game.genres.map(g => g.name) : [],
+                        platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null) : [],
+                        rating: game.aggregated_rating || game.rating,
+                        isCustom: true,
+                        importedFromApi: true,
+                        completed: false,
+                        inProgress: false
+                    };
+                    if (!isDuplicateGame(newGame)) {
+                        console.log(`Добавление новой игры: ${newGame.name}`);
+                        await addNewGameWithDelay(newGame);
+                        addedGames++;
+                    } else {
+                        console.log(`Игра "${newGame.name}" не добавлена`);
                     }
                 }
 
@@ -3909,7 +3903,7 @@
                 isImporting = false;
             }
         }
-
+        
         function addNewGameWithDelay(game) {
             return new Promise(resolve => {
                 setTimeout(() => {
