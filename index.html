@@ -2374,7 +2374,14 @@
                     insertCellInOrder(cell);
                 }
             }
+
+            if (game.completed) {
+                cell.classList.add('completed');
+            } else if (game.inProgress) {
+                cell.classList.add('in-progress');
+            }
             
+            updateSaturation();
             saveGames();
             
             if (hideCompleted) {
@@ -3624,10 +3631,14 @@
 
         function updateSaturation() {
             const saturationValue = saturationSlider.value;
-            document.querySelectorAll('.cell:not(.completed)').forEach(cell => {
+            document.querySelectorAll('.cell').forEach(cell => {
                 const img = cell.querySelector('img');
                 if (img) {
-                    img.style.filter = `saturate(${saturationValue}%)`;
+                    if (cell.classList.contains('completed')) {
+                        img.style.filter = 'saturate(100%)';
+                    } else {
+                        img.style.filter = `saturate(${saturationValue}%)`;
+                    }
                 }
             });
         }
