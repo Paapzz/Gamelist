@@ -29,7 +29,7 @@
             display: flex;
             align-items: center;
         }
-        #togglePreview, #resetButton, #inProgressButton, #hideCompletedButton, #filtersButton, #clearSearchButton, #resetFiltersButton, #randomButton, #completedFilter, #importFromApiButton, #addGameButton {
+        #togglePreview, #resetButton, #inProgressButton, #filtersButton, #clearSearchButton, #resetFiltersButton, #randomButton, #importFromApiButton, #addGameButton {
             border: none;
             color: white;
             padding: 5px 10px;
@@ -64,13 +64,41 @@
             box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 152, 0, 0.7);
             transform: translateY(2px);
         }
+        #completedFilter, #hideCompletedButton {
+            flex: 1;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            text-align: center;
+            text-decoration: none;
+            font-size: 14px;
+            margin: 0 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            white-space: normal;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            word-wrap: break-word;
+            min-height: 43px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
         #hideCompletedButton {
             background-color: #2196F3;
         }
         #hideCompletedButton.active {
             background-color: #1976D2;
             box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 15px rgba(33, 150, 243, 0.7);
-            transform: translateY(2px);
+            transform: translateY(3px);
+        }
+        .button-disabled {
+            opacity: 0.5;
+            pointer-events: none;
         }
         #filtersButton {
             background-color: #4CAF50;
@@ -163,7 +191,7 @@
             transition: transform 0.5s;
         }
         #searchGameButton {
-            background-color: #2196F3;  /* Синий цвет, можете изменить по вашему усмотрению */
+            background-color: #2196F3;
             border: none;
             color: white;
             padding: 5px 10px;
@@ -345,7 +373,7 @@
         }
         #platformsList {
             padding: 0;
-            padding-left: 10px;
+            padding-left: 11px;
             flex-wrap: wrap;
             gap: 5px;
             max-height: 200px;
@@ -586,19 +614,6 @@
             height: 100%;
             object-fit: contain;
         }
-        #authorCredit {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            font-size: 24px;
-            display: none;
-            z-index: 1010;
-        }
         #randomSelectedContainer {
             position: fixed;
             top: 50%;
@@ -741,7 +756,7 @@
         }
         .modal-content {
             background-color: #2a2a2a;
-            margin: 10% auto;
+            margin: 3% auto;
             padding: 30px;
             border: none;
             border-radius: 10px;
@@ -749,8 +764,9 @@
             max-width: 500px;
             color: white;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            max-height: 80vh;
+            max-height: calc(95vh - 40px);
             overflow-y: auto;
+            bottom: 15vh;
         }
         .button-container {
             display: flex;
@@ -1159,7 +1175,7 @@
             <h2>Добавить новую игру</h2>
             <form id="addGameForm">
                 <div id="buttonContainer">
-                    <button type="button" id="importFromApiModalButton">Добавить игр из базы</button>
+                    <button type="button" id="importFromApiModalButton">Добавить игр</button>
                     <button type="button" id="searchGameModalButton">Найти игру</button>
                 </div>
                 <div id="searchInputContainer" style="display: none;">
@@ -2758,12 +2774,14 @@
         }
 
         function toggleHideCompleted() {
+            if (completedFilter.classList.contains('active')) {
+                return;
+            }
             hideCompleted = !hideCompleted;
-            hideCompletedButton.classList.toggle('active', hideCompleted);
-            document.querySelectorAll('.cell.completed').forEach(cell => {
-                cell.classList.toggle('hidden', hideCompleted);
-            });
-            localStorage.setItem('hideCompleted', JSON.stringify(hideCompleted));
+            hideCompletedButton.classList.toggle('active');
+            localStorage.setItem('hideCompleted', hideCompleted);
+            applyFilters();
+            completedFilter.classList.toggle('button-disabled', hideCompleted);
         }
 
         function resetProgress() {
@@ -2936,8 +2954,12 @@
         }
 
         function toggleCompletedFilter() {
+            if (hideCompleted) {
+                return;
+            }
             completedFilter.classList.toggle('active');
             applyFilters();
+            hideCompletedButton.classList.toggle('button-disabled', completedFilter.classList.contains('active'));
         }
 
         let currentRandomGame = null;
@@ -3957,6 +3979,9 @@
 
             const addGameButton = document.getElementById('addGameButton');
             const addGameModal = document.getElementById('addGameModal');
+
+            completedFilter.addEventListener('click', toggleCompletedFilter);
+            hideCompletedButton.addEventListener('click', toggleHideCompleted);
 
             const performSearchButton = document.getElementById('performSearchButton');        
             if (performSearchButton) {
