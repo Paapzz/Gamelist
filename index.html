@@ -3627,13 +3627,12 @@
 
         function normalizeGameName(name) {
             return name.toLowerCase()
-                .replace(/[^a-zа-я0-9\s]/g, '')
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9\s]/g, '')
                 .replace(/\s+/g, ' ')
                 .replace(/^(the|a|an)\s+/, '')
-                .replace(/\s*\d+$/, '')
                 .trim();
         }
-
         function getGameNumber(name) {
             const match = name.match(/\d+$/);
             return match ? parseInt(match[0]) : null;
@@ -3708,6 +3707,8 @@
             const normalizedNewName = normalizeGameName(newGame.name);
             const newGameNumber = getGameNumber(newGame.name);
             
+            console.log(`Проверка дубликата для: "${newGame.name}" (нормализовано: "${normalizedNewName}")`);
+            
             if (isSpecialVersion(newGame.name)) {
                 console.log(`"${newGame.name}" является специальной версией, пропускаем`);
                 return true;
@@ -3718,15 +3719,14 @@
                 const existingGameNumber = getGameNumber(game.name);
 
                 const namesMatch = normalizedExistingName === normalizedNewName;
+                const numberMatch = newGameNumber === existingGameNumber;
 
                 if (namesMatch) {
-                    if (newGameNumber === null && existingGameNumber === null) {
-                        return true;
-                    }
-                    return newGameNumber === existingGameNumber;
+                    console.log(`Найдено совпадение: "${game.name}" (нормализовано: "${normalizedExistingName}")`);
+                    console.log(`Номера: существующий - ${existingGameNumber}, новый - ${newGameNumber}`);
                 }
 
-                return false;
+                return namesMatch && (newGameNumber === null || numberMatch);
             });
 
             if (existingGame) {
@@ -3734,9 +3734,9 @@
                 return true;
             }
             
+            console.log(`"${newGame.name}" не является дубликатом, добавляем`);
             return false;
         }
-
         function levenshteinDistance(a, b) {
             if (a.length === 0) return b.length;
             if (b.length === 0) return a.length;
