@@ -1155,7 +1155,7 @@
                 <div id="searchInputContainer" style="display: none;">
                     <input type="text" id="searchGameInput" placeholder="Введите название игры">
                     <button type="button" id="performSearchButton">Поиск</button>
-                    <button id="closeSearchResults" type="button">Закрыть</button>
+                    <button id="closeSearchResults" type="button">Очистить</button>
                 </div>
                 <div id="searchResults"></div>
                 <label for="gameName">Название игры: *</label>
@@ -2431,18 +2431,16 @@
         searchGameModalButton.addEventListener('click', () => {
                 if (searchInputContainer.style.display === 'none') {
                     searchInputContainer.style.display = 'block';
-                    searchResults.innerHTML = ''; // Очищаем результаты поиска
+                    searchResults.innerHTML = '';
                 } else {
                     searchInputContainer.style.display = 'none';
-                    searchGameInput.value = ''; // Очищаем поле ввода
-                    searchResults.innerHTML = ''; // Очищаем результаты поиска
+                    searchGameInput.value = '';
+                    searchResults.innerHTML = '';
                 }
         });
 
         performSearchButton.addEventListener('click', () => {
-                // Здесь должна быть ваша логика поиска игры
                 console.log('Выполняется поиск игры:', searchGameInput.value);
-                // После выполнения поиска, отобразите результаты в searchResults
             });
 
         function updateInProgressRow() {
@@ -2461,7 +2459,6 @@
                 inProgressRow.style.display = 'none';
             }
             
-            // Обновляем размеры ячеек
             const size = sizeSlider.value;
             inProgressRow.querySelectorAll('.cell').forEach(cell => {
                 updateCellSize(cell, true);
@@ -2484,7 +2481,7 @@
 
             if (!isDuplicateGame(newGame)) {
                 addNewGame(newGame);
-                saveGames(); // Добавляем сохранение игр после добавления новой игры
+                saveGames();
                 showMessage('Игра успешно добавлена!');
             } else {
                 showMessage('Эта игра уже есть в вашем списке.');
@@ -2492,7 +2489,6 @@
         }
 
         function showMessage(message) {
-            // Удаляем предыдущее сообщение, если оно есть
             const existingMessage = document.querySelector('.message-overlay');
             if (existingMessage) {
                 existingMessage.remove();
@@ -2511,8 +2507,8 @@
 
         function closeAddGameModal() {
             addGameModal.style.display = 'none';
-            searchGameInput.value = ''; // Очищаем поле ввода
-            searchResults.innerHTML = ''; // Очищаем результаты поиска
+            searchGameInput.value = '';
+            searchResults.innerHTML = ''; 
             document.getElementById('closeSearchResults').style.display = 'none';
         }
 
@@ -3061,7 +3057,6 @@
             searchInput.value = '';
             searchGames();
             
-            // Показываем все игры
             document.querySelectorAll('.cell').forEach(cell => {
                 cell.style.display = '';
                 cell.classList.remove('hidden');
@@ -3166,9 +3161,8 @@
         const resetFiltersButtonHeader = document.getElementById('resetFiltersButtonHeader');
         resetFiltersButtonHeader.addEventListener('click', function(event) {
             console.log("Кнопка сброса фильтров в шапке нажата");
-            event.stopPropagation(); // Предотвращаем всплытие события
+            event.stopPropagation(); 
             resetFilters();
-            // Не закрываем панель фильтров
         });
 
         document.addEventListener('click', (event) => {
@@ -3202,7 +3196,6 @@
                 games = games.filter(game => !game.isCustom && !game.importedFromApi);
                 const deletedCount = initialCount - games.length;
                 
-                // Обновляем DOM
                 const cells = document.querySelectorAll('.cell');
                 cells.forEach(cell => {
                     const gameId = cell.getAttribute('data-game-id');
@@ -3212,10 +3205,8 @@
                     }
                 });
 
-                // Обновляем localStorage
                 saveGames();
                 
-                // Обновляем счетчики и фильтры
                 completedGames = games.filter(game => game.completed).length;
                 updateCounter();
                 populateFilters();
@@ -3223,12 +3214,10 @@
                 
                 console.log(`Удалено ${deletedCount} добавленных игр`);
                
-                // Обновляем список пользовательских игр
                 updateCustomGameList();
             }
         }
 
-        // Добавляем обработчик события для кнопки удаления всех игр из API
         const deleteAllApiGamesButton = document.getElementById('deleteAllApiGamesButton');
         if (deleteAllApiGamesButton) {
             deleteAllApiGamesButton.addEventListener('click', deleteAllApiGames);
@@ -3319,7 +3308,6 @@
             if (existingGame) {
                 console.log('Найдена существующая версия игры:', existingGame.name);
                 
-                // Если новая игра имеет более короткое название, обновляем существующую
                 if (gameData.name.length < existingGame.name.length) {
                     console.log('Обновляем существующую игру на новую версию');
                     Object.assign(existingGame, gameData);
@@ -3634,11 +3622,9 @@
         function isRemakeOrRemaster(existingName, newName) {
             const remakeKeywords = ['remake', 'remaster', 'remastered', 'hd', 'definitive edition', 'special edition', 'complete edition', 'directors cut', 'director\'s cut'];
             
-            // Удаляем ключевые слова ремейков/ремастеров из обоих названий
             const cleanExistingName = remakeKeywords.reduce((name, keyword) => name.replace(new RegExp(keyword, 'gi'), ''), existingName).trim();
             const cleanNewName = remakeKeywords.reduce((name, keyword) => name.replace(new RegExp(keyword, 'gi'), ''), newName).trim();
             
-            // Проверяем, являются ли очищенные названия идентичными или очень похожими
             return cleanExistingName === cleanNewName || levenshteinDistance(cleanExistingName, cleanNewName) <= 2;
         }
 
@@ -3657,17 +3643,20 @@
             const normalizedNewName = normalizeGameName(newGame.name);
             const isNewGameSpecial = isSpecialVersion(newGame.name);
 
+            return games.some(game => 
+                game.name.toLowerCase() === newGame.name.toLowerCase() && 
+                game.year === newGame.year
+            );
+
             return games.some(existingGame => {
                 const normalizedExistingName = normalizeGameName(existingGame.name);
                 const isExistingGameSpecial = isSpecialVersion(existingGame.name);
 
-                // Если новая игра - специальная версия, а существующая - нет, считаем это дубликатом
                 if (isNewGameSpecial && !isExistingGameSpecial) {
                     return normalizedNewName.includes(normalizedExistingName) || 
                            normalizedExistingName.includes(normalizedNewName);
                 }
 
-                // Если обе игры не специальные версии, сравниваем их названия
                 if (!isNewGameSpecial && !isExistingGameSpecial) {
                     return normalizedNewName === normalizedExistingName || 
                            levenshteinDistance(normalizedNewName, normalizedExistingName) <= 2;
@@ -3757,7 +3746,6 @@
             selectOptionsModal.style.display = 'none';
         });
 
-        // Закрытие модального окна выбора опций
         selectOptionsModal.querySelector('.close').addEventListener('click', () => {
             selectOptionsModal.style.display = 'none';
         });
@@ -3800,7 +3788,7 @@
             }
         });
 
-        let isImporting = false; // Флаг для предотвращения множественных импортов
+        let isImporting = false;
 
         async function importFromIGDB() {
             if (isImporting) {
@@ -3880,7 +3868,7 @@
             const cell = createCell(game);
             grid.appendChild(cell);
             updateGridSize();
-            saveGames(); // Добавляем сохранение игр после добавления новой игры
+            saveGames();
             updateFiltersAndCounter();
         }
 
@@ -3931,7 +3919,6 @@
             applyFilters();
             updateInProgressRow();
 
-            // Добавляем обработчик события для кнопки "Добавить игру" в шапке
             const addGameButton = document.getElementById('addGameButton');
             const addGameModal = document.getElementById('addGameModal');
 
@@ -3962,7 +3949,6 @@
                 console.error('Кнопка "Добавить игру" в шапке не найдена');
             }
 
-            // Инициализация кнопок импорта и поиска
             const importApiButton = document.getElementById('importFromApiButton');
             const importApiModalButton = document.getElementById('importFromApiModalButton');
             const searchGameButton = document.getElementById('searchGameButton');
@@ -3983,8 +3969,8 @@
 
             if (searchGameButton) {
                 searchGameButton.addEventListener('click', () => {
-                    searchResults.innerHTML = ''; // Очищаем результаты поиска при новом поиске
-                    searchGameInput.value = ''; // Очищаем поле ввода
+                    searchResults.innerHTML = ''; 
+                    searchGameInput.value = '';
                     document.getElementById('closeSearchResults').style.display = 'none';
                 });
             }
@@ -3994,7 +3980,7 @@
                 closeSearchResultsButton.addEventListener('click', () => {
                     searchResults.innerHTML = '';
                     closeSearchResultsButton.style.display = 'none';
-                    searchGameInput.value = ''; // Очищаем поле ввода
+                    searchGameInput.value = ''; 
                 });
             }
         });
