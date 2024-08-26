@@ -344,10 +344,19 @@
             width: 100%;
         }
         #platformsList {
+            padding: 0;
+            padding-left: 10px;
+            flex-wrap: wrap;
+            gap: 5px;
             max-height: 200px;
             overflow-y: auto;
         }
         #genresList {
+            margin: 0; 
+            padding-left: 0; 
+            padding: 0;
+            flex-wrap: wrap;
+            gap: 5px;
             max-height: 200px;
             overflow-y: auto;
             margin: 12px;
@@ -803,11 +812,12 @@
             text-decoration: none;
             display: inline-block;
             font-size: 14px;
-            margin-left: 290px;
+            margin-left: 270px;
             cursor: pointer;
             transition: background-color 0.3s;
             border-radius: 5px;
             display: none;
+            flex-shrink: 0;
         }
         #closeSearchResults:hover {
             background-color: #d32f2f;
@@ -2471,7 +2481,7 @@
                 name: game.name,
                 year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                 genres: game.genres ? game.genres.map(g => g.name) : [],
-                platforms: game.platforms ? game.platforms.map(p => p.name) : [],
+                platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
                 imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
                 isCustom: true,
                 importedFromApi: true,
@@ -2486,6 +2496,32 @@
             } else {
                 showMessage('Эта игра уже есть в вашем списке.');
             }
+        }
+
+        function getPlatformName(platformId) {
+            const platformMap = {
+                6: "PC (Microsoft Windows)",
+                167: "PlayStation 5",
+                169: "Xbox Series X|S",
+                130: "Nintendo Switch",
+                48: "PlayStation 4",
+                49: "Xbox One",
+                41: "Wii U",
+                9: "PlayStation 3",
+                12: "Xbox 360",
+                5: "Wii",
+                37: "Nintendo 3DS",
+                46: "PlayStation Vita",
+                8: "PlayStation 2",
+                11: "Xbox",
+                20: "Nintendo DS",
+                7: "PlayStation",
+                14: "GameCube",
+                3: "Linux",
+                162: "Oculus VR",
+                165: "PlayStation VR"
+            };
+            return platformMap[platformId] || null;
         }
 
         function showMessage(message) {
@@ -3827,7 +3863,7 @@
                                 imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
                                 year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                                 genres: game.genres ? game.genres.map(g => g.name) : [],
-                                platforms: game.platforms ? game.platforms.map(p => p.name) : [],
+                                platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null) : [],
                                 rating: game.aggregated_rating || game.rating,
                                 isCustom: true,
                                 importedFromApi: true,
