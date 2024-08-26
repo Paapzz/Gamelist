@@ -280,7 +280,7 @@
             transition: filter 0.3s;
         }
         .cell.completed img {
-            filter: brightness(85%);
+            filter: brightness(85%) !important;
         }
         .cell.completed::before {
             content: '';
@@ -2785,6 +2785,7 @@
 
         function resetProgress() {
             if (confirm('Вы уверены, что хотите сбросить весь прогресс?')) {
+                const currentSaturation = saturationSlider.value;
                 games.forEach(game => {
                     game.completed = false;
                     game.inProgress = false;
@@ -2807,15 +2808,22 @@
                     }
                 });
 
+                inProgressRow.innerHTML = '';
+                updateInProgressRow();
+                applyFilters();
                 updateCounter();
                 updateProgressBar();
                 
                 searchInput.value = '';
                 searchGames();
+
+                saturationSlider.value = currentSaturation;
+                updateSaturation();
+                saveGames();
             }
         }
 
-        function searchGames(applyFilter = false) {
+        function searchGames() {
             const searchTerm = searchInput.value.toLowerCase().trim();
             document.querySelectorAll('.cell').forEach(cell => {
                 const gameName = cell.title.toLowerCase();
@@ -2831,18 +2839,18 @@
             updateInProgressRow();
         }
 
+        let currentSearchTerm = '';
 
-        function handleSearchKeyPress(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                searchGames(true);
-            }
+        function handleSearch() {
+            currentSearchTerm = searchInput.value.trim();
+            applyFilters();
         }
 
         function clearSearch() {
             searchInput.value = '';
-            searchGames();
+            currentSearchTerm = '';
             applyFilters();
+            updateCounter();
         }
 
         function populateFilters() {
@@ -2933,22 +2941,17 @@
         }
 
         function applyFilters() {
-            const showOnlyCompleted = completedFilter.classList.contains('active');
-            const hideCompleted = hideCompletedButton.classList.contains('active');
-
+            const searchTerm = currentSearchTerm.toLowerCase();
             document.querySelectorAll('.cell').forEach(cell => {
                 const gameId = cell.getAttribute('data-game-id');
-                const game = games.find(g => g.id && g.id.toString() === gameId);
+                const game = games.find(g => g.id.toString() === gameId);
                 
-                if (game && shouldShowGame(game) && 
-                    (!showOnlyCompleted || game.completed) && 
-                    (!hideCompleted || !game.completed)) {
+                if (game && shouldShowGame(game) && (searchTerm === '' || game.name.toLowerCase().includes(searchTerm))) {
                     cell.style.display = '';
                 } else {
                     cell.style.display = 'none';
                 }
             });
-
             updateInProgressRow();
         }
 
@@ -3170,9 +3173,14 @@
             resetProgress();
             hideRandomSelection();
         });
-        searchInput.addEventListener('input', searchGames);
-        searchInput.addEventListener('input', () => searchGames(false));
-        searchInput.addEventListener('keypress', handleSearchKeyPress);
+
+        searchInput.addEventListener('input', handleSearch);
+        searchInput.addEventListener('blur', () => {
+            if (searchInput.value.trim() === '') {
+                currentSearchTerm = '';
+                applyFilters();
+            }
+        });
         clearSearchButton.addEventListener('click', clearSearch);
         filtersButton.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -4040,23 +4048,6 @@
                 importApiModalButton.addEventListener('click', () => {
                     console.log('Кнопка импорта из API в модальном окне нажата (из основного обработчика)');
                     importFromIGDB();
-                });
-            }
-
-            if (searchGameButton) {
-                searchGameButton.addEventListener('click', () => {
-                    searchResults.innerHTML = ''; 
-                    searchGameInput.value = '';
-                    document.getElementById('closeSearchResults').style.display = 'none';
-                });
-            }
-
-            const closeSearchResultsButton = document.getElementById('closeSearchResults');
-            if (closeSearchResultsButton) {
-                closeSearchResultsButton.addEventListener('click', () => {
-                    searchResults.innerHTML = '';
-                    closeSearchResultsButton.style.display = 'none';
-                    searchGameInput.value = ''; 
                 });
             }
         });
