@@ -3777,10 +3777,12 @@
                 const namesMatch = normalizedExistingName === normalizedNewName;
                 const numberMatch = newGameNumber === existingGameNumber;
 
-                if (namesMatch) {
+                const similarNames = levenshteinDistance(normalizedExistingName, normalizedNewName) <= 1;
+
+                if (namesMatch || similarNames) {
                 }
 
-                return namesMatch && (newGameNumber === null || numberMatch);
+                return (namesMatch || similarNames) && (newGameNumber === null || numberMatch);
             });
 
             if (existingGame) {
@@ -3789,6 +3791,7 @@
             
             return false;
         }
+
         function levenshteinDistance(a, b) {
             if (a.length === 0) return b.length;
             if (b.length === 0) return a.length;
@@ -3897,13 +3900,24 @@
             console.log('Начало импорта игр из IGDB');
             try {
                 const existingIds = games.map(game => game.id.toString());
-                const limit = count || 100;
-                const response = await fetch(`https://nu3ichego5ti2suda7prishel.uhadi.workers.dev/games?existingIds=${existingIds.join(',')}&limit=${limit}`);
-
-                if (!response.ok) {
-                    throw new Error(`Ошибка ответа сервера: ${response.status} ${response.statusText}`);
+                const indexResponse = await fetch('data/index.json');
+                if (!indexResponse.ok) {
+                    throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
                 }
-                const newGames = await response.json();
+                const index = await indexResponse.json();
+
+                let newGames = [];
+                for (let i = 1; i <= index.total_files; i++) {
+                    const response = await fetch(`data/games_${i}.json`);
+                    if (!response.ok) {
+                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                    }
+                    const fileGames = await response.json();
+                    newGames = newGames.concat(fileGames.filter(game => !existingIds.includes(game.id.toString())));
+                    if (newGames.length >= count) {
+                        break;
+                    }
+                }
 
                 let addedGames = 0;
                 const maxGamesToAdd = Math.min(limit, 3000 - games.length);
