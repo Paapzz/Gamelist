@@ -2481,19 +2481,39 @@
             const gameName = searchGameInput.value.trim();
             if (gameName) {
                 try {
-                    const response = await fetch(`https://nu3ichego5ti2suda7prishel.uhadi.workers.dev/search?name=${encodeURIComponent(gameName)}`);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                    const indexResponse = await fetch('data/index.json');
+                    if (!indexResponse.ok) {
+                        throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
                     }
-                    const games = await response.json();
-                    displaySearchResults(games);
+                    const index = await indexResponse.json();
+
+                    let matchedGames = [];
+                    for (let i = 1; i <= index.total_files; i++) {
+                        const response = await fetch(`data/games_${i}.json`);
+                        if (!response.ok) {
+                            throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                        }
+                        const fileGames = await response.json();
+                        const matches = fileGames.filter(game => 
+                            game.name.toLowerCase().includes(gameName.toLowerCase())
+                        );
+                        matchedGames = matchedGames.concat(matches);
+                        if (matchedGames.length >= 10) {
+                            break;
+                        }
+                    }
+
+                    matchedGames = matchedGames.slice(0, 20);
+                    displaySearchResults(matchedGames);
                 } catch (error) {
+                    console.error('Ошибка при поиске игры:', error);
                     searchResults.innerHTML = '<p>Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
                 } finally {
                     hideLoadingMessage();
                 }
             }
         }
+
 
         function displaySearchResults(games) {
             searchResults.innerHTML = '';
