@@ -1214,8 +1214,8 @@
         </h3>
         <label for="yearSlider">Год выпуска: <span id="yearValue"></span></label>
         <div class="double-slider">
-            <input type="range" id="yearSliderMin" min="1980" max="2023" value="1980">
-            <input type="range" id="yearSliderMax" min="1980" max="2023" value="2023">
+            <input type="range" id="yearSliderMin" min="1971" max="2023" value="1971">
+            <input type="range" id="yearSliderMax" min="1972" max="2023" value="2024">
             <div class="slider-track"></div>
         </div>
         <h4>Платформы:</h4>
@@ -2366,13 +2366,11 @@
 
         function toggleCell(cell, gameId) {
             if (!gameId) {
-                console.error('ID игры не определен');
                 return;
             }
             
             const game = games.find(g => g.id && g.id.toString() === gameId.toString());
             if (!game) {
-                console.error('Игра не найдена для ID:', gameId);
                 return;
             }
                         
@@ -2452,6 +2450,7 @@
         function renderGames() {
             grid.innerHTML = '';
             inProgressRow.innerHTML = '';
+            let renderedCells = 0;
             games.forEach(game => {
                 const cell = createCell(game);
                 if (game.inProgress) {
@@ -2459,10 +2458,11 @@
                 } else {
                     grid.appendChild(cell);
                 }
+                renderedCells++;
             });
             updateInProgressRow();
             applyFilters();
-        }
+        }        
 
         function insertCellInOrder(cell) {
             const gameId = parseInt(cell.dataset.gameId);
@@ -2488,7 +2488,6 @@
                     const games = await response.json();
                     displaySearchResults(games);
                 } catch (error) {
-                    console.error('Error searching for game:', error);
                     searchResults.innerHTML = '<p>Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
                 } finally {
                     hideLoadingMessage();
@@ -2523,6 +2522,7 @@
         function updateInProgressRow() {
             inProgressRow.innerHTML = '';
             const inProgressGames = games.filter(game => game.inProgress);
+            console.log('Количество игр в процессе:', inProgressGames.length);
             inProgressGames.forEach(game => {
                 const cell = createCell(game);
                 inProgressRow.appendChild(cell);
@@ -2909,13 +2909,14 @@
             const platforms = [...new Set(games.flatMap(game => game.platforms))].sort();
             const genres = [...new Set(games.flatMap(game => game.genres))].sort();
 
-            minYear = savedMinYear ? Math.max(parseInt(savedMinYear), 1980) : Math.max(years[0], 1980);
+            const minGameYear = Math.min(...years);
+            minYear = savedMinYear ? Math.max(parseInt(savedMinYear), minGameYear) : minGameYear;
             maxYear = savedMaxYear ? parseInt(savedMaxYear) : years[years.length - 1];
 
-            yearSliderMin.min = 1980;
+            yearSliderMin.min = minGameYear;
             yearSliderMin.max = years[years.length - 1];
             yearSliderMin.value = minYear;
-            yearSliderMax.min = 1980;
+            yearSliderMax.min = minGameYear;
             yearSliderMax.max = years[years.length - 1];
             yearSliderMax.value = maxYear;
             updateYearValue();
@@ -2982,27 +2983,44 @@
         }
 
         function shouldShowGame(game) {
-            const minSelectedYear = Math.max(parseInt(yearSliderMin.value), 1980);
-            const maxSelectedYear = parseInt(yearSliderMax.value);
-            const yearMatch = game.year === null || game.year === undefined || (game.year >= minSelectedYear && game.year <= maxSelectedYear);
-            const platformMatch = selectedPlatforms.length === 0 || game.platforms.some(platform => selectedPlatforms.includes(platform));
-            const genreMatch = selectedGenres.length === 0 || game.genres.some(genre => selectedGenres.includes(genre));
-            const completedMatch = !completedFilter.classList.contains('active') || game.completed;
-            const hideCompletedMatch = !hideCompleted || !game.completed;
-            return yearMatch && platformMatch && genreMatch && completedMatch && hideCompletedMatch;
+            const minGameYear = Math.min(...games.map(g => g.year));
+            const result = (
+                (!hideCompleted || !game.completed) &&
+                (selectedGenres.length === 0 || game.genres.some(genre => selectedGenres.includes(genre))) &&
+                (selectedPlatforms.length === 0 || game.platforms.some(platform => selectedPlatforms.includes(platform))) &&
+                game.year >= Math.max(yearSliderMin.value, minGameYear) && game.year <= yearSliderMax.value
+            );
+            if (!result) {
+                console.log('Игра скрыта:', game.name, 'Причина:', {
+                    hideCompleted,
+                    gameCompleted: game.completed,
+                    selectedGenres,
+                    gameGenres: game.genres,
+                    selectedPlatforms,
+                    gamePlatforms: game.platforms,
+                    yearFrom: Math.max(yearSliderMin.value, minGameYear),
+                    yearTo: yearSliderMax.value,
+                    gameYear: game.year
+                });
+            }
+            return result;
         }
 
         function applyFilters() {
             const searchTerm = currentSearchTerm.toLowerCase();
+            let visibleGames = 0;
+            let hiddenGames = [];
             document.querySelectorAll('.cell').forEach(cell => {
                 const gameId = cell.getAttribute('data-game-id');
                 const game = games.find(g => g.id.toString() === gameId);
-                
+        
                 if (game && shouldShowGame(game) && (searchTerm === '' || game.name.toLowerCase().includes(searchTerm))) {
                     cell.style.display = '';
+                    visibleGames++;
                 } else {
                     cell.style.display = 'none';
-                }
+                    hiddenGames.push(game);
+                }   
             });
             updateInProgressRow();
             updateSaturation();
@@ -3276,7 +3294,6 @@
 
         const resetFiltersButtonHeader = document.getElementById('resetFiltersButtonHeader');
         resetFiltersButtonHeader.addEventListener('click', function(event) {
-            console.log("Кнопка сброса фильтров в шапке нажата");
             event.stopPropagation(); 
             resetFilters();
         });
@@ -3610,7 +3627,6 @@
         }
 
         function deleteGame(gameId) {
-            console.log('Попытка удаления игры с ID:', gameId);
             if (gameId && confirm('Вы уверены, что хотите удалить эту игру?')) {
                 games = games.filter(g => g.id.toString() !== gameId.toString());
                 localStorage.setItem('games', JSON.stringify(games));
@@ -3766,7 +3782,6 @@
             });
 
             if (existingGame) {
-                console.log(`"${newGame.name}" уже существует или очень похожа на "${existingGame.name}", пропускаем`);
                 return true;
             }
             
@@ -3985,7 +4000,6 @@
             if (importButton) {
                 importButton.addEventListener('click', () => importFromIGDB(100));
             } else {
-                console.error('Кнопка импорта в шапке не найдена');
             }
 
             if (importModalButton) {
