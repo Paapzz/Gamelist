@@ -3,7 +3,7 @@ name: Update Games List
 on:
   schedule:
     - cron: '0 3 * * *'  # Запускается каждый день в 3:00 UTC
-  workflow_dispatch:  # Позволяет запускать вручную
+  workflow_dispatch: 
 
 jobs:
   update-games:
@@ -44,7 +44,7 @@ jobs:
 
         all_games = []
         offset = 0
-        limit = 1000  # Уменьшаем размер партии
+        limit = 1000
         batch = 1
         max_retries = 3
 
@@ -67,9 +67,8 @@ jobs:
             print(f"Fetched {len(games)} games. Total games so far: {len(all_games)}")
             offset += limit
             batch += 1
-            time.sleep(1)  # Небольшая задержка между запросами
+            time.sleep(1)
 
-            # Сохраняем промежуточные результаты каждые 5000 игр
             if len(all_games) % 5000 == 0:
                 print(f"Saving intermediate results ({len(all_games)} games)...")
                 with open(f'data/games_intermediate_{len(all_games)}.json', 'w') as f:
