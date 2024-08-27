@@ -2984,8 +2984,10 @@
 
         function shouldShowGame(game) {
             const minGameYear = Math.min(...games.map(g => g.year));
+            const showCompleted = completedFilter.classList.contains('active');
             const result = (
                 (!hideCompleted || !game.completed) &&
+                (showCompleted ? game.completed : true) &&
                 (selectedGenres.length === 0 || game.genres.some(genre => selectedGenres.includes(genre))) &&
                 (selectedPlatforms.length === 0 || game.platforms.some(platform => selectedPlatforms.includes(platform))) &&
                 game.year >= Math.max(yearSliderMin.value, minGameYear) && game.year <= yearSliderMax.value
