@@ -3,13 +3,15 @@ name: Update Games List
 on:
   schedule:
     - cron: '0 3 * * *'  # Запускается каждый день в 3:00 UTC
-  workflow_dispatch:  # Позволяет запускать вручную
+  workflow_dispatch:  # 
 
 jobs:
   update-games:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Set up Python
       uses: actions/setup-python@v2
@@ -30,10 +32,11 @@ jobs:
         import requests
         import time
 
-        def fetch_games():
+        def fetch_games(offset=0, limit=500):
             url = "https://nu3ichego5ti2suda7prishel.uhadi.workers.dev"
+            params = {"offset": offset, "limit": limit}
             try:
-                response = requests.get(url, timeout=30)
+                response = requests.get(url, params=params, timeout=30)
                 response.raise_for_status()
                 return response.json()
             except requests.RequestException as e:
@@ -41,18 +44,26 @@ jobs:
                 return None
 
         print("Fetching games...")
-        all_games = fetch_games()
+        all_games = []
+        offset = 0
+        limit = 500
+        max_games = 300000
 
-        if all_games is None:
-            print("Failed to fetch games. Exiting.")
-            exit(1)
+        while len(all_games) < max_games:
+            print(f"Fetching batch: offset={offset}, limit={limit}")
+            games = fetch_games(offset, limit)
+            if games is None or len(games) == 0:
+                break
+            all_games.extend(games)
+            offset += limit
+            time.sleep(1)
 
-        total_games = min(len(all_games), 300000)  # Ограничиваем до 300000 игр
-        all_games = all_games[:total_games]  # Обрезаем список до 300000 игр
+        total_games = min(len(all_games), max_games)
+        all_games = all_games[:total_games]
 
-        print(f"Total games fetched and limited to 300000: {total_games}")
+        print(f"Total games fetched and limited to {max_games}: {total_games}")
 
-        games_per_file = 5000
+        games_per_file = 10000
         total_files = math.ceil(total_games / games_per_file)
 
         print(f"Creating {total_files} file(s)...")
