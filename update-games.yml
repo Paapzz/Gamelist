@@ -1,0 +1,23 @@
+name: Update Games List
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # Запускается каждый день в 3:00 UTC
+  workflow_dispatch:  # Позволяет запускать вручную
+
+jobs:
+  update-games:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Fetch games data
+      run: |
+        curl -X GET "https://nu3ichego5ti2suda7prishel.uhadi.workers.dev/games" -H "Content-Type: application/json" > games.json
+    
+    - name: Commit and push if changed
+      run: |
+        git config --global user.email "github-actions@github.com"
+        git config --global user.name "GitHub Actions"
+        git add games.json
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Update games list" && git push)
