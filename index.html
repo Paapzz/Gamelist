@@ -3890,7 +3890,7 @@
 
         let isImporting = false;
 
-        async function importFromIGDB(count) {
+        async function importFromIGDB(count = 100) {
             if (isImporting) {
                 return;
             }
@@ -3920,7 +3920,7 @@
                 }
 
                 let addedGames = 0;
-                const maxGamesToAdd = Math.min(limit, 3000 - games.length);
+                const maxGamesToAdd = Math.min(count, 3000 - games.length);
 
                 for (const game of newGames) {
                     if (addedGames >= maxGamesToAdd) {
