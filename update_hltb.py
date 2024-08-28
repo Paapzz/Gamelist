@@ -10,16 +10,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def get_game_info(game_name):
-    results = await HowLongToBeat().async_search(game_name)
-    if results and len(results) > 0:
-        best_match = max(results, key=lambda element: element.similarity)
-        return {
-            "name": best_match.game_name,
-            "image_url": best_match.game_image_url,
-            "main_story": best_match.main_story,
-            "main_extra": best_match.main_extra,
-            "completionist": best_match.completionist
-        }
+    try:
+        results = await HowLongToBeat().async_search(game_name)
+        if results and len(results) > 0:
+            game = max(results, key=lambda element: element.similarity)
+            return {
+                "title": game_name,
+                "hltb_id": game.game_id,
+                "main_story": game.main_story,
+                "main_extra": game.main_extra,
+                "completionist": game.completionist,
+                "solo": game.solo,
+                "coop": game.coop,
+                "vs": game.vs
+            }
+    except Exception as e:
+        logger.error(f"Ошибка при получении информации для {game_name}: {str(e)}")
     return None
 
 async def read_games_from_html(file_path):
@@ -32,7 +38,7 @@ async def read_games_from_html(file_path):
         script_tags = soup.find_all('script')
         games_data = None
         for script in script_tags:
-            if script.string and 'var games =' in script.string:
+            if script.string and 'const gamesList = [' in script.string:
                 games_data = script.string
                 break
         
@@ -40,7 +46,7 @@ async def read_games_from_html(file_path):
             logger.error(f"Не удалось найти данные игр в {file_path}")
             return []
         
-        json_str = re.search(r'var games = (\[.*?\]);', games_data, re.DOTALL)
+        json_str = re.search(r'const gamesList = (\[.*?\]);', games_data, re.DOTALL)
         if json_str:
             games_list = json.loads(json_str.group(1))
             return [game['title'] for game in games_list]
