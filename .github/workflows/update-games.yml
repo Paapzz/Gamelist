@@ -50,7 +50,7 @@ jobs:
         all_games = []
         offset = 0
         limit = 250
-        max_games = 300000
+        max_games = 500000
 
         while len(all_games) < max_games:
             print(f"Fetching batch: offset={offset}, limit={limit}")
