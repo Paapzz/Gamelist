@@ -1,15 +1,17 @@
-name: Update HLTB
+name: Update HLTB Data
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # 5 утра
-  workflow_dispatch:  # 
+    - cron: '0 2 * * *'  # Запуск каждый день в 2:00 UTC
+  workflow_dispatch:  # Позволяет запускать вручную
 
 jobs:
-  update-game-times:
+  update-hltb-data:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
@@ -18,12 +20,14 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-    - name: Update game times
+    - name: Update HLTB data
       run: python update_hltb.py
     - name: Commit and push if changed
       run: |
-        git config --global user.email "action@github.com"
-        git config --global user.name "GitHub Action"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "github-actions[bot]"
         git add games_list.json games_cache.json
         git commit -m "Update game times and cache" -a || echo "No changes to commit"
         git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT }}
