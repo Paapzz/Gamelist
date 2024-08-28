@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install howlongtobeatpy aiohttp
+        pip install howlongtobeatpy aiohttp tqdm
 
     - name: Process HLTB data
       run: |
@@ -32,37 +32,55 @@ jobs:
         from howlongtobeatpy import HowLongToBeat
         import aiohttp
         import time
+        from tqdm import tqdm
 
-        RATE_LIMIT = 0.5 
+        RATE_LIMIT = 1  # Запросов в секунду
         DELAY = 1 / RATE_LIMIT
+        MAX_RETRIES = 3
+        TIMEOUT = 30  # секунд
 
-        async def get_hltb_info(session, game, semaphore):
+        async def get_hltb_info(session, game, semaphore, pbar):
             async with semaphore:
-                try:
-                    game_title = game['name']
-                    results = await HowLongToBeat().async_search(game_title)
-                    if results and len(results) > 0:
-                        game_info = max(results, key=lambda element: element.similarity)
-                        return {
-                            "id": game['id'],
-                            "title": game_title,
-                            "main_story": game_info.main_story,
-                            "main_extra": game_info.main_extra,
-                            "completionist": game_info.completionist
-                        }
-                except Exception as e:
-                    print(f"Error fetching HLTB data for {game_title}: {e}")
-                finally:
-                    await asyncio.sleep(DELAY)
+                for attempt in range(MAX_RETRIES):
+                    try:
+                        game_title = game['name']
+                        async with session.get(f'https://howlongtobeat.com/api/search?q={game_title}', timeout=TIMEOUT) as response:
+                            if response.status == 200:
+                                data = await response.json()
+                                if data and len(data) > 0:
+                                    game_info = max(data, key=lambda x: x.get('similarity', 0))
+                                    return {
+                                        "id": game['id'],
+                                        "title": game_title,
+                                        "main_story": game_info.get('main_story', 0),
+                                        "main_extra": game_info.get('main_extra', 0),
+                                        "completionist": game_info.get('completionist', 0)
+                                    }
+                            else:
+                                print(f"Error fetching HLTB data for {game_title}: HTTP {response.status}")
+                    except asyncio.TimeoutError:
+                        print(f"Timeout error fetching HLTB data for {game_title}")
+                    except Exception as e:
+                        print(f"Error fetching HLTB data for {game_title}: {str(e)}")
+                    
+                    if attempt < MAX_RETRIES - 1:
+                        await asyncio.sleep(DELAY * (attempt + 1))
+                    else:
+                        print(f"Failed to fetch HLTB data for {game_title} after {MAX_RETRIES} attempts")
+                
+                pbar.update(1)
+                await asyncio.sleep(DELAY)
             return None
 
         async def process_hltb_data(games):
             hltb_data = []
             semaphore = asyncio.Semaphore(RATE_LIMIT)
             async with aiohttp.ClientSession() as session:
-                tasks = [get_hltb_info(session, game, semaphore) for game in games]
-                results = await asyncio.gather(*tasks)
-                hltb_data = [result for result in results if result]
+                pbar = tqdm(total=len(games), desc="Processing games")
+                tasks = [get_hltb_info(session, game, semaphore, pbar) for game in games]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                pbar.close()
+                hltb_data = [result for result in results if result and not isinstance(result, Exception)]
             return hltb_data
 
         print("Loading games data...")
@@ -86,9 +104,13 @@ jobs:
         print(f"Loaded {len(all_games)} games.")
         print("Processing HLTB data...")
         start_time = time.time()
-        hltb_data = asyncio.run(process_hltb_data(all_games))
+        try:
+            hltb_data = asyncio.run(process_hltb_data(all_games))
+        except asyncio.exceptions.CancelledError:
+            print("Operation was cancelled. Saving partial results...")
         end_time = time.time()
         print(f"HLTB data processing took {end_time - start_time:.2f} seconds")
+        print(f"Successfully processed {len(hltb_data)} games")
 
         hltb_per_file = 10000
         total_hltb_files = math.ceil(len(hltb_data) / hltb_per_file)
@@ -102,6 +124,7 @@ jobs:
                 json.dump(hltb_data[start:end], f)
             print(f"Created file data/hltb_{i+1}.json with {end - start} games")
 
+        # Создаем индекс для HLTB данных
         hltb_index = {}
         for game in hltb_data:
             hltb_index[game['id']] = {
@@ -113,6 +136,7 @@ jobs:
             json.dump(hltb_index, f)
         print("Created hltb_index.json file")
 
+        # Обновляем основной индекс
         index['total_hltb_files'] = total_hltb_files
         index['total_hltb_games'] = len(hltb_data)
         index['last_hltb_update'] = "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
