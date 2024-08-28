@@ -16,13 +16,9 @@ async def get_game_info(game_name):
             game = max(results, key=lambda element: element.similarity)
             return {
                 "title": game_name,
-                "hltb_id": game.game_id,
                 "main_story": game.main_story,
                 "main_extra": game.main_extra,
-                "completionist": game.completionist,
-                "solo": game.solo,
-                "coop": game.coop,
-                "vs": game.vs
+                "completionist": game.completionist
             }
     except Exception as e:
         logger.error(f"Ошибка при получении информации для {game_name}: {str(e)}")
