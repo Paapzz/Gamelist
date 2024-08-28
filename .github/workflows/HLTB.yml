@@ -34,18 +34,19 @@ jobs:
 
         async def get_hltb_info(session, game):
             try:
-                results = await HowLongToBeat().async_search(game['title'])
+                game_title = game['name']
+                results = await HowLongToBeat().async_search(game_title)
                 if results and len(results) > 0:
                     game_info = max(results, key=lambda element: element.similarity)
                     return {
                         "id": game['id'],
-                        "title": game['title'],
+                        "title": game_title,
                         "main_story": game_info.main_story,
                         "main_extra": game_info.main_extra,
                         "completionist": game_info.completionist
                     }
             except Exception as e:
-                print(f"Error fetching HLTB data for {game['title']}: {e}")
+                print(f"Error fetching HLTB data for {game_title}: {e}")
             return None
 
         async def process_hltb_data(games):
@@ -58,13 +59,23 @@ jobs:
 
         print("Loading games data...")
         all_games = []
-        with open('data/index.json', 'r') as f:
-            index = json.load(f)
-        
-        for i in range(1, index['total_files'] + 1):
-            with open(f'data/games_{i}.json', 'r') as f:
-                all_games.extend(json.load(f))
+        try:
+            with open('data/index.json', 'r') as f:
+                index = json.load(f)
+            
+            for i in range(1, index['total_files'] + 1):
+                with open(f'data/games_{i}.json', 'r') as f:
+                    games = json.load(f)
+                    all_games.extend(games)
+        except Exception as e:
+            print(f"Error loading games data: {e}")
+            exit(1)
 
+        if not all_games:
+            print("No games loaded. Exiting.")
+            exit(1)
+
+        print(f"Loaded {len(all_games)} games.")
         print("Processing HLTB data...")
         hltb_data = asyncio.run(process_hltb_data(all_games))
 
