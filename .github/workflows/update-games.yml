@@ -35,7 +35,7 @@ jobs:
         from requests.packages.urllib3.util.retry import Retry
 
         def fetch_games(offset=0, limit=500, max_retries=5):
-            url = "https://nu8ichego5ti2suda7prishel111.uhadi.workers.dev/"
+            url = "https://nu8ichego5ti2suda7prishel111.uhadi.workers.dev"
             params = {"offset": offset, "limit": limit}
             
             session = requests.Session()
@@ -55,7 +55,7 @@ jobs:
         all_games = []
         offset = 0
         limit = 500
-        max_games = 300000
+        max_games = 400000
         max_attempts = 10
 
         for attempt in range(max_attempts):
