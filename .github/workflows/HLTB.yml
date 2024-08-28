@@ -2,8 +2,8 @@ name: Update HLTB
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # Запуск каждый день в 2:00 UTC
-  workflow_dispatch:  # Позволяет запускать вручную
+    - cron: '0 2 * * *'  # 5 утра
+  workflow_dispatch:  # 
 
 jobs:
   update-game-times:
@@ -19,7 +19,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     - name: Update game times
-      run: python update_game_times.py
+      run: python update_hltb.py
     - name: Commit and push if changed
       run: |
         git config --global user.email "action@github.com"
