@@ -1,0 +1,6 @@
+howlongtobeatpy==1.0.7
+aiohttp>=3.10.1
+requests>=2.32.3
+aiounittest>=1.4.2
+fake_useragent>=1.5.1
+beautifulsoup4>=4.12.3
