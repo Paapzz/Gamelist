@@ -3,6 +3,7 @@ import asyncio
 import json
 import aiohttp
 from bs4 import BeautifulSoup
+import re
 
 async def get_game_info(game_name):
     results = await HowLongToBeat().async_search(game_name)
@@ -22,8 +23,24 @@ async def read_games_from_html(file_path):
         content = file.read()
     
     soup = BeautifulSoup(content, 'html.parser')
-    games_data = soup.find_all('script')[1].string
-    games_list = json.loads(games_data)
+    
+    # Ищем скрипт, содержащий данные игр
+    script_tags = soup.find_all('script')
+    games_data = None
+    for script in script_tags:
+        if script.string and 'games =' in script.string:
+            games_data = script.string
+            break
+    
+    if not games_data:
+        raise ValueError("Не удалось найти данные игр в HTML-файле")
+    
+    # Извлекаем JSON-данные из скрипта
+    json_str = re.search(r'games = (\[.*?\]);', games_data, re.DOTALL)
+    if not json_str:
+        raise ValueError("Не удалось извлечь JSON-данные игр из скрипта")
+    
+    games_list = json.loads(json_str.group(1))
     return [game['title'].replace('-', ' ') for game in games_list]
 
 async def load_cache():
