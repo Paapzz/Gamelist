@@ -31,12 +31,20 @@ jobs:
         import math
         import requests
         import time
+        from requests.adapters import HTTPAdapter
+        from requests.packages.urllib3.util.retry import Retry
 
-        def fetch_games(offset=0, limit=500):
+        def fetch_games(offset=0, limit=500, max_retries=5):
             url = "https://nu8ichego5ti2suda7prishel111.uhadi.workers.dev/"
             params = {"offset": offset, "limit": limit}
+            
+            session = requests.Session()
+            retry = Retry(total=max_retries, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+            adapter = HTTPAdapter(max_retries=retry)
+            session.mount('https://', adapter)
+            
             try:
-                response = requests.get(url, params=params, timeout=30)
+                response = session.get(url, params=params, timeout=60)
                 response.raise_for_status()
                 return response.json()
             except requests.RequestException as e:
@@ -48,20 +56,36 @@ jobs:
         offset = 0
         limit = 500
         max_games = 300000
+        max_attempts = 10
 
-        while len(all_games) < max_games:
-            print(f"Fetching batch: offset={offset}, limit={limit}")
-            games = fetch_games(offset, limit)
-            if games is None or len(games) == 0:
+        for attempt in range(max_attempts):
+            while len(all_games) < max_games:
+                print(f"Fetching batch: offset={offset}, limit={limit}")
+                games = fetch_games(offset, limit)
+                if games is None:
+                    print(f"Failed to fetch batch. Retrying in 60 seconds...")
+                    time.sleep(60)
+                    continue
+                if len(games) == 0:
+                    break
+                all_games.extend(games)
+                offset += limit
+                time.sleep(2)
+            
+            if len(all_games) > 0:
                 break
-            all_games.extend(games)
-            offset += limit
-            time.sleep(1)
+            
+            print(f"Attempt {attempt + 1} failed. Retrying in 5 minutes...")
+            time.sleep(300)
 
         total_games = min(len(all_games), max_games)
         all_games = all_games[:total_games]
 
         print(f"Total games fetched and limited to {max_games}: {total_games}")
+
+        if total_games == 0:
+            print("No games fetched. Exiting.")
+            exit(1)
 
         games_per_file = 10000
         total_files = math.ceil(total_games / games_per_file)
