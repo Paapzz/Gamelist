@@ -37,7 +37,7 @@ jobs:
         RATE_LIMIT = 1  # Запросов в секунду
         DELAY = 1 / RATE_LIMIT
         MAX_RETRIES = 3
-        TIMEOUT = 30  # секунд
+        TIMEOUT = 10  # секунд
 
         async def get_hltb_info(session, game, semaphore, pbar):
             async with semaphore:
