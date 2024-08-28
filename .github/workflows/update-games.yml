@@ -1,97 +1,43 @@
-name: Update Games List
+name: Update HLTB Data
 
 on:
   schedule:
-    - cron: '0 3 * * *'  # 6утра
-  workflow_dispatch:  # 
+    - cron: '0 2 * * *' # 5 утра
+  workflow_dispatch:
 
 jobs:
-  update-games:
+  update-hltb-data:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
       with:
-        token: ${{ secrets.PAT }}
-    
+        fetch-depth: 0
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.x'
-    
+        python-version: '3.9'
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests
-
-    - name: Fetch and process games data
+        pip install -r requirements.txt
+    - name: Check index.html content
       run: |
-        mkdir -p data
-        python3 - <<EOF
-        import json
-        import math
-        import requests
-        import time
-        
-        from requests.adapters import HTTPAdapter
-        from requests.packages.urllib3.util.retry import Retry  
-        
-        def fetch_games(offset=0, limit=500):
-            url = "https://nu8ichego5ti2suda7prishel111.uhadi.workers.dev"
-            params = {"offset": offset, "limit": limit}
-            try:
-                response = requests.get(url, params=params, timeout=60)
-                response.raise_for_status()
-                return response.json()
-            except requests.RequestException as e:
-                print(f"Error fetching games: {e}")
-                return None
-
-        print("Fetching games...")
-        all_games = []
-        offset = 0
-        limit = 250
-        max_games = 500000
-
-        while len(all_games) < max_games:
-            print(f"Fetching batch: offset={offset}, limit={limit}")
-            games = fetch_games(offset, limit)
-            if games is None or len(games) == 0:
-                break
-            all_games.extend(games)
-            offset += limit
-            time.sleep(1)
-
-        total_games = min(len(all_games), max_games)
-        all_games = all_games[:total_games]
-
-        print(f"Total games fetched and limited to {max_games}: {total_games}")
-
-        games_per_file = 10000
-        total_files = math.ceil(total_games / games_per_file)
-
-        print(f"Creating {total_files} file(s)...")
-
-        for i in range(total_files):
-            start = i * games_per_file
-            end = min((i + 1) * games_per_file, total_games)
-            with open(f'data/games_{i+1}.json', 'w') as f:
-                json.dump(all_games[start:end], f)
-            print(f"Created file data/games_{i+1}.json with {end - start} games")
-
-        index = {
-            "total_games": total_games,
-            "total_files": total_files,
-            "last_updated": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-        }
-        with open('data/index.json', 'w') as f:
-            json.dump(index, f)
-        print("Created index.json file")
-        print("Data processing complete!")
-        EOF
-
+        echo "First 1000 characters of index.html:"
+        head -c 1000 index.html
+    - name: Update HLTB data
+      run: python update_hltb.py
+    - name: Check output files
+      run: |
+        echo "Contents of games_cache.json:"
+        cat games_cache.json
+        echo "Contents of games_list.json:"
+        cat games_list.json
     - name: Commit and push if changed
       run: |
-        git config --global user.email "github-actions@github.com"
-        git config --global user.name "GitHub Actions"
-        git add data
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Update games list" && git push)
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "github-actions[bot]"
+        git add games_list.json games_cache.json
+        git commit -m "Update game times and cache" -a || echo "No changes to commit"
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT }}
