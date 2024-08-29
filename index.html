@@ -402,10 +402,13 @@
             top: 40px;
             left: 10px;
             background-color: #333;
-            padding: 10px;
+            padding: 12px;
             border-radius: 5px;
             z-index: 1005;
             display: none;
+            max-height: calc(102vh - 60px);
+            overflow-y: auto;
+            width: 300px;
         }
         #yearSlider {
             width: 100%;
@@ -1165,7 +1168,7 @@
             background-color: rgba(0, 0, 0, 0.7);
             color: white;
             padding: 20px 40px;
-            border-radius: 50px;
+            border-radius: 40px;
             font-size: 24px;
             text-align: center;
         }
@@ -2355,8 +2358,10 @@
         }
 
         function updateCounter() {
+            const totalGames = games.length;
+            const completedGames = games.filter(game => game.completed).length;
             counter.textContent = `Пройдено: ${completedGames} из ${games.length}`;
-            updateProgressBar();
+	        updateProgressBar();
         }
 
         function updateProgressBar() {
@@ -2546,7 +2551,6 @@
         function updateInProgressRow() {
             inProgressRow.innerHTML = '';
             const inProgressGames = games.filter(game => game.inProgress);
-            console.log('Количество игр в процессе:', inProgressGames.length);
             inProgressGames.forEach(game => {
                 const cell = createCell(game);
                 inProgressRow.appendChild(cell);
@@ -3009,27 +3013,13 @@
         function shouldShowGame(game) {
             const minGameYear = Math.min(...games.map(g => g.year));
             const showCompleted = completedFilter.classList.contains('active');
-            const result = (
+            return (
                 (!hideCompleted || !game.completed) &&
                 (showCompleted ? game.completed : true) &&
                 (selectedGenres.length === 0 || game.genres.some(genre => selectedGenres.includes(genre))) &&
                 (selectedPlatforms.length === 0 || game.platforms.some(platform => selectedPlatforms.includes(platform))) &&
                 game.year >= Math.max(yearSliderMin.value, minGameYear) && game.year <= yearSliderMax.value
             );
-            if (!result) {
-                console.log('Игра скрыта:', game.name, 'Причина:', {
-                    hideCompleted,
-                    gameCompleted: game.completed,
-                    selectedGenres,
-                    gameGenres: game.genres,
-                    selectedPlatforms,
-                    gamePlatforms: game.platforms,
-                    yearFrom: Math.max(yearSliderMin.value, minGameYear),
-                    yearTo: yearSliderMax.value,
-                    gameYear: game.year
-                });
-            }
-            return result;
         }
 
         function applyFilters() {
@@ -3059,6 +3049,8 @@
             completedFilter.classList.toggle('active');
             applyFilters();
             hideCompletedButton.classList.toggle('button-disabled', completedFilter.classList.contains('active'));
+            saveGames();
+            updateFiltersAndCounter();
         }
 
         let currentRandomGame = null;
