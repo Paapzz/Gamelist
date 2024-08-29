@@ -2498,12 +2498,12 @@
                             game.name.toLowerCase().includes(gameName.toLowerCase())
                         );
                         matchedGames = matchedGames.concat(matches);
-                        if (matchedGames.length >= 10) {
+                        if (matchedGames.length >= 30) {
                             break;
                         }
                     }
 
-                    matchedGames = matchedGames.slice(0, 20);
+                    matchedGames = matchedGames.slice(0, 30);
                     displaySearchResults(matchedGames);
                 } catch (error) {
                     console.error('Ошибка при поиске игры:', error);
