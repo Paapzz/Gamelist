@@ -2,7 +2,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ТОП ИГР НА ПРОХОЖДЕНИЕ</title>
+    <title>ТОП 1000</title>
     <style>
         body {
             background-color: #222;
@@ -1673,7 +1673,7 @@
 {"number":341,"title":"destiny-2","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co67qb.jpg","year":2017,"genres":["Action","Adventure","Open world","Role-playing (RPG)","Shooter"],"platforms":["PlayStation 4","Windows PC","Xbox One"]},
 {"number":342,"title":"super-castlevania-iv","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co20dc.jpg","year":1991,"genres":["Action","Adventure","Horror","Platform"],"platforms":["Super Nintendo Entertainment System"]},
 {"number":343,"title":"hitman-3","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co29lt.jpg","year":2021,"genres":["Action","Adventure","Sandbox","Shooter","Stealth","Tactical"],"platforms":["PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"]},
-{"number":344,"title":"tomb-raider--2","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1rbu.jpg","year":2013,"genres":["Action","Adventure","Platform","Puzzle","Sandbox","Shooter","Survival"],"platforms":["Apple Macintosh","PlayStation 3","PlayStation 4","Windows PC","Xbox 360","Xbox One"]},
+{"number":344,"title":"tomb-raider-2013","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1rbu.jpg","year":2013,"genres":["Action","Adventure","Platform","Puzzle","Sandbox","Shooter","Survival"],"platforms":["Apple Macintosh","PlayStation 3","PlayStation 4","Windows PC","Xbox 360","Xbox One"]},
 {"number":345,"title":"mega-man-x","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co3tu2.jpg","year":1993,"genres":["Action","Adventure","Platform","Shooter"],"platforms":["Super Nintendo Entertainment System"]},
 {"number":346,"title":"deathloop","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4nzt.jpg","year":2021,"genres":["Action","Adventure","Shooter","Stealth"],"platforms":["PlayStation 5","Windows PC","Xbox Series X/S"]},
 {"number":347,"title":"no-man-s-sky","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6zat.jpg","year":2016,"genres":["Action","Adventure","Indie","Open world","Role-playing (RPG)","Sandbox","Simulator","Survival"],"platforms":["PlayStation 4","Windows PC"]},
@@ -2785,6 +2785,91 @@
             updateInProgressRow();
 
             void grid.offsetHeight;
+        }
+
+        function lazyLoadImages() {
+            const images = document.querySelectorAll('img[data-src]');
+            if (!images.length) return;
+
+            const visibleImages = new Set();
+
+            const observer = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        loadImage(img);
+                        observer.unobserve(img);
+                    } else {
+                        visibleImages.add(entry.target);
+                    }
+                });
+
+                const remainingImages = document.querySelectorAll('img[data-src]');
+                if (remainingImages.length === 0) {
+                    observer.disconnect();
+                }
+            });
+
+            images.forEach(img => {
+                observer.observe(img);
+            });
+        }
+
+        function loadImage(img) {
+            img.src = img.dataset.src;
+            img.removeAttribute('data-src');
+        }
+
+        function loadRemainingImages() {
+            const remainingImages = document.querySelectorAll('img[data-src]');
+            remainingImages.forEach(img => {
+                loadImage(img);
+            });
+        }
+
+        function saveGamesToCache() {
+            localStorage.setItem('games', JSON.stringify(games));
+        }
+
+        function loadGamesFromCache() {
+            const cachedGames = localStorage.getItem('games');
+            if (cachedGames) {
+                games = JSON.parse(cachedGames);
+            }
+        }
+
+        function initializeCacheClearing() {
+            const CACHE_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 дней
+            const lastClearTime = localStorage.getItem('lastCacheClear');
+            const currentTime = Date.now();
+
+            if (!lastClearTime) {
+                localStorage.setItem('lastCacheClear', currentTime.toString());
+            } else if ((currentTime - parseInt(lastClearTime)) >= CACHE_DURATION) {
+                clearCache();
+                localStorage.setItem('lastCacheClear', currentTime.toString());
+            }
+
+            setInterval(() => {
+                const now = Date.now();
+                const lastClear = localStorage.getItem('lastCacheClear');
+                if ((now - parseInt(lastClear)) >= CACHE_DURATION) {
+                    clearCache();
+                    localStorage.setItem('lastCacheClear', now.toString());
+                }
+            }, CACHE_DURATION);
+        }
+
+        function clearCache() {
+            try {
+                const games = localStorage.getItem('games');
+                if (games) {
+                    localStorage.removeItem('games');
+                    console.log('Кэш игр очищен');
+                }
+            } catch (e) {
+                console.error('Ошибка при очистке кэша:', e);
+            }
         }
 
         function updateAllCellSizes() {
@@ -4073,6 +4158,8 @@
             populateFilters();
             applyFilters();
             updateInProgressRow();
+            initializeCacheClearing();
+            
 
             const addGameButton = document.getElementById('addGameButton');
             const addGameModal = document.getElementById('addGameModal');
