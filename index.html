@@ -1481,6 +1481,25 @@
             margin-top: 10px;
             max-height: 300px;
             overflow-y: auto;
+            /* Стили для ползунка прокрутки */
+            scrollbar-width: thin;
+            scrollbar-color: #4CAF50 #333;
+        }
+
+        /* Стили для WebKit (браузеры на основе Chrome/Safari) */
+        #searchResults::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #searchResults::-webkit-scrollbar-track {
+            background: #333;
+            border-radius: 4px;
+        }
+
+        #searchResults::-webkit-scrollbar-thumb {
+            background-color: #4CAF50;
+            border-radius: 4px;
+            border: 2px solid #333;
         }
         .search-result {
             display: flex;
@@ -1740,7 +1759,7 @@
             <form id="addGameForm">
                 <div id="buttonContainer">
                     <button type="button" id="importFromApiModalButton">Добавить 100 игр</button>
-                    <button type="button" id="searchGameModalButton">Добавить 100 игр</button>
+                    <button type="button" id="searchGameModalButton">Добавить 10 игр</button>
                 </div>
                 <div id="searchInputContainer" style="display: none;">
                     <input type="text" id="searchGameInput" placeholder="Введите название игры">
@@ -4047,7 +4066,7 @@
             }
 
             if (searchGameModalButton) {
-                searchGameModalButton.addEventListener('click', () => importFromIGDB(100));
+                searchGameModalButton.addEventListener('click', () => importFromIGDB(10));
             } else {
                 console.error('Кнопка поиска игры в модальном окне не найдена');
             }
@@ -4076,7 +4095,21 @@
             loadSavedGames();
             renderGames();
             updateCounter();
+
+            // Сохраняем текущие значения из localStorage
+            const savedMinYear = localStorage.getItem('minYear');
+            const savedMaxYear = localStorage.getItem('maxYear');
+
+            // Инициализируем фильтры
             populateFilters();
+
+            // Восстанавливаем значения ползунков из localStorage
+            if (savedMinYear && savedMaxYear) {
+                yearSliderMin.value = savedMinYear;
+                yearSliderMax.value = savedMaxYear;
+                updateYearValue();
+            }
+
             updateInProgressRow(); // Сначала размещаем ячейки по рядам
             initializeCacheClearing();
 
