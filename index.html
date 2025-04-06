@@ -1712,8 +1712,8 @@
                 <div class="slider-track">
                     <div class="slider-track-highlight"></div>
                 </div>
-                <input type="range" id="yearSliderMin" min="1971" max="2023" value="1971">
-                <input type="range" id="yearSliderMax" min="1972" max="2023" value="2024">
+                <input type="range" id="yearSliderMin" min="1971" max="2023">
+                <input type="range" id="yearSliderMax" min="1972" max="2023">
                 <div class="slider-tooltip min-tooltip"></div>
                 <div class="slider-tooltip max-tooltip"></div>
             </div>
@@ -2547,32 +2547,31 @@
             const platforms = [...new Set(games.flatMap(game => game.platforms))].sort();
             const genres = [...new Set(games.flatMap(game => game.genres))].sort();
 
-            // Сохраняем текущие значения ползунков
-            const currentMinYear = parseInt(yearSliderMin.value);
-            const currentMaxYear = parseInt(yearSliderMax.value);
-
             // Проверяем, что есть действительные годы
             if (years.length > 0) {
                 const minGameYear = Math.min(...years);
                 const maxGameYear = Math.max(...years);
 
-                // Используем текущие значения, если они уже установлены
-                minYear = currentMinYear || (savedMinYear ? Math.max(parseInt(savedMinYear), minGameYear) : minGameYear);
-                maxYear = currentMaxYear || (savedMaxYear ? parseInt(savedMaxYear) : maxGameYear);
-
-                // Обновляем атрибуты ползунков
+                // Обновляем только границы ползунков, но не их значения
                 yearSliderMin.min = minGameYear;
                 yearSliderMin.max = maxGameYear;
-                yearSliderMin.value = minYear;
                 yearSliderMax.min = minGameYear;
                 yearSliderMax.max = maxGameYear;
-                yearSliderMax.value = maxYear;
 
                 // Обновляем метки годов
                 document.getElementById('minYearLabel').textContent = minGameYear;
                 document.getElementById('maxYearLabel').textContent = maxGameYear;
+
+                // Если значения ползунков выходят за границы, корректируем их
+                if (parseInt(yearSliderMin.value) < minGameYear) {
+                    yearSliderMin.value = minGameYear;
+                }
+                if (parseInt(yearSliderMax.value) > maxGameYear) {
+                    yearSliderMax.value = maxGameYear;
+                }
             }
 
+            // Обновляем значения ползунков и метки
             updateYearValue();
 
             platformsList.innerHTML = '';
@@ -4096,19 +4095,21 @@
             renderGames();
             updateCounter();
 
-            // Сохраняем текущие значения из localStorage
+            // Загружаем значения из localStorage
             const savedMinYear = localStorage.getItem('minYear');
             const savedMaxYear = localStorage.getItem('maxYear');
+
+            // Устанавливаем значения ползунков из localStorage до вызова populateFilters()
+            if (savedMinYear && savedMaxYear) {
+                yearSliderMin.value = savedMinYear;
+                yearSliderMax.value = savedMaxYear;
+            }
 
             // Инициализируем фильтры
             populateFilters();
 
-            // Восстанавливаем значения ползунков из localStorage
-            if (savedMinYear && savedMaxYear) {
-                yearSliderMin.value = savedMinYear;
-                yearSliderMax.value = savedMaxYear;
-                updateYearValue();
-            }
+            // Обновляем значения ползунков и метки
+            updateYearValue();
 
             updateInProgressRow(); // Сначала размещаем ячейки по рядам
             initializeCacheClearing();
