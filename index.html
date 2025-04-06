@@ -2523,10 +2523,16 @@
             const platforms = [...new Set(games.flatMap(game => game.platforms))].sort();
             const genres = [...new Set(games.flatMap(game => game.genres))].sort();
 
+            // Сохраняем текущие значения ползунков
+            const currentMinYear = parseInt(yearSliderMin.value);
+            const currentMaxYear = parseInt(yearSliderMax.value);
+
             const minGameYear = Math.min(...years);
             const maxGameYear = Math.max(...years);
-            minYear = savedMinYear ? Math.max(parseInt(savedMinYear), minGameYear) : minGameYear;
-            maxYear = savedMaxYear ? parseInt(savedMaxYear) : maxGameYear;
+
+            // Используем текущие значения, если они уже установлены
+            minYear = currentMinYear || (savedMinYear ? Math.max(parseInt(savedMinYear), minGameYear) : minGameYear);
+            maxYear = currentMaxYear || (savedMaxYear ? parseInt(savedMaxYear) : maxGameYear);
 
             // Обновляем атрибуты ползунков
             yearSliderMin.min = minGameYear;
@@ -3223,6 +3229,10 @@
 
         function deleteAllApiGames() {
             if (confirm('Вы уверены, что хотите удалить все добавленные игры?')) {
+                // Сохраняем текущие значения ползунков года
+                const currentMinYear = parseInt(yearSliderMin.value);
+                const currentMaxYear = parseInt(yearSliderMax.value);
+
                 const initialCount = games.length;
                 games = games.filter(game => !game.isCustom && !game.importedFromApi);
                 const deletedCount = initialCount - games.length;
@@ -3240,7 +3250,19 @@
 
                 completedGames = games.filter(game => game.completed).length;
                 updateCounter();
+
+                // Сохраняем текущие значения в localStorage
+                localStorage.setItem('minYear', currentMinYear);
+                localStorage.setItem('maxYear', currentMaxYear);
+
+                // Обновляем фильтры и применяем их
                 populateFilters();
+
+                // Восстанавливаем значения ползунков
+                yearSliderMin.value = currentMinYear;
+                yearSliderMax.value = currentMaxYear;
+                updateYearValue();
+
                 applyFilters();
 
                 console.log(`Удалено ${deletedCount} добавленных игр`);
@@ -3356,6 +3378,10 @@
         }
 
         function addNewGame(gameData) {
+            // Сохраняем текущие значения ползунков года
+            const currentMinYear = parseInt(yearSliderMin.value);
+            const currentMaxYear = parseInt(yearSliderMax.value);
+
             const existingGame = findExistingGame(gameData);
             if (existingGame) {
                 console.log('Найдена существующая версия игры:', existingGame.name);
@@ -3381,7 +3407,19 @@
 
             saveGames();
             updateCounter();
+
+            // Сохраняем текущие значения в localStorage
+            localStorage.setItem('minYear', currentMinYear);
+            localStorage.setItem('maxYear', currentMaxYear);
+
+            // Обновляем фильтры и применяем их
             populateFilters();
+
+            // Восстанавливаем значения ползунков
+            yearSliderMin.value = currentMinYear;
+            yearSliderMax.value = currentMaxYear;
+            updateYearValue();
+
             applyFilters();
             updateGridSize();
         }
@@ -3571,6 +3609,10 @@
 
         function deleteGame(gameId) {
             if (gameId && confirm('Вы уверены, что хотите удалить эту игру?')) {
+                // Сохраняем текущие значения ползунков года
+                const currentMinYear = parseInt(yearSliderMin.value);
+                const currentMaxYear = parseInt(yearSliderMax.value);
+
                 games = games.filter(g => g.id.toString() !== gameId.toString());
                 localStorage.setItem('games', JSON.stringify(games));
 
@@ -3582,7 +3624,19 @@
 
                 updateCustomGameList();
                 updateCounter();
+
+                // Сохраняем текущие значения в localStorage
+                localStorage.setItem('minYear', currentMinYear);
+                localStorage.setItem('maxYear', currentMaxYear);
+
+                // Обновляем фильтры и применяем их
                 populateFilters();
+
+                // Восстанавливаем значения ползунков
+                yearSliderMin.value = currentMinYear;
+                yearSliderMax.value = currentMaxYear;
+                updateYearValue();
+
                 applyFilters();
                 updateGridSize();
             }
@@ -3928,7 +3982,22 @@
         }
 
         function updateFiltersAndCounter() {
+            // Сохраняем текущие значения ползунков года
+            const currentMinYear = parseInt(yearSliderMin.value);
+            const currentMaxYear = parseInt(yearSliderMax.value);
+
+            // Сохраняем текущие значения в localStorage
+            localStorage.setItem('minYear', currentMinYear);
+            localStorage.setItem('maxYear', currentMaxYear);
+
+            // Обновляем фильтры
             populateFilters();
+
+            // Восстанавливаем значения ползунков
+            yearSliderMin.value = currentMinYear;
+            yearSliderMax.value = currentMaxYear;
+            updateYearValue();
+
             updateCounter();
         }
 
