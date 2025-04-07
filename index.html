@@ -1250,7 +1250,6 @@
             margin-top: 10px;
             scrollbar-width: thin; /* Для Firefox */
             scrollbar-color: #4CAF50 rgba(0,0,0,0.2); /* Для Firefox: цвет ползунка и фона */
-            margin-right: 5px; /* Добавляем отступ справа, чтобы полоса прокрутки была правее */
         }
 
         #searchResults::-webkit-scrollbar {
@@ -1307,6 +1306,7 @@
             text-decoration: none;
             display: inline-block;
             font-size: 14px;
+            margin-left: 300px;
             cursor: pointer;
             transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
             border-radius: 5px;
@@ -1333,18 +1333,6 @@
             font-size: 16px;
             width: 100%;
             box-sizing: border-box;
-        }
-
-        #searchGameInput {
-            padding: 10px;
-            background-color: #3a3a3a;
-            border: 1px solid #555;
-            border-radius: 5px;
-            color: white;
-            font-size: 16px;
-            width: 100%;
-            box-sizing: border-box;
-            margin-bottom: 0;
         }
         #addGameForm input:focus {
             outline: none;
@@ -1506,36 +1494,13 @@
             margin-bottom: 20px;
         }
         #searchInputContainer {
-            display: flex;
+            display: block;
             margin-top: 10px;
-            flex-direction: column;
-            gap: 10px;
         }
         #searchResults {
             margin-top: 10px;
             max-height: 300px;
             overflow-y: auto;
-            margin-right: 5px; /* Добавляем отступ справа, чтобы полоса прокрутки была правее */
-            scrollbar-width: thin; /* Для Firefox */
-            scrollbar-color: #4CAF50 rgba(0,0,0,0.2); /* Для Firefox: цвет ползунка и фона */
-        }
-
-        #searchResults::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        #searchResults::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.2);
-            border-radius: 3px;
-        }
-
-        #searchResults::-webkit-scrollbar-thumb {
-            background-color: #4CAF50; /* Зеленый цвет для ползунка */
-            border-radius: 3px;
-        }
-
-        #searchResults::-webkit-scrollbar-thumb:hover {
-            background-color: #3d8b40; /* Более темный зеленый при наведении */
         }
         .search-result {
             display: flex;
@@ -1545,11 +1510,6 @@
             padding: 6px 8px;
             border-radius: 4px;
             transition: background-color 0.2s ease;
-        }
-
-        /* Стиль для кнопок в одной строке */
-        #performSearchButton, #closeSearchResults {
-            flex: 1;
         }
 
         /* Добавляем легкое и минималистичное выделение всей строки при наведении */
@@ -1563,7 +1523,7 @@
             border: none;
             padding: 5px 10px;
             cursor: pointer;
-            transition: filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Remove transform transition */
+            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
             /* Уменьшаем кнопку на 5% */
             transform: scale(0.95);
             border-radius: 4px;
@@ -1700,7 +1660,7 @@
 
         /* Отдельный стиль для кнопки "Добавить", чтобы учесть уменьшенный размер */
         .add-game-button:hover {
-            /* Не меняем transform при наведении, чтобы кнопка не уезжала */
+            transform: scale(1.0); /* Возвращаем к нормальному размеру при наведении */
             filter: brightness(1.1);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
@@ -1822,15 +1782,10 @@
                 </div>
                 <div id="searchInputContainer" style="display: none;">
                     <input type="text" id="searchGameInput" placeholder="Введите название игры">
-                    <div style="display: flex; gap: 10px;">
-                        <button type="button" id="performSearchButton">Поиск</button>
-                        <button id="closeSearchResults" type="button">Очистить</button>
-                    </div>
+                    <button type="button" id="performSearchButton">Поиск</button>
+                    <button id="closeSearchResults" type="button">Очистить</button>
                 </div>
-                <div style="display: flex; align-items: flex-start;">
-                    <div id="searchResults" style="flex: 1;"></div>
-                    <div style="width: 10px;"></div> <!-- Разделитель для отступа -->
-                </div>
+                <div id="searchResults"></div>
             </form>
         </div>
     </div>
