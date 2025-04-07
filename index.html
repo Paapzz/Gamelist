@@ -1951,10 +1951,10 @@
             const maxGameYear = Math.max(...years);
 
             // Проверяем, изменены ли ползунки из их стандартного положения
-            // Если пользователь изменил ползунки, то считаем фильтр активным
-            const savedMinYear = localStorage.getItem('minYear');
-            const savedMaxYear = localStorage.getItem('maxYear');
-            const isYearFilterActive = savedMinYear !== null || savedMaxYear !== null;
+            // Фильтр считается активным, если ползунки не находятся на минимальном и максимальном значениях
+            const minVal = parseInt(yearSliderMin.value);
+            const maxVal = parseInt(yearSliderMax.value);
+            const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
 
             if (!isYearFilterActive) {
                 // Сортируем игры: сначала игры с годом по возрастанию, затем игры без года
@@ -2012,9 +2012,10 @@
             const maxGameYear = Math.max(...years);
 
             // Проверяем, изменены ли ползунки из их стандартного положения
-            const savedMinYear = localStorage.getItem('minYear');
-            const savedMaxYear = localStorage.getItem('maxYear');
-            const isYearFilterActive = savedMinYear !== null || savedMaxYear !== null;
+            // Фильтр считается активным, если ползунки не находятся на минимальном и максимальном значениях
+            const minVal = parseInt(yearSliderMin.value);
+            const maxVal = parseInt(yearSliderMax.value);
+            const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
 
             if (!isYearFilterActive && game && game.year !== null) {
                 // Если фильтр по годам не активен и у игры есть год, ищем позицию по году
@@ -2731,7 +2732,10 @@
             const minGameYear = Math.min(...years);
             const maxGameYear = Math.max(...years);
 
-            if (minYear === minGameYear && maxYear === maxGameYear) {
+            // Фильтр считается активным, если ползунки не находятся на минимальном и максимальном значениях
+            const isYearFilterActive = minYear > minGameYear || maxYear < maxGameYear;
+
+            if (!isYearFilterActive) {
                 // Если ползунки установлены на минимальное и максимальное значения, удаляем значения из localStorage
                 localStorage.removeItem('minYear');
                 localStorage.removeItem('maxYear');
@@ -2801,9 +2805,10 @@
             const maxGameYear = Math.max(...years);
 
             // Проверяем, изменены ли ползунки из их стандартного положения
-            const savedMinYear = localStorage.getItem('minYear');
-            const savedMaxYear = localStorage.getItem('maxYear');
-            const isYearFilterActive = savedMinYear !== null || savedMaxYear !== null;
+            // Фильтр считается активным, если ползунки не находятся на минимальном и максимальном значениях
+            const minVal = parseInt(yearSliderMin.value);
+            const maxVal = parseInt(yearSliderMax.value);
+            const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
 
             // Если фильтр по годам не активен, пересортируем игры в сетке
             if (!isYearFilterActive) {
@@ -3088,6 +3093,30 @@
             //     cell.style.display = '';
             //     cell.classList.remove('hidden');
             // });
+
+            // Пересортировываем игры по ID при сбросе фильтров
+            const gridCells = Array.from(grid.children);
+            const gridGames = [];
+
+            // Сохраняем связь между игрой и ячейкой
+            gridCells.forEach(cell => {
+                const gameId = cell.getAttribute('data-game-id');
+                const game = games.find(g => g.id.toString() === gameId);
+                if (game) {
+                    gridGames.push({ game, cell });
+                }
+            });
+
+            // Сортируем игры по ID
+            gridGames.sort((a, b) => a.game.id - b.game.id);
+
+            // Очищаем сетку
+            grid.innerHTML = '';
+
+            // Добавляем ячейки в новом порядке
+            gridGames.forEach(item => {
+                grid.appendChild(item.cell);
+            });
 
             applyFilters(); // Эта функция теперь применит сброшенные фильтры и ТЕКУЩИЙ поисковый запрос
 
