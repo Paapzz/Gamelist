@@ -1518,6 +1518,24 @@
             border-left: 3px solid rgba(76, 175, 80, 0.5); /* Зеленая полоса слева */
         }
 
+        /* Стили для выделения релевантности */
+        .relevance-exact {
+            font-weight: bold;
+            border-left: 3px solid #f44336 !important;
+            background-color: rgba(244, 67, 54, 0.1);
+        }
+
+        .relevance-high {
+            font-weight: bold;
+            border-left: 3px solid #ff9800 !important;
+            background-color: rgba(255, 152, 0, 0.1);
+        }
+
+        .relevance-medium {
+            border-left: 3px solid #2196f3 !important;
+            background-color: rgba(33, 150, 243, 0.1);
+        }
+
         /* Добавляем легкое и минималистичное выделение всей строки при наведении */
         .search-result:hover {
             background-color: rgba(76, 175, 80, 0.15); /* Более заметный фон при наведении */
@@ -2227,13 +2245,22 @@
                     const matches = fileGames.filter(game =>
                         game.name.toLowerCase().includes(gameName.toLowerCase())
                     );
+
+                    // Добавляем релевантность к каждой игре
+                    matches.forEach(game => {
+                        game.relevance = calculateRelevance(game.name, gameName);
+                    });
+
                     matchedGames = matchedGames.concat(matches);
-                    if (matchedGames.length >= 30) {
+                    if (matchedGames.length >= 100) {
                         break;
                     }
                 }
 
-                matchedGames = matchedGames.slice(0, 30);
+                // Сортируем игры по релевантности (от высокой к низкой)
+                matchedGames.sort((a, b) => b.relevance - a.relevance);
+
+                matchedGames = matchedGames.slice(0, 100);
                 displaySearchResults(matchedGames);
             } catch (error) {
                 console.error('Ошибка при поиске игры:', error);
@@ -2258,8 +2285,19 @@
                 const resultElement = document.createElement('div');
                 resultElement.className = 'search-result';
                 const releaseYear = game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : 'N/A';
+
+                // Добавляем стиль для выделения релевантности
+                let relevanceClass = '';
+                if (game.relevance >= 1000) {
+                    relevanceClass = 'relevance-exact';
+                } else if (game.relevance >= 500) {
+                    relevanceClass = 'relevance-high';
+                } else if (game.relevance >= 200) {
+                    relevanceClass = 'relevance-medium';
+                }
+
                 resultElement.innerHTML = `
-                    <div class="game-info">
+                    <div class="game-info ${relevanceClass}">
                         <span class="game-name">${game.name}</span>
                         <span class="game-year">(${releaseYear})</span>
                     </div>
@@ -2376,6 +2414,38 @@
             addGameModal.style.display = 'none';
             searchGameInput.value = '';
             searchResults.innerHTML = '';
+        }
+
+        // Функция для расчета релевантности игры по отношению к поисковому запросу
+        function calculateRelevance(gameName, searchTerm) {
+            const gameNameLower = gameName.toLowerCase();
+            const searchTermLower = searchTerm.toLowerCase();
+
+            // Базовая релевантность - содержит ли название игры поисковый запрос
+            let relevance = 0;
+
+            // Если название игры точно совпадает с поисковым запросом - максимальная релевантность
+            if (gameNameLower === searchTermLower) {
+                relevance += 1000;
+            }
+            // Если название игры начинается с поискового запроса - высокая релевантность
+            else if (gameNameLower.startsWith(searchTermLower)) {
+                relevance += 500;
+            }
+            // Если поисковый запрос находится в начале слова в названии игры - средняя релевантность
+            else if (gameNameLower.split(' ').some(word => word.startsWith(searchTermLower))) {
+                relevance += 200;
+            }
+            // Если поисковый запрос просто содержится в названии - базовая релевантность
+            else {
+                relevance += 100;
+            }
+
+            // Дополнительный бонус за короткие названия, более близкие по длине к поисковому запросу
+            const lengthDifference = Math.abs(gameNameLower.length - searchTermLower.length);
+            relevance -= lengthDifference * 2; // Чем меньше разница в длине, тем выше релевантность
+
+            return relevance;
         }
 
         function getRandomPastelColor() {
