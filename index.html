@@ -1304,9 +1304,7 @@
             padding: 5px 10px;
             text-align: center;
             text-decoration: none;
-            display: inline-block;
             font-size: 14px;
-            margin-left: 300px;
             cursor: pointer;
             transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
             border-radius: 5px;
@@ -1494,8 +1492,32 @@
             margin-bottom: 20px;
         }
         #searchInputContainer {
-            display: block;
+            display: flex;
             margin-top: 10px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        #searchGameInput {
+            flex-grow: 1;
+        }
+
+        #performSearchButton {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            text-align: center;
+            text-decoration: none;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
+            border-radius: 5px;
+        }
+
+        #performSearchButton:hover {
+            background-color: #1976D2;
         }
         #searchResults {
             margin-top: 10px;
@@ -1782,8 +1804,10 @@
                 </div>
                 <div id="searchInputContainer" style="display: none;">
                     <input type="text" id="searchGameInput" placeholder="Введите название игры">
-                    <button type="button" id="performSearchButton">Поиск</button>
-                    <button id="closeSearchResults" type="button">Очистить</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" id="performSearchButton">Поиск</button>
+                        <button id="closeSearchResults" type="button">Очистить</button>
+                    </div>
                 </div>
                 <div id="searchResults"></div>
             </form>
