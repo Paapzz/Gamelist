@@ -1950,8 +1950,11 @@
             const minGameYear = Math.min(...years);
             const maxGameYear = Math.max(...years);
 
-            // Если в фильтрах установлены значения, отличные от минимального и максимального года, то не применяем сортировку
-            const isYearFilterActive = parseInt(yearSliderMin.value) > minGameYear || parseInt(yearSliderMax.value) < maxGameYear;
+            // Проверяем, изменены ли ползунки из их стандартного положения
+            // Если пользователь изменил ползунки, то считаем фильтр активным
+            const savedMinYear = localStorage.getItem('minYear');
+            const savedMaxYear = localStorage.getItem('maxYear');
+            const isYearFilterActive = savedMinYear !== null || savedMaxYear !== null;
 
             if (!isYearFilterActive) {
                 // Сортируем игры: сначала игры с годом по возрастанию, затем игры без года
@@ -2007,7 +2010,11 @@
             const years = [...new Set(games.filter(g => g.year !== null).map(g => g.year))].sort((a, b) => a - b);
             const minGameYear = Math.min(...years);
             const maxGameYear = Math.max(...years);
-            const isYearFilterActive = parseInt(yearSliderMin.value) > minGameYear || parseInt(yearSliderMax.value) < maxGameYear;
+
+            // Проверяем, изменены ли ползунки из их стандартного положения
+            const savedMinYear = localStorage.getItem('minYear');
+            const savedMaxYear = localStorage.getItem('maxYear');
+            const isYearFilterActive = savedMinYear !== null || savedMaxYear !== null;
 
             if (!isYearFilterActive && game && game.year !== null) {
                 // Если фильтр по годам не активен и у игры есть год, ищем позицию по году
@@ -2718,8 +2725,21 @@
             const minYear = parseInt(yearSliderMin.value);
             const maxYear = parseInt(yearSliderMax.value);
             yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
-            localStorage.setItem('minYear', minYear);
-            localStorage.setItem('maxYear', maxYear);
+
+            // Проверяем, установлены ли ползунки на минимальное и максимальное значения
+            const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
+            const minGameYear = Math.min(...years);
+            const maxGameYear = Math.max(...years);
+
+            if (minYear === minGameYear && maxYear === maxGameYear) {
+                // Если ползунки установлены на минимальное и максимальное значения, удаляем значения из localStorage
+                localStorage.removeItem('minYear');
+                localStorage.removeItem('maxYear');
+            } else {
+                // Иначе сохраняем значения в localStorage
+                localStorage.setItem('minYear', minYear);
+                localStorage.setItem('maxYear', maxYear);
+            }
 
             // Обновляем подсветку трека ползунка
             updateSliderTrack();
@@ -2779,7 +2799,11 @@
             const years = [...new Set(games.filter(g => g.year !== null).map(g => g.year))].sort((a, b) => a - b);
             const minGameYear = Math.min(...years);
             const maxGameYear = Math.max(...years);
-            const isYearFilterActive = parseInt(yearSliderMin.value) > minGameYear || parseInt(yearSliderMax.value) < maxGameYear;
+
+            // Проверяем, изменены ли ползунки из их стандартного положения
+            const savedMinYear = localStorage.getItem('minYear');
+            const savedMaxYear = localStorage.getItem('maxYear');
+            const isYearFilterActive = savedMinYear !== null || savedMaxYear !== null;
 
             // Если фильтр по годам не активен, пересортируем игры в сетке
             if (!isYearFilterActive) {
