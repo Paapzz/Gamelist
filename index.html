@@ -1264,6 +1264,17 @@
         .cell.search-match {
             filter: saturate(100%) !important;
         }
+
+        /* Стиль для игр без года */
+        .cell.no-year {
+            border-left: 2px solid #777;
+        }
+
+        /* Первая игра без года в списке */
+        .cell.no-year-first {
+            border-left: 2px solid #777;
+            margin-left: 5px; /* Небольшой отступ слева */
+        }
         .message-overlay {
             position: fixed;
             top: 50%;
@@ -1947,7 +1958,25 @@
             grid.innerHTML = '';
             inProgressRow.innerHTML = '';
             let renderedCells = 0;
-            games.forEach(game => {
+
+            // Сортируем игры так, чтобы игры без года были в конце
+            const sortedGames = [...games].sort((a, b) => {
+                // Сначала сортируем по статусу "in progress"
+                if (a.inProgress && !b.inProgress) return -1;
+                if (!a.inProgress && b.inProgress) return 1;
+
+                // Если обе игры в одинаковом статусе "in progress"
+                if (!a.inProgress && !b.inProgress) {
+                    // Если у одной игры есть год, а у другой нет, то игра без года идет в конец
+                    if (a.year === null && b.year !== null) return 1;
+                    if (a.year !== null && b.year === null) return -1;
+                }
+
+                // Если у обеих игр есть год или у обеих нет, сортируем по ID
+                return a.id - b.id;
+            });
+
+            sortedGames.forEach(game => {
                 const cell = createCell(game);
                 if (game.inProgress) {
                     inProgressRow.appendChild(cell);
@@ -1957,18 +1986,89 @@
                 renderedCells++;
             });
             updateInProgressRow();
+            updateNoYearClasses(); // Обновляем классы для игр без года
             // applyFilters(); // <-- Убираем этот вызов
         }
 
         function insertCellInOrder(cell) {
             const gameId = parseInt(cell.dataset.gameId);
+            const game = games.find(g => g.id.toString() === cell.dataset.gameId);
             const cells = Array.from(grid.children);
-            const insertIndex = cells.findIndex(c => parseInt(c.dataset.gameId) > gameId);
 
-            if (insertIndex === -1) {
-                grid.appendChild(cell);
+            // Сортируем игры без года в конец списка
+            if (game && game.year === null) {
+                // Находим первую игру без года в списке
+                const firstNoYearIndex = cells.findIndex(c => {
+                    const cellGame = games.find(g => g.id.toString() === c.dataset.gameId);
+                    return cellGame && cellGame.year === null;
+                });
+
+                if (firstNoYearIndex === -1) {
+                    // Если это первая игра без года, добавляем её в конец списка
+                    cell.classList.add('no-year-first');
+                    grid.appendChild(cell);
+                } else {
+                    // Добавляем в список игр без года
+                    grid.appendChild(cell);
+                }
             } else {
-                grid.insertBefore(cell, cells[insertIndex]);
+                // Для игр с годом ищем позицию для вставки
+                const insertIndex = cells.findIndex(c => {
+                    const cellGame = games.find(g => g.id.toString() === c.dataset.gameId);
+                    // Игры без года всегда в конце
+                    if (cellGame && cellGame.year === null) return true;
+                    // Сортировка по ID для игр с годом
+                    return parseInt(c.dataset.gameId) > gameId;
+                });
+
+                if (insertIndex === -1) {
+                    grid.appendChild(cell);
+                } else {
+                    grid.insertBefore(cell, cells[insertIndex]);
+                }
+            }
+
+            // Обновляем классы для всех игр без года
+            updateNoYearClasses();
+        }
+
+        // Функция для обновления классов игр без года
+        function updateNoYearClasses() {
+            const cells = Array.from(grid.children);
+            let foundFirstNoYear = false;
+
+            // Сначала удаляем все классы no-year-first
+            cells.forEach(cell => cell.classList.remove('no-year-first'));
+
+            // Затем находим первую игру без года и добавляем ей класс
+            for (const cell of cells) {
+                const gameId = cell.dataset.gameId;
+                const game = games.find(g => g.id.toString() === gameId);
+
+                if (game && game.year === null) {
+                    if (!foundFirstNoYear) {
+                        cell.classList.add('no-year-first');
+                        foundFirstNoYear = true;
+                    }
+                }
+            }
+
+            // То же самое для списка "в процессе"
+            const inProgressCells = Array.from(inProgressRow.children);
+            let foundFirstInProgressNoYear = false;
+
+            inProgressCells.forEach(cell => cell.classList.remove('no-year-first'));
+
+            for (const cell of inProgressCells) {
+                const gameId = cell.dataset.gameId;
+                const game = games.find(g => g.id.toString() === gameId);
+
+                if (game && game.year === null) {
+                    if (!foundFirstInProgressNoYear) {
+                        cell.classList.add('no-year-first');
+                        foundFirstInProgressNoYear = true;
+                    }
+                }
             }
         }
 
@@ -2042,7 +2142,17 @@
         function updateInProgressRow() {
             inProgressRow.innerHTML = '';
             const inProgressGames = games.filter(game => game.inProgress);
-            inProgressGames.forEach(game => {
+
+            // Сортируем игры так, чтобы игры без года были в конце
+            const sortedGames = [...inProgressGames].sort((a, b) => {
+                // Если у одной игры есть год, а у другой нет, то игра без года идет в конец
+                if (a.year === null && b.year !== null) return 1;
+                if (a.year !== null && b.year === null) return -1;
+                // Если у обеих игр есть год или у обеих нет, сортируем по ID
+                return a.id - b.id;
+            });
+
+            sortedGames.forEach(game => {
                 const cell = createCell(game);
                 inProgressRow.appendChild(cell);
             });
@@ -2057,6 +2167,9 @@
             inProgressRow.querySelectorAll('.cell').forEach(cell => {
                 updateCellSize(cell, true);
             });
+
+            // Обновляем классы для игр без года
+            updateNoYearClasses();
         }
 
         function addGameFromSearch(game) {
@@ -2506,6 +2619,7 @@
                 }
             });
             updateInProgressRow();
+            updateNoYearClasses(); // Обновляем классы для игр без года
         }
 
         let currentSearchTerm = '';
@@ -2708,6 +2822,9 @@
                      if(game) hiddenGames.push(game); // Keep track of hidden games
                 }
             });
+
+            // Обновляем классы для игр без года
+            updateNoYearClasses();
 
             // Now handle search term specifically
             if (searchTerm !== '') {
@@ -3158,6 +3275,7 @@
             }
         });
         updateInProgressRow();
+        updateNoYearClasses(); // Обновляем классы для игр без года
 
         updateCounter();
 
@@ -3471,6 +3589,9 @@
             }
             if (game.isCustom) {
                 cell.classList.add('custom-game');
+            }
+            if (game.year === null) {
+                cell.classList.add('no-year');
             }
 
             let img;
