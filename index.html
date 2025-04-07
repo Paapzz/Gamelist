@@ -1926,9 +1926,8 @@
 
             updateCellSize(cell, game.inProgress);
 
-            if (hideCompleted) {
-                cell.classList.toggle('hidden', game.completed);
-            }
+            // Добавляем или удаляем класс hidden в зависимости от состояния hideCompleted и статуса игры
+            cell.classList.toggle('hidden', hideCompleted && game.completed);
 
             if (game.inProgress) {
                 cell.classList.add('in-progress');
@@ -2443,6 +2442,11 @@
 
             // Делаем кнопку "Только пройденные" неактивной, если нажата кнопка "Скрыть пройденные"
             completedFilter.classList.toggle('button-disabled', hideCompleted);
+
+            // Добавляем или удаляем класс hidden для пройденных игр
+            document.querySelectorAll('.cell.completed').forEach(cell => {
+                cell.classList.toggle('hidden', hideCompleted);
+            });
 
             applyFilters();
             updateSaturation();
@@ -3158,11 +3162,9 @@
         updateCounter();
 
         hideCompletedButton.classList.toggle('active', hideCompleted);
-        if (hideCompleted) {
-            document.querySelectorAll('.cell.completed').forEach(cell => {
-                cell.classList.add('hidden');
-            });
-        }
+        document.querySelectorAll('.cell.completed').forEach(cell => {
+            cell.classList.toggle('hidden', hideCompleted);
+        });
 
         populateFilters();
         applyFilters();
