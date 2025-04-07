@@ -1297,28 +1297,7 @@
             z-index: 9998;
             pointer-events: none;
         }
-        #closeSearchResults {
-            background-color: #f44336 !important;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 14px;
-            margin-left: 300px;
-            cursor: pointer;
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
-            border-radius: 5px;
-            display: none;
-            flex-shrink: 0;
-        }
-        #closeSearchResults:hover { /* Keep background hover */
-            background-color: #d32f2f;
-        }
-        #closeSearchResults:active {
-            background-color: #b71c1c;
-        }
+
         #addGameForm {
             display: flex;
             flex-direction: column;
@@ -1496,6 +1475,64 @@
         #searchInputContainer {
             display: block;
             margin-top: 10px;
+        }
+
+        /* Стили для обертки поля ввода с крестиком */
+        .search-input-wrapper {
+            position: relative;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        #searchGameInput {
+            width: 100%;
+            padding: 10px 35px 10px 10px; /* Добавляем отступ справа для крестика */
+            box-sizing: border-box;
+            border: 1px solid #555;
+            border-radius: 5px;
+            background-color: #3a3a3a;
+            color: white;
+            font-size: 16px;
+        }
+
+        .clear-input-icon {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #aaa;
+            font-size: 20px;
+            cursor: pointer;
+            display: none; /* Скрыт по умолчанию */
+            transition: color 0.2s ease;
+        }
+
+        .clear-input-icon:hover {
+            color: #fff;
+        }
+
+        /* Стили для контейнера кнопки поиска */
+        .search-button-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        #performSearchButton {
+            width: 60%; /* Увеличиваем ширину кнопки */
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        #performSearchButton:hover {
+            background-color: #3d8b40;
+            transform: scale(1.05);
         }
         #searchResults {
             margin-top: 10px;
@@ -1719,7 +1756,7 @@
          #hideCompletedButton:hover:not(.active) { background-color: #1976D2; }
          .custom-game-item .delete-game:hover { background-color: #d32f2f; }
          .input-with-button button:hover { background-color: #1976D2; }
-         #closeSearchResults:hover { background-color: #d32f2f; }
+
          .close:hover { color: #fff; }
          #dontWantButton:hover, #wantToPlayButton:hover, #anotherRandomButton:hover { opacity: 0.9; }
          /* Убрано для кнопки Список игр */
@@ -1830,9 +1867,13 @@
                     <button type="button" id="searchGameModalButton">Добавить 10 игр</button>
                 </div>
                 <div id="searchInputContainer" style="display: none;">
-                    <input type="text" id="searchGameInput" placeholder="Введите название игры">
-                    <button type="button" id="performSearchButton">Поиск</button>
-                    <button id="closeSearchResults" type="button">Очистить</button>
+                    <div class="search-input-wrapper">
+                        <input type="text" id="searchGameInput" placeholder="Введите название игры">
+                        <span id="clearSearchInput" class="clear-input-icon">&times;</span>
+                    </div>
+                    <div class="search-button-container">
+                        <button type="button" id="performSearchButton">Поиск</button>
+                    </div>
                 </div>
                 <div id="searchResults"></div>
             </form>
@@ -2185,8 +2226,16 @@
         }
 
         async function searchGameFromApi() {
-            showLoadingMessage();
             const gameName = searchGameInput.value.trim();
+
+            // Проверяем, что поле ввода не пустое
+            if (!gameName) {
+                showMessage('Введите название игры');
+                return;
+            }
+
+            showLoadingMessage();
+
             if (gameName) {
                 try {
                     const indexResponse = await fetch('data/index.json');
@@ -4318,11 +4367,28 @@
         function clearSearchResults() {
             const searchResults = document.getElementById('searchResults');
             const searchGameInput = document.getElementById('searchGameInput');
+            const clearSearchInput = document.getElementById('clearSearchInput');
+
             if (searchResults) {
                 searchResults.innerHTML = '';
             }
             if (searchGameInput) {
                 searchGameInput.value = '';
+                // Скрываем крестик при очистке поля
+                if (clearSearchInput) {
+                    clearSearchInput.style.display = 'none';
+                }
+            }
+        }
+
+        // Функция для обработки ввода в поле поиска
+        function handleSearchInputChange() {
+            const searchGameInput = document.getElementById('searchGameInput');
+            const clearSearchInput = document.getElementById('clearSearchInput');
+
+            if (searchGameInput && clearSearchInput) {
+                // Показываем или скрываем крестик в зависимости от наличия текста в поле
+                clearSearchInput.style.display = searchGameInput.value.trim() ? 'block' : 'none';
             }
         }
 
@@ -4366,13 +4432,24 @@
             }
 
             const searchGameInput = document.getElementById('searchGameInput');
+            const clearSearchInput = document.getElementById('clearSearchInput');
+
             if (searchGameInput) {
+                // Обработчик нажатия Enter
                 searchGameInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
                         searchGameFromApi();
                     }
                 });
+
+                // Обработчик изменения текста в поле
+                searchGameInput.addEventListener('input', handleSearchInputChange);
+            }
+
+            if (clearSearchInput) {
+                // Обработчик клика по крестику
+                clearSearchInput.addEventListener('click', clearSearchResults);
             }
 
             if (addGameButton) {
