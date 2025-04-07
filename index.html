@@ -1250,6 +1250,7 @@
             margin-top: 10px;
             scrollbar-width: thin; /* Для Firefox */
             scrollbar-color: #4CAF50 rgba(0,0,0,0.2); /* Для Firefox: цвет ползунка и фона */
+            padding-right: 10px; /* Добавляем отступ справа, чтобы полоса прокрутки была правее */
         }
 
         #searchResults::-webkit-scrollbar {
@@ -1304,7 +1305,9 @@
             padding: 5px 10px;
             text-align: center;
             text-decoration: none;
+            display: inline-block;
             font-size: 14px;
+            margin-left: 300px;
             cursor: pointer;
             transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
             border-radius: 5px;
@@ -1492,32 +1495,8 @@
             margin-bottom: 20px;
         }
         #searchInputContainer {
-            display: flex;
+            display: block;
             margin-top: 10px;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-        }
-
-        #searchGameInput {
-            flex-grow: 1;
-        }
-
-        #performSearchButton {
-            background-color: #2196F3;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            text-align: center;
-            text-decoration: none;
-            font-size: 14px;
-            cursor: pointer;
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
-            border-radius: 5px;
-        }
-
-        #performSearchButton:hover {
-            background-color: #1976D2;
         }
         #searchResults {
             margin-top: 10px;
@@ -1532,6 +1511,8 @@
             padding: 6px 8px;
             border-radius: 4px;
             transition: background-color 0.2s ease;
+            position: relative;
+            padding-right: 100px; /* Добавляем отступ справа для кнопки */
         }
 
         /* Добавляем легкое и минималистичное выделение всей строки при наведении */
@@ -1546,9 +1527,12 @@
             padding: 5px 10px;
             cursor: pointer;
             transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
-            /* Уменьшаем кнопку на 5% */
-            transform: scale(0.95);
+            /* Уменьшаем кнопку на 5% и размещаем по центру по вертикали */
             border-radius: 4px;
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%) scale(0.95);
         }
         #optionsList {
             max-height: 300px;
@@ -1682,7 +1666,7 @@
 
         /* Отдельный стиль для кнопки "Добавить", чтобы учесть уменьшенный размер */
         .add-game-button:hover {
-            transform: scale(1.0); /* Возвращаем к нормальному размеру при наведении */
+            transform: translateY(-50%) scale(1.0); /* Возвращаем к нормальному размеру при наведении, сохраняя центрирование */
             filter: brightness(1.1);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
@@ -1804,10 +1788,8 @@
                 </div>
                 <div id="searchInputContainer" style="display: none;">
                     <input type="text" id="searchGameInput" placeholder="Введите название игры">
-                    <div style="display: flex; gap: 10px;">
-                        <button type="button" id="performSearchButton">Поиск</button>
-                        <button id="closeSearchResults" type="button">Очистить</button>
-                    </div>
+                    <button type="button" id="performSearchButton">Поиск</button>
+                    <button id="closeSearchResults" type="button">Очистить</button>
                 </div>
                 <div id="searchResults"></div>
             </form>
