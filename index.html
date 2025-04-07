@@ -2212,13 +2212,13 @@
                 updatePreviewPosition();
             }
 
-            const yearText = game.year ? ` (${game.year})` : '';
+            const yearText = game.year ? ` (${game.year})` : ' (N/A)';
             preview.querySelector('p').textContent = `${game.name}${yearText}`;
             startPreviewTimeout();
         }
 
         function showGameTitle(e, game) {
-            gameTitle.innerHTML = `${game.name}<span class="game-year">${game.year ? `(${game.year})` : ''}</span>`;
+            gameTitle.innerHTML = `${game.name}<span class="game-year">${game.year ? `(${game.year})` : '(N/A)'}</span>`;
             gameTitle.style.display = 'block';
 
             const titleRect = gameTitle.getBoundingClientRect();
@@ -2519,7 +2519,8 @@
         }
 
         function populateFilters() {
-            const years = [...new Set(games.map(game => game.year))].sort((a, b) => a - b);
+            // Фильтруем игры без года (null) при определении диапазона лет
+            const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
             const platforms = [...new Set(games.flatMap(game => game.platforms))].sort();
             const genres = [...new Set(games.flatMap(game => game.genres))].sort();
 
@@ -2673,14 +2674,14 @@
         }
 
         function shouldShowGame(game) {
-            const minGameYear = Math.min(...games.map(g => g.year));
+            const minGameYear = Math.min(...games.filter(g => g.year !== null).map(g => g.year));
             const showCompleted = completedFilter.classList.contains('active');
             return (
                 (!hideCompleted || !game.completed) &&
                 (showCompleted ? game.completed : true) &&
                 (selectedGenres.length === 0 || game.genres.some(genre => selectedGenres.includes(genre))) &&
                 (selectedPlatforms.length === 0 || game.platforms.some(platform => selectedPlatforms.includes(platform))) &&
-                game.year >= Math.max(yearSliderMin.value, minGameYear) && game.year <= yearSliderMax.value
+                (game.year === null || (game.year >= Math.max(yearSliderMin.value, minGameYear) && game.year <= yearSliderMax.value))
             );
         }
 
@@ -2813,7 +2814,7 @@
                 content = `<img src="${imgSrc}" alt="${game.name}">`;
             }
 
-            const yearText = game.year ? ` (${game.year})` : '';
+            const yearText = game.year ? ` (${game.year})` : ' (N/A)';
             randomSelected.innerHTML = `
                 ${content}
                 <p>${game.name}${yearText}</p>
