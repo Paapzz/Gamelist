@@ -1297,28 +1297,7 @@
             z-index: 9998;
             pointer-events: none;
         }
-        #closeSearchResults {
-            background-color: #f44336 !important;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 14px;
-            margin-left: 300px;
-            cursor: pointer;
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
-            border-radius: 5px;
-            display: none;
-            flex-shrink: 0;
-        }
-        #closeSearchResults:hover { /* Keep background hover */
-            background-color: #d32f2f;
-        }
-        #closeSearchResults:active {
-            background-color: #b71c1c;
-        }
+        /* Стили для #closeSearchResults перенесены выше */
         #addGameForm {
             display: flex;
             flex-direction: column;
@@ -1496,6 +1475,68 @@
         #searchInputContainer {
             display: block;
             margin-top: 10px;
+        }
+
+        .search-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .search-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        #searchGameInput {
+            width: 100%;
+            padding: 10px;
+            background-color: #3a3a3a;
+            border: 1px solid #555;
+            border-radius: 5px;
+            color: white;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        #performSearchButton, #closeSearchResults {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            flex: 1;
+            display: inline-block;
+            margin: 0;
+        }
+
+        #performSearchButton {
+            background-color: #4CAF50;
+            color: white;
+            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
+        }
+
+        #performSearchButton:hover {
+            filter: brightness(1.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        #closeSearchResults {
+            background-color: #f44336;
+            color: white;
+            display: inline-block;
+            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
+        }
+
+        #closeSearchResults:hover {
+            filter: brightness(1.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            background-color: #d32f2f;
+        }
+
+        #closeSearchResults:active {
+            background-color: #b71c1c;
         }
         #searchResults {
             margin-top: 10px;
@@ -1781,9 +1822,13 @@
                     <button type="button" id="searchGameModalButton">Добавить 10 игр</button>
                 </div>
                 <div id="searchInputContainer" style="display: none;">
-                    <input type="text" id="searchGameInput" placeholder="Введите название игры">
-                    <button type="button" id="performSearchButton">Поиск</button>
-                    <button id="closeSearchResults" type="button">Очистить</button>
+                    <div class="search-controls">
+                        <input type="text" id="searchGameInput" placeholder="Введите название игры">
+                        <div class="search-buttons">
+                            <button type="button" id="performSearchButton">Поиск</button>
+                            <button id="closeSearchResults" type="button">Очистить</button>
+                        </div>
+                    </div>
                 </div>
                 <div id="searchResults"></div>
             </form>
@@ -2195,7 +2240,6 @@
                 resultElement.querySelector('.add-game-button').addEventListener('click', () => addGameFromSearch(game));
                 searchResults.appendChild(resultElement);
             });
-            document.getElementById('closeSearchResults').style.display = 'inline-block';
         }
 
         performSearchButton.addEventListener('click', () => {
@@ -2292,7 +2336,6 @@
             addGameModal.style.display = 'none';
             searchGameInput.value = '';
             searchResults.innerHTML = '';
-            document.getElementById('closeSearchResults').style.display = 'none';
         }
 
         function getRandomPastelColor() {
@@ -4240,7 +4283,12 @@
             }
 
             if (searchGameModalButton) {
-                searchGameModalButton.addEventListener('click', () => importFromIGDB(10));
+                searchGameModalButton.addEventListener('click', () => {
+                    // Показываем поле поиска и кнопки
+                    searchInputContainer.style.display = 'block';
+                    // Фокус на поле ввода
+                    searchGameInput.focus();
+                });
             } else {
                 console.error('Кнопка поиска игры в модальном окне не найдена');
             }
