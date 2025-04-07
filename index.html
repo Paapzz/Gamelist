@@ -1297,28 +1297,7 @@
             z-index: 9998;
             pointer-events: none;
         }
-        #closeSearchResults {
-            background-color: #f44336 !important;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 14px;
-            margin-left: 300px;
-            cursor: pointer;
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
-            border-radius: 5px;
-            display: none;
-            flex-shrink: 0;
-        }
-        #closeSearchResults:hover { /* Keep background hover */
-            background-color: #d32f2f;
-        }
-        #closeSearchResults:active {
-            background-color: #b71c1c;
-        }
+
         #addGameForm {
             display: flex;
             flex-direction: column;
@@ -1513,11 +1492,12 @@
             border: none;
             width: 24px;
             height: 24px;
-            border-radius: 50%;
+            border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            font-size: 20px;
+            font-weight: bold;
             cursor: pointer;
             display: none;
         }
@@ -1881,7 +1861,6 @@
                         <button type="button" id="clearSearchInputButton" class="clear-input-button">×</button>
                     </div>
                     <button type="button" id="performSearchButton">Поиск</button>
-                    <button id="closeSearchResults" type="button">Очистить</button>
                 </div>
                 <div id="searchResults"></div>
             </form>
@@ -2310,7 +2289,7 @@
                     resultElement.style.transform = 'translateY(0)';
                 }, 50 * uniqueGames.indexOf(game)); // Задержка зависит от порядкового номера элемента
             });
-            document.getElementById('closeSearchResults').style.display = 'inline-block';
+            // Удалено, так как кнопка "Очистить" была удалена
         }
 
         performSearchButton.addEventListener('click', () => {
@@ -2407,7 +2386,7 @@
             addGameModal.style.display = 'none';
             searchGameInput.value = '';
             searchResults.innerHTML = '';
-            document.getElementById('closeSearchResults').style.display = 'none';
+            // Удалено, так как кнопка "Очистить" была удалена
         }
 
         function getRandomPastelColor() {
@@ -4360,11 +4339,7 @@
                 console.error('Кнопка поиска игры в модальном окне не найдена');
             }
 
-            if (closeSearchResultsButton) {
-                closeSearchResultsButton.addEventListener('click', clearSearchResults);
-            } else {
-                console.error('Кнопка очистки результатов поиска не найдена');
-            }
+            // Удалено, так как функционал перенесен на кнопку-крестик
         }
 
         function clearSearchResults() {
@@ -4445,6 +4420,7 @@
                     searchGameInput.value = '';
                     clearSearchInputButton.style.display = 'none';
                     searchGameInput.focus();
+                    clearSearchResults(); // Добавляем функционал кнопки "Очистить"
                 });
             }
 
