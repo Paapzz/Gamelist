@@ -1945,7 +1945,40 @@
 
         // Функция для сортировки игр по году (игры без года в конце)
         function sortGamesByYear(gamesArray) {
-            // Всегда сортируем по ID, чтобы игры без года не перемещались в конец
+            // Проверяем, установлены ли в фильтрах конкретные значения минимального и максимального года
+            const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
+            const minGameYear = Math.min(...years);
+            const maxGameYear = Math.max(...years);
+
+            // Проверяем, изменены ли ползунки из их стандартного положения
+            const minVal = parseInt(yearSliderMin.value);
+            const maxVal = parseInt(yearSliderMax.value);
+
+            // Фильтр считается активным, если пользователь изменил ползунки
+            // И они не находятся на минимальном и максимальном значениях
+            const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
+
+            // Если пользователь изменил ползунки, сортируем игры по году (игры без года в конце)
+            if (isYearFilterActive) {
+                return [...gamesArray].sort((a, b) => {
+                    // Если обе игры имеют год, сортируем по возрастанию
+                    if (a.year !== null && b.year !== null) {
+                        return a.year - b.year;
+                    }
+                    // Если только у первой игры нет года, она идет в конец
+                    if (a.year === null && b.year !== null) {
+                        return 1;
+                    }
+                    // Если только у второй игры нет года, она идет в конец
+                    if (a.year !== null && b.year === null) {
+                        return -1;
+                    }
+                    // Если у обеих игр нет года, сортируем по ID
+                    return a.id - b.id;
+                });
+            }
+
+            // Если пользователь не изменил ползунки, сортируем по ID
             return [...gamesArray].sort((a, b) => a.id - b.id);
         }
 
@@ -1972,15 +2005,61 @@
 
         function insertCellInOrder(cell) {
             const gameId = parseInt(cell.dataset.gameId);
+            const game = games.find(g => g.id.toString() === gameId.toString());
             const cells = Array.from(grid.children);
 
-            // Всегда используем сортировку по ID
-            const insertIndex = cells.findIndex(c => parseInt(c.dataset.gameId) > gameId);
+            // Проверяем, установлены ли в фильтрах конкретные значения минимального и максимального года
+            const years = [...new Set(games.filter(g => g.year !== null).map(g => g.year))].sort((a, b) => a - b);
+            const minGameYear = Math.min(...years);
+            const maxGameYear = Math.max(...years);
 
-            if (insertIndex === -1) {
+            // Проверяем, изменены ли ползунки из их стандартного положения
+            const minVal = parseInt(yearSliderMin.value);
+            const maxVal = parseInt(yearSliderMax.value);
+
+            // Фильтр считается активным, если пользователь изменил ползунки
+            const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
+
+            if (isYearFilterActive && game && game.year !== null) {
+                // Если фильтр по годам активен и у игры есть год, ищем позицию по году
+                let insertIndex = -1;
+
+                for (let i = 0; i < cells.length; i++) {
+                    const cellId = parseInt(cells[i].dataset.gameId);
+                    const cellGame = games.find(g => g.id.toString() === cellId.toString());
+
+                    if (!cellGame) continue;
+
+                    // Если у текущей игры в сетке нет года, то вставляем перед ней
+                    if (cellGame.year === null) {
+                        insertIndex = i;
+                        break;
+                    }
+
+                    // Если год текущей игры в сетке больше года добавляемой игры, вставляем перед ней
+                    if (cellGame.year > game.year) {
+                        insertIndex = i;
+                        break;
+                    }
+                }
+
+                if (insertIndex === -1) {
+                    grid.appendChild(cell);
+                } else {
+                    grid.insertBefore(cell, cells[insertIndex]);
+                }
+            } else if (isYearFilterActive && game && game.year === null) {
+                // Если фильтр по годам активен и у игры нет года, добавляем в конец
                 grid.appendChild(cell);
             } else {
-                grid.insertBefore(cell, cells[insertIndex]);
+                // Если фильтр по годам не активен, используем сортировку по ID
+                const insertIndex = cells.findIndex(c => parseInt(c.dataset.gameId) > gameId);
+
+                if (insertIndex === -1) {
+                    grid.appendChild(cell);
+                } else {
+                    grid.insertBefore(cell, cells[insertIndex]);
+                }
             }
         }
 
@@ -2709,7 +2788,59 @@
             let hiddenGames = [];
             let firstInProgressMatchElement = null; // Store the first matching element in inProgressRow
 
-            // Не пересортировываем игры, чтобы игры без года не перемещались в конец
+            // Проверяем, изменились ли фильтры по годам
+            const years = [...new Set(games.filter(g => g.year !== null).map(g => g.year))].sort((a, b) => a - b);
+            const minGameYear = Math.min(...years);
+            const maxGameYear = Math.max(...years);
+
+            // Проверяем, изменены ли ползунки из их стандартного положения
+            const minVal = parseInt(yearSliderMin.value);
+            const maxVal = parseInt(yearSliderMax.value);
+
+            // Фильтр считается активным, если пользователь изменил ползунки
+            const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
+
+            // Если фильтр по годам активен, пересортируем игры в сетке
+            if (isYearFilterActive) {
+                // Собираем все игры, которые не в режиме "in progress"
+                const gridCells = Array.from(grid.children);
+                const gridGames = [];
+
+                // Сохраняем связь между игрой и ячейкой
+                gridCells.forEach(cell => {
+                    const gameId = cell.getAttribute('data-game-id');
+                    const game = games.find(g => g.id.toString() === gameId);
+                    if (game) {
+                        gridGames.push({ game, cell });
+                    }
+                });
+
+                // Сортируем игры по году (игры без года в конец)
+                gridGames.sort((a, b) => {
+                    // Если обе игры имеют год, сортируем по возрастанию
+                    if (a.game.year !== null && b.game.year !== null) {
+                        return a.game.year - b.game.year;
+                    }
+                    // Если только у первой игры нет года, она идет в конец
+                    if (a.game.year === null && b.game.year !== null) {
+                        return 1;
+                    }
+                    // Если только у второй игры нет года, она идет в конец
+                    if (a.game.year !== null && b.game.year === null) {
+                        return -1;
+                    }
+                    // Если у обеих игр нет года, сортируем по ID
+                    return a.game.id - b.game.id;
+                });
+
+                // Очищаем сетку
+                grid.innerHTML = '';
+
+                // Добавляем ячейки в новом порядке
+                gridGames.forEach(item => {
+                    grid.appendChild(item.cell);
+                });
+            }
 
             // Reset styles/visibility first
             document.querySelectorAll('.cell').forEach(cell => {
@@ -2953,8 +3084,23 @@
             //     cell.classList.remove('hidden');
             // });
 
-            // Перерисовываем все игры с нуля
-            renderGames();
+            // Перерисовываем все игры с нуля, сортируя по ID
+            grid.innerHTML = '';
+            inProgressRow.innerHTML = '';
+
+            // Сортируем игры по ID
+            const sortedGames = [...games].sort((a, b) => a.id - b.id);
+
+            sortedGames.forEach(game => {
+                const cell = createCell(game);
+                if (game.inProgress) {
+                    inProgressRow.appendChild(cell);
+                } else {
+                    grid.appendChild(cell);
+                }
+            });
+
+            updateInProgressRow();
 
             applyFilters(); // Эта функция теперь применит сброшенные фильтры и ТЕКУЩИЙ поисковый запрос
 
