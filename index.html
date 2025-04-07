@@ -1264,41 +1264,6 @@
         .cell.search-match {
             filter: saturate(100%) !important;
         }
-
-        /* Стиль для игр без года */
-        .cell.no-year {
-            position: relative;
-        }
-
-        /* Первая игра без года в списке */
-        .cell.no-year-first {
-            position: relative;
-            margin-left: 2px; /* Уменьшенный отступ слева */
-        }
-
-        /* Вертикальная полоса перед первой игрой без года */
-        .cell.no-year-first::before {
-            content: '';
-            position: absolute;
-            left: -3px; /* Располагаем полосу по середине между карточками */
-            top: 0;
-            height: 100%;
-            width: 2px;
-            background-color: #999; /* Более серый цвет */
-            z-index: 1;
-        }
-
-        /* Вертикальная полоса в списке "в процессе" */
-        #inProgressRow .cell.no-year-first::before {
-            content: '';
-            position: absolute;
-            left: -3px;
-            top: 0;
-            height: 100%;
-            width: 2px;
-            background-color: #999; /* Более серый цвет */
-            z-index: 1;
-        }
         .message-overlay {
             position: fixed;
             top: 50%;
@@ -1503,14 +1468,6 @@
             cursor: pointer;
             transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
         }
-
-        #importFromApiModalButton {
-            background-color: #4CAF50; /* Зеленый цвет для левой кнопки */
-        }
-
-        #searchGameModalButton {
-            background-color: #2196F3; /* Синий цвет для правой кнопки */
-        }
         #buttonContainer {
             display: flex;
             justify-content: space-between;
@@ -1524,27 +1481,6 @@
             margin-top: 10px;
             max-height: 300px;
             overflow-y: auto;
-            padding-right: 20px; /* Увеличиваем отступ справа, чтобы полоса прокрутки была еще правее */
-            scrollbar-width: thin; /* Для Firefox */
-            scrollbar-color: #4CAF50 rgba(0,0,0,0.2); /* Для Firefox: цвет ползунка и фона */
-        }
-
-        #searchResults::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        #searchResults::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.2);
-            border-radius: 3px;
-        }
-
-        #searchResults::-webkit-scrollbar-thumb {
-            background-color: #4CAF50; /* Зеленый цвет для ползунка */
-            border-radius: 3px;
-        }
-
-        #searchResults::-webkit-scrollbar-thumb:hover {
-            background-color: #45a049; /* Более темный зеленый при наведении */
         }
         .search-result {
             display: flex;
@@ -1803,8 +1739,8 @@
             <h2>Добавить игры</h2>
             <form id="addGameForm">
                 <div id="buttonContainer">
-                    <button type="button" id="searchGameModalButton">Добавить 10 игр</button>
                     <button type="button" id="importFromApiModalButton">Добавить 100 игр</button>
+                    <button type="button" id="searchGameModalButton">Добавить 10 игр</button>
                 </div>
                 <div id="searchInputContainer" style="display: none;">
                     <input type="text" id="searchGameInput" placeholder="Введите название игры">
@@ -2011,25 +1947,7 @@
             grid.innerHTML = '';
             inProgressRow.innerHTML = '';
             let renderedCells = 0;
-
-            // Сортируем игры так, чтобы игры без года были в конце
-            const sortedGames = [...games].sort((a, b) => {
-                // Сначала сортируем по статусу "in progress"
-                if (a.inProgress && !b.inProgress) return -1;
-                if (!a.inProgress && b.inProgress) return 1;
-
-                // Если обе игры в одинаковом статусе "in progress"
-                if (!a.inProgress && !b.inProgress) {
-                    // Если у одной игры есть год, а у другой нет, то игра без года идет в конец
-                    if (a.year === null && b.year !== null) return 1;
-                    if (a.year !== null && b.year === null) return -1;
-                }
-
-                // Если у обеих игр есть год или у обеих нет, сортируем по ID
-                return a.id - b.id;
-            });
-
-            sortedGames.forEach(game => {
+            games.forEach(game => {
                 const cell = createCell(game);
                 if (game.inProgress) {
                     inProgressRow.appendChild(cell);
@@ -2039,89 +1957,18 @@
                 renderedCells++;
             });
             updateInProgressRow();
-            updateNoYearClasses(); // Обновляем классы для игр без года
             // applyFilters(); // <-- Убираем этот вызов
         }
 
         function insertCellInOrder(cell) {
             const gameId = parseInt(cell.dataset.gameId);
-            const game = games.find(g => g.id.toString() === cell.dataset.gameId);
             const cells = Array.from(grid.children);
+            const insertIndex = cells.findIndex(c => parseInt(c.dataset.gameId) > gameId);
 
-            // Сортируем игры без года в конец списка
-            if (game && game.year === null) {
-                // Находим первую игру без года в списке
-                const firstNoYearIndex = cells.findIndex(c => {
-                    const cellGame = games.find(g => g.id.toString() === c.dataset.gameId);
-                    return cellGame && cellGame.year === null;
-                });
-
-                if (firstNoYearIndex === -1) {
-                    // Если это первая игра без года, добавляем её в конец списка
-                    cell.classList.add('no-year-first');
-                    grid.appendChild(cell);
-                } else {
-                    // Добавляем в список игр без года
-                    grid.appendChild(cell);
-                }
+            if (insertIndex === -1) {
+                grid.appendChild(cell);
             } else {
-                // Для игр с годом ищем позицию для вставки
-                const insertIndex = cells.findIndex(c => {
-                    const cellGame = games.find(g => g.id.toString() === c.dataset.gameId);
-                    // Игры без года всегда в конце
-                    if (cellGame && cellGame.year === null) return true;
-                    // Сортировка по ID для игр с годом
-                    return parseInt(c.dataset.gameId) > gameId;
-                });
-
-                if (insertIndex === -1) {
-                    grid.appendChild(cell);
-                } else {
-                    grid.insertBefore(cell, cells[insertIndex]);
-                }
-            }
-
-            // Обновляем классы для всех игр без года
-            updateNoYearClasses();
-        }
-
-        // Функция для обновления классов игр без года
-        function updateNoYearClasses() {
-            const cells = Array.from(grid.children);
-            let foundFirstNoYear = false;
-
-            // Сначала удаляем все классы no-year-first
-            cells.forEach(cell => cell.classList.remove('no-year-first'));
-
-            // Затем находим первую игру без года и добавляем ей класс
-            for (const cell of cells) {
-                const gameId = cell.dataset.gameId;
-                const game = games.find(g => g.id.toString() === gameId);
-
-                if (game && game.year === null) {
-                    if (!foundFirstNoYear) {
-                        cell.classList.add('no-year-first');
-                        foundFirstNoYear = true;
-                    }
-                }
-            }
-
-            // То же самое для списка "в процессе"
-            const inProgressCells = Array.from(inProgressRow.children);
-            let foundFirstInProgressNoYear = false;
-
-            inProgressCells.forEach(cell => cell.classList.remove('no-year-first'));
-
-            for (const cell of inProgressCells) {
-                const gameId = cell.dataset.gameId;
-                const game = games.find(g => g.id.toString() === gameId);
-
-                if (game && game.year === null) {
-                    if (!foundFirstInProgressNoYear) {
-                        cell.classList.add('no-year-first');
-                        foundFirstInProgressNoYear = true;
-                    }
-                }
+                grid.insertBefore(cell, cells[insertIndex]);
             }
         }
 
@@ -2147,32 +1994,12 @@
                             game.name.toLowerCase().includes(gameName.toLowerCase())
                         );
                         matchedGames = matchedGames.concat(matches);
-                        if (matchedGames.length >= 100) {
+                        if (matchedGames.length >= 30) {
                             break;
                         }
                     }
 
-                    // Сортируем игры по релевантности (самые подходящие вначале)
-                    matchedGames.sort((a, b) => {
-                        const aNameLower = a.name.toLowerCase();
-                        const bNameLower = b.name.toLowerCase();
-                        const gameNameLower = gameName.toLowerCase();
-
-                        // Точное совпадение имени имеет наивысший приоритет
-                        if (aNameLower === gameNameLower && bNameLower !== gameNameLower) return -1;
-                        if (aNameLower !== gameNameLower && bNameLower === gameNameLower) return 1;
-
-                        // Имя начинается с запроса - второй приоритет
-                        const aStartsWithQuery = aNameLower.startsWith(gameNameLower);
-                        const bStartsWithQuery = bNameLower.startsWith(gameNameLower);
-                        if (aStartsWithQuery && !bStartsWithQuery) return -1;
-                        if (!aStartsWithQuery && bStartsWithQuery) return 1;
-
-                        // Длина имени - более короткие имена имеют приоритет
-                        return a.name.length - b.name.length;
-                    });
-
-                    matchedGames = matchedGames.slice(0, 100);
+                    matchedGames = matchedGames.slice(0, 30);
                     displaySearchResults(matchedGames);
                 } catch (error) {
                     console.error('Ошибка при поиске игры:', error);
@@ -2215,17 +2042,7 @@
         function updateInProgressRow() {
             inProgressRow.innerHTML = '';
             const inProgressGames = games.filter(game => game.inProgress);
-
-            // Сортируем игры так, чтобы игры без года были в конце
-            const sortedGames = [...inProgressGames].sort((a, b) => {
-                // Если у одной игры есть год, а у другой нет, то игра без года идет в конец
-                if (a.year === null && b.year !== null) return 1;
-                if (a.year !== null && b.year === null) return -1;
-                // Если у обеих игр есть год или у обеих нет, сортируем по ID
-                return a.id - b.id;
-            });
-
-            sortedGames.forEach(game => {
+            inProgressGames.forEach(game => {
                 const cell = createCell(game);
                 inProgressRow.appendChild(cell);
             });
@@ -2240,9 +2057,6 @@
             inProgressRow.querySelectorAll('.cell').forEach(cell => {
                 updateCellSize(cell, true);
             });
-
-            // Обновляем классы для игр без года
-            updateNoYearClasses();
         }
 
         function addGameFromSearch(game) {
@@ -2692,7 +2506,6 @@
                 }
             });
             updateInProgressRow();
-            updateNoYearClasses(); // Обновляем классы для игр без года
         }
 
         let currentSearchTerm = '';
@@ -2839,24 +2652,12 @@
         function updateSliderTrack() {
             const minVal = parseInt(yearSliderMin.value);
             const maxVal = parseInt(yearSliderMax.value);
+            const minPos = (minVal - yearSliderMin.min) / (yearSliderMin.max - yearSliderMin.min) * 100;
+            const maxPos = (maxVal - yearSliderMax.min) / (yearSliderMax.max - yearSliderMax.min) * 100;
 
-            // Рассчитываем позиции в процентах
-            const minRange = yearSliderMin.max - yearSliderMin.min;
-            const maxRange = yearSliderMax.max - yearSliderMax.min;
-
-            // Используем более точные вычисления с плавающей точкой
-            const minPos = minRange > 0 ? ((minVal - yearSliderMin.min) / minRange) * 100 : 0;
-            const maxPos = maxRange > 0 ? ((maxVal - yearSliderMax.min) / maxRange) * 100 : 100;
-
-            // Получаем элемент подсветки
             const trackHighlight = document.querySelector('.slider-track-highlight');
-
-            // Устанавливаем позицию и ширину подсветки
-            // Ограничиваем минимальную ширину подсветки до 1%
-            const width = Math.max(maxPos - minPos, 1);
-
             trackHighlight.style.left = `${minPos}%`;
-            trackHighlight.style.width = `${width}%`;
+            trackHighlight.style.width = `${maxPos - minPos}%`;
         }
 
         // Функция для обновления позиции тултипов
@@ -2877,34 +2678,14 @@
         }
 
         function shouldShowGame(game) {
-            // Получаем минимальный и максимальный годы из всех игр с указанным годом
-            const validYears = games.filter(g => g.year !== null && g.year > 0).map(g => g.year);
-            const minGameYear = Math.min(...validYears);
-            const maxGameYear = Math.max(...validYears);
-
+            const minGameYear = Math.min(...games.filter(g => g.year !== null).map(g => g.year));
             const showCompleted = completedFilter.classList.contains('active');
-
-            // Получаем текущие значения ползунков
-            const currentMinYear = parseInt(yearSliderMin.value);
-            const currentMaxYear = parseInt(yearSliderMax.value);
-
-            // Проверяем, установлены ли фильтры по умолчанию (минимальный и максимальный годы)
-            const isDefaultYearFilter = currentMinYear === minGameYear && currentMaxYear === maxGameYear;
-
-            // Проверяем, проходит ли игра фильтр по году
-            // Игры без года (year === null или year <= 0) показываются только если установлены фильтры по умолчанию
-            const passesYearFilter =
-                // Игра без года и фильтры по умолчанию - показываем
-                ((game.year === null || game.year <= 0) && isDefaultYearFilter) ||
-                // Игра с годом и год в диапазоне - показываем
-                (game.year !== null && game.year > 0 && game.year >= currentMinYear && game.year <= currentMaxYear);
-
             return (
                 (!hideCompleted || !game.completed) &&
                 (showCompleted ? game.completed : true) &&
                 (selectedGenres.length === 0 || game.genres.some(genre => selectedGenres.includes(genre))) &&
                 (selectedPlatforms.length === 0 || game.platforms.some(platform => selectedPlatforms.includes(platform))) &&
-                passesYearFilter
+                (game.year === null || (game.year >= Math.max(yearSliderMin.value, minGameYear) && game.year <= yearSliderMax.value))
             );
         }
 
@@ -2927,9 +2708,6 @@
                      if(game) hiddenGames.push(game); // Keep track of hidden games
                 }
             });
-
-            // Обновляем классы для игр без года
-            updateNoYearClasses();
 
             // Now handle search term specifically
             if (searchTerm !== '') {
@@ -3380,7 +3158,6 @@
             }
         });
         updateInProgressRow();
-        updateNoYearClasses(); // Обновляем классы для игр без года
 
         updateCounter();
 
@@ -3694,9 +3471,6 @@
             }
             if (game.isCustom) {
                 cell.classList.add('custom-game');
-            }
-            if (game.year === null) {
-                cell.classList.add('no-year');
             }
 
             let img;
@@ -4053,10 +3827,8 @@
         });
 
         document.addEventListener('click', (event) => {
-            if (event.target.id === 'importFromApiButton') {
-                importFromIGDB(100);
-            } else if (event.target.id === 'importFromApiModalButton') {
-                importFromIGDB(100);
+            if (event.target.id === 'importFromApiButton' || event.target.id === 'importFromApiModalButton') {
+                importFromIGDB();
             }
         });
 
