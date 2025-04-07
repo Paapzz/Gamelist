@@ -129,14 +129,26 @@
             background-color: #4CAF50;
             margin-right: 0; /* Убираем правый отступ у кнопки Фильтры */
         }
-        /* Стили для кнопки очистки удалены, так как используется иконка внутри поля ввода */
+        #clearSearchButton {
+            background-color: #f44336;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            margin-left: 5px;
+            font-size: 18px;
+            /* line-height: 24px; */ /* Убрано, т.к. есть flexbox */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold; /* Добавлено */
+        }
         #randomButton {
             background-color: #2a2a2a;
         }
         #addGameButton {
             background-color: #2196F3;
         }
-        #togglePreview:hover, #resetButton:hover, #filtersButton:hover, #resetFiltersButton:hover, #randomButton:hover, #importFromApiButton:hover, #addGameButton:hover {
+        #togglePreview:hover, #resetButton:hover, #filtersButton:hover, #clearSearchButton:hover, #resetFiltersButton:hover, #randomButton:hover, #importFromApiButton:hover, #addGameButton:hover {
             transform: scale(1.05);
             filter: brightness(1.1);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
@@ -151,7 +163,7 @@
             background-color: #FFA726;
             box-shadow: inset 0 2px 5px rgba(0,0,0,0.3), 0 0 0 2px rgba(255, 152, 0, 0.3);
         }
-        #togglePreview:active, #resetButton:active, #filtersButton:active, #resetFiltersButton:active, #randomButton:active, #importFromApiButton:active, #addGameButton:active {
+        #togglePreview:active, #resetButton:active, #filtersButton:active, #clearSearchButton:active, #resetFiltersButton:active, #randomButton:active, #importFromApiButton:active, #addGameButton:active {
             transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
@@ -245,28 +257,24 @@
             background-color: #2196F3;
             border: none;
             color: white;
-            padding: 5px 15px;
+            padding: 5px 10px;
             text-align: center;
             text-decoration: none;
             display: inline-block;
             font-size: 14px;
-            margin: 0 auto;
+            margin: 0 5px;
             cursor: pointer;
             transition: all 0.3s ease;
             border-radius: 5px;
             font-weight: bold;
             text-transform: uppercase;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            /* Add transition */
+             /* Add transition */
             transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, opacity 0.3s ease;
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 120px;
         }
         /* Remove old hover */
         #searchGameButton:active {
-            transform: translateX(-50%);
+            transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         #deleteAllCustomGamesButton, #deleteAllApiGamesButton {
@@ -544,34 +552,8 @@
         }
         #searchInput {
             margin-left: 10px;
-            padding: 3px 25px 3px 5px;
+            padding: 3px;
             font-size: 14px;
-            width: 150px;
-        }
-
-        .search-input-container {
-            position: relative;
-            display: inline-block;
-        }
-
-        .search-clear-icon {
-            position: absolute;
-            right: 5px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #f44336;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            display: none;
-            width: 18px;
-            height: 18px;
-            line-height: 18px;
-            text-align: center;
-        }
-
-        .search-clear-icon:hover {
-            color: #d32f2f;
         }
         #filtersPanel {
             position: fixed;
@@ -1194,12 +1176,12 @@
         #resetFiltersButtonHeader { /* Явный стиль для кнопки сброса фильтров */
              margin-left: 5px; /* Гарантируем отступ здесь */
         }
-        #resetFiltersButtonHeader {
+        #clearSearchButton, #resetFiltersButtonHeader {
             background-color: #f44336;
             color: white;
         }
         /* Remove old hover */
-        #resetFiltersButtonHeader:active {
+        #clearSearchButton:active, #resetFiltersButtonHeader:active {
             transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
@@ -1515,6 +1497,52 @@
             display: block;
             margin-top: 10px;
         }
+
+        .search-input-wrapper {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .clear-input-button {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: #f44336;
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            display: none;
+        }
+
+        .clear-input-button:hover {
+            background-color: #d32f2f;
+        }
+
+        #performSearchButton {
+            display: block;
+            width: 60%;
+            margin: 0 auto 15px;
+            padding: 10px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #performSearchButton:hover {
+            background-color: #1976D2;
+        }
         #searchResults {
             margin-top: 10px;
             max-height: 300px;
@@ -1743,7 +1771,7 @@
          /* Убрано для кнопки Список игр */
          #searchGameButton:hover { opacity: 0.9; }
          #deleteAllApiGamesButton:hover { opacity: 0.9; }
-         #resetFiltersButtonHeader:hover { opacity: 0.9; }
+         #clearSearchButton:hover, #resetFiltersButtonHeader:hover { opacity: 0.9; }
          #addGameForm button:hover, #cancelAddGame:hover { opacity: 0.9; }
 
     </style>
@@ -1757,10 +1785,8 @@
         </div>
         <div id="leftGroup">
             <button id="togglePreview">Превью</button>
-            <div class="search-input-container">
-                <input type="text" id="searchInput" placeholder="Поиск игры...">
-                <span id="clearSearchIcon" class="search-clear-icon">×</span>
-            </div>
+            <input type="text" id="searchInput" placeholder="Поиск игры...">
+            <button id="clearSearchButton">×</button>
             <button id="filtersButton">Фильтры</button>
             <button id="resetFiltersButtonHeader" class="square-button">×</button>
         </div>
@@ -1850,7 +1876,10 @@
                     <button type="button" id="searchGameModalButton">Добавить 10 игр</button>
                 </div>
                 <div id="searchInputContainer" style="display: none;">
-                    <input type="text" id="searchGameInput" placeholder="Введите название игры">
+                    <div class="search-input-wrapper">
+                        <input type="text" id="searchGameInput" placeholder="Введите название игры">
+                        <button type="button" id="clearSearchInputButton" class="clear-input-button">×</button>
+                    </div>
                     <button type="button" id="performSearchButton">Поиск</button>
                     <button id="closeSearchResults" type="button">Очистить</button>
                 </div>
@@ -1892,7 +1921,7 @@
         const gameTitle = document.getElementById('gameTitle');
         const progressBarCover = document.getElementById('progressBarCover');
         const searchInput = document.getElementById('searchInput');
-        const clearSearchIcon = document.getElementById('clearSearchIcon');
+        const clearSearchButton = document.getElementById('clearSearchButton');
         const filtersButton = document.getElementById('filtersButton');
         const filtersPanel = document.getElementById('filtersPanel');
         const yearSliderMin = document.getElementById('yearSliderMin');
@@ -1912,7 +1941,6 @@
         const performSearchButton = document.getElementById('performSearchButton');
         const searchResults = document.getElementById('searchResults');
         let authorCreditTimeout;
-        let messageTimeout;
         let completedGames = 0;
         let games = [];
         let previewTimeout;
@@ -2206,40 +2234,43 @@
         }
 
         async function searchGameFromApi() {
-            showLoadingMessage();
             const gameName = searchGameInput.value.trim();
-            if (gameName) {
-                try {
-                    const indexResponse = await fetch('data/index.json');
-                    if (!indexResponse.ok) {
-                        throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                    }
-                    const index = await indexResponse.json();
+            if (!gameName) {
+                showMessage('Введите название');
+                return;
+            }
 
-                    let matchedGames = [];
-                    for (let i = 1; i <= index.total_files; i++) {
-                        const response = await fetch(`data/games_${i}.json`);
-                        if (!response.ok) {
-                            throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                        }
-                        const fileGames = await response.json();
-                        const matches = fileGames.filter(game =>
-                            game.name.toLowerCase().includes(gameName.toLowerCase())
-                        );
-                        matchedGames = matchedGames.concat(matches);
-                        if (matchedGames.length >= 30) {
-                            break;
-                        }
-                    }
-
-                    matchedGames = matchedGames.slice(0, 30);
-                    displaySearchResults(matchedGames);
-                } catch (error) {
-                    console.error('Ошибка при поиске игры:', error);
-                    searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
-                } finally {
-                    hideLoadingMessage();
+            showLoadingMessage();
+            try {
+                const indexResponse = await fetch('data/index.json');
+                if (!indexResponse.ok) {
+                    throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
                 }
+                const index = await indexResponse.json();
+
+                let matchedGames = [];
+                for (let i = 1; i <= index.total_files; i++) {
+                    const response = await fetch(`data/games_${i}.json`);
+                    if (!response.ok) {
+                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                    }
+                    const fileGames = await response.json();
+                    const matches = fileGames.filter(game =>
+                        game.name.toLowerCase().includes(gameName.toLowerCase())
+                    );
+                    matchedGames = matchedGames.concat(matches);
+                    if (matchedGames.length >= 30) {
+                        break;
+                    }
+                }
+
+                matchedGames = matchedGames.slice(0, 30);
+                displaySearchResults(matchedGames);
+            } catch (error) {
+                console.error('Ошибка при поиске игры:', error);
+                searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
+            } finally {
+                hideLoadingMessage();
             }
         }
 
@@ -3465,24 +3496,14 @@
             hideRandomSelection();
         });
 
-        searchInput.addEventListener('input', function() {
-            handleSearch();
-            // Показываем или скрываем иконку очистки в зависимости от содержимого поля ввода
-            if (searchInput.value.trim() !== '') {
-                clearSearchIcon.style.display = 'block';
-            } else {
-                clearSearchIcon.style.display = 'none';
-            }
-        });
-
+        searchInput.addEventListener('input', handleSearch);
         searchInput.addEventListener('blur', () => {
             if (searchInput.value.trim() === '') {
                 currentSearchTerm = '';
                 applyFilters();
             }
         });
-
-        clearSearchIcon.addEventListener('click', clearSearch);
+        clearSearchButton.addEventListener('click', clearSearch);
         filtersButton.addEventListener('click', (event) => {
             event.stopPropagation();
 
@@ -4397,12 +4418,33 @@
             }
 
             const searchGameInput = document.getElementById('searchGameInput');
+            const clearSearchInputButton = document.getElementById('clearSearchInputButton');
+
             if (searchGameInput) {
+                // Обработчик нажатия Enter
                 searchGameInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
                         searchGameFromApi();
                     }
+                });
+
+                // Обработчик ввода текста для отображения/скрытия кнопки очистки
+                searchGameInput.addEventListener('input', () => {
+                    if (searchGameInput.value.trim() !== '') {
+                        clearSearchInputButton.style.display = 'flex';
+                    } else {
+                        clearSearchInputButton.style.display = 'none';
+                    }
+                });
+            }
+
+            // Обработчик для кнопки очистки поля ввода
+            if (clearSearchInputButton) {
+                clearSearchInputButton.addEventListener('click', () => {
+                    searchGameInput.value = '';
+                    clearSearchInputButton.style.display = 'none';
+                    searchGameInput.focus();
                 });
             }
 
@@ -4415,13 +4457,6 @@
             }
 
             const searchGameButton = document.getElementById('searchGameButton');
-            searchGameButton.addEventListener('click', function() {
-                if (searchInput.value.trim() === '') {
-                    showMessage('Введите название');
-                    return;
-                }
-                handleSearch();
-            });
 
             const searchInputContainer = document.getElementById('searchInputContainer');
             if (searchInputContainer) {
