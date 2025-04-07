@@ -1982,7 +1982,7 @@
             return [...gamesArray].sort((a, b) => a.id - b.id);
         }
 
-        function renderGames() {
+        function renderGames(forceIdSort = false) {
             grid.innerHTML = '';
             inProgressRow.innerHTML = '';
             let renderedCells = 0;
@@ -2001,7 +2001,7 @@
             // Сортируем игры перед отображением
             let sortedGames;
 
-            if (isYearFilterActive) {
+            if (isYearFilterActive && !forceIdSort) {
                 // Если фильтр по годам активен, сортируем по году (игры без года в конец)
                 sortedGames = [...games].sort((a, b) => {
                     // Если обе игры имеют год, сортируем по возрастанию
@@ -2020,7 +2020,7 @@
                     return a.id - b.id;
                 });
             } else {
-                // Если фильтр по годам не активен, сортируем по ID
+                // Если фильтр по годам не активен или указан параметр forceIdSort, сортируем по ID
                 sortedGames = [...games].sort((a, b) => a.id - b.id);
             }
 
@@ -2848,7 +2848,7 @@
             );
         }
 
-        function applyFilters() {
+        function applyFilters(forceIdSort = false) {
             const searchTerm = currentSearchTerm.toLowerCase();
             let visibleGames = 0;
             let hiddenGames = [];
@@ -2866,8 +2866,8 @@
             // Фильтр считается активным, если пользователь изменил ползунки
             const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
 
-            // Если фильтр по годам активен, пересортируем игры в сетке
-            if (isYearFilterActive) {
+            // Если фильтр по годам активен и не указан параметр forceIdSort, пересортируем игры в сетке
+            if (isYearFilterActive && !forceIdSort) {
                 // Собираем все игры, которые не в режиме "in progress"
                 const gridCells = Array.from(grid.children);
                 const gridGames = [];
@@ -3403,7 +3403,7 @@
 
         window.addEventListener('resize', () => { // Обновляем обработчик resize
             updateInProgressRow();
-            applyFilters(); // Применяем фильтры после обновления ряда
+            applyFilters(true); // Применяем фильтры после обновления ряда, принудительно сортируя по ID
 
             // Устанавливаем высоту списков в зависимости от размера экрана
             if (typeof setListsHeight === 'function') {
@@ -3440,7 +3440,7 @@
             setTimeout(() => {
                 updateGridSize(); // Может вызвать updateInProgressRow
                 updateInProgressRow(); // Убедимся, что ряд обновлен
-                applyFilters(); // Применяем фильтры повторно после возможных перерисовок
+                applyFilters(true); // Применяем фильтры повторно после возможных перерисовок, принудительно сортируя по ID
             }, 100);
         });
 
@@ -4229,7 +4229,7 @@
             console.log('DOM полностью загружен');
             initializeImportButton();
             loadSavedGames();
-            renderGames();
+            renderGames(true); // Принудительно сортируем по ID при загрузке страницы
             updateCounter();
             populateFilters();
             updateInProgressRow(); // Сначала размещаем ячейки по рядам
@@ -4248,7 +4248,7 @@
             // hideCompletedButton.classList.toggle('active', hideCompleted);
 
 
-            applyFilters(); // Применяем фильтры после всей инициализации и расстановки ячеек
+            applyFilters(true); // Применяем фильтры после всей инициализации и расстановки ячеек, принудительно сортируя по ID
 
             const addGameButton = document.getElementById('addGameButton');
             const addGameModal = document.getElementById('addGameModal');
