@@ -1284,7 +1284,7 @@
             top: 0;
             height: 100%;
             width: 2px;
-            background-color: #777;
+            background-color: #999; /* Более серый цвет */
             z-index: 1;
         }
 
@@ -1296,7 +1296,7 @@
             top: 0;
             height: 100%;
             width: 2px;
-            background-color: #777;
+            background-color: #999; /* Более серый цвет */
             z-index: 1;
         }
         .message-overlay {
@@ -1516,7 +1516,7 @@
             margin-top: 10px;
             max-height: 300px;
             overflow-y: auto;
-            padding-right: 15px; /* Расширяем зону списка, чтобы полоса прокрутки была правее */
+            padding-right: 20px; /* Увеличиваем отступ справа, чтобы полоса прокрутки была еще правее */
             scrollbar-width: thin; /* Для Firefox */
             scrollbar-color: #4CAF50 rgba(0,0,0,0.2); /* Для Firefox: цвет ползунка и фона */
         }
@@ -1795,7 +1795,7 @@
             <h2>Добавить игры</h2>
             <form id="addGameForm">
                 <div id="buttonContainer">
-                    <button type="button" id="importFromApiModalButton">Добавить 10 игр</button>
+                    <button type="button" id="importFromApiModalButton">Добавить 100 игр</button>
                     <button type="button" id="searchGameModalButton">Добавить 10 игр</button>
                 </div>
                 <div id="searchInputContainer" style="display: none;">
@@ -2139,12 +2139,32 @@
                             game.name.toLowerCase().includes(gameName.toLowerCase())
                         );
                         matchedGames = matchedGames.concat(matches);
-                        if (matchedGames.length >= 30) {
+                        if (matchedGames.length >= 100) {
                             break;
                         }
                     }
 
-                    matchedGames = matchedGames.slice(0, 30);
+                    // Сортируем игры по релевантности (самые подходящие вначале)
+                    matchedGames.sort((a, b) => {
+                        const aNameLower = a.name.toLowerCase();
+                        const bNameLower = b.name.toLowerCase();
+                        const gameNameLower = gameName.toLowerCase();
+
+                        // Точное совпадение имени имеет наивысший приоритет
+                        if (aNameLower === gameNameLower && bNameLower !== gameNameLower) return -1;
+                        if (aNameLower !== gameNameLower && bNameLower === gameNameLower) return 1;
+
+                        // Имя начинается с запроса - второй приоритет
+                        const aStartsWithQuery = aNameLower.startsWith(gameNameLower);
+                        const bStartsWithQuery = bNameLower.startsWith(gameNameLower);
+                        if (aStartsWithQuery && !bStartsWithQuery) return -1;
+                        if (!aStartsWithQuery && bStartsWithQuery) return 1;
+
+                        // Длина имени - более короткие имена имеют приоритет
+                        return a.name.length - b.name.length;
+                    });
+
+                    matchedGames = matchedGames.slice(0, 100);
                     displaySearchResults(matchedGames);
                 } catch (error) {
                     console.error('Ошибка при поиске игры:', error);
@@ -2839,12 +2859,17 @@
         function shouldShowGame(game) {
             const minGameYear = Math.min(...games.filter(g => g.year !== null).map(g => g.year));
             const showCompleted = completedFilter.classList.contains('active');
+
+            // Проверяем, активна ли фильтрация по годам
+            const isYearFilterActive = parseInt(yearSliderMin.value) > minGameYear || parseInt(yearSliderMax.value) < Math.max(...games.filter(g => g.year !== null).map(g => g.year));
+
             return (
                 (!hideCompleted || !game.completed) &&
                 (showCompleted ? game.completed : true) &&
                 (selectedGenres.length === 0 || game.genres.some(genre => selectedGenres.includes(genre))) &&
                 (selectedPlatforms.length === 0 || game.platforms.some(platform => selectedPlatforms.includes(platform))) &&
-                (game.year === null || (game.year >= Math.max(yearSliderMin.value, minGameYear) && game.year <= yearSliderMax.value))
+                // Если фильтрация по годам не активна, показываем все игры, включая без года
+                (!isYearFilterActive || game.year === null || (game.year >= Math.max(yearSliderMin.value, minGameYear) && game.year <= yearSliderMax.value))
             );
         }
 
@@ -3996,7 +4021,7 @@
             if (event.target.id === 'importFromApiButton') {
                 importFromIGDB(100);
             } else if (event.target.id === 'importFromApiModalButton') {
-                importFromIGDB(10);
+                importFromIGDB(100);
             }
         });
 
@@ -4131,7 +4156,7 @@
             }
 
             if (importModalButton) {
-                importModalButton.addEventListener('click', () => importFromIGDB(10));
+                importModalButton.addEventListener('click', () => importFromIGDB(100));
             } else {
                 console.error('Кнопка импорта в модальном окне не найдена');
             }
