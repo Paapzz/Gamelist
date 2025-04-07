@@ -1267,13 +1267,37 @@
 
         /* Стиль для игр без года */
         .cell.no-year {
-            border-left: 2px solid #777;
+            position: relative;
         }
 
         /* Первая игра без года в списке */
         .cell.no-year-first {
-            border-left: 2px solid #777;
-            margin-left: 5px; /* Небольшой отступ слева */
+            position: relative;
+            margin-left: 2px; /* Уменьшенный отступ слева */
+        }
+
+        /* Вертикальная полоса перед первой игрой без года */
+        .cell.no-year-first::before {
+            content: '';
+            position: absolute;
+            left: -3px; /* Располагаем полосу по середине между карточками */
+            top: 0;
+            height: 100%;
+            width: 2px;
+            background-color: #777;
+            z-index: 1;
+        }
+
+        /* Вертикальная полоса в списке "в процессе" */
+        #inProgressRow .cell.no-year-first::before {
+            content: '';
+            position: absolute;
+            left: -3px;
+            top: 0;
+            height: 100%;
+            width: 2px;
+            background-color: #777;
+            z-index: 1;
         }
         .message-overlay {
             position: fixed;
@@ -1492,6 +1516,27 @@
             margin-top: 10px;
             max-height: 300px;
             overflow-y: auto;
+            padding-right: 15px; /* Расширяем зону списка, чтобы полоса прокрутки была правее */
+            scrollbar-width: thin; /* Для Firefox */
+            scrollbar-color: #4CAF50 rgba(0,0,0,0.2); /* Для Firefox: цвет ползунка и фона */
+        }
+
+        #searchResults::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #searchResults::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+            border-radius: 3px;
+        }
+
+        #searchResults::-webkit-scrollbar-thumb {
+            background-color: #4CAF50; /* Зеленый цвет для ползунка */
+            border-radius: 3px;
+        }
+
+        #searchResults::-webkit-scrollbar-thumb:hover {
+            background-color: #45a049; /* Более темный зеленый при наведении */
         }
         .search-result {
             display: flex;
@@ -1750,7 +1795,7 @@
             <h2>Добавить игры</h2>
             <form id="addGameForm">
                 <div id="buttonContainer">
-                    <button type="button" id="importFromApiModalButton">Добавить 100 игр</button>
+                    <button type="button" id="importFromApiModalButton">Добавить 10 игр</button>
                     <button type="button" id="searchGameModalButton">Добавить 10 игр</button>
                 </div>
                 <div id="searchInputContainer" style="display: none;">
@@ -3948,8 +3993,10 @@
         });
 
         document.addEventListener('click', (event) => {
-            if (event.target.id === 'importFromApiButton' || event.target.id === 'importFromApiModalButton') {
-                importFromIGDB();
+            if (event.target.id === 'importFromApiButton') {
+                importFromIGDB(100);
+            } else if (event.target.id === 'importFromApiModalButton') {
+                importFromIGDB(10);
             }
         });
 
@@ -4084,7 +4131,7 @@
             }
 
             if (importModalButton) {
-                importModalButton.addEventListener('click', () => importFromIGDB(100));
+                importModalButton.addEventListener('click', () => importFromIGDB(10));
             } else {
                 console.error('Кнопка импорта в модальном окне не найдена');
             }
