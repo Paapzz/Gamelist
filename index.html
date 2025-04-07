@@ -129,26 +129,14 @@
             background-color: #4CAF50;
             margin-right: 0; /* Убираем правый отступ у кнопки Фильтры */
         }
-        #clearSearchButton {
-            background-color: #f44336;
-            width: 24px;
-            height: 24px;
-            padding: 0;
-            margin-left: 5px;
-            font-size: 18px;
-            /* line-height: 24px; */ /* Убрано, т.к. есть flexbox */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold; /* Добавлено */
-        }
+        /* Стили для кнопки очистки удалены, так как используется иконка внутри поля ввода */
         #randomButton {
             background-color: #2a2a2a;
         }
         #addGameButton {
             background-color: #2196F3;
         }
-        #togglePreview:hover, #resetButton:hover, #filtersButton:hover, #clearSearchButton:hover, #resetFiltersButton:hover, #randomButton:hover, #importFromApiButton:hover, #addGameButton:hover {
+        #togglePreview:hover, #resetButton:hover, #filtersButton:hover, #resetFiltersButton:hover, #randomButton:hover, #importFromApiButton:hover, #addGameButton:hover {
             transform: scale(1.05);
             filter: brightness(1.1);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
@@ -163,7 +151,7 @@
             background-color: #FFA726;
             box-shadow: inset 0 2px 5px rgba(0,0,0,0.3), 0 0 0 2px rgba(255, 152, 0, 0.3);
         }
-        #togglePreview:active, #resetButton:active, #filtersButton:active, #clearSearchButton:active, #resetFiltersButton:active, #randomButton:active, #importFromApiButton:active, #addGameButton:active {
+        #togglePreview:active, #resetButton:active, #filtersButton:active, #resetFiltersButton:active, #randomButton:active, #importFromApiButton:active, #addGameButton:active {
             transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
@@ -257,24 +245,28 @@
             background-color: #2196F3;
             border: none;
             color: white;
-            padding: 5px 10px;
+            padding: 5px 15px;
             text-align: center;
             text-decoration: none;
             display: inline-block;
             font-size: 14px;
-            margin: 0 5px;
+            margin: 0 auto;
             cursor: pointer;
             transition: all 0.3s ease;
             border-radius: 5px;
             font-weight: bold;
             text-transform: uppercase;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-             /* Add transition */
+            /* Add transition */
             transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, opacity 0.3s ease;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
         }
         /* Remove old hover */
         #searchGameButton:active {
-            transform: translateY(0);
+            transform: translateX(-50%);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         #deleteAllCustomGamesButton, #deleteAllApiGamesButton {
@@ -552,8 +544,34 @@
         }
         #searchInput {
             margin-left: 10px;
-            padding: 3px;
+            padding: 3px 25px 3px 5px;
             font-size: 14px;
+            width: 150px;
+        }
+
+        .search-input-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .search-clear-icon {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #f44336;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            width: 18px;
+            height: 18px;
+            line-height: 18px;
+            text-align: center;
+        }
+
+        .search-clear-icon:hover {
+            color: #d32f2f;
         }
         #filtersPanel {
             position: fixed;
@@ -1176,12 +1194,12 @@
         #resetFiltersButtonHeader { /* Явный стиль для кнопки сброса фильтров */
              margin-left: 5px; /* Гарантируем отступ здесь */
         }
-        #clearSearchButton, #resetFiltersButtonHeader {
+        #resetFiltersButtonHeader {
             background-color: #f44336;
             color: white;
         }
         /* Remove old hover */
-        #clearSearchButton:active, #resetFiltersButtonHeader:active {
+        #resetFiltersButtonHeader:active {
             transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
@@ -1297,7 +1315,28 @@
             z-index: 9998;
             pointer-events: none;
         }
-
+        #closeSearchResults {
+            background-color: #f44336 !important;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin-left: 300px;
+            cursor: pointer;
+            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
+            border-radius: 5px;
+            display: none;
+            flex-shrink: 0;
+        }
+        #closeSearchResults:hover { /* Keep background hover */
+            background-color: #d32f2f;
+        }
+        #closeSearchResults:active {
+            background-color: #b71c1c;
+        }
         #addGameForm {
             display: flex;
             flex-direction: column;
@@ -1475,64 +1514,6 @@
         #searchInputContainer {
             display: block;
             margin-top: 10px;
-        }
-
-        /* Стили для обертки поля ввода с крестиком */
-        .search-input-wrapper {
-            position: relative;
-            width: 100%;
-            margin-bottom: 15px;
-        }
-
-        #searchGameInput {
-            width: 100%;
-            padding: 10px 35px 10px 10px; /* Добавляем отступ справа для крестика */
-            box-sizing: border-box;
-            border: 1px solid #555;
-            border-radius: 5px;
-            background-color: #3a3a3a;
-            color: white;
-            font-size: 16px;
-        }
-
-        .clear-input-icon {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #aaa;
-            font-size: 20px;
-            cursor: pointer;
-            display: none; /* Скрыт по умолчанию */
-            transition: color 0.2s ease;
-        }
-
-        .clear-input-icon:hover {
-            color: #fff;
-        }
-
-        /* Стили для контейнера кнопки поиска */
-        .search-button-container {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 15px;
-        }
-
-        #performSearchButton {
-            width: 60%; /* Увеличиваем ширину кнопки */
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s ease, transform 0.2s ease;
-        }
-
-        #performSearchButton:hover {
-            background-color: #3d8b40;
-            transform: scale(1.05);
         }
         #searchResults {
             margin-top: 10px;
@@ -1756,13 +1737,13 @@
          #hideCompletedButton:hover:not(.active) { background-color: #1976D2; }
          .custom-game-item .delete-game:hover { background-color: #d32f2f; }
          .input-with-button button:hover { background-color: #1976D2; }
-
+         #closeSearchResults:hover { background-color: #d32f2f; }
          .close:hover { color: #fff; }
          #dontWantButton:hover, #wantToPlayButton:hover, #anotherRandomButton:hover { opacity: 0.9; }
          /* Убрано для кнопки Список игр */
          #searchGameButton:hover { opacity: 0.9; }
          #deleteAllApiGamesButton:hover { opacity: 0.9; }
-         #clearSearchButton:hover, #resetFiltersButtonHeader:hover { opacity: 0.9; }
+         #resetFiltersButtonHeader:hover { opacity: 0.9; }
          #addGameForm button:hover, #cancelAddGame:hover { opacity: 0.9; }
 
     </style>
@@ -1776,8 +1757,10 @@
         </div>
         <div id="leftGroup">
             <button id="togglePreview">Превью</button>
-            <input type="text" id="searchInput" placeholder="Поиск игры...">
-            <button id="clearSearchButton">×</button>
+            <div class="search-input-container">
+                <input type="text" id="searchInput" placeholder="Поиск игры...">
+                <span id="clearSearchIcon" class="search-clear-icon">×</span>
+            </div>
             <button id="filtersButton">Фильтры</button>
             <button id="resetFiltersButtonHeader" class="square-button">×</button>
         </div>
@@ -1867,13 +1850,9 @@
                     <button type="button" id="searchGameModalButton">Добавить 10 игр</button>
                 </div>
                 <div id="searchInputContainer" style="display: none;">
-                    <div class="search-input-wrapper">
-                        <input type="text" id="searchGameInput" placeholder="Введите название игры">
-                        <span id="clearSearchInput" class="clear-input-icon">&times;</span>
-                    </div>
-                    <div class="search-button-container">
-                        <button type="button" id="performSearchButton">Поиск</button>
-                    </div>
+                    <input type="text" id="searchGameInput" placeholder="Введите название игры">
+                    <button type="button" id="performSearchButton">Поиск</button>
+                    <button id="closeSearchResults" type="button">Очистить</button>
                 </div>
                 <div id="searchResults"></div>
             </form>
@@ -1913,7 +1892,7 @@
         const gameTitle = document.getElementById('gameTitle');
         const progressBarCover = document.getElementById('progressBarCover');
         const searchInput = document.getElementById('searchInput');
-        const clearSearchButton = document.getElementById('clearSearchButton');
+        const clearSearchIcon = document.getElementById('clearSearchIcon');
         const filtersButton = document.getElementById('filtersButton');
         const filtersPanel = document.getElementById('filtersPanel');
         const yearSliderMin = document.getElementById('yearSliderMin');
@@ -1933,6 +1912,7 @@
         const performSearchButton = document.getElementById('performSearchButton');
         const searchResults = document.getElementById('searchResults');
         let authorCreditTimeout;
+        let messageTimeout;
         let completedGames = 0;
         let games = [];
         let previewTimeout;
@@ -2226,16 +2206,8 @@
         }
 
         async function searchGameFromApi() {
-            const gameName = searchGameInput.value.trim();
-
-            // Проверяем, что поле ввода не пустое
-            if (!gameName) {
-                showMessage('Введите название игры');
-                return;
-            }
-
             showLoadingMessage();
-
+            const gameName = searchGameInput.value.trim();
             if (gameName) {
                 try {
                     const indexResponse = await fetch('data/index.json');
@@ -3493,14 +3465,24 @@
             hideRandomSelection();
         });
 
-        searchInput.addEventListener('input', handleSearch);
+        searchInput.addEventListener('input', function() {
+            handleSearch();
+            // Показываем или скрываем иконку очистки в зависимости от содержимого поля ввода
+            if (searchInput.value.trim() !== '') {
+                clearSearchIcon.style.display = 'block';
+            } else {
+                clearSearchIcon.style.display = 'none';
+            }
+        });
+
         searchInput.addEventListener('blur', () => {
             if (searchInput.value.trim() === '') {
                 currentSearchTerm = '';
                 applyFilters();
             }
         });
-        clearSearchButton.addEventListener('click', clearSearch);
+
+        clearSearchIcon.addEventListener('click', clearSearch);
         filtersButton.addEventListener('click', (event) => {
             event.stopPropagation();
 
@@ -4367,28 +4349,11 @@
         function clearSearchResults() {
             const searchResults = document.getElementById('searchResults');
             const searchGameInput = document.getElementById('searchGameInput');
-            const clearSearchInput = document.getElementById('clearSearchInput');
-
             if (searchResults) {
                 searchResults.innerHTML = '';
             }
             if (searchGameInput) {
                 searchGameInput.value = '';
-                // Скрываем крестик при очистке поля
-                if (clearSearchInput) {
-                    clearSearchInput.style.display = 'none';
-                }
-            }
-        }
-
-        // Функция для обработки ввода в поле поиска
-        function handleSearchInputChange() {
-            const searchGameInput = document.getElementById('searchGameInput');
-            const clearSearchInput = document.getElementById('clearSearchInput');
-
-            if (searchGameInput && clearSearchInput) {
-                // Показываем или скрываем крестик в зависимости от наличия текста в поле
-                clearSearchInput.style.display = searchGameInput.value.trim() ? 'block' : 'none';
             }
         }
 
@@ -4432,24 +4397,13 @@
             }
 
             const searchGameInput = document.getElementById('searchGameInput');
-            const clearSearchInput = document.getElementById('clearSearchInput');
-
             if (searchGameInput) {
-                // Обработчик нажатия Enter
                 searchGameInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
                         searchGameFromApi();
                     }
                 });
-
-                // Обработчик изменения текста в поле
-                searchGameInput.addEventListener('input', handleSearchInputChange);
-            }
-
-            if (clearSearchInput) {
-                // Обработчик клика по крестику
-                clearSearchInput.addEventListener('click', clearSearchResults);
             }
 
             if (addGameButton) {
@@ -4461,6 +4415,13 @@
             }
 
             const searchGameButton = document.getElementById('searchGameButton');
+            searchGameButton.addEventListener('click', function() {
+                if (searchInput.value.trim() === '') {
+                    showMessage('Введите название');
+                    return;
+                }
+                handleSearch();
+            });
 
             const searchInputContainer = document.getElementById('searchInputContainer');
             if (searchInputContainer) {
