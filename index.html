@@ -1248,6 +1248,26 @@
             max-height: 300px;
             overflow-y: auto;
             margin-top: 10px;
+            scrollbar-width: thin; /* Для Firefox */
+            scrollbar-color: #4CAF50 rgba(0,0,0,0.2); /* Для Firefox: цвет ползунка и фона */
+        }
+
+        #searchResults::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #searchResults::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+            border-radius: 3px;
+        }
+
+        #searchResults::-webkit-scrollbar-thumb {
+            background-color: #4CAF50; /* Зеленый цвет для ползунка */
+            border-radius: 3px;
+        }
+
+        #searchResults::-webkit-scrollbar-thumb:hover {
+            background-color: #3d8b40; /* Более темный зеленый при наведении */
         }
         .search-result {
             display: flex;
@@ -1487,6 +1507,15 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 5px;
+            padding: 6px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+
+        /* Добавляем легкое и минималистичное выделение всей строки при наведении */
+        .search-result:hover {
+            background-color: rgba(76, 175, 80, 0.1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         .add-game-button {
             background-color: #4CAF50;
@@ -1495,6 +1524,9 @@
             padding: 5px 10px;
             cursor: pointer;
             transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
+            /* Уменьшаем кнопку на 5% */
+            transform: scale(0.95);
+            border-radius: 4px;
         }
         #optionsList {
             max-height: 300px;
@@ -1616,8 +1648,7 @@
         /* Place this rule towards the end to help override specifics */
         button:hover,
         .close:hover,
-        .delete-game:hover,
-        .add-game-button:hover
+        .delete-game:hover
         {
             /* Exclude buttons with specific active/disabled states or unique hovers */
             &:not(.active):not(.disabled):not(#randomButton):not(.button-disabled) {
@@ -1625,6 +1656,13 @@
                  filter: brightness(1.1);
                  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             }
+        }
+
+        /* Отдельный стиль для кнопки "Добавить", чтобы учесть уменьшенный размер */
+        .add-game-button:hover {
+            transform: scale(1.0); /* Возвращаем к нормальному размеру при наведении */
+            filter: brightness(1.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         /* Keep specific background/color/opacity hovers if needed */
          #completedFilter:hover:not(.active) { background-color: #16831b; }
