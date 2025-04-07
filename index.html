@@ -1720,13 +1720,12 @@
         /* Keep specific background/color/opacity hovers if needed */
          #completedFilter:hover:not(.active) { background-color: #16831b; }
          #resetFiltersButton:hover { background-color: #b92f2f; }
-         #hideCompletedButton:hover:not(.active) { background-color: #1976D2; }
+         #hideCompletedButton:hover:not(.active) { background-color: #1565b6; }
          .custom-game-item .delete-game:hover { background-color: #d32f2f; }
          .input-with-button button:hover { background-color: #1976D2; }
          #closeSearchResults:hover { background-color: #d32f2f; }
          .close:hover { color: #fff; }
          #dontWantButton:hover, #wantToPlayButton:hover, #anotherRandomButton:hover { opacity: 0.9; }
-         /* Убрано для кнопки Список игр */
          #searchGameButton:hover { opacity: 0.9; }
          #deleteAllApiGamesButton:hover { opacity: 0.9; }
          #clearSearchButton:hover, #resetFiltersButtonHeader:hover { opacity: 0.9; }
@@ -2050,22 +2049,17 @@
             // И они не находятся на минимальном и максимальном значениях
             const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
 
-            // Если пользователь изменил ползунки, сортируем игры по году (игры без года в конце)
+            // Если пользователь изменил ползунки, сортируем игры: сначала по наличию года (игры без года в конец), затем по ID
             if (isYearFilterActive) {
                 return [...gamesArray].sort((a, b) => {
-                    // Если обе игры имеют год, сортируем по возрастанию
-                    if (a.year !== null && b.year !== null) {
-                        return a.year - b.year;
-                    }
-                    // Если только у первой игры нет года, она идет в конец
+                    // Если у одной игры есть год, а у другой нет, игра без года идет в конец
                     if (a.year === null && b.year !== null) {
                         return 1;
                     }
-                    // Если только у второй игры нет года, она идет в конец
                     if (a.year !== null && b.year === null) {
                         return -1;
                     }
-                    // Если у обеих игр нет года, сортируем по ID
+                    // Если у обеих игр есть год или у обеих нет, сортируем по ID
                     return a.id - b.id;
                 });
             }
@@ -2094,21 +2088,16 @@
             let sortedGames;
 
             if (isYearFilterActive && !forceIdSort) {
-                // Если фильтр по годам активен, сортируем по году (игры без года в конец)
+                // Если фильтр по годам активен, сортируем игры: сначала по наличию года (игры без года в конец), затем по ID
                 sortedGames = [...games].sort((a, b) => {
-                    // Если обе игры имеют год, сортируем по возрастанию
-                    if (a.year !== null && b.year !== null) {
-                        return a.year - b.year;
-                    }
-                    // Если только у первой игры нет года, она идет в конец
+                    // Если у одной игры есть год, а у другой нет, игра без года идет в конец
                     if (a.year === null && b.year !== null) {
                         return 1;
                     }
-                    // Если только у второй игры нет года, она идет в конец
                     if (a.year !== null && b.year === null) {
                         return -1;
                     }
-                    // Если у обеих игр нет года, сортируем по ID
+                    // Если у обеих игр есть год или у обеих нет, сортируем по ID
                     return a.id - b.id;
                 });
             } else {
@@ -2146,10 +2135,17 @@
             // Фильтр считается активным, если пользователь изменил ползунки
             const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
 
-            if (isYearFilterActive && game && game.year !== null) {
-                // Если фильтр по годам активен и у игры есть год, ищем позицию по году
+            if (isYearFilterActive && game) {
+                // Если фильтр по годам активен, сортируем игры по ID, но игры без года в конец
                 let insertIndex = -1;
 
+                // Если у игры нет года, добавляем ее в конец
+                if (game.year === null) {
+                    grid.appendChild(cell);
+                    return;
+                }
+
+                // Если у игры есть год, ищем позицию по ID, но перед играми без года
                 for (let i = 0; i < cells.length; i++) {
                     const cellId = parseInt(cells[i].dataset.gameId);
                     const cellGame = games.find(g => g.id.toString() === cellId.toString());
@@ -2162,8 +2158,8 @@
                         break;
                     }
 
-                    // Если год текущей игры в сетке больше года добавляемой игры, вставляем перед ней
-                    if (cellGame.year > game.year) {
+                    // Если ID текущей игры в сетке больше ID добавляемой игры, вставляем перед ней
+                    if (cellGame.id > game.id) {
                         insertIndex = i;
                         break;
                     }
@@ -2174,9 +2170,7 @@
                 } else {
                     grid.insertBefore(cell, cells[insertIndex]);
                 }
-            } else if (isYearFilterActive && game && game.year === null) {
-                // Если фильтр по годам активен и у игры нет года, добавляем в конец
-                grid.appendChild(cell);
+
             } else {
                 // Если фильтр по годам не активен, используем сортировку по ID
                 const insertIndex = cells.findIndex(c => parseInt(c.dataset.gameId) > gameId);
@@ -3043,21 +3037,16 @@
                     }
                 });
 
-                // Сортируем игры по году (игры без года в конец)
+                // Сортируем игры: сначала по наличию года (игры без года в конец), затем по ID
                 gridGames.sort((a, b) => {
-                    // Если обе игры имеют год, сортируем по возрастанию
-                    if (a.game.year !== null && b.game.year !== null) {
-                        return a.game.year - b.game.year;
-                    }
-                    // Если только у первой игры нет года, она идет в конец
+                    // Если у одной игры есть год, а у другой нет, игра без года идет в конец
                     if (a.game.year === null && b.game.year !== null) {
                         return 1;
                     }
-                    // Если только у второй игры нет года, она идет в конец
                     if (a.game.year !== null && b.game.year === null) {
                         return -1;
                     }
-                    // Если у обеих игр нет года, сортируем по ID
+                    // Если у обеих игр есть год или у обеих нет, сортируем по ID
                     return a.game.id - b.game.id;
                 });
 
