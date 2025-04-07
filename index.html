@@ -1334,6 +1334,18 @@
             width: 100%;
             box-sizing: border-box;
         }
+
+        #searchGameInput {
+            padding: 10px;
+            background-color: #3a3a3a;
+            border: 1px solid #555;
+            border-radius: 5px;
+            color: white;
+            font-size: 16px;
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 0;
+        }
         #addGameForm input:focus {
             outline: none;
             border-color: #4CAF50;
@@ -1496,15 +1508,34 @@
         #searchInputContainer {
             display: flex;
             margin-top: 10px;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 10px;
         }
         #searchResults {
             margin-top: 10px;
             max-height: 300px;
             overflow-y: auto;
+            margin-right: 5px; /* Добавляем отступ справа, чтобы полоса прокрутки была правее */
+            scrollbar-width: thin; /* Для Firefox */
+            scrollbar-color: #4CAF50 rgba(0,0,0,0.2); /* Для Firefox: цвет ползунка и фона */
+        }
+
+        #searchResults::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #searchResults::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+            border-radius: 3px;
+        }
+
+        #searchResults::-webkit-scrollbar-thumb {
+            background-color: #4CAF50; /* Зеленый цвет для ползунка */
+            border-radius: 3px;
+        }
+
+        #searchResults::-webkit-scrollbar-thumb:hover {
+            background-color: #3d8b40; /* Более темный зеленый при наведении */
         }
         .search-result {
             display: flex;
@@ -1514,6 +1545,11 @@
             padding: 6px 8px;
             border-radius: 4px;
             transition: background-color 0.2s ease;
+        }
+
+        /* Стиль для кнопок в одной строке */
+        #performSearchButton, #closeSearchResults {
+            flex: 1;
         }
 
         /* Добавляем легкое и минималистичное выделение всей строки при наведении */
@@ -1785,11 +1821,11 @@
                     <button type="button" id="searchGameModalButton">Добавить 10 игр</button>
                 </div>
                 <div id="searchInputContainer" style="display: none;">
-                    <div style="flex: 1; display: flex; gap: 10px;">
-                        <input type="text" id="searchGameInput" placeholder="Введите название игры" style="flex: 1;">
+                    <input type="text" id="searchGameInput" placeholder="Введите название игры">
+                    <div style="display: flex; gap: 10px;">
                         <button type="button" id="performSearchButton">Поиск</button>
+                        <button id="closeSearchResults" type="button">Очистить</button>
                     </div>
-                    <button id="closeSearchResults" type="button">Очистить</button>
                 </div>
                 <div style="display: flex; align-items: flex-start;">
                     <div id="searchResults" style="flex: 1;"></div>
