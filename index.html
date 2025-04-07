@@ -1506,16 +1506,65 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 5px;
-            padding: 6px 8px;
-            border-radius: 4px;
-            transition: background-color 0.2s ease;
+            margin-bottom: 8px; /* Увеличиваем отступ снизу */
+            padding: 8px 10px; /* Увеличиваем внутренние отступы */
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            background-color: rgba(0, 0, 0, 0.1); /* Легкий фон для каждой строки */
+            border-left: 3px solid rgba(76, 175, 80, 0.5); /* Зеленая полоса слева */
         }
 
         /* Добавляем легкое и минималистичное выделение всей строки при наведении */
         .search-result:hover {
-            background-color: rgba(76, 175, 80, 0.1);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            background-color: rgba(76, 175, 80, 0.15); /* Более заметный фон при наведении */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+            border-left: 3px solid #4CAF50; /* Более яркая полоса при наведении */
+            transform: translateX(2px); /* Небольшое смещение вправо при наведении */
+        }
+
+        /* Стили для информации об игре */
+        .game-info {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+
+        .game-name {
+            font-weight: 500;
+            font-size: 15px;
+            margin-bottom: 2px;
+            color: #fff;
+        }
+
+        .game-year {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Стиль для сообщения "Игры не найдены" */
+        .no-games-found {
+            text-align: center;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #f44336; /* Красная полоса слева */
+        }
+
+        /* Стиль для сообщения об ошибке при поиске */
+        .search-error {
+            text-align: center;
+            padding: 15px;
+            background-color: rgba(244, 67, 54, 0.1); /* Легкий красный фон */
+            border-radius: 6px;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #f44336; /* Красная полоса слева */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         .add-game-button {
             background-color: #4CAF50;
@@ -2166,7 +2215,7 @@
                     displaySearchResults(matchedGames);
                 } catch (error) {
                     console.error('Ошибка при поиске игры:', error);
-                    searchResults.innerHTML = '<p>Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
+                    searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
                 } finally {
                     hideLoadingMessage();
                 }
@@ -2176,7 +2225,7 @@
         function displaySearchResults(games) {
             searchResults.innerHTML = '';
             if (games.length === 0) {
-                searchResults.innerHTML = '<p>Игры не найдены.</p>';
+                searchResults.innerHTML = '<p class="no-games-found">Игры не найдены.</p>';
                 return;
             }
 
@@ -2189,11 +2238,25 @@
                 resultElement.className = 'search-result';
                 const releaseYear = game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : 'N/A';
                 resultElement.innerHTML = `
-                    <span>${game.name} (${releaseYear})</span>
+                    <div class="game-info">
+                        <span class="game-name">${game.name}</span>
+                        <span class="game-year">(${releaseYear})</span>
+                    </div>
                     <button type="button" class="add-game-button">Добавить</button>
                 `;
                 resultElement.querySelector('.add-game-button').addEventListener('click', () => addGameFromSearch(game));
+
+                // Добавляем анимацию плавного появления
+                resultElement.style.opacity = '0';
+                resultElement.style.transform = 'translateY(10px)';
                 searchResults.appendChild(resultElement);
+
+                // Запускаем анимацию с небольшой задержкой для каждого элемента
+                setTimeout(() => {
+                    resultElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    resultElement.style.opacity = '1';
+                    resultElement.style.transform = 'translateY(0)';
+                }, 50 * uniqueGames.indexOf(game)); // Задержка зависит от порядкового номера элемента
             });
             document.getElementById('closeSearchResults').style.display = 'inline-block';
         }
