@@ -1482,29 +1482,7 @@
             margin-bottom: 15px;
         }
 
-        .clear-input-button {
-            position: absolute;
-            right: 5px;
-            top: 50%;
-            transform: translateY(-50%);
-            background-color: #f44336;
-            color: white;
-            border: none;
-            width: 24px;
-            height: 100%;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            display: none;
-        }
 
-        .clear-input-button:hover {
-            opacity: 0.9;
-        }
 
         #performSearchButton {
             display: block;
@@ -1858,7 +1836,6 @@
                 <div id="searchInputContainer" style="display: none;">
                     <div class="search-input-wrapper">
                         <input type="text" id="searchGameInput" placeholder="Введите название игры">
-                        <button type="button" id="clearSearchInputButton" class="clear-input-button">×</button>
                     </div>
                     <button type="button" id="performSearchButton">Поиск</button>
                 </div>
@@ -2216,6 +2193,19 @@
             const gameName = searchGameInput.value.trim();
             if (!gameName) {
                 showMessage('Введите название');
+
+                // Добавляем обработчик события для скрытия сообщения при вводе
+                const messageOverlay = document.querySelector('.message-overlay');
+                if (messageOverlay) {
+                    const inputHandler = () => {
+                        if (searchGameInput.value.trim() !== '') {
+                            messageOverlay.remove();
+                            searchGameInput.removeEventListener('input', inputHandler);
+                        }
+                    };
+                    searchGameInput.addEventListener('input', inputHandler);
+                }
+
                 return;
             }
 
@@ -2386,7 +2376,6 @@
             addGameModal.style.display = 'none';
             searchGameInput.value = '';
             searchResults.innerHTML = '';
-            document.getElementById('clearSearchInputButton').style.display = 'none';
         }
 
         function getRandomPastelColor() {
@@ -4393,7 +4382,6 @@
             }
 
             const searchGameInput = document.getElementById('searchGameInput');
-            const clearSearchInputButton = document.getElementById('clearSearchInputButton');
 
             if (searchGameInput) {
                 // Обработчик нажатия Enter
@@ -4404,24 +4392,13 @@
                     }
                 });
 
-                // Обработчик ввода текста для отображения/скрытия кнопки очистки
+                // Обработчик ввода текста для скрытия сообщения о необходимости ввести название
                 searchGameInput.addEventListener('input', () => {
-                    if (searchGameInput.value.trim() !== '') {
-                        clearSearchInputButton.style.display = 'flex';
-                    } else {
-                        clearSearchInputButton.style.display = 'none';
+                    // Если есть сообщение о необходимости ввести название, скрываем его
+                    const messageOverlay = document.querySelector('.message-overlay');
+                    if (messageOverlay && searchGameInput.value.trim() !== '') {
+                        messageOverlay.remove();
                     }
-                });
-            }
-
-            // Обработчик для кнопки очистки поля ввода
-            if (clearSearchInputButton) {
-                clearSearchInputButton.addEventListener('click', function(e) {
-                    e.preventDefault(); // Предотвращаем стандартное поведение
-                    searchGameInput.value = '';
-                    clearSearchInputButton.style.display = 'none';
-                    searchGameInput.focus();
-                    clearSearchResults(); // Добавляем функционал кнопки "Очистить"
                 });
             }
 
