@@ -4377,6 +4377,7 @@
             initializeImportButton();
             loadSavedGames();
             renderGames(true); // Принудительно сортируем по ID при загрузке страницы
+            applyFilters(false); // Применяем фильтры сразу после рендеринга, чтобы игры без года сразу перемещались в конец
             updateCounter();
             populateFilters();
             updateInProgressRow(); // Сначала размещаем ячейки по рядам
@@ -4396,6 +4397,11 @@
 
 
             applyFilters(true); // Применяем фильтры после всей инициализации и расстановки ячеек, принудительно сортируя по ID
+
+            // Дополнительно применяем фильтры с небольшой задержкой, чтобы гарантировать правильную сортировку
+            setTimeout(() => {
+                applyFilters(false);
+            }, 100);
 
             const addGameButton = document.getElementById('addGameButton');
             const addGameModal = document.getElementById('addGameModal');
