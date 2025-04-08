@@ -3,7 +3,7 @@ name: Update Games List
 on:
   schedule:
     - cron: '0 3 * * *'  #6 утра
-  workflow_dispatch:  
+  workflow_dispatch:
 
 jobs:
   update-games:
@@ -12,12 +12,12 @@ jobs:
     - uses: actions/checkout@v2
       with:
         token: ${{ secrets.PAT }}
-    
+
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
         python-version: '3.x'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -37,12 +37,12 @@ jobs:
         def fetch_games(offset=0, limit=500, max_retries=5):
             url = "https://nu8ichego5ti2suda7prishel111.uhadi.workers.dev"
             params = {"offset": offset, "limit": limit}
-            
+
             session = requests.Session()
             retry = Retry(total=max_retries, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
             adapter = HTTPAdapter(max_retries=retry)
             session.mount('https://', adapter)
-            
+
             try:
                 response = session.get(url, params=params, timeout=60)
                 response.raise_for_status()
@@ -71,10 +71,10 @@ jobs:
                 all_games.extend(games)
                 offset += limit
                 time.sleep(2)
-            
+
             if len(all_games) > 0:
                 break
-            
+
             print(f"Attempt {attempt + 1} failed. Retrying in 5 minutes...")
             time.sleep(300)
 
@@ -107,6 +107,25 @@ jobs:
         with open('data/index.json', 'w') as f:
             json.dump(index, f)
         print("Created index.json file")
+
+        # Создание компактного поискового индекса
+        print("Creating search index...")
+        search_index = []
+        for i, game in enumerate(all_games):
+            if not game.get("name"):
+                continue
+            file_number = math.floor(i / games_per_file) + 1
+            search_index.append({
+                "id": game["id"],
+                "name": game["name"],
+                "first_release_date": game.get("first_release_date"),
+                "file_number": file_number
+            })
+
+        # Сохранение поискового индекса
+        with open('data/search_index.json', 'w') as f:
+            json.dump(search_index, f)
+        print(f"Created search index with {len(search_index)} games")
         print("Data processing complete!")
         EOF
 
