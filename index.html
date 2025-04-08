@@ -1277,6 +1277,20 @@
         }
         .search-result button {
             margin-left: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+
+        .search-result button.disabled {
+            background-color: #9E9E9E;
+            cursor: not-allowed;
+            opacity: 0.7;
         }
         #searchResults .cell {
             filter: saturate(100%) !important;
@@ -2217,7 +2231,7 @@
                 displaySearchResults(matchedGames);
             } catch (error) {
                 console.error('Ошибка при поиске игры:', error);
-                searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
+                searchResults.innerHTML = '<p class="search-error">Игра не найдена.</p>';
             } finally {
                 hideLoadingMessage();
             }
@@ -2239,14 +2253,27 @@
                 resultElement.className = 'search-result';
                 const releaseYear = game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : 'N/A';
 
+                // Проверяем, есть ли игра уже в таблице
+                const newGame = {
+                    name: game.name,
+                    year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null
+                };
+                const isDuplicate = isDuplicateGame(newGame);
+
                 resultElement.innerHTML = `
                     <div class="game-info">
                         <span class="game-name">${game.name}</span>
                         <span class="game-year">(${releaseYear})</span>
                     </div>
-                    <button type="button" class="add-game-button">Добавить</button>
+                    <button type="button" class="add-game-button ${isDuplicate ? 'disabled' : ''}">
+                        ${isDuplicate ? 'Уже есть' : 'Добавить'}
+                    </button>
                 `;
-                resultElement.querySelector('.add-game-button').addEventListener('click', () => addGameFromSearch(game));
+
+                // Добавляем обработчик события только если игра еще не добавлена
+                if (!isDuplicate) {
+                    resultElement.querySelector('.add-game-button').addEventListener('click', () => addGameFromSearch(game));
+                }
 
                 // Добавляем анимацию плавного появления
                 resultElement.style.opacity = '0';
@@ -4293,6 +4320,9 @@
                 let addedGames = 0;
                 const maxGamesToAdd = Math.min(count, 3000 - games.length);
 
+                // Создаем массив игр для добавления
+                const gamesToAdd = [];
+
                 for (const game of newGames) {
                     if (addedGames >= maxGamesToAdd) {
                         break;
@@ -4311,11 +4341,23 @@
                         inProgress: false
                     };
                     if (!isDuplicateGame(newGame)) {
-                        await addNewGameWithDelay(newGame);
+                        gamesToAdd.push(newGame);
                         addedGames++;
                     } else {
                         console.log(`Игра "${newGame.name}" не добавлена`);
                     }
+                }
+
+                // Добавляем все игры сразу
+                for (const game of gamesToAdd) {
+                    addNewGame(game);
+                }
+
+                // Сохраняем игры и обновляем фильтры только один раз
+                if (gamesToAdd.length > 0) {
+                    saveGames();
+                    updateFiltersAndCounter();
+                    updateSaturation();
                 }
 
                 console.log('Импорт завершен успешно');
@@ -4333,17 +4375,7 @@
             }
         }
 
-        function addNewGameWithDelay(game) {
-            return new Promise(resolve => {
-                setTimeout(() => {
-                    addNewGame(game);
-                    saveGames();
-                    updateFiltersAndCounter();
-                    resolve();
-                    updateSaturation();
-                }, 10);
-            });
-        }
+        // Функция addNewGameWithDelay удалена, так как игры теперь добавляются без задержки
 
         function addNewGame(gameData) {
             // Проверяем, является ли параметр объектом gameData или готовым объектом game
