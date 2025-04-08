@@ -4376,8 +4376,8 @@
             console.log('DOM полностью загружен');
             initializeImportButton();
             loadSavedGames();
+            applyFilters(false);
             renderGames(true); // Принудительно сортируем по ID при загрузке страницы
-            applyFilters(false); // Применяем фильтры сразу после рендеринга, чтобы игры без года сразу перемещались в конец
             updateCounter();
             populateFilters();
             updateInProgressRow(); // Сначала размещаем ячейки по рядам
