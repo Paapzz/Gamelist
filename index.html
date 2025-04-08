@@ -1901,6 +1901,7 @@
         let currentYearFilterMin = null; // Текущее минимальное значение фильтра года
         let currentYearFilterMax = null; // Текущее максимальное значение фильтра года
         window.isRestoringYearFilter = false; // Флаг, указывающий, что в данный момент происходит восстановление фильтра года
+        window.isUpdatingFromInput = false; // Флаг, указывающий, что в данный момент происходит обновление из обработчика события input
         let isAddingGames = false; // Флаг, указывающий, что в данный момент происходит добавление игр
         const searchInput = document.getElementById('searchInput');
         const clearSearchButton = document.getElementById('clearSearchButton');
@@ -2340,6 +2341,11 @@
 
         async function addGameFromSearch(game) {
             // Сохраняем текущие значения фильтра года перед добавлением игры
+            console.log(`Текущие значения ползунков: ${yearSliderMin.value} - ${yearSliderMax.value}`);
+            console.log(`Текущие значения глобальных переменных: ${currentYearFilterMin} - ${currentYearFilterMax}`);
+
+            // Используем текущие значения ползунков, а не глобальные переменные
+            // Это гарантирует, что мы сохраним текущие значения ползунков
             currentYearFilterMin = parseInt(yearSliderMin.value);
             currentYearFilterMax = parseInt(yearSliderMax.value);
             console.log(`Сохранены значения фильтра года: ${currentYearFilterMin} - ${currentYearFilterMax}`);
@@ -2431,7 +2437,9 @@
             applyFilters(false);
 
             // Восстанавливаем значения фильтра года
+            console.log(`Значения перед восстановлением в closeAddGameModal: ${yearSliderMin.value} - ${yearSliderMax.value}`);
             restoreYearFilter();
+            console.log(`Значения после восстановления в closeAddGameModal: ${yearSliderMin.value} - ${yearSliderMax.value}`);
         }
 
         // Функция для расчета релевантности игры по отношению к поисковому запросу (для сортировки)
@@ -2901,6 +2909,7 @@
             // Инициализируем глобальные переменные для сохранения текущих значений фильтра года
             currentYearFilterMin = parseInt(yearSliderMin.value);
             currentYearFilterMax = parseInt(yearSliderMax.value);
+            console.log(`Инициализированы значения фильтра года: ${currentYearFilterMin} - ${currentYearFilterMax}`);
 
             platformsList.innerHTML = '';
             genresList.innerHTML = '';
@@ -2995,10 +3004,12 @@
             yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
 
             // Сохраняем текущие значения фильтра года в глобальных переменных
-            // Только если это не вызов из restoreYearFilter
-            if (!window.isRestoringYearFilter) {
+            // Только если это не вызов из restoreYearFilter и не из обработчика события input
+            // В обработчиках событий input мы уже явно сохраняем значения
+            if (!window.isRestoringYearFilter && !window.isUpdatingFromInput) {
                 currentYearFilterMin = minYear;
                 currentYearFilterMax = maxYear;
+                console.log(`Сохранены значения фильтра года в updateYearValue: ${currentYearFilterMin} - ${currentYearFilterMax}`);
             }
 
             // Проверяем, установлены ли ползунки на минимальное и максимальное значения
@@ -3078,8 +3089,10 @@
                     window.isRestoringYearFilter = true;
 
                     // Восстанавливаем значения ползунков
+                    console.log(`Текущие значения ползунков перед восстановлением: ${yearSliderMin.value} - ${yearSliderMax.value}`);
                     yearSliderMin.value = currentYearFilterMin;
                     yearSliderMax.value = currentYearFilterMax;
+                    console.log(`Значения ползунков после восстановления: ${yearSliderMin.value} - ${yearSliderMax.value}`);
 
                     // Обновляем отображение значений
                     updateYearValue();
@@ -3438,13 +3451,23 @@
 
         // Обработчики событий для ползунка минимального года
         yearSliderMin.addEventListener('input', () => {
+            // Устанавливаем флаг, что обновление происходит из обработчика события input
+            window.isUpdatingFromInput = true;
+
             const minVal = parseInt(yearSliderMin.value);
             const maxVal = parseInt(yearSliderMax.value);
             if (minVal > maxVal - 1) {
                 yearSliderMin.value = maxVal - 1;
             }
+            // Явно сохраняем значения фильтра года при изменении ползунка
+            currentYearFilterMin = parseInt(yearSliderMin.value);
+            currentYearFilterMax = parseInt(yearSliderMax.value);
+            console.log(`Сохранены значения фильтра года при изменении минимального года: ${currentYearFilterMin} - ${currentYearFilterMax}`);
             updateYearValue();
             applyFilters();
+
+            // Снимаем флаг
+            window.isUpdatingFromInput = false;
         });
 
         yearSliderMin.addEventListener('mouseover', () => {
@@ -3457,13 +3480,23 @@
 
         // Обработчики событий для ползунка максимального года
         yearSliderMax.addEventListener('input', () => {
+            // Устанавливаем флаг, что обновление происходит из обработчика события input
+            window.isUpdatingFromInput = true;
+
             const minVal = parseInt(yearSliderMin.value);
             const maxVal = parseInt(yearSliderMax.value);
             if (maxVal < minVal + 1) {
                 yearSliderMax.value = minVal + 1;
             }
+            // Явно сохраняем значения фильтра года при изменении ползунка
+            currentYearFilterMin = parseInt(yearSliderMin.value);
+            currentYearFilterMax = parseInt(yearSliderMax.value);
+            console.log(`Сохранены значения фильтра года при изменении максимального года: ${currentYearFilterMin} - ${currentYearFilterMax}`);
             updateYearValue();
             applyFilters();
+
+            // Снимаем флаг
+            window.isUpdatingFromInput = false;
         });
 
         yearSliderMax.addEventListener('mouseover', () => {
@@ -3745,7 +3778,9 @@
             applyFilters(false);
 
             // Восстанавливаем значения фильтра года
+            console.log(`Значения перед восстановлением в closeModal: ${yearSliderMin.value} - ${yearSliderMax.value}`);
             restoreYearFilter();
+            console.log(`Значения после восстановления в closeModal: ${yearSliderMin.value} - ${yearSliderMax.value}`);
         }
 
         document.querySelectorAll('.close').forEach(closeBtn => {
@@ -4295,9 +4330,13 @@
             }
 
             // Сохраняем текущие значения фильтра года перед импортом игр
+            console.log(`Текущие значения ползунков перед импортом: ${yearSliderMin.value} - ${yearSliderMax.value}`);
+            console.log(`Текущие значения глобальных переменных перед импортом: ${currentYearFilterMin} - ${currentYearFilterMax}`);
+
+            // Используем текущие значения ползунков, а не глобальные переменные
             currentYearFilterMin = parseInt(yearSliderMin.value);
             currentYearFilterMax = parseInt(yearSliderMax.value);
-            console.log(`Сохранены значения фильтра года: ${currentYearFilterMin} - ${currentYearFilterMax}`);
+            console.log(`Сохранены значения фильтра года перед импортом: ${currentYearFilterMin} - ${currentYearFilterMax}`);
 
             isImporting = true;
             showLoadingMessage();
@@ -4553,6 +4592,10 @@
 
         function updateFiltersAndCounter() {
             // Сохраняем текущие значения фильтра года перед обновлением фильтров
+            console.log(`Текущие значения ползунков в updateFiltersAndCounter: ${yearSliderMin.value} - ${yearSliderMax.value}`);
+            console.log(`Текущие значения глобальных переменных в updateFiltersAndCounter: ${currentYearFilterMin} - ${currentYearFilterMax}`);
+
+            // Используем текущие значения ползунков, а не глобальные переменные
             currentYearFilterMin = parseInt(yearSliderMin.value);
             currentYearFilterMax = parseInt(yearSliderMax.value);
             console.log(`Сохранены значения фильтра года в updateFiltersAndCounter: ${currentYearFilterMin} - ${currentYearFilterMax}`);
