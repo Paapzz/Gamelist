@@ -1896,6 +1896,10 @@
         let isIndexLoading = false; // Флаг, указывающий, что индекс в процессе загрузки
         let searchIndex = null; // Поисковый индекс для быстрого поиска
         let isSearchIndexLoading = false; // Флаг, указывающий, что поисковый индекс в процессе загрузки
+
+        // Глобальные переменные для сохранения текущих значений фильтра года
+        let currentYearFilterMin = null; // Текущее минимальное значение фильтра года
+        let currentYearFilterMax = null; // Текущее максимальное значение фильтра года
         const searchInput = document.getElementById('searchInput');
         const clearSearchButton = document.getElementById('clearSearchButton');
         const filtersButton = document.getElementById('filtersButton');
@@ -2335,6 +2339,9 @@
                 // Явно вызываем applyFilters после добавления игры для правильной сортировки игр без года
                 applyFilters(false);
 
+                // Восстанавливаем значения фильтра года
+                restoreYearFilter();
+
                 showMessage('Игра успешно добавлена!');
             } else {
                 showMessage('Эта игра уже есть в вашем списке.');
@@ -2391,6 +2398,9 @@
 
             // Применяем фильтры при закрытии модального окна, чтобы сохранить текущие фильтры
             applyFilters(false);
+
+            // Восстанавливаем значения фильтра года
+            restoreYearFilter();
         }
 
         // Функция для расчета релевантности игры по отношению к поисковому запросу (для сортировки)
@@ -2857,6 +2867,10 @@
 
             updateYearValue();
 
+            // Инициализируем глобальные переменные для сохранения текущих значений фильтра года
+            currentYearFilterMin = parseInt(yearSliderMin.value);
+            currentYearFilterMax = parseInt(yearSliderMax.value);
+
             platformsList.innerHTML = '';
             genresList.innerHTML = '';
 
@@ -2949,6 +2963,10 @@
             const maxYear = parseInt(yearSliderMax.value);
             yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
 
+            // Сохраняем текущие значения фильтра года в глобальных переменных
+            currentYearFilterMin = minYear;
+            currentYearFilterMax = maxYear;
+
             // Проверяем, установлены ли ползунки на минимальное и максимальное значения
             const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
             const minGameYear = Math.min(...years);
@@ -3013,6 +3031,18 @@
                 (selectedPlatforms.length === 0 || game.platforms.some(platform => selectedPlatforms.includes(platform))) &&
                 (game.year === null || (game.year >= Math.max(yearSliderMin.value, minGameYear) && game.year <= yearSliderMax.value))
             );
+        }
+
+        // Функция для восстановления значений фильтра года
+        function restoreYearFilter() {
+            if (currentYearFilterMin !== null && currentYearFilterMax !== null) {
+                // Восстанавливаем значения ползунков
+                yearSliderMin.value = currentYearFilterMin;
+                yearSliderMax.value = currentYearFilterMax;
+
+                // Обновляем отображение значений
+                updateYearValue();
+            }
         }
 
         function applyFilters(forceIdSort = false) {
@@ -3658,6 +3688,9 @@
 
             // Применяем фильтры при закрытии модального окна, чтобы сохранить текущие фильтры
             applyFilters(false);
+
+            // Восстанавливаем значения фильтра года
+            restoreYearFilter();
         }
 
         document.querySelectorAll('.close').forEach(closeBtn => {
@@ -4348,10 +4381,8 @@
                     }
                 }
 
-                // Добавляем все игры сразу
-                for (const game of gamesToAdd) {
-                    addNewGame(game);
-                }
+                // Добавляем игры постепенно с небольшой задержкой
+                await addGamesWithDelay(gamesToAdd);
 
                 // Сохраняем игры и обновляем фильтры только один раз
                 if (gamesToAdd.length > 0) {
@@ -4365,6 +4396,9 @@
                 // Явно вызываем applyFilters после завершения импорта для правильной сортировки игр без года
                 applyFilters(false);
 
+                // Восстанавливаем значения фильтра года
+                restoreYearFilter();
+
                 alert(`Импорт завершен. Добавлено ${addedGames} новых игр.`);
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
@@ -4375,7 +4409,19 @@
             }
         }
 
-        // Функция addNewGameWithDelay удалена, так как игры теперь добавляются без задержки
+        // Функция для постепенного добавления игр с задержкой
+        async function addGamesWithDelay(games) {
+            // Добавляем игры партиями по 5 штук с задержкой между партиями
+            const batchSize = 5;
+            for (let i = 0; i < games.length; i += batchSize) {
+                const batch = games.slice(i, i + batchSize);
+                for (const game of batch) {
+                    addNewGame(game);
+                }
+                // Обновляем интерфейс после каждой партии
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+        }
 
         function addNewGame(gameData) {
             // Проверяем, является ли параметр объектом gameData или готовым объектом game
