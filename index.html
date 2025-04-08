@@ -2327,6 +2327,10 @@
             if (!isDuplicateGame(newGame)) {
                 addNewGame(newGame);
                 saveGames();
+
+                // Явно вызываем applyFilters после добавления игры для правильной сортировки игр без года
+                applyFilters(false);
+
                 showMessage('Игра успешно добавлена!');
             } else {
                 showMessage('Эта игра уже есть в вашем списке.');
@@ -3746,38 +3750,7 @@
             resetAddGameForm();
         }
 
-        function addNewGame(gameData) {
-            const existingGame = findExistingGame(gameData);
-            if (existingGame) {
-                console.log('Найдена существующая версия игры:', existingGame.name);
-                if (gameData.name.length < existingGame.name.length) {
-                    Object.assign(existingGame, gameData);
-                    updateGameCell(existingGame);
-                } else {
-                }
-            } else {
-                const newGame = {
-                    id: Date.now(),
-                    ...gameData,
-                    isCustom: true,
-                    importedFromApi: gameData.importedFromApi || false,
-                    completed: false,
-                    inProgress: false,
-                    color: getRandomPastelColor()
-                };
-                games.push(newGame);
-                const cell = createCell(newGame);
-
-                // Добавляем ячейку в сетку с учетом сортировки по году
-                insertCellInOrder(cell);
-            }
-
-            saveGames();
-            updateCounter();
-            populateFilters();
-            applyFilters();
-            updateGridSize();
-        }
+        // Функция addNewGame перенесена в конец файла для избежания дублирования
 
         document.getElementById('addGameForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -4282,6 +4255,10 @@
                 }
 
                 console.log('Импорт завершен успешно');
+
+                // Явно вызываем applyFilters после завершения импорта для правильной сортировки игр без года
+                applyFilters(false);
+
                 alert(`Импорт завершен. Добавлено ${addedGames} новых игр.`);
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
@@ -4304,13 +4281,46 @@
             });
         }
 
-        function addNewGame(game) {
-            games.push(game);
-            const cell = createCell(game);
-            grid.appendChild(cell);
+        function addNewGame(gameData) {
+            // Проверяем, является ли параметр объектом gameData или готовым объектом game
+            if (gameData.hasOwnProperty('name') && !gameData.hasOwnProperty('id')) {
+                // Это объект gameData, нужно создать новый объект game
+                const existingGame = findExistingGame(gameData);
+                if (existingGame) {
+                    console.log('Найдена существующая версия игры:', existingGame.name);
+                    if (gameData.name.length < existingGame.name.length) {
+                        Object.assign(existingGame, gameData);
+                        updateGameCell(existingGame);
+                        return;
+                    }
+                } else {
+                    // Создаем новый объект game
+                    gameData = {
+                        id: Date.now(),
+                        ...gameData,
+                        isCustom: true,
+                        importedFromApi: gameData.importedFromApi || false,
+                        completed: false,
+                        inProgress: false,
+                        color: getRandomPastelColor()
+                    };
+                }
+            }
+
+            // Добавляем игру в массив
+            games.push(gameData);
+            const cell = createCell(gameData);
+
+            // Добавляем ячейку в сетку с учетом сортировки по году
+            insertCellInOrder(cell);
+
             updateGridSize();
             saveGames();
             updateFiltersAndCounter();
+
+            // Явно вызываем applyFilters для правильной сортировки игр без года
+            applyFilters(false);
+
             updateSaturation();
         }
 
@@ -4323,6 +4333,8 @@
         function updateFiltersAndCounter() {
             populateFilters();
             updateCounter();
+            // Явно вызываем applyFilters для правильной сортировки игр без года
+            applyFilters(false);
         }
 
         function chunkArray(array, size) {
