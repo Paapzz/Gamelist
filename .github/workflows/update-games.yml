@@ -108,24 +108,50 @@ jobs:
             json.dump(index, f)
         print("Created index.json file")
 
-        # Создание компактного поискового индекса
         print("Creating search index...")
         search_index = []
+        processed_ids = set() 
+        skipped_count = 0
+
         for i, game in enumerate(all_games):
-            if not game.get("name"):
+            if not isinstance(game, dict):
+                skipped_count += 1
+                if skipped_count <= 10:
+                    print(f"Skipping non-dict game at index {i}: {type(game)}")
                 continue
+
+            if "id" not in game or "name" not in game or not game["name"]:
+                skipped_count += 1
+                if skipped_count <= 10:
+                    print(f"Skipping game without required fields at index {i}")
+                continue
+
+            game_id = str(game["id"])
+            if game_id in processed_ids:
+                skipped_count += 1
+                if skipped_count <= 10:
+                    print(f"Skipping duplicate game with ID {game_id} at index {i}")
+                continue
+
+            processed_ids.add(game_id)
             file_number = math.floor(i / games_per_file) + 1
             search_index.append({
-                "id": game["id"],
+                "id": game_id,
                 "name": game["name"],
                 "first_release_date": game.get("first_release_date"),
                 "file_number": file_number
             })
 
-        # Сохранение поискового индекса
-        with open('data/search_index.json', 'w') as f:
-            json.dump(search_index, f)
-        print(f"Created search index with {len(search_index)} games")
+        if skipped_count > 10:
+            print(f"... and {skipped_count - 10} more items were skipped")
+
+        try:
+            with open('data/search_index.json', 'w') as f:
+                json.dump(search_index, f)
+            print(f"Created search index with {len(search_index)} games")
+        except Exception as e:
+            print(f"Error creating search index: {e}")
+
         print("Data processing complete!")
         EOF
 
