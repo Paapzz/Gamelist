@@ -1880,6 +1880,8 @@
         let gameIndex = null; // Индекс игр
         let gameFiles = []; // Загруженные файлы игр
         let isIndexLoading = false; // Флаг, указывающий, что индекс в процессе загрузки
+        let searchIndex = null; // Поисковый индекс для быстрого поиска
+        let isSearchIndexLoading = false; // Флаг, указывающий, что поисковый индекс в процессе загрузки
         const searchInput = document.getElementById('searchInput');
         const clearSearchButton = document.getElementById('clearSearchButton');
         const filtersButton = document.getElementById('filtersButton');
@@ -2210,62 +2212,8 @@
 
             showLoadingMessage();
             try {
-                // Используем предварительно загруженный индекс, если он есть
-                let index;
-                if (gameIndex !== null) {
-                    index = gameIndex;
-                    console.log('Используем предварительно загруженный индекс');
-                } else {
-                    // Если индекс не загружен, загружаем его
-                    console.log('Загружаем индекс при поиске');
-                    const indexResponse = await fetch('data/index.json');
-                    if (!indexResponse.ok) {
-                        throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                    }
-                    index = await indexResponse.json();
-                    // Сохраняем индекс для будущих запросов
-                    gameIndex = index;
-                }
-
-                let matchedGames = [];
-                for (let i = 1; i <= index.total_files; i++) {
-                    let fileGames;
-
-                    // Используем предварительно загруженные файлы, если они есть
-                    if (gameFiles[i]) {
-                        fileGames = gameFiles[i];
-                        console.log(`Используем предварительно загруженный файл games_${i}.json`);
-                    } else {
-                        // Если файл не загружен, загружаем его
-                        console.log(`Загружаем файл games_${i}.json при поиске`);
-                        const response = await fetch(`data/games_${i}.json`);
-                        if (!response.ok) {
-                            throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                        }
-                        fileGames = await response.json();
-                        // Сохраняем файл для будущих запросов
-                        gameFiles[i] = fileGames;
-                    }
-
-                    const matches = fileGames.filter(game =>
-                        game.name.toLowerCase().includes(gameName.toLowerCase())
-                    );
-
-                    // Добавляем релевантность к каждой игре
-                    matches.forEach(game => {
-                        game.relevance = calculateRelevance(game.name, gameName);
-                    });
-
-                    matchedGames = matchedGames.concat(matches);
-                    if (matchedGames.length >= 100) {
-                        break;
-                    }
-                }
-
-                // Сортируем игры по релевантности (от высокой к низкой)
-                matchedGames.sort((a, b) => b.relevance - a.relevance);
-
-                matchedGames = matchedGames.slice(0, 100);
+                // Используем новую функцию поиска с индексом
+                const matchedGames = await searchGamesWithIndex(gameName);
                 displaySearchResults(matchedGames);
             } catch (error) {
                 console.error('Ошибка при поиске игры:', error);
@@ -4237,46 +4185,105 @@
             try {
                 const existingIds = games.map(game => game.id.toString());
 
-                // Используем предварительно загруженный индекс, если он есть
+                // Загружаем поисковый индекс, если он есть
+                let searchIdx = await loadSearchIndex();
                 let index;
-                if (gameIndex !== null) {
-                    index = gameIndex;
-                    console.log('Используем предварительно загруженный индекс для импорта');
-                } else {
-                    // Если индекс не загружен, загружаем его
-                    console.log('Загружаем индекс при импорте');
-                    const indexResponse = await fetch('data/index.json');
-                    if (!indexResponse.ok) {
-                        throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                    }
-                    index = await indexResponse.json();
-                    // Сохраняем индекс для будущих запросов
-                    gameIndex = index;
-                }
 
-                let newGames = [];
-                for (let i = 1; i <= index.total_files; i++) {
-                    let fileGames;
+                if (searchIdx) {
+                    // Если поисковый индекс загружен, используем его для определения файлов
+                    console.log('Используем поисковый индекс для импорта');
 
-                    // Используем предварительно загруженные файлы, если они есть
-                    if (gameFiles[i]) {
-                        fileGames = gameFiles[i];
-                        console.log(`Используем предварительно загруженный файл games_${i}.json для импорта`);
-                    } else {
-                        // Если файл не загружен, загружаем его
-                        console.log(`Загружаем файл games_${i}.json при импорте`);
-                        const response = await fetch(`data/games_${i}.json`);
-                        if (!response.ok) {
-                            throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                    // Создаем маппинг игр по файлам
+                    const fileMap = {};
+                    searchIdx.forEach(game => {
+                        if (!fileMap[game.file_number]) {
+                            fileMap[game.file_number] = [];
                         }
-                        fileGames = await response.json();
-                        // Сохраняем файл для будущих запросов
-                        gameFiles[i] = fileGames;
+                        fileMap[game.file_number].push(game.id);
+                    });
+
+                    // Загружаем индекс для получения информации о количестве файлов
+                    if (gameIndex !== null) {
+                        index = gameIndex;
+                    } else {
+                        const indexResponse = await fetch('data/index.json');
+                        if (!indexResponse.ok) {
+                            throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
+                        }
+                        index = await indexResponse.json();
+                        gameIndex = index;
                     }
 
-                    newGames = newGames.concat(fileGames.filter(game => !existingIds.includes(game.id.toString())));
-                    if (newGames.length >= count) {
-                        break;
+                    // Загружаем все файлы последовательно
+                    let newGames = [];
+                    for (let i = 1; i <= index.total_files; i++) {
+                        let fileGames;
+
+                        // Используем предварительно загруженные файлы, если они есть
+                        if (gameFiles[i]) {
+                            fileGames = gameFiles[i];
+                            console.log(`Используем предварительно загруженный файл games_${i}.json для импорта`);
+                        } else {
+                            // Если файл не загружен, загружаем его
+                            console.log(`Загружаем файл games_${i}.json при импорте`);
+                            const response = await fetch(`data/games_${i}.json`);
+                            if (!response.ok) {
+                                throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                            }
+                            fileGames = await response.json();
+                            // Сохраняем файл для будущих запросов
+                            gameFiles[i] = fileGames;
+                        }
+
+                        newGames = newGames.concat(fileGames.filter(game => !existingIds.includes(game.id.toString())));
+                        if (newGames.length >= count) {
+                            break;
+                        }
+                    }
+                } else {
+                    // Если поисковый индекс не загружен, используем старый метод
+                    console.log('Используем стандартный метод импорта');
+
+                    // Используем предварительно загруженный индекс, если он есть
+                    if (gameIndex !== null) {
+                        index = gameIndex;
+                        console.log('Используем предварительно загруженный индекс для импорта');
+                    } else {
+                        // Если индекс не загружен, загружаем его
+                        console.log('Загружаем индекс при импорте');
+                        const indexResponse = await fetch('data/index.json');
+                        if (!indexResponse.ok) {
+                            throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
+                        }
+                        index = await indexResponse.json();
+                        // Сохраняем индекс для будущих запросов
+                        gameIndex = index;
+                    }
+
+                    let newGames = [];
+                    for (let i = 1; i <= index.total_files; i++) {
+                        let fileGames;
+
+                        // Используем предварительно загруженные файлы, если они есть
+                        if (gameFiles[i]) {
+                            fileGames = gameFiles[i];
+                            console.log(`Используем предварительно загруженный файл games_${i}.json для импорта`);
+                        } else {
+                            // Если файл не загружен, загружаем его
+                            console.log(`Загружаем файл games_${i}.json при импорте`);
+                            const response = await fetch(`data/games_${i}.json`);
+                            if (!response.ok) {
+                                throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                            }
+                            fileGames = await response.json();
+                            // Сохраняем файл для будущих запросов
+                            gameFiles[i] = fileGames;
+                        }
+
+                        newGames = newGames.concat(fileGames.filter(game => !existingIds.includes(game.id.toString())));
+                        if (newGames.length >= count) {
+                            break;
+                        }
                     }
                 }
 
@@ -4431,6 +4438,171 @@
             }
         }
 
+        // Функция для загрузки поискового индекса
+        async function loadSearchIndex() {
+            if (searchIndex !== null || isSearchIndexLoading) {
+                return searchIndex; // Индекс уже загружен или загружается
+            }
+
+            isSearchIndexLoading = true;
+            console.log('Начало загрузки поискового индекса');
+
+            try {
+                const response = await fetch('data/search_index.json');
+                if (!response.ok) {
+                    throw new Error(`Ошибка загрузки поискового индекса: ${response.status} ${response.statusText}`);
+                }
+                searchIndex = await response.json();
+                console.log(`Поисковый индекс загружен (${searchIndex.length} игр)`);
+                return searchIndex;
+            } catch (error) {
+                console.error('Ошибка при загрузке поискового индекса:', error);
+                return null;
+            } finally {
+                isSearchIndexLoading = false;
+            }
+        }
+
+        // Функция для предварительной загрузки поискового индекса
+        function preloadSearchIndex() {
+            setTimeout(() => {
+                loadSearchIndex().then(() => {
+                    console.log('Поисковый индекс предварительно загружен');
+                }).catch(error => {
+                    console.error('Ошибка при предварительной загрузке поискового индекса:', error);
+                });
+            }, 2000); // Задержка в 2 секунды после загрузки страницы
+        }
+
+        // Функция для поиска игр с использованием индекса
+        async function searchGamesWithIndex(gameName) {
+            const index = await loadSearchIndex();
+            if (!index) {
+                // Если индекс не загружен, используем старый метод поиска
+                return searchGamesWithoutIndex(gameName);
+            }
+
+            console.log('Поиск с использованием индекса');
+            const lowerQuery = gameName.toLowerCase();
+
+            // Фильтрация игр по запросу
+            const matchedGames = index.filter(game =>
+                game.name.toLowerCase().includes(lowerQuery)
+            );
+
+            // Добавляем релевантность к каждой игре
+            matchedGames.forEach(game => {
+                game.relevance = calculateRelevance(game.name, gameName);
+            });
+
+            // Сортировка по релевантности
+            matchedGames.sort((a, b) => b.relevance - a.relevance);
+
+            // Ограничение результатов
+            const limitedResults = matchedGames.slice(0, 100);
+
+            // Загрузка полных данных для найденных игр
+            const fullResults = await loadFullGameData(limitedResults);
+
+            return fullResults;
+        }
+
+        // Функция для загрузки полных данных для найденных игр
+        async function loadFullGameData(matchedGames) {
+            // Группировка игр по файлам
+            const gamesByFile = {};
+            matchedGames.forEach(game => {
+                if (!gamesByFile[game.file_number]) {
+                    gamesByFile[game.file_number] = [];
+                }
+                gamesByFile[game.file_number].push(game.id);
+            });
+
+            // Загрузка необходимых файлов и извлечение полных данных
+            const fullGames = [];
+            for (const [fileNumber, gameIds] of Object.entries(gamesByFile)) {
+                let fileGames;
+
+                // Используем предварительно загруженные файлы, если они есть
+                if (gameFiles[fileNumber]) {
+                    fileGames = gameFiles[fileNumber];
+                    console.log(`Используем предварительно загруженный файл games_${fileNumber}.json`);
+                } else {
+                    // Если файл не загружен, загружаем его
+                    console.log(`Загружаем файл games_${fileNumber}.json`);
+                    const response = await fetch(`data/games_${fileNumber}.json`);
+                    if (!response.ok) {
+                        throw new Error(`Ошибка загрузки файла games_${fileNumber}.json: ${response.status} ${response.statusText}`);
+                    }
+                    fileGames = await response.json();
+                    // Сохраняем файл для будущих запросов
+                    gameFiles[fileNumber] = fileGames;
+                }
+
+                // Находим игры по ID
+                const relevantGames = fileGames.filter(game => gameIds.includes(game.id));
+                fullGames.push(...relevantGames);
+            }
+
+            return fullGames;
+        }
+
+        // Резервный метод поиска без использования индекса
+        async function searchGamesWithoutIndex(gameName) {
+            console.log('Поиск без использования индекса');
+
+            // Используем предварительно загруженный индекс, если он есть
+            let index;
+            if (gameIndex !== null) {
+                index = gameIndex;
+            } else {
+                // Если индекс не загружен, загружаем его
+                const indexResponse = await fetch('data/index.json');
+                if (!indexResponse.ok) {
+                    throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
+                }
+                index = await indexResponse.json();
+                gameIndex = index;
+            }
+
+            let matchedGames = [];
+            for (let i = 1; i <= index.total_files; i++) {
+                let fileGames;
+
+                // Используем предварительно загруженные файлы, если они есть
+                if (gameFiles[i]) {
+                    fileGames = gameFiles[i];
+                } else {
+                    // Если файл не загружен, загружаем его
+                    const response = await fetch(`data/games_${i}.json`);
+                    if (!response.ok) {
+                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                    }
+                    fileGames = await response.json();
+                    gameFiles[i] = fileGames;
+                }
+
+                const matches = fileGames.filter(game =>
+                    game.name.toLowerCase().includes(gameName.toLowerCase())
+                );
+
+                // Добавляем релевантность к каждой игре
+                matches.forEach(game => {
+                    game.relevance = calculateRelevance(game.name, gameName);
+                });
+
+                matchedGames = matchedGames.concat(matches);
+                if (matchedGames.length >= 100) {
+                    break;
+                }
+            }
+
+            // Сортируем игры по релевантности
+            matchedGames.sort((a, b) => b.relevance - a.relevance);
+
+            return matchedGames.slice(0, 100);
+        }
+
         function chunkArray(array, size) {
             const chunked = [];
             for (let i = 0; i < array.length; i += size) {
@@ -4517,6 +4689,8 @@
                 // Предварительная загрузка индекса игр в фоновом режиме после загрузки основных элементов таблицы
                 setTimeout(() => {
                     preloadGameIndex();
+                    // Загрузка поискового индекса для быстрого поиска
+                    preloadSearchIndex();
                 }, 1000); // Задержка в 1 секунду, чтобы не мешать загрузке основных элементов
             }, 100);
 
