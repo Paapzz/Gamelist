@@ -2380,6 +2380,9 @@
             addGameModal.style.display = 'none';
             searchGameInput.value = '';
             searchResults.innerHTML = '';
+
+            // Применяем фильтры при закрытии модального окна, чтобы сохранить текущие фильтры
+            applyFilters(false);
         }
 
         // Функция для расчета релевантности игры по отношению к поисковому запросу (для сортировки)
@@ -3644,6 +3647,9 @@
             if (modal === addGameModal) {
                 resetAddGameForm();
             }
+
+            // Применяем фильтры при закрытии модального окна, чтобы сохранить текущие фильтры
+            applyFilters(false);
         }
 
         document.querySelectorAll('.close').forEach(closeBtn => {
