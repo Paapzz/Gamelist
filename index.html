@@ -1958,8 +1958,17 @@
         function loadSavedGames() {
             const savedGames = localStorage.getItem('games');
             if (savedGames) {
+                // Сохраняем количество игр до загрузки
+                const prevGamesCount = games.length;
+
+                // Загружаем игры из localStorage
                 games = JSON.parse(savedGames);
                 completedGames = games.filter(game => game.completed).length;
+
+                // Логируем информацию о загруженных играх
+                console.log(`Загружено ${games.length - prevGamesCount} игр из localStorage, всего ${games.length} игр`);
+
+                // Обновляем расположение игр в прогрессе
                 updateInProgressRow();
             }
         }
@@ -2914,30 +2923,75 @@
                 }
             }
 
-            // Обновляем атрибуты ползунков
-            yearSliderMin.min = minGameYear;
-            yearSliderMin.max = maxGameYear;
-            yearSliderMax.min = minGameYear;
-            yearSliderMax.max = maxGameYear;
+            // Проверяем, изменился ли диапазон лет
+            const currentMinYear = parseInt(yearSliderMin.min);
+            const currentMaxYear = parseInt(yearSliderMax.max);
 
-            // Устанавливаем значения ползунков только при первой загрузке страницы
-            // или если значения фильтра года еще не были установлены
-            if (currentYearFilterMin === null || currentYearFilterMax === null) {
-                yearSliderMin.value = minYear;
-                yearSliderMax.value = maxYear;
-                // console.log(`Установлены значения ползунков при первой загрузке: ${minYear} - ${maxYear}`);
+            if (currentMinYear !== minGameYear || currentMaxYear !== maxGameYear) {
+                console.log(`Диапазон лет изменился: ${currentMinYear}-${currentMaxYear} -> ${minGameYear}-${maxGameYear}`);
+
+                // Обновляем атрибуты ползунков
+                yearSliderMin.min = minGameYear;
+                yearSliderMin.max = maxGameYear;
+                yearSliderMax.min = minGameYear;
+                yearSliderMax.max = maxGameYear;
             } else {
-                // Если значения фильтра года уже были установлены, используем их
-                yearSliderMin.value = currentYearFilterMin;
-                yearSliderMax.value = currentYearFilterMax;
-                // console.log(`Восстановлены значения ползунков в populateFilters: ${currentYearFilterMin} - ${currentYearFilterMax}`);
+                console.log(`Диапазон лет не изменился: ${minGameYear}-${maxGameYear}`);
+            }
+
+            // Проверяем текущие значения ползунков
+            let currentMinValue = parseInt(yearSliderMin.value);
+            let currentMaxValue = parseInt(yearSliderMax.value);
+            let needsUpdate = false;
+
+            // Если значения фильтра года еще не были установлены
+            if (currentYearFilterMin === null || currentYearFilterMax === null) {
+                currentMinValue = minYear;
+                currentMaxValue = maxYear;
+                needsUpdate = true;
+                console.log(`Устанавливаем начальные значения ползунков: ${currentMinValue} - ${currentMaxValue}`);
+            } else {
+                // Проверяем, что текущие значения находятся в допустимом диапазоне
+                if (currentMinValue < minGameYear) {
+                    console.log(`Минимальный год ${currentMinValue} меньше минимально возможного ${minGameYear}`);
+                    currentMinValue = minGameYear;
+                    needsUpdate = true;
+                }
+
+                if (currentMaxValue > maxGameYear) {
+                    console.log(`Максимальный год ${currentMaxValue} больше максимально возможного ${maxGameYear}`);
+                    currentMaxValue = maxGameYear;
+                    needsUpdate = true;
+                }
+
+                if (needsUpdate) {
+                    console.log(`Обновляем значения ползунков: ${yearSliderMin.value}-${yearSliderMax.value} -> ${currentMinValue}-${currentMaxValue}`);
+                } else {
+                    console.log(`Значения ползунков в допустимом диапазоне: ${currentMinValue}-${currentMaxValue}`);
+                }
+            }
+
+            // Устанавливаем значения ползунков
+            if (needsUpdate) {
+                yearSliderMin.value = currentMinValue;
+                yearSliderMax.value = currentMaxValue;
+
+                // Обновляем глобальные переменные
+                currentYearFilterMin = currentMinValue;
+                currentYearFilterMax = currentMaxValue;
+
+                // Обновляем отображение значений
+                updateYearValue();
             }
 
             // Обновляем метки годов
             document.getElementById('minYearLabel').textContent = minGameYear;
             document.getElementById('maxYearLabel').textContent = maxGameYear;
 
-            updateYearValue();
+            // Обновляем отображение значений, если они не были обновлены ранее
+            if (!needsUpdate) {
+                updateYearValue();
+            }
 
             // Инициализируем глобальные переменные для сохранения текущих значений фильтра года
             // Только при первой загрузке страницы
@@ -5036,14 +5090,21 @@
             preloadSearchIndex();
 
             initializeImportButton();
+
+            // Загружаем игры из localStorage
             loadSavedGames();
+
+            // Обновляем счетчик пройденных игр
             updateCounter();
-            // Сначала популируем фильтры, чтобы учесть все игры, включая загруженные из localStorage
+
+            // Популируем фильтры после загрузки всех игр
+            console.log(`Популируем фильтры для ${games.length} игр`);
             populateFilters();
-            // Затем применяем фильтры и рендерим игры
+
+            // Применяем фильтры и рендерим игры
             applyFilters(false);
             renderGames(true); // Принудительно сортируем по ID при загрузке страницы
-            updateInProgressRow(); // Сначала размещаем ячейки по рядам
+            updateInProgressRow(); // Размещаем ячейки по рядам
             initializeCacheClearing();
 
             // Восстанавливаем состояние completedFilter и hideCompletedButton перед применением фильтров
