@@ -1737,12 +1737,18 @@
             box-shadow: none !important;
             transform: none !important;
             filter: grayscale(50%) !important;
+            background-color: #888 !important;
+            color: #ddd !important;
+            border-color: #777 !important;
         }
 
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
             pointer-events: none;
+            background-color: #888 !important;
+            color: #ddd !important;
+            border-color: #777 !important;
         }
          #completedFilter:hover:not(.active) { background-color: #16831b; }
          #resetFiltersButton:hover { background-color: #b92f2f; }
@@ -4559,6 +4565,9 @@
                 let addedGames = 0;
                 const maxGamesToAdd = Math.min(count, 3000 - games.length);
 
+                // Создаем массив для хранения промисов добавления игр
+                const addPromises = [];
+
                 for (const game of newGames) {
                     if (addedGames >= maxGamesToAdd) {
                         break;
@@ -4577,12 +4586,19 @@
                         inProgress: false
                     };
                     if (!isDuplicateGame(newGame)) {
-                        await addNewGameWithDelay(newGame);
+                        // Добавляем промис в массив
+                        addPromises.push(addNewGameWithDelay(newGame));
                         addedGames++;
                     } else {
                         console.log(`Игра "${newGame.name}" не добавлена`);
                     }
                 }
+
+                // Ждем завершения всех промисов добавления игр
+                await Promise.all(addPromises);
+
+                // Обновляем фильтры только один раз после добавления всех игр
+                populateFilters();
 
                 console.log('Импорт завершен успешно');
 
@@ -4663,9 +4679,15 @@
         function addNewGameWithDelay(game) {
             return new Promise(resolve => {
                 setTimeout(() => {
-                    addNewGame(game);
+                    // Добавляем игру без обновления фильтров
+                    games.push(game);
+                    const cell = createCell(game);
+                    grid.appendChild(cell);
+                    updateGridSize();
                     saveGames();
-                    updateFiltersAndCounter();
+                    // Не вызываем updateFiltersAndCounter для каждой игры
+                    // Только обновляем счетчик
+                    updateCounter();
                     resolve();
                     updateSaturation();
                 }, 10);
