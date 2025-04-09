@@ -2090,6 +2090,7 @@
         let inProgressMode = false;
         let hideCompleted = JSON.parse(localStorage.getItem('hideCompleted')) || false;
         let documentClickHandler; // Добавляем глобальную переменную для обработчика клика
+        let isMessageVisible = false; // Флаг для отслеживания видимости сообщения
 
         let savedMinYear = localStorage.getItem('minYear');
         let savedMaxYear = localStorage.getItem('maxYear');
@@ -2469,6 +2470,12 @@
         }
 
         function addGameFromSearch(game) {
+            // Проверяем, не отображается ли уже сообщение или не идет ли импорт
+            if (isMessageVisible || isImporting) {
+                console.log('Невозможно добавить игру: отображается сообщение или идет импорт');
+                return;
+            }
+
             const newGame = {
                 id: Date.now(),
                 name: game.name,
@@ -2526,6 +2533,9 @@
                 document.removeEventListener('click', documentClickHandler);
             }
 
+            // Устанавливаем флаг, что сообщение видимо
+            isMessageVisible = true;
+
             const overlay = document.createElement('div');
             overlay.className = 'message-overlay';
             overlay.textContent = message;
@@ -2558,6 +2568,8 @@
                 if (overlay && overlay.parentNode) {
                     overlay.remove();
                 }
+                // Сбрасываем флаг видимости сообщения
+                isMessageVisible = false;
             }, 300); // Время анимации исчезновения
         }
 
@@ -4404,7 +4416,9 @@
         let isImporting = false;
 
         async function importFromIGDB(count = 100) {
-            if (isImporting) {
+            // Проверяем, не идет ли уже импорт или не отображается ли сообщение
+            if (isImporting || isMessageVisible) {
+                console.log('Импорт уже идет или отображается сообщение');
                 return;
             }
 
@@ -4605,6 +4619,9 @@
             loadingOverlay.style.opacity = '1';
             loadingOverlay.style.display = 'flex';
             loadingOverlay.style.pointerEvents = 'none'; // По умолчанию не реагируем на клики
+
+            // Устанавливаем флаг, что сообщение видимо
+            isMessageVisible = true;
         }
 
         function hideLoadingMessage() {
@@ -4630,6 +4647,9 @@
                 if (loadingMessage) {
                     loadingMessage.textContent = 'Загружается, подождите...';
                 }
+
+                // Сбрасываем флаг видимости сообщения
+                isMessageVisible = false;
             }, 300); // Время анимации исчезновения
         }
 
