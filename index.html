@@ -1682,12 +1682,11 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.1);
+            background-color: rgba(0, 0, 0, 0.5); /* Увеличиваем непрозрачность фона */
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 9999;
-            pointer-events: none;
             opacity: 1;
             transition: opacity 0.3s ease; /* Добавляем плавную анимацию */
         }
@@ -2090,6 +2089,8 @@
         let inProgressMode = false;
         let hideCompleted = JSON.parse(localStorage.getItem('hideCompleted')) || false;
         let documentClickHandler; // Добавляем глобальную переменную для обработчика клика
+        let isMessageVisible = false; // Флаг для отслеживания видимости сообщения
+        let importButtonsDisabled = false; // Флаг для отслеживания состояния кнопок импорта
 
         let savedMinYear = localStorage.getItem('minYear');
         let savedMaxYear = localStorage.getItem('maxYear');
@@ -2469,6 +2470,12 @@
         }
 
         function addGameFromSearch(game) {
+            // Проверяем, не отображается ли уже сообщение или не идет ли импорт
+            if (isMessageVisible || isImporting) {
+                console.log('Невозможно добавить игру: отображается сообщение или идет импорт');
+                return;
+            }
+
             const newGame = {
                 id: Date.now(),
                 name: game.name,
@@ -2526,6 +2533,9 @@
                 document.removeEventListener('click', documentClickHandler);
             }
 
+            // Устанавливаем флаг, что сообщение видимо
+            isMessageVisible = true;
+
             const overlay = document.createElement('div');
             overlay.className = 'message-overlay';
             overlay.textContent = message;
@@ -2542,11 +2552,11 @@
                 document.addEventListener('click', documentClickHandler);
             }, 100);
 
-            // Уменьшаем время показа до 2 секунд
+            // Устанавливаем время показа 3 секунды
             messageTimeout = setTimeout(() => {
                 hideMessageWithAnimation(overlay);
                 document.removeEventListener('click', documentClickHandler);
-            }, 2000);
+            }, 3000);
         }
 
         function hideMessageWithAnimation(overlay) {
@@ -2558,6 +2568,8 @@
                 if (overlay && overlay.parentNode) {
                     overlay.remove();
                 }
+                // Сбрасываем флаг видимости сообщения
+                isMessageVisible = false;
             }, 300); // Время анимации исчезновения
         }
 
@@ -4404,9 +4416,15 @@
         let isImporting = false;
 
         async function importFromIGDB(count = 100) {
-            if (isImporting) {
+            // Проверяем, не идет ли уже импорт или не отображается ли сообщение
+            if (isImporting || isMessageVisible || importButtonsDisabled) {
+                console.log('Импорт уже идет или отображается сообщение');
                 return;
             }
+
+            // Блокируем кнопки импорта
+            importButtonsDisabled = true;
+            disableImportButtons();
 
             isImporting = true;
             showLoadingMessage();
@@ -4527,8 +4545,8 @@
                 const loadingMessage = loadingOverlay.querySelector('.loading-message');
                 loadingMessage.textContent = 'Успешно добавлено!';
 
-                // Добавляем обработчик клика на весь документ для скрытия сообщения
-                loadingOverlay.style.pointerEvents = 'none'; // Делаем прозрачным для кликов
+                // Делаем сообщение кликабельным
+                loadingOverlay.style.pointerEvents = 'auto';
 
                 // Создаем обработчик клика на весь документ
                 const clickHandler = () => {
@@ -4550,8 +4568,11 @@
                 console.error('Ошибка при импорте игр из IGDB:', error);
                 // Заменяем alert на неблокирующее сообщение
                 showMessage(`Не удалось импортировать игры: ${error.message}`);
-            } finally {
+                // Скрываем загрузочное сообщение в случае ошибки
                 hideLoadingMessageWithAnimation();
+            } finally {
+                // Сбрасываем флаг импорта, но не скрываем сообщение в случае успеха
+                // Сообщение будет скрыто автоматически через таймаут или по клику
                 isImporting = false;
             }
         }
@@ -4599,9 +4620,20 @@
 
         function showLoadingMessage() {
             const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingMessage = loadingOverlay.querySelector('.loading-message');
+
+            // Устанавливаем текст загрузки
+            if (loadingMessage) {
+                loadingMessage.textContent = 'Загружается, подождите...';
+            }
+
             loadingOverlay.style.opacity = '1';
             loadingOverlay.style.display = 'flex';
-            loadingOverlay.style.pointerEvents = 'none'; // По умолчанию не реагируем на клики
+            // Делаем непрозрачным для кликов, чтобы нельзя было закрыть до завершения процесса
+            loadingOverlay.style.pointerEvents = 'auto';
+
+            // Устанавливаем флаг, что сообщение видимо
+            isMessageVisible = true;
         }
 
         function hideLoadingMessage() {
@@ -4627,6 +4659,12 @@
                 if (loadingMessage) {
                     loadingMessage.textContent = 'Загружается, подождите...';
                 }
+
+                // Сбрасываем флаг видимости сообщения
+                isMessageVisible = false;
+
+                // Разблокируем кнопки импорта
+                enableImportButtons();
             }, 300); // Время анимации исчезновения
         }
 
@@ -4654,6 +4692,59 @@
             }
 
             // Удалено, так как функционал перенесен на кнопку-крестик
+        }
+
+        // Функция для блокировки кнопок импорта
+        function disableImportButtons() {
+            const importButton = document.getElementById('importFromApiButton');
+            const importModalButton = document.getElementById('importFromApiModalButton');
+            const searchGameModalButton = document.getElementById('searchGameModalButton');
+
+            if (importButton) {
+                importButton.disabled = true;
+                importButton.style.opacity = '0.5';
+                importButton.style.cursor = 'not-allowed';
+            }
+
+            if (importModalButton) {
+                importModalButton.disabled = true;
+                importModalButton.style.opacity = '0.5';
+                importModalButton.style.cursor = 'not-allowed';
+            }
+
+            if (searchGameModalButton) {
+                searchGameModalButton.disabled = true;
+                searchGameModalButton.style.opacity = '0.5';
+                searchGameModalButton.style.cursor = 'not-allowed';
+            }
+        }
+
+        // Функция для разблокировки кнопок импорта
+        function enableImportButtons() {
+            const importButton = document.getElementById('importFromApiButton');
+            const importModalButton = document.getElementById('importFromApiModalButton');
+            const searchGameModalButton = document.getElementById('searchGameModalButton');
+
+            if (importButton) {
+                importButton.disabled = false;
+                importButton.style.opacity = '1';
+                importButton.style.cursor = 'pointer';
+            }
+
+            if (importModalButton) {
+                importModalButton.disabled = false;
+                importModalButton.style.opacity = '1';
+                importModalButton.style.cursor = 'pointer';
+            }
+
+            if (searchGameModalButton) {
+                searchGameModalButton.disabled = false;
+                searchGameModalButton.style.opacity = '1';
+                searchGameModalButton.style.cursor = 'pointer';
+            }
+
+            // Сбрасываем флаг блокировки кнопок
+            importButtonsDisabled = false;
         }
 
         function clearSearchResults() {
