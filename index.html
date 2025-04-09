@@ -1728,6 +1728,22 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         /* Keep specific background/color/opacity hovers if needed */
+
+        /* Стиль для заблокированных кнопок */
+        .button-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+            box-shadow: none !important;
+            transform: none !important;
+            filter: grayscale(50%) !important;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
          #completedFilter:hover:not(.active) { background-color: #16831b; }
          #resetFiltersButton:hover { background-color: #b92f2f; }
          #hideCompletedButton:hover:not(.active) { background-color: #1565b6; }
@@ -4387,9 +4403,59 @@
         let isImporting = false;
         // Флаг для отслеживания видимости сообщения
         let isMessageVisible = false;
+        // Флаг для отслеживания блокировки кнопок импорта
+        let importButtonsDisabled = false;
         // Сохраняем текущие значения фильтров перед добавлением игр
         let savedYearFilterMin = null;
         let savedYearFilterMax = null;
+
+        // Функция для блокировки кнопок импорта
+        function disableImportButtons() {
+            const importButton = document.getElementById('importFromApiButton');
+            const importModalButton = document.getElementById('importFromApiModalButton');
+            const searchGameModalButton = document.getElementById('searchGameModalButton');
+
+            if (importButton) {
+                importButton.classList.add('button-disabled');
+                importButton.disabled = true;
+            }
+
+            if (importModalButton) {
+                importModalButton.classList.add('button-disabled');
+                importModalButton.disabled = true;
+            }
+
+            if (searchGameModalButton) {
+                searchGameModalButton.classList.add('button-disabled');
+                searchGameModalButton.disabled = true;
+            }
+
+            importButtonsDisabled = true;
+        }
+
+        // Функция для разблокировки кнопок импорта
+        function enableImportButtons() {
+            const importButton = document.getElementById('importFromApiButton');
+            const importModalButton = document.getElementById('importFromApiModalButton');
+            const searchGameModalButton = document.getElementById('searchGameModalButton');
+
+            if (importButton) {
+                importButton.classList.remove('button-disabled');
+                importButton.disabled = false;
+            }
+
+            if (importModalButton) {
+                importModalButton.classList.remove('button-disabled');
+                importModalButton.disabled = false;
+            }
+
+            if (searchGameModalButton) {
+                searchGameModalButton.classList.remove('button-disabled');
+                searchGameModalButton.disabled = false;
+            }
+
+            importButtonsDisabled = false;
+        }
 
         async function importFromIGDB(count = 100) {
             // Проверяем, не идет ли уже импорт или не отображается ли сообщение
