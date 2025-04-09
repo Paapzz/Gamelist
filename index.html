@@ -1506,18 +1506,6 @@
             max-height: 300px;
             overflow-y: auto;
         }
-
-        .no-games-found {
-            padding: 15px;
-            text-align: center;
-            background-color: rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-            margin: 10px 0;
-            color: #f44336; /* Красный цвет для привлечения внимания */
-            font-weight: bold;
-            font-size: 16px;
-            border-left: 4px solid #f44336;
-        }
         .search-result {
             display: flex;
             justify-content: space-between;
@@ -1692,31 +1680,21 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.2); /* Уменьшаем непрозрачность фона */
+            background-color: rgba(0, 0, 0, 0.1);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 9999;
-            pointer-events: none; /* Делаем прозрачным для кликов по умолчанию */
-            opacity: 1;
-            transition: opacity 0.3s ease; /* Добавляем плавную анимацию */
+            pointer-events: none;
         }
 
         .loading-message {
-            background-color: rgba(0, 0, 0, 0.8);
+            background-color: rgba(0, 0, 0, 0.7);
             color: white;
             padding: 20px 40px;
             border-radius: 40px;
             font-size: 24px;
             text-align: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            cursor: pointer; /* Добавляем курсор указателя для кликабельности */
-            transition: transform 0.2s ease, box-shadow 0.2s ease; /* Добавляем анимацию при наведении */
-        }
-
-        .loading-message:hover {
-            transform: scale(1.05);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
         }
 
         /* --- NEW General Hover Effect --- */
@@ -1931,7 +1909,7 @@
 
             console.log(`Поиск по запросу: "${lowerQuery}" в ${index.length} играх`);
 
-            // Добавляем поиск только по релевантным совпадениям
+            // Добавляем более гибкий поиск
             const matchedGames = index.filter(game => {
                 if (!game.name) return false;
                 const gameName = game.name.toLowerCase();
@@ -1940,12 +1918,33 @@
 
             console.log(`Найдено игр: ${matchedGames.length}`);
 
-            // Если ничего не найдено, просто возвращаем пустой массив
-            // Удаляем поиск по отдельным буквам, так как он дает нерелевантные результаты
-            if (matchedGames.length === 0) {
-                console.log('Игры не найдены');
-                // Возвращаем пустой массив, чтобы показать сообщение "Игры не найдены"
-                return [];
+                // Если ничего не найдено, попробуем более простой поиск
+            if (matchedGames.length === 0 && lowerQuery.length > 1) {
+                console.log('Пробуем более простой поиск');
+                // Попробуем найти игры, содержащие хотя бы одну букву из запроса
+                for (const char of lowerQuery) {
+                    const additionalMatches = index.filter(game => {
+                        if (!game.name) return false;
+                        return game.name.toLowerCase().includes(char);
+                    });
+                    if (additionalMatches.length > 0) {
+                        console.log(`Найдено дополнительных игр по букве '${char}': ${additionalMatches.length}`);
+                        matchedGames.push(...additionalMatches);
+                    }
+                }
+
+                // Удаляем дубликаты
+                const uniqueIds = new Set();
+                const uniqueGames = [];
+                for (const game of matchedGames) {
+                    if (!uniqueIds.has(game.id)) {
+                        uniqueIds.add(game.id);
+                        uniqueGames.push(game);
+                    }
+                }
+                matchedGames.length = 0;
+                matchedGames.push(...uniqueGames);
+                console.log(`После удаления дубликатов: ${matchedGames.length} игр`);
             }
 
             // Добавляем релевантность к каждой игре
@@ -2404,7 +2403,7 @@
             searchResults.innerHTML = '';
             if (games.length === 0) {
                 const searchTerm = searchGameInput.value.trim();
-                searchResults.innerHTML = `<p class="no-games-found">По запросу "${searchTerm}" ничего не найдено. Попробуйте изменить поисковый запрос.</p>`;
+                searchResults.innerHTML = `<p class="no-games-found">По запросу "${searchTerm}" ничего не найдено.</p>`;
                 return;
             }
 
@@ -2521,9 +2520,6 @@
                 clearTimeout(messageTimeout);
             }
 
-            // Устанавливаем флаг, что сообщение видимо
-            isMessageVisible = true;
-
             const overlay = document.createElement('div');
             overlay.className = 'message-overlay';
             overlay.textContent = message;
@@ -2531,8 +2527,6 @@
 
             messageTimeout = setTimeout(() => {
                 overlay.remove();
-                // Сбрасываем флаг после удаления сообщения
-                isMessageVisible = false;
             }, 3000);
         }
 
@@ -2540,6 +2534,10 @@
             addGameModal.style.display = 'none';
             searchGameInput.value = '';
             searchResults.innerHTML = '';
+
+            // Не сбрасываем флаги импорта при закрытии окна,
+            // чтобы при повторном открытии кнопки были заблокированы, если импорт еще идет
+            console.log('Закрытие окна добавления игр. Статус импорта:', isImporting ? 'Импорт в процессе' : 'Импорт не выполняется');
         }
 
         // Функция для расчета релевантности игры по отношению к поисковому запросу (для сортировки)
@@ -4380,58 +4378,6 @@
         // Сохраняем текущие значения фильтров перед добавлением игр
         let savedYearFilterMin = null;
         let savedYearFilterMax = null;
-        // Флаг для отслеживания видимости сообщения
-        let isMessageVisible = false;
-        // Флаг для отслеживания блокировки кнопок импорта
-        let importButtonsDisabled = false;
-
-        // Функция для блокировки кнопок импорта
-        function disableImportButtons() {
-            const importButton = document.getElementById('importFromApiButton');
-            const importModalButton = document.getElementById('importFromApiModalButton');
-            const searchGameModalButton = document.getElementById('searchGameModalButton');
-
-            if (importButton) {
-                importButton.classList.add('button-disabled');
-                importButton.disabled = true;
-            }
-
-            if (importModalButton) {
-                importModalButton.classList.add('button-disabled');
-                importModalButton.disabled = true;
-            }
-
-            if (searchGameModalButton) {
-                searchGameModalButton.classList.add('button-disabled');
-                searchGameModalButton.disabled = true;
-            }
-
-            importButtonsDisabled = true;
-        }
-
-        // Функция для разблокировки кнопок импорта
-        function enableImportButtons() {
-            const importButton = document.getElementById('importFromApiButton');
-            const importModalButton = document.getElementById('importFromApiModalButton');
-            const searchGameModalButton = document.getElementById('searchGameModalButton');
-
-            if (importButton) {
-                importButton.classList.remove('button-disabled');
-                importButton.disabled = false;
-            }
-
-            if (importModalButton) {
-                importModalButton.classList.remove('button-disabled');
-                importModalButton.disabled = false;
-            }
-
-            if (searchGameModalButton) {
-                searchGameModalButton.classList.remove('button-disabled');
-                searchGameModalButton.disabled = false;
-            }
-
-            importButtonsDisabled = false;
-        }
 
         async function importFromIGDB(count = 100) {
             // Проверяем, не идет ли уже импорт или не отображается ли сообщение
@@ -4574,32 +4520,52 @@
                 // Добавляем обработчик клика на само сообщение
                 loadingOverlay.onclick = () => {
                     hideLoadingMessageWithAnimation(false); // Не сбрасываем текст сообщения
+                    // Сбрасываем флаги импорта только после успешного завершения
+                    isImporting = false;
+                    isMessageVisible = false;
+                    importButtonsDisabled = false;
+                    enableImportButtons();
                 };
 
                 // Автоматически скрываем через 3 секунды
                 setTimeout(() => {
                     hideLoadingMessageWithAnimation(false); // Не сбрасываем текст сообщения
+                    // Сбрасываем флаги импорта только после успешного завершения
+                    isImporting = false;
+                    isMessageVisible = false;
+                    importButtonsDisabled = false;
+                    enableImportButtons();
                 }, 3000);
-
-                // Восстанавливаем значения фильтров после добавления игр
-                if (savedYearFilterMin !== null && savedYearFilterMax !== null) {
-                    // Обновляем фильтры с учетом новых игр
-                    populateFilters();
-
-                    // Восстанавливаем сохраненные значения фильтров
-                    yearSliderMin.value = savedYearFilterMin;
-                    yearSliderMax.value = savedYearFilterMax;
-
-                    // Обновляем отображение значений фильтров
-                    updateYearValue();
-
-                    // Применяем фильтры
-                    applyFilters();
-                }
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
+
                 // Заменяем alert на неблокирующее сообщение
-                showMessage(`Не удалось импортировать игры: ${error.message}`);
+                const loadingOverlay = document.getElementById('loadingOverlay');
+                const loadingMessage = loadingOverlay.querySelector('.loading-message');
+                loadingMessage.textContent = `Ошибка: ${error.message}`;
+
+                // Делаем сообщение кликабельным
+                loadingOverlay.style.pointerEvents = 'auto';
+
+                // Добавляем обработчик клика на само сообщение
+                loadingOverlay.onclick = () => {
+                    hideLoadingMessageWithAnimation(false); // Не сбрасываем текст сообщения
+                    // Сбрасываем флаги импорта
+                    isImporting = false;
+                    isMessageVisible = false;
+                    importButtonsDisabled = false;
+                    enableImportButtons();
+                };
+
+                // Автоматически скрываем через 3 секунды
+                setTimeout(() => {
+                    hideLoadingMessageWithAnimation(false); // Не сбрасываем текст сообщения
+                    // Сбрасываем флаги импорта
+                    isImporting = false;
+                    isMessageVisible = false;
+                    importButtonsDisabled = false;
+                    enableImportButtons();
+                }, 3000);
 
                 // Восстанавливаем значения фильтров в случае ошибки
                 if (savedYearFilterMin !== null && savedYearFilterMax !== null) {
@@ -4609,11 +4575,8 @@
                     applyFilters();
                 }
             } finally {
-                // Не скрываем сообщение в блоке finally, так как оно уже скрывается в блоке try
-                // В случае ошибки мы показываем сообщение об ошибке через showMessage
-                isImporting = false;
-
-                // Сбрасываем сохраненные значения фильтров
+                // Не сбрасываем флаги в finally, так как это делается в обработчиках клика и таймера
+                // Сбрасываем только сохраненные значения фильтров
                 savedYearFilterMin = null;
                 savedYearFilterMax = null;
             }
@@ -4622,15 +4585,9 @@
         function addNewGameWithDelay(game) {
             return new Promise(resolve => {
                 setTimeout(() => {
-                    // Добавляем игру без обновления фильтров
-                    games.push(game);
-                    const cell = createCell(game);
-                    grid.appendChild(cell);
-                    updateGridSize();
+                    addNewGame(game);
                     saveGames();
-                    // Не вызываем updateFiltersAndCounter для каждой игры
-                    // Только обновляем счетчик
-                    updateCounter();
+                    updateFiltersAndCounter();
                     resolve();
                     updateSaturation();
                 }, 10);
@@ -4668,46 +4625,10 @@
 
         function showLoadingMessage() {
             document.getElementById('loadingOverlay').style.display = 'flex';
-            // Устанавливаем флаг, что сообщение видимо
-            isMessageVisible = true;
         }
 
         function hideLoadingMessage() {
             document.getElementById('loadingOverlay').style.display = 'none';
-            // Сбрасываем флаг после скрытия сообщения
-            isMessageVisible = false;
-        }
-
-        function hideLoadingMessageWithAnimation(resetText = true) {
-            const loadingOverlay = document.getElementById('loadingOverlay');
-            // Плавно уменьшаем прозрачность
-            loadingOverlay.style.transition = 'opacity 0.5s ease';
-            loadingOverlay.style.opacity = '0';
-
-            // После завершения анимации скрываем элемент
-            setTimeout(() => {
-                loadingOverlay.style.display = 'none';
-                loadingOverlay.style.opacity = '1'; // Сбрасываем прозрачность для следующего показа
-                loadingOverlay.style.transition = ''; // Сбрасываем анимацию
-                loadingOverlay.style.pointerEvents = 'none'; // Сбрасываем обработчик клика
-
-                // Удаляем все обработчики кликов
-                loadingOverlay.onclick = null;
-
-                // Возвращаем исходный текст загрузки, если нужно
-                if (resetText) {
-                    const loadingMessage = loadingOverlay.querySelector('.loading-message');
-                    if (loadingMessage) {
-                        loadingMessage.textContent = 'Загружается, подождите...';
-                    }
-                }
-
-                // Сбрасываем флаг видимости сообщения
-                isMessageVisible = false;
-
-                // Разблокируем кнопки импорта
-                enableImportButtons();
-            }, 500); // Увеличиваем время анимации исчезновения
         }
 
         function initializeImportButton() {
@@ -4810,6 +4731,15 @@
             if (addGameButton) {
                 addGameButton.addEventListener('click', () => {
                     addGameModal.style.display = 'block';
+
+                    // При открытии модального окна проверяем, идет ли импорт
+                    if (isImporting || isMessageVisible || importButtonsDisabled) {
+                        console.log('При открытии окна: Импорт в процессе, блокируем кнопки');
+                        disableImportButtons();
+                    } else {
+                        console.log('При открытии окна: Импорт не выполняется, разблокируем кнопки');
+                        enableImportButtons();
+                    }
                 });
             } else {
                 console.error('Кнопка "Добавить игру" в шапке не найдена');
