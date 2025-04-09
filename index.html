@@ -4278,6 +4278,30 @@
 
                 console.log(`Импорт завершен успешно. Добавлено ${addedGames} новых игр.`);
 
+                // Восстанавливаем значения фильтров
+                if (savedYearFilterMin !== null) {
+                    // Обновляем фильтры после добавления всех игр
+                    updateFiltersAndCounter();
+
+                    // Восстанавливаем сохраненные значения фильтров
+                    yearSliderMin.value = savedYearFilterMin;
+                    yearSliderMax.value = savedYearFilterMax;
+
+                    // Обновляем отображение значений года
+                    updateYearValue();
+
+                    // Сохраняем восстановленные значения в localStorage
+                    localStorage.setItem('yearFilterMin', savedYearFilterMin);
+                    localStorage.setItem('yearFilterMax', savedYearFilterMax);
+
+                    // Обнуляем сохраненные значения
+                    savedYearFilterMin = null;
+                    savedYearFilterMax = null;
+
+                    // Применяем фильтры
+                    applyFilters();
+                }
+
                 // Показываем сообщение об успешном добавлении
                 showSuccessMessage(`Успешно добавлено ${addedGames} игр!`);
             } catch (error) {
@@ -4291,25 +4315,38 @@
             }
         }
 
+        // Сохраняем текущие значения фильтров перед добавлением игр
+        let savedYearFilterMin = null;
+        let savedYearFilterMax = null;
+
         function addNewGameWithDelay(game) {
             return new Promise(resolve => {
+                // Сохраняем текущие значения фильтров при первом вызове
+                if (savedYearFilterMin === null) {
+                    savedYearFilterMin = yearSliderMin.value;
+                    savedYearFilterMax = yearSliderMax.value;
+                }
+
                 setTimeout(() => {
-                    addNewGame(game);
+                    addNewGame(game, false); // Передаем false, чтобы не обновлять фильтры
                     saveGames();
-                    updateFiltersAndCounter();
+                    // Не вызываем updateFiltersAndCounter для каждой игры
                     resolve();
                     updateSaturation();
                 }, 10);
             });
         }
 
-        function addNewGame(game) {
+        function addNewGame(game, updateFilters = true) {
             games.push(game);
             const cell = createCell(game);
             grid.appendChild(cell);
             updateGridSize();
             saveGames();
-            updateFiltersAndCounter();
+            // Вызываем updateFiltersAndCounter только если нужно обновить фильтры
+            if (updateFilters) {
+                updateFiltersAndCounter();
+            }
             updateSaturation();
         }
 
