@@ -1864,6 +1864,189 @@
 
     <script>
         console.log('Скрипт начал выполнение');
+
+        // Глобальные переменные для хранения индексов и файлов игр
+        let searchIndex = null; // Поисковый индекс для быстрого поиска
+        let gameIndex = null; // Индекс с информацией о файлах игр
+        const gameFiles = {}; // Кэш загруженных файлов игр
+        let isSearchIndexLoading = false; // Флаг, указывающий, что поисковый индекс в процессе загрузки
+
+        // Функция для загрузки поискового индекса
+        async function loadSearchIndex() {
+            if (searchIndex !== null || isSearchIndexLoading) {
+                return searchIndex; // Индекс уже загружен или загружается
+            }
+
+            isSearchIndexLoading = true;
+            console.log('Начало загрузки поискового индекса');
+
+            try {
+                const response = await fetch('data/search_index.json');
+                if (!response.ok) {
+                    throw new Error(`Ошибка загрузки поискового индекса: ${response.status} ${response.statusText}`);
+                }
+                searchIndex = await response.json();
+                console.log(`Поисковый индекс загружен (${searchIndex.length} игр)`);
+                return searchIndex;
+            } catch (error) {
+                console.error('Ошибка при загрузке поискового индекса:', error);
+                return null;
+            } finally {
+                isSearchIndexLoading = false;
+            }
+        }
+
+        // Функция для поиска игр с использованием индекса
+        async function searchGamesWithIndex(gameName) {
+            const index = await loadSearchIndex();
+            if (!index) {
+                // Если индекс не загружен, используем старый метод поиска
+                return searchGamesWithoutIndex(gameName);
+            }
+
+            console.log('Поиск с использованием индекса');
+            const lowerQuery = gameName.toLowerCase();
+
+            console.log(`Поиск по запросу: "${lowerQuery}" в ${index.length} играх`);
+
+            // Добавляем более гибкий поиск
+            const matchedGames = index.filter(game => {
+                if (!game.name) return false;
+                const gameName = game.name.toLowerCase();
+                return gameName.includes(lowerQuery);
+            });
+
+            console.log(`Найдено игр: ${matchedGames.length}`);
+
+                // Если ничего не найдено, попробуем более простой поиск
+            if (matchedGames.length === 0 && lowerQuery.length > 1) {
+                console.log('Пробуем более простой поиск');
+                // Попробуем найти игры, содержащие хотя бы одну букву из запроса
+                for (const char of lowerQuery) {
+                    const additionalMatches = index.filter(game => {
+                        if (!game.name) return false;
+                        return game.name.toLowerCase().includes(char);
+                    });
+                    if (additionalMatches.length > 0) {
+                        console.log(`Найдено дополнительных игр по букве '${char}': ${additionalMatches.length}`);
+                        matchedGames.push(...additionalMatches);
+                    }
+                }
+
+                // Удаляем дубликаты
+                const uniqueIds = new Set();
+                const uniqueGames = [];
+                for (const game of matchedGames) {
+                    if (!uniqueIds.has(game.id)) {
+                        uniqueIds.add(game.id);
+                        uniqueGames.push(game);
+                    }
+                }
+                matchedGames.length = 0;
+                matchedGames.push(...uniqueGames);
+                console.log(`После удаления дубликатов: ${matchedGames.length} игр`);
+            }
+
+            // Добавляем релевантность к каждой игре
+            matchedGames.forEach(game => {
+                game.relevance = calculateRelevance(game.name, lowerQuery);
+            });
+
+            // Сортировка по релевантности
+            matchedGames.sort((a, b) => b.relevance - a.relevance);
+
+            // Ограничение результатов
+            return matchedGames.slice(0, 100);
+        }
+
+        // Резервный метод поиска без использования индекса
+        async function searchGamesWithoutIndex(gameName) {
+            console.log('Поиск без использования индекса');
+
+            // Используем предварительно загруженный индекс, если он есть
+            let index;
+            if (gameIndex !== null) {
+                index = gameIndex;
+            } else {
+                // Если индекс не загружен, загружаем его
+                const indexResponse = await fetch('data/index.json');
+                if (!indexResponse.ok) {
+                    throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
+                }
+                index = await indexResponse.json();
+                gameIndex = index;
+            }
+
+            let matchedGames = [];
+            for (let i = 1; i <= index.total_files; i++) {
+                let fileGames;
+
+                // Используем предварительно загруженные файлы, если они есть
+                if (gameFiles[i]) {
+                    fileGames = gameFiles[i];
+                } else {
+                    // Если файл не загружен, загружаем его
+                    const response = await fetch(`data/games_${i}.json`);
+                    if (!response.ok) {
+                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                    }
+                    fileGames = await response.json();
+                    gameFiles[i] = fileGames;
+                }
+
+                const matches = fileGames.filter(game =>
+                    game.name.toLowerCase().includes(gameName.toLowerCase())
+                );
+
+                // Добавляем релевантность к каждой игре
+                matches.forEach(game => {
+                    game.relevance = calculateRelevance(game.name, gameName);
+                });
+
+                matchedGames = matchedGames.concat(matches);
+                if (matchedGames.length >= 100) {
+                    break;
+                }
+            }
+
+            // Сортируем игры по релевантности
+            matchedGames.sort((a, b) => b.relevance - a.relevance);
+
+            return matchedGames.slice(0, 100);
+        }
+
+        // Функция для предварительной загрузки поискового индекса
+        function preloadSearchIndex() {
+            setTimeout(() => {
+                loadSearchIndex().then(() => {
+                    console.log('Поисковый индекс предварительно загружен');
+
+                    // Загружаем первый файл игр для ускорения первого поиска
+                    try {
+                        console.log('Предварительная загрузка первого файла игр...');
+                        fetch('data/games_1.json')
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error(`Ошибка предварительной загрузки файла games_1.json: ${response.status} ${response.statusText}`);
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                gameFiles[1] = data;
+                                console.log('Первый файл игр успешно предварительно загружен, игр в файле:', data.length);
+                            })
+                            .catch(error => {
+                                console.error('Ошибка при предварительной загрузке первого файла игр:', error);
+                            });
+                    } catch (fileError) {
+                        console.error('Ошибка при предварительной загрузке первого файла игр:', fileError);
+                    }
+                }).catch(error => {
+                    console.error('Ошибка при предварительной загрузке поискового индекса:', error);
+                });
+            }, 2000); // Задержка в 2 секунды после загрузки страницы
+        }
+
         const mainContent = document.getElementById('mainContent');
         const grid = document.getElementById('grid');
         const counter = document.getElementById('counter');
@@ -4526,267 +4709,11 @@
             }
 
 
-            // Глобальные переменные для хранения индексов и файлов игр
-            let searchIndex = null; // Поисковый индекс для быстрого поиска
-            let gameIndex = null; // Индекс с информацией о файлах игр
-            const gameFiles = {}; // Кэш загруженных файлов игр
-            let isSearchIndexLoading = false; // Флаг, указывающий, что поисковый индекс в процессе загрузки
+            // Используем глобальные функции для работы с индексом
 
-            // Функция для загрузки поискового индекса
-            async function loadSearchIndex() {
-                if (searchIndex !== null || isSearchIndexLoading) {
-                    return searchIndex; // Индекс уже загружен или загружается
-                }
 
-                isSearchIndexLoading = true;
-                console.log('Начало загрузки поискового индекса');
 
-                try {
-                    const response = await fetch('data/search_index.json');
-                    if (!response.ok) {
-                        throw new Error(`Ошибка загрузки поискового индекса: ${response.status} ${response.statusText}`);
-                    }
-                    searchIndex = await response.json();
-                    console.log(`Поисковый индекс загружен (${searchIndex.length} игр)`);
-                    return searchIndex;
-                } catch (error) {
-                    console.error('Ошибка при загрузке поискового индекса:', error);
-                    return null;
-                } finally {
-                    isSearchIndexLoading = false;
-                }
-            }
 
-            // Функция для предварительной загрузки поискового индекса
-            function preloadSearchIndex() {
-                setTimeout(() => {
-                    loadSearchIndex().then(() => {
-                        console.log('Поисковый индекс предварительно загружен');
-
-                        // Загружаем первый файл игр для ускорения первого поиска
-                        try {
-                            console.log('Предварительная загрузка первого файла игр...');
-                            fetch('data/games_1.json')
-                                .then(response => {
-                                    if (!response.ok) {
-                                        throw new Error(`Ошибка предварительной загрузки файла games_1.json: ${response.status} ${response.statusText}`);
-                                    }
-                                    return response.json();
-                                })
-                                .then(data => {
-                                    gameFiles[1] = data;
-                                    console.log('Первый файл игр успешно предварительно загружен, игр в файле:', data.length);
-                                })
-                                .catch(error => {
-                                    console.error('Ошибка при предварительной загрузке первого файла игр:', error);
-                                });
-                        } catch (fileError) {
-                            console.error('Ошибка при предварительной загрузке первого файла игр:', fileError);
-                        }
-                    }).catch(error => {
-                        console.error('Ошибка при предварительной загрузке поискового индекса:', error);
-                    });
-                }, 2000); // Задержка в 2 секунды после загрузки страницы
-            }
-
-            // Функция для поиска игр с использованием индекса
-            async function searchGamesWithIndex(gameName) {
-                const index = await loadSearchIndex();
-                if (!index) {
-                    // Если индекс не загружен, используем старый метод поиска
-                    return searchGamesWithoutIndex(gameName);
-                }
-
-                console.log('Поиск с использованием индекса');
-                const lowerQuery = gameName.toLowerCase();
-
-                console.log(`Поиск по запросу: "${lowerQuery}" в ${index.length} играх`);
-
-                // Добавляем более гибкий поиск
-                const matchedGames = index.filter(game => {
-                    if (!game.name) return false;
-                    const gameName = game.name.toLowerCase();
-                    return gameName.includes(lowerQuery);
-                });
-
-                console.log(`Найдено игр: ${matchedGames.length}`);
-
-                // Если ничего не найдено, попробуем более простой поиск
-                if (matchedGames.length === 0 && lowerQuery.length > 1) {
-                    console.log('Пробуем более простой поиск');
-                    // Попробуем найти игры, содержащие хотя бы одну букву из запроса
-                    for (const char of lowerQuery) {
-                        const additionalMatches = index.filter(game => {
-                            if (!game.name) return false;
-                            return game.name.toLowerCase().includes(char);
-                        });
-                        if (additionalMatches.length > 0) {
-                            console.log(`Найдено дополнительных игр по букве '${char}': ${additionalMatches.length}`);
-                            matchedGames.push(...additionalMatches);
-                        }
-                    }
-
-                    // Удаляем дубликаты
-                    const uniqueIds = new Set();
-                    const uniqueGames = [];
-                    for (const game of matchedGames) {
-                        if (!uniqueIds.has(game.id)) {
-                            uniqueIds.add(game.id);
-                            uniqueGames.push(game);
-                        }
-                    }
-                    matchedGames.length = 0;
-                    matchedGames.push(...uniqueGames);
-                    console.log(`После удаления дубликатов: ${matchedGames.length} игр`);
-                }
-
-                // Добавляем релевантность к каждой игре
-                matchedGames.forEach(game => {
-                    game.relevance = calculateRelevance(game.name, lowerQuery);
-                });
-
-                // Сортировка по релевантности
-                matchedGames.sort((a, b) => b.relevance - a.relevance);
-
-                // Ограничение результатов
-                const limitedResults = matchedGames.slice(0, 100);
-
-                // Загрузка полных данных для найденных игр
-                const fullResults = await loadFullGameData(limitedResults);
-
-                return fullResults;
-            }
-
-            // Функция для загрузки полных данных для найденных игр
-            async function loadFullGameData(matchedGames) {
-                console.log(`Загрузка полных данных для ${matchedGames.length} игр`);
-
-                // Проверяем, что есть игры для загрузки
-                if (!matchedGames || matchedGames.length === 0) {
-                    console.log('Нет игр для загрузки полных данных');
-                    return [];
-                }
-
-                // Группировка игр по файлам
-                const gamesByFile = {};
-                matchedGames.forEach(game => {
-                    if (!game.file_number) {
-                        console.log(`Игра без номера файла:`, game);
-                        return;
-                    }
-                    if (!gamesByFile[game.file_number]) {
-                        gamesByFile[game.file_number] = [];
-                    }
-                    // Убедимся, что ID игры всегда строка
-                    const gameId = String(game.id);
-                    gamesByFile[game.file_number].push(gameId);
-                });
-
-                console.log(`Необходимо загрузить файлы: ${Object.keys(gamesByFile).join(', ')}`);
-
-                // Загрузка необходимых файлов и извлечение полных данных
-                const fullGames = [];
-                for (const [fileNumber, gameIds] of Object.entries(gamesByFile)) {
-                    try {
-                        let fileGames;
-
-                        // Используем предварительно загруженные файлы, если они есть
-                        if (gameFiles[fileNumber]) {
-                            fileGames = gameFiles[fileNumber];
-                            console.log(`Используем предварительно загруженный файл games_${fileNumber}.json`);
-                        } else {
-                            // Если файл не загружен, загружаем его
-                            console.log(`Загружаем файл games_${fileNumber}.json`);
-                            try {
-                                const response = await fetch(`data/games_${fileNumber}.json`);
-                                if (!response.ok) {
-                                    throw new Error(`Ошибка загрузки файла games_${fileNumber}.json: ${response.status} ${response.statusText}`);
-                                }
-                                fileGames = await response.json();
-                                // Сохраняем файл для будущих запросов
-                                gameFiles[fileNumber] = fileGames;
-                            } catch (error) {
-                                console.error(`Ошибка при загрузке файла games_${fileNumber}.json:`, error);
-                                continue; // Пропускаем этот файл и переходим к следующему
-                            }
-                        }
-
-                        if (!fileGames || !Array.isArray(fileGames)) {
-                            console.error(`Файл games_${fileNumber}.json не содержит массив игр`);
-                            continue;
-                        }
-
-                        // Находим игры по ID
-                        // Преобразуем ID в строки для корректного сравнения
-                        const relevantGames = fileGames.filter(game => {
-                            const gameIdStr = String(game.id);
-                            return gameIds.includes(gameIdStr) || gameIds.includes(game.id);
-                        });
-                        console.log(`Найдено ${relevantGames.length} игр в файле ${fileNumber}`);
-                        fullGames.push(...relevantGames);
-                    } catch (error) {
-                        console.error(`Ошибка при обработке файла ${fileNumber}:`, error);
-                    }
-                }
-
-                return fullGames;
-            }
-
-            // Резервный метод поиска без использования индекса
-            async function searchGamesWithoutIndex(gameName) {
-                console.log('Поиск без использования индекса');
-
-                // Используем предварительно загруженный индекс, если он есть
-                let index;
-                if (gameIndex !== null) {
-                    index = gameIndex;
-                } else {
-                    // Если индекс не загружен, загружаем его
-                    const indexResponse = await fetch('data/index.json');
-                    if (!indexResponse.ok) {
-                        throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                    }
-                    index = await indexResponse.json();
-                    gameIndex = index;
-                }
-
-                let matchedGames = [];
-                for (let i = 1; i <= index.total_files; i++) {
-                    let fileGames;
-
-                    // Используем предварительно загруженные файлы, если они есть
-                    if (gameFiles[i]) {
-                        fileGames = gameFiles[i];
-                    } else {
-                        // Если файл не загружен, загружаем его
-                        const response = await fetch(`data/games_${i}.json`);
-                        if (!response.ok) {
-                            throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                        }
-                        fileGames = await response.json();
-                        gameFiles[i] = fileGames;
-                    }
-
-                    const matches = fileGames.filter(game =>
-                        game.name.toLowerCase().includes(gameName.toLowerCase())
-                    );
-
-                    // Добавляем релевантность к каждой игре
-                    matches.forEach(game => {
-                        game.relevance = calculateRelevance(game.name, gameName);
-                    });
-
-                    matchedGames = matchedGames.concat(matches);
-                    if (matchedGames.length >= 100) {
-                        break;
-                    }
-                }
-
-                // Сортируем игры по релевантности
-                matchedGames.sort((a, b) => b.relevance - a.relevance);
-
-                return matchedGames.slice(0, 100);
-            }
 
             // Запускаем предварительную загрузку индекса
             preloadSearchIndex();
