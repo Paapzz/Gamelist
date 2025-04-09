@@ -2542,11 +2542,11 @@
                 document.addEventListener('click', documentClickHandler);
             }, 100);
 
-            // Уменьшаем время показа до 2 секунд
+            // Устанавливаем время показа 3 секунды
             messageTimeout = setTimeout(() => {
                 hideMessageWithAnimation(overlay);
                 document.removeEventListener('click', documentClickHandler);
-            }, 2000);
+            }, 3000);
         }
 
         function hideMessageWithAnimation(overlay) {
@@ -4541,17 +4541,20 @@
                     document.addEventListener('click', clickHandler);
                 }, 100);
 
-                // Автоматически скрываем через 2 секунды
+                // Автоматически скрываем через 3 секунды
                 setTimeout(() => {
                     hideLoadingMessageWithAnimation();
                     document.removeEventListener('click', clickHandler);
-                }, 2000);
+                }, 3000);
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
                 // Заменяем alert на неблокирующее сообщение
                 showMessage(`Не удалось импортировать игры: ${error.message}`);
-            } finally {
+                // Скрываем загрузочное сообщение в случае ошибки
                 hideLoadingMessageWithAnimation();
+            } finally {
+                // Сбрасываем флаг импорта, но не скрываем сообщение в случае успеха
+                // Сообщение будет скрыто автоматически через таймаут или по клику
                 isImporting = false;
             }
         }
