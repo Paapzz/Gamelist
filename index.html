@@ -1506,6 +1506,18 @@
             max-height: 300px;
             overflow-y: auto;
         }
+
+        .no-games-found {
+            padding: 15px;
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            margin: 10px 0;
+            color: #f44336; /* Красный цвет для привлечения внимания */
+            font-weight: bold;
+            font-size: 16px;
+            border-left: 4px solid #f44336;
+        }
         .search-result {
             display: flex;
             justify-content: space-between;
@@ -1919,7 +1931,7 @@
 
             console.log(`Поиск по запросу: "${lowerQuery}" в ${index.length} играх`);
 
-            // Добавляем более гибкий поиск
+            // Добавляем поиск только по релевантным совпадениям
             const matchedGames = index.filter(game => {
                 if (!game.name) return false;
                 const gameName = game.name.toLowerCase();
@@ -1928,33 +1940,12 @@
 
             console.log(`Найдено игр: ${matchedGames.length}`);
 
-                // Если ничего не найдено, попробуем более простой поиск
-            if (matchedGames.length === 0 && lowerQuery.length > 1) {
-                console.log('Пробуем более простой поиск');
-                // Попробуем найти игры, содержащие хотя бы одну букву из запроса
-                for (const char of lowerQuery) {
-                    const additionalMatches = index.filter(game => {
-                        if (!game.name) return false;
-                        return game.name.toLowerCase().includes(char);
-                    });
-                    if (additionalMatches.length > 0) {
-                        console.log(`Найдено дополнительных игр по букве '${char}': ${additionalMatches.length}`);
-                        matchedGames.push(...additionalMatches);
-                    }
-                }
-
-                // Удаляем дубликаты
-                const uniqueIds = new Set();
-                const uniqueGames = [];
-                for (const game of matchedGames) {
-                    if (!uniqueIds.has(game.id)) {
-                        uniqueIds.add(game.id);
-                        uniqueGames.push(game);
-                    }
-                }
-                matchedGames.length = 0;
-                matchedGames.push(...uniqueGames);
-                console.log(`После удаления дубликатов: ${matchedGames.length} игр`);
+            // Если ничего не найдено, просто возвращаем пустой массив
+            // Удаляем поиск по отдельным буквам, так как он дает нерелевантные результаты
+            if (matchedGames.length === 0) {
+                console.log('Игры не найдены');
+                // Возвращаем пустой массив, чтобы показать сообщение "Игры не найдены"
+                return [];
             }
 
             // Добавляем релевантность к каждой игре
@@ -2412,7 +2403,8 @@
         function displaySearchResults(games) {
             searchResults.innerHTML = '';
             if (games.length === 0) {
-                searchResults.innerHTML = '<p class="no-games-found">Игры не найдены.</p>';
+                const searchTerm = searchGameInput.value.trim();
+                searchResults.innerHTML = `<p class="no-games-found">По запросу "${searchTerm}" ничего не найдено. Попробуйте изменить поисковый запрос.</p>`;
                 return;
             }
 
