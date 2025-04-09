@@ -1680,12 +1680,14 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.1);
+            background-color: rgba(0, 0, 0, 0.2); /* Уменьшаем непрозрачность фона */
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 9999;
-            pointer-events: none;
+            pointer-events: none; /* Делаем прозрачным для кликов по умолчанию */
+            opacity: 1;
+            transition: opacity 0.3s ease; /* Добавляем плавную анимацию */
         }
 
         .loading-message {
@@ -2519,6 +2521,9 @@
                 clearTimeout(messageTimeout);
             }
 
+            // Устанавливаем флаг, что сообщение видимо
+            isMessageVisible = true;
+
             const overlay = document.createElement('div');
             overlay.className = 'message-overlay';
             overlay.textContent = message;
@@ -2526,6 +2531,8 @@
 
             messageTimeout = setTimeout(() => {
                 overlay.remove();
+                // Сбрасываем флаг после удаления сообщения
+                isMessageVisible = false;
             }, 3000);
         }
 
@@ -4373,6 +4380,8 @@
         // Сохраняем текущие значения фильтров перед добавлением игр
         let savedYearFilterMin = null;
         let savedYearFilterMax = null;
+        // Флаг для отслеживания видимости сообщения
+        let isMessageVisible = false;
 
         async function importFromIGDB(count = 100) {
             // Проверяем, не идет ли уже импорт или не отображается ли сообщение
@@ -4623,10 +4632,41 @@
 
         function showLoadingMessage() {
             document.getElementById('loadingOverlay').style.display = 'flex';
+            // Устанавливаем флаг, что сообщение видимо
+            isMessageVisible = true;
         }
 
         function hideLoadingMessage() {
             document.getElementById('loadingOverlay').style.display = 'none';
+            // Сбрасываем флаг после скрытия сообщения
+            isMessageVisible = false;
+        }
+
+        function hideLoadingMessageWithAnimation() {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.opacity = '0';
+
+            // После завершения анимации скрываем элемент
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+                loadingOverlay.style.opacity = '1'; // Сбрасываем прозрачность для следующего показа
+                loadingOverlay.style.pointerEvents = 'none'; // Сбрасываем обработчик клика
+
+                // Удаляем все обработчики кликов
+                loadingOverlay.onclick = null;
+
+                // Возвращаем исходный текст загрузки
+                const loadingMessage = loadingOverlay.querySelector('.loading-message');
+                if (loadingMessage) {
+                    loadingMessage.textContent = 'Загружается, подождите...';
+                }
+
+                // Сбрасываем флаг видимости сообщения
+                isMessageVisible = false;
+
+                // Разблокируем кнопки импорта
+                enableImportButtons();
+            }, 300); // Время анимации исчезновения
         }
 
         function initializeImportButton() {
