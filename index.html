@@ -1691,12 +1691,20 @@
         }
 
         .loading-message {
-            background-color: rgba(0, 0, 0, 0.7);
+            background-color: rgba(0, 0, 0, 0.8);
             color: white;
             padding: 20px 40px;
             border-radius: 40px;
             font-size: 24px;
             text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            cursor: pointer; /* Добавляем курсор указателя для кликабельности */
+            transition: transform 0.2s ease, box-shadow 0.2s ease; /* Добавляем анимацию при наведении */
+        }
+
+        .loading-message:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
         }
 
         /* --- NEW General Hover Effect --- */
@@ -4568,33 +4576,18 @@
                 const loadingMessage = loadingOverlay.querySelector('.loading-message');
                 loadingMessage.textContent = 'Успешно добавлено!';
 
-                // Делаем сообщение видимым, но прозрачным для кликов
-                loadingOverlay.style.pointerEvents = 'none';
+                // Делаем сообщение кликабельным
+                loadingOverlay.style.pointerEvents = 'auto';
 
                 // Добавляем обработчик клика на само сообщение
-                const messageElement = loadingOverlay.querySelector('.loading-message');
-                if (messageElement) {
-                    messageElement.onclick = () => {
-                        hideLoadingMessageWithAnimation();
-                    };
-                }
-
-                // Создаем обработчик клика на весь документ
-                const clickHandler = () => {
-                    hideLoadingMessageWithAnimation();
-                    document.removeEventListener('click', clickHandler);
+                loadingOverlay.onclick = () => {
+                    hideLoadingMessageWithAnimation(false); // Не сбрасываем текст сообщения
                 };
 
-                // Добавляем обработчик с небольшой задержкой
+                // Автоматически скрываем через 3 секунды
                 setTimeout(() => {
-                    document.addEventListener('click', clickHandler);
-                }, 100);
-
-                // Автоматически скрываем через 2 секунды
-                setTimeout(() => {
-                    hideLoadingMessageWithAnimation();
-                    document.removeEventListener('click', clickHandler);
-                }, 2000);
+                    hideLoadingMessageWithAnimation(false); // Не сбрасываем текст сообщения
+                }, 3000);
 
                 // Восстанавливаем значения фильтров после добавления игр
                 if (savedYearFilterMin !== null && savedYearFilterMax !== null) {
@@ -4624,7 +4617,8 @@
                     applyFilters();
                 }
             } finally {
-                hideLoadingMessageWithAnimation();
+                // Не скрываем сообщение в блоке finally, так как оно уже скрывается в блоке try
+                // В случае ошибки мы показываем сообщение об ошибке через showMessage
                 isImporting = false;
 
                 // Сбрасываем сохраненные значения фильтров
@@ -4692,23 +4686,28 @@
             isMessageVisible = false;
         }
 
-        function hideLoadingMessageWithAnimation() {
+        function hideLoadingMessageWithAnimation(resetText = true) {
             const loadingOverlay = document.getElementById('loadingOverlay');
+            // Плавно уменьшаем прозрачность
+            loadingOverlay.style.transition = 'opacity 0.5s ease';
             loadingOverlay.style.opacity = '0';
 
             // После завершения анимации скрываем элемент
             setTimeout(() => {
                 loadingOverlay.style.display = 'none';
                 loadingOverlay.style.opacity = '1'; // Сбрасываем прозрачность для следующего показа
+                loadingOverlay.style.transition = ''; // Сбрасываем анимацию
                 loadingOverlay.style.pointerEvents = 'none'; // Сбрасываем обработчик клика
 
                 // Удаляем все обработчики кликов
                 loadingOverlay.onclick = null;
 
-                // Возвращаем исходный текст загрузки
-                const loadingMessage = loadingOverlay.querySelector('.loading-message');
-                if (loadingMessage) {
-                    loadingMessage.textContent = 'Загружается, подождите...';
+                // Возвращаем исходный текст загрузки, если нужно
+                if (resetText) {
+                    const loadingMessage = loadingOverlay.querySelector('.loading-message');
+                    if (loadingMessage) {
+                        loadingMessage.textContent = 'Загружается, подождите...';
+                    }
                 }
 
                 // Сбрасываем флаг видимости сообщения
@@ -4716,7 +4715,7 @@
 
                 // Разблокируем кнопки импорта
                 enableImportButtons();
-            }, 300); // Время анимации исчезновения
+            }, 500); // Увеличиваем время анимации исчезновения
         }
 
         function initializeImportButton() {
