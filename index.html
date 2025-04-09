@@ -1295,7 +1295,9 @@
             padding: 10px 20px;
             border-radius: 20px;
             z-index: 9998;
-            pointer-events: none;
+            pointer-events: auto; /* Изменено с none на auto, чтобы можно было кликнуть */
+            opacity: 1;
+            transition: opacity 0.3s ease; /* Плавная анимация появления/исчезновения */
         }
 
         #addGameForm {
@@ -1686,6 +1688,8 @@
             align-items: center;
             z-index: 9999;
             pointer-events: none;
+            opacity: 1;
+            transition: opacity 0.3s ease; /* Добавляем плавную анимацию */
         }
 
         .loading-message {
@@ -2085,6 +2089,7 @@
         let previewEnabled = localStorage.getItem('previewEnabled') !== 'false';
         let inProgressMode = false;
         let hideCompleted = JSON.parse(localStorage.getItem('hideCompleted')) || false;
+        let documentClickHandler; // Добавляем глобальную переменную для обработчика клика
 
         let savedMinYear = localStorage.getItem('minYear');
         let savedMaxYear = localStorage.getItem('maxYear');
@@ -2480,7 +2485,7 @@
             if (!isDuplicateGame(newGame)) {
                 addNewGame(newGame);
                 saveGames();
-                showMessage('Игра успешно добавлена!');
+                showMessage('Успешно добавлено!'); // Изменено сообщение для соответствия с другими
             } else {
                 showMessage('Эта игра уже есть в вашем списке.');
             }
@@ -2517,6 +2522,8 @@
             if (existingMessage) {
                 existingMessage.remove();
                 clearTimeout(messageTimeout);
+                // Удаляем предыдущий обработчик клика, если он был
+                document.removeEventListener('click', documentClickHandler);
             }
 
             const overlay = document.createElement('div');
@@ -2524,9 +2531,34 @@
             overlay.textContent = message;
             document.body.appendChild(overlay);
 
+            // Добавляем обработчик клика на весь документ
+            const documentClickHandler = () => {
+                hideMessageWithAnimation(overlay);
+                document.removeEventListener('click', documentClickHandler);
+            };
+
+            // Используем setTimeout, чтобы обработчик не сработал сразу при создании сообщения
+            setTimeout(() => {
+                document.addEventListener('click', documentClickHandler);
+            }, 100);
+
+            // Уменьшаем время показа до 2 секунд
             messageTimeout = setTimeout(() => {
-                overlay.remove();
-            }, 3000);
+                hideMessageWithAnimation(overlay);
+                document.removeEventListener('click', documentClickHandler);
+            }, 2000);
+        }
+
+        function hideMessageWithAnimation(overlay) {
+            clearTimeout(messageTimeout);
+            overlay.style.opacity = '0';
+
+            // Удаляем элемент после завершения анимации
+            setTimeout(() => {
+                if (overlay && overlay.parentNode) {
+                    overlay.remove();
+                }
+            }, 300); // Время анимации исчезновения
         }
 
         function closeAddGameModal() {
@@ -4489,12 +4521,37 @@
                 }
 
                 console.log('Импорт завершен успешно');
-                alert(`Импорт завершен. Добавлено ${addedGames} новых игр.`);
+                // Заменяем alert на неблокирующее сообщение
+                // Меняем текст в окне загрузки на успешное сообщение
+                const loadingOverlay = document.getElementById('loadingOverlay');
+                const loadingMessage = loadingOverlay.querySelector('.loading-message');
+                loadingMessage.textContent = 'Успешно добавлено!';
+
+                // Добавляем обработчик клика на весь документ для скрытия сообщения
+                loadingOverlay.style.pointerEvents = 'none'; // Делаем прозрачным для кликов
+
+                // Создаем обработчик клика на весь документ
+                const clickHandler = () => {
+                    hideLoadingMessageWithAnimation();
+                    document.removeEventListener('click', clickHandler);
+                };
+
+                // Добавляем обработчик с небольшой задержкой
+                setTimeout(() => {
+                    document.addEventListener('click', clickHandler);
+                }, 100);
+
+                // Автоматически скрываем через 2 секунды
+                setTimeout(() => {
+                    hideLoadingMessageWithAnimation();
+                    document.removeEventListener('click', clickHandler);
+                }, 2000);
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
-                alert(`Не удалось импортировать игры: ${error.message}`);
+                // Заменяем alert на неблокирующее сообщение
+                showMessage(`Не удалось импортировать игры: ${error.message}`);
             } finally {
-                hideLoadingMessage();
+                hideLoadingMessageWithAnimation();
                 isImporting = false;
             }
         }
@@ -4541,11 +4598,36 @@
         }
 
         function showLoadingMessage() {
-            document.getElementById('loadingOverlay').style.display = 'flex';
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.opacity = '1';
+            loadingOverlay.style.display = 'flex';
+            loadingOverlay.style.pointerEvents = 'none'; // По умолчанию не реагируем на клики
         }
 
         function hideLoadingMessage() {
-            document.getElementById('loadingOverlay').style.display = 'none';
+            // Используем функцию с анимацией
+            hideLoadingMessageWithAnimation();
+        }
+
+        function hideLoadingMessageWithAnimation() {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.opacity = '0';
+
+            // После завершения анимации скрываем элемент
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+                loadingOverlay.style.opacity = '1'; // Сбрасываем прозрачность для следующего показа
+                loadingOverlay.style.pointerEvents = 'none'; // Сбрасываем обработчик клика
+
+                // Удаляем все обработчики кликов
+                loadingOverlay.onclick = null;
+
+                // Возвращаем исходный текст загрузки
+                const loadingMessage = loadingOverlay.querySelector('.loading-message');
+                if (loadingMessage) {
+                    loadingMessage.textContent = 'Загружается, подождите...';
+                }
+            }, 300); // Время анимации исчезновения
         }
 
         function initializeImportButton() {
