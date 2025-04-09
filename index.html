@@ -1277,20 +1277,6 @@
         }
         .search-result button {
             margin-left: 10px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background-color 0.3s ease;
-        }
-
-        .search-result button.disabled {
-            background-color: #9E9E9E;
-            cursor: not-allowed;
-            opacity: 0.7;
         }
         #searchResults .cell {
             filter: saturate(100%) !important;
@@ -1889,20 +1875,6 @@
         const inProgressButton = document.getElementById('inProgressButton');
         const gameTitle = document.getElementById('gameTitle');
         const progressBarCover = document.getElementById('progressBarCover');
-
-        // Глобальные переменные для хранения загруженного индекса и файлов игр
-        let gameIndex = null; // Индекс игр
-        let gameFiles = []; // Загруженные файлы игр
-        let isIndexLoading = false; // Флаг, указывающий, что индекс в процессе загрузки
-        let searchIndex = null; // Поисковый индекс для быстрого поиска
-        let isSearchIndexLoading = false; // Флаг, указывающий, что поисковый индекс в процессе загрузки
-
-        // Глобальные переменные для сохранения текущих значений фильтра года
-        let currentYearFilterMin = null; // Текущее минимальное значение фильтра года
-        let currentYearFilterMax = null; // Текущее максимальное значение фильтра года
-        window.isRestoringYearFilter = false; // Флаг, указывающий, что в данный момент происходит восстановление фильтра года
-        window.isUpdatingFromInput = false; // Флаг, указывающий, что в данный момент происходит обновление из обработчика события input
-        let isAddingGames = false; // Флаг, указывающий, что в данный момент происходит добавление игр
         const searchInput = document.getElementById('searchInput');
         const clearSearchButton = document.getElementById('clearSearchButton');
         const filtersButton = document.getElementById('filtersButton');
@@ -1958,17 +1930,8 @@
         function loadSavedGames() {
             const savedGames = localStorage.getItem('games');
             if (savedGames) {
-                // Сохраняем количество игр до загрузки
-                const prevGamesCount = games.length;
-
-                // Загружаем игры из localStorage
                 games = JSON.parse(savedGames);
                 completedGames = games.filter(game => game.completed).length;
-
-                // Логируем информацию о загруженных играх
-                console.log(`Загружено ${games.length - prevGamesCount} игр из localStorage, всего ${games.length} игр`);
-
-                // Обновляем расположение игр в прогрессе
                 updateInProgressRow();
             }
         }
@@ -2242,13 +2205,42 @@
 
             showLoadingMessage();
             try {
-                // Используем новую функцию поиска с индексом
-                const matchedGames = await searchGamesWithIndex(gameName);
+                const indexResponse = await fetch('data/index.json');
+                if (!indexResponse.ok) {
+                    throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
+                }
+                const index = await indexResponse.json();
+
+                let matchedGames = [];
+                for (let i = 1; i <= index.total_files; i++) {
+                    const response = await fetch(`data/games_${i}.json`);
+                    if (!response.ok) {
+                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                    }
+                    const fileGames = await response.json();
+                    const matches = fileGames.filter(game =>
+                        game.name.toLowerCase().includes(gameName.toLowerCase())
+                    );
+
+                    // Добавляем релевантность к каждой игре
+                    matches.forEach(game => {
+                        game.relevance = calculateRelevance(game.name, gameName);
+                    });
+
+                    matchedGames = matchedGames.concat(matches);
+                    if (matchedGames.length >= 100) {
+                        break;
+                    }
+                }
+
+                // Сортируем игры по релевантности (от высокой к низкой)
+                matchedGames.sort((a, b) => b.relevance - a.relevance);
+
+                matchedGames = matchedGames.slice(0, 100);
                 displaySearchResults(matchedGames);
             } catch (error) {
                 console.error('Ошибка при поиске игры:', error);
-                // Показываем более информативное сообщение об ошибке
-                searchResults.innerHTML = `<p class="search-error">Ошибка при поиске: ${error.message || 'Игра не найдена'}.</p>`;
+                searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
             } finally {
                 hideLoadingMessage();
             }
@@ -2270,44 +2262,14 @@
                 resultElement.className = 'search-result';
                 const releaseYear = game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : 'N/A';
 
-                // Проверяем, есть ли игра уже в таблице
-                const newGame = {
-                    name: game.name,
-                    year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null
-                };
-                const isDuplicate = isDuplicateGame(newGame);
-
                 resultElement.innerHTML = `
                     <div class="game-info">
                         <span class="game-name">${game.name}</span>
                         <span class="game-year">(${releaseYear})</span>
                     </div>
-                    <button type="button" class="add-game-button ${isDuplicate ? 'disabled' : ''}">
-                        ${isDuplicate ? 'Уже есть' : 'Добавить'}
-                    </button>
+                    <button type="button" class="add-game-button">Добавить</button>
                 `;
-
-                // Добавляем обработчик события только если игра еще не добавлена
-                if (!isDuplicate) {
-                    resultElement.querySelector('.add-game-button').addEventListener('click', async () => {
-                        // Делаем кнопку неактивной на время добавления игры
-                        const button = resultElement.querySelector('.add-game-button');
-                        button.disabled = true;
-                        button.textContent = 'Добавление...';
-
-                        try {
-                            await addGameFromSearch(game);
-                            // После успешного добавления меняем текст кнопки
-                            button.textContent = 'Добавлено';
-                            button.classList.add('disabled');
-                        } catch (error) {
-                            console.error('Ошибка при добавлении игры:', error);
-                            // В случае ошибки возвращаем кнопку в исходное состояние
-                            button.disabled = false;
-                            button.textContent = 'Добавить';
-                        }
-                    });
-                }
+                resultElement.querySelector('.add-game-button').addEventListener('click', () => addGameFromSearch(game));
 
                 // Добавляем анимацию плавного появления
                 resultElement.style.opacity = '0';
@@ -2348,24 +2310,7 @@
             });
         }
 
-        async function addGameFromSearch(game) {
-            // Сохраняем текущие значения фильтра года перед добавлением игры
-            // console.log(`Текущие значения ползунков: ${yearSliderMin.value} - ${yearSliderMax.value}`);
-            // console.log(`Текущие значения глобальных переменных: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-
-            // Сохраняем текущие значения ползунков
-            // Только если они отличаются от текущих значений глобальных переменных
-            const currentMinValue = parseInt(yearSliderMin.value);
-            const currentMaxValue = parseInt(yearSliderMax.value);
-
-            if (currentMinValue !== currentYearFilterMin || currentMaxValue !== currentYearFilterMax) {
-                currentYearFilterMin = currentMinValue;
-                currentYearFilterMax = currentMaxValue;
-                // console.log(`Обновлены значения фильтра года: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-            } else {
-                // console.log(`Значения фильтра года не изменились: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-            }
-
+        function addGameFromSearch(game) {
             const newGame = {
                 id: Date.now(),
                 name: game.name,
@@ -2380,22 +2325,9 @@
             };
 
             if (!isDuplicateGame(newGame)) {
-                // Используем функцию addGamesWithDelay для добавления игры
-                const addedCount = await addGamesWithDelay([newGame]);
-
-                if (addedCount > 0) {
-                    saveGames();
-
-                    // Явно вызываем applyFilters после добавления игры для правильной сортировки игр без года
-                    applyFilters(false);
-
-                    // Восстанавливаем значения фильтра года
-                    restoreYearFilter();
-
-                    showMessage('Игра успешно добавлена!');
-                } else {
-                    showMessage('Не удалось добавить игру. Попробуйте еще раз.');
-                }
+                addNewGame(newGame);
+                saveGames();
+                showMessage('Игра успешно добавлена!');
             } else {
                 showMessage('Эта игра уже есть в вашем списке.');
             }
@@ -2448,14 +2380,6 @@
             addGameModal.style.display = 'none';
             searchGameInput.value = '';
             searchResults.innerHTML = '';
-
-            // Применяем фильтры при закрытии модального окна, чтобы сохранить текущие фильтры
-            applyFilters(false);
-
-            // Восстанавливаем значения фильтра года
-            // console.log(`Значения перед восстановлением в closeAddGameModal: ${yearSliderMin.value} - ${yearSliderMax.value}`);
-            restoreYearFilter();
-            // console.log(`Значения после восстановления в closeAddGameModal: ${yearSliderMin.value} - ${yearSliderMax.value}`);
         }
 
         // Функция для расчета релевантности игры по отношению к поисковому запросу (для сортировки)
@@ -2880,25 +2804,10 @@
         }
 
         function populateFilters() {
-            // Проверяем, что есть игры для фильтрации
-            if (games.length === 0) {
-                console.warn('Нет игр для фильтрации');
-                return;
-            }
-
             // Фильтруем игры без года (null) при определении диапазона лет
-            const gamesWithYear = games.filter(game => game.year !== null);
-            if (gamesWithYear.length === 0) {
-                console.warn('Нет игр с указанным годом');
-                return;
-            }
-
-            const years = [...new Set(gamesWithYear.map(game => game.year))].sort((a, b) => a - b);
+            const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
             const platforms = [...new Set(games.flatMap(game => game.platforms))].sort();
             const genres = [...new Set(games.flatMap(game => game.genres))].sort();
-
-            console.log(`Найдено ${games.length} игр, из них ${gamesWithYear.length} с указанным годом`);
-            console.log(`Диапазон лет: ${Math.min(...years)} - ${Math.max(...years)}`);
 
             const minGameYear = Math.min(...years);
             const maxGameYear = Math.max(...years);
@@ -2923,85 +2832,45 @@
                 }
             }
 
-            // Проверяем, изменился ли диапазон лет
-            const currentMinYear = parseInt(yearSliderMin.min);
-            const currentMaxYear = parseInt(yearSliderMax.max);
+            // Обновляем атрибуты ползунков
+            yearSliderMin.min = minGameYear;
+            yearSliderMin.max = maxGameYear;
+            yearSliderMax.min = minGameYear;
+            yearSliderMax.max = maxGameYear;
 
-            if (currentMinYear !== minGameYear || currentMaxYear !== maxGameYear) {
-                console.log(`Диапазон лет изменился: ${currentMinYear}-${currentMaxYear} -> ${minGameYear}-${maxGameYear}`);
+            // Проверяем, есть ли сохраненные значения фильтра года в localStorage
+            const savedFilterMin = localStorage.getItem('yearFilterMin');
+            const savedFilterMax = localStorage.getItem('yearFilterMax');
 
-                // Обновляем атрибуты ползунков
-                yearSliderMin.min = minGameYear;
-                yearSliderMin.max = maxGameYear;
-                yearSliderMax.min = minGameYear;
-                yearSliderMax.max = maxGameYear;
-            } else {
-                console.log(`Диапазон лет не изменился: ${minGameYear}-${maxGameYear}`);
-            }
+            if (savedFilterMin && savedFilterMax) {
+                // Если есть сохраненные значения, используем их
+                const savedMin = parseInt(savedFilterMin);
+                const savedMax = parseInt(savedFilterMax);
 
-            // Проверяем текущие значения ползунков
-            let currentMinValue = parseInt(yearSliderMin.value);
-            let currentMaxValue = parseInt(yearSliderMax.value);
-            let needsUpdate = false;
-
-            // Если значения фильтра года еще не были установлены
-            if (currentYearFilterMin === null || currentYearFilterMax === null) {
-                currentMinValue = minYear;
-                currentMaxValue = maxYear;
-                needsUpdate = true;
-                console.log(`Устанавливаем начальные значения ползунков: ${currentMinValue} - ${currentMaxValue}`);
-            } else {
-                // Проверяем, что текущие значения находятся в допустимом диапазоне
-                if (currentMinValue < minGameYear) {
-                    console.log(`Минимальный год ${currentMinValue} меньше минимально возможного ${minGameYear}`);
-                    currentMinValue = minGameYear;
-                    needsUpdate = true;
-                }
-
-                if (currentMaxValue > maxGameYear) {
-                    console.log(`Максимальный год ${currentMaxValue} больше максимально возможного ${maxGameYear}`);
-                    currentMaxValue = maxGameYear;
-                    needsUpdate = true;
-                }
-
-                if (needsUpdate) {
-                    console.log(`Обновляем значения ползунков: ${yearSliderMin.value}-${yearSliderMax.value} -> ${currentMinValue}-${currentMaxValue}`);
+                // Проверяем, что сохраненные значения находятся в допустимом диапазоне
+                if (savedMin >= minGameYear && savedMax <= maxGameYear) {
+                    // Используем сохраненные значения
+                    yearSliderMin.value = savedMin;
+                    yearSliderMax.value = savedMax;
+                    console.log(`Используем сохраненные значения фильтра года: ${savedMin} - ${savedMax}`);
                 } else {
-                    console.log(`Значения ползунков в допустимом диапазоне: ${currentMinValue}-${currentMaxValue}`);
+                    // Если сохраненные значения выходят за пределы диапазона, используем значения из minYear и maxYear
+                    yearSliderMin.value = minYear;
+                    yearSliderMax.value = maxYear;
+                    console.log(`Сохраненные значения фильтра года выходят за пределы диапазона, используем значения из minYear и maxYear: ${minYear} - ${maxYear}`);
                 }
-            }
-
-            // Устанавливаем значения ползунков
-            if (needsUpdate) {
-                yearSliderMin.value = currentMinValue;
-                yearSliderMax.value = currentMaxValue;
-
-                // Обновляем глобальные переменные
-                currentYearFilterMin = currentMinValue;
-                currentYearFilterMax = currentMaxValue;
-
-                // Обновляем отображение значений
-                updateYearValue();
+            } else {
+                // Если нет сохраненных значений, используем значения из minYear и maxYear
+                yearSliderMin.value = minYear;
+                yearSliderMax.value = maxYear;
+                console.log(`Нет сохраненных значений фильтра года, используем значения из minYear и maxYear: ${minYear} - ${maxYear}`);
             }
 
             // Обновляем метки годов
             document.getElementById('minYearLabel').textContent = minGameYear;
             document.getElementById('maxYearLabel').textContent = maxGameYear;
 
-            // Обновляем отображение значений, если они не были обновлены ранее
-            if (!needsUpdate) {
-                updateYearValue();
-            }
-
-            // Инициализируем глобальные переменные для сохранения текущих значений фильтра года
-            // Только при первой загрузке страницы
-            if (currentYearFilterMin === null || currentYearFilterMax === null) {
-                currentYearFilterMin = parseInt(yearSliderMin.value);
-                currentYearFilterMax = parseInt(yearSliderMax.value);
-                // console.log(`Инициализированы значения фильтра года: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-            } else {
-                // console.log(`Сохранены текущие значения фильтра года: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-            }
+            updateYearValue();
 
             platformsList.innerHTML = '';
             genresList.innerHTML = '';
@@ -3091,33 +2960,14 @@
         }
 
         function updateYearValue() {
-            let minYear = parseInt(yearSliderMin.value);
-            let maxYear = parseInt(yearSliderMax.value);
+            const minYear = parseInt(yearSliderMin.value);
+            const maxYear = parseInt(yearSliderMax.value);
             yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
 
-            // Сохраняем текущие значения фильтра года в глобальных переменных
-            // Только если это не вызов из restoreYearFilter и не из обработчика события input
-            // В обработчиках событий input мы уже явно сохраняем значения
-            if (!window.isRestoringYearFilter && !window.isUpdatingFromInput) {
-                // Получаем текущий диапазон лет из атрибутов ползунков
-                const minPossibleYear = parseInt(yearSliderMin.min);
-                const maxPossibleYear = parseInt(yearSliderMax.max);
-
-                // Проверяем, что значения находятся в допустимом диапазоне
-                if (minYear < minPossibleYear) {
-                    console.warn(`Минимальный год ${minYear} меньше минимально возможного ${minPossibleYear}`);
-                    minYear = minPossibleYear;
-                }
-
-                if (maxYear > maxPossibleYear) {
-                    console.warn(`Максимальный год ${maxYear} больше максимально возможного ${maxPossibleYear}`);
-                    maxYear = maxPossibleYear;
-                }
-
-                currentYearFilterMin = minYear;
-                currentYearFilterMax = maxYear;
-                // console.log(`Сохранены значения фильтра года в updateYearValue: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-            }
+            // Сохраняем значения в localStorage
+            localStorage.setItem('yearFilterMin', minYear);
+            localStorage.setItem('yearFilterMax', maxYear);
+            console.log(`Сохранены значения фильтра года в updateYearValue: ${minYear} - ${maxYear}`);
 
             // Проверяем, установлены ли ползунки на минимальное и максимальное значения
             const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
@@ -3185,73 +3035,7 @@
             );
         }
 
-        // Функция для восстановления значений фильтра года
-        function restoreYearFilter() {
-            // console.log(`Попытка восстановления фильтра года. Текущие значения: ${yearSliderMin.value} - ${yearSliderMax.value}`);
-            // console.log(`Сохраненные значения: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-
-            if (currentYearFilterMin !== null && currentYearFilterMax !== null) {
-                try {
-                    // Устанавливаем флаг, чтобы не перезаписать глобальные переменные
-                    window.isRestoringYearFilter = true;
-
-                    // Восстанавливаем значения ползунков только если они отличаются от текущих значений
-                    // console.log(`Текущие значения ползунков перед восстановлением: ${yearSliderMin.value} - ${yearSliderMax.value}`);
-
-                    // Получаем текущий диапазон лет из атрибутов ползунков
-                    const minPossibleYear = parseInt(yearSliderMin.min);
-                    const maxPossibleYear = parseInt(yearSliderMax.max);
-
-                    // Проверяем, что сохраненные значения находятся в допустимом диапазоне
-                    let minYearToRestore = currentYearFilterMin;
-                    let maxYearToRestore = currentYearFilterMax;
-
-                    if (minYearToRestore < minPossibleYear) {
-                        console.warn(`Сохраненный минимальный год ${minYearToRestore} меньше минимально возможного ${minPossibleYear}`);
-                        minYearToRestore = minPossibleYear;
-                    }
-
-                    if (maxYearToRestore > maxPossibleYear) {
-                        console.warn(`Сохраненный максимальный год ${maxYearToRestore} больше максимально возможного ${maxPossibleYear}`);
-                        maxYearToRestore = maxPossibleYear;
-                    }
-
-                    // Проверяем, отличаются ли текущие значения ползунков от сохраненных значений
-                    if (parseInt(yearSliderMin.value) !== minYearToRestore || parseInt(yearSliderMax.value) !== maxYearToRestore) {
-                        yearSliderMin.value = minYearToRestore;
-                        yearSliderMax.value = maxYearToRestore;
-                        console.log(`Значения ползунков после восстановления: ${yearSliderMin.value} - ${yearSliderMax.value}`);
-                    } else {
-                        // console.log(`Значения ползунков не изменились: ${yearSliderMin.value} - ${yearSliderMax.value}`);
-                    }
-
-                    // Обновляем отображение значений
-                    updateYearValue();
-
-                    // Обновляем подсветку трека и тултипы
-                    updateSliderTrack();
-                    updateTooltips();
-
-                    // console.log(`Фильтр года восстановлен: ${yearSliderMin.value} - ${yearSliderMax.value}`);
-                } catch (error) {
-                    console.error('Ошибка при восстановлении фильтра года:', error);
-                } finally {
-                    // Снимаем флаг в любом случае
-                    window.isRestoringYearFilter = false;
-                }
-            } else {
-                console.log('Нет сохраненных значений фильтра года');
-            }
-        }
-
         function applyFilters(forceIdSort = false) {
-            // Сохраняем текущие значения фильтра года перед применением фильтров
-            if (!window.isRestoringYearFilter) {
-                currentYearFilterMin = parseInt(yearSliderMin.value);
-                currentYearFilterMax = parseInt(yearSliderMax.value);
-                // console.log(`Сохранены значения фильтра года в applyFilters: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-            }
-
             const searchTerm = currentSearchTerm.toLowerCase();
             let visibleGames = 0;
             let hiddenGames = [];
@@ -3589,23 +3373,19 @@
 
         // Обработчики событий для ползунка минимального года
         yearSliderMin.addEventListener('input', () => {
-            // Устанавливаем флаг, что обновление происходит из обработчика события input
-            window.isUpdatingFromInput = true;
-
             const minVal = parseInt(yearSliderMin.value);
             const maxVal = parseInt(yearSliderMax.value);
             if (minVal > maxVal - 1) {
                 yearSliderMin.value = maxVal - 1;
             }
-            // Явно сохраняем значения фильтра года при изменении ползунка
-            currentYearFilterMin = parseInt(yearSliderMin.value);
-            currentYearFilterMax = parseInt(yearSliderMax.value);
-            // console.log(`Сохранены значения фильтра года при изменении минимального года: ${currentYearFilterMin} - ${currentYearFilterMax}`);
+
+            // Сохраняем значения в localStorage
+            localStorage.setItem('yearFilterMin', yearSliderMin.value);
+            localStorage.setItem('yearFilterMax', yearSliderMax.value);
+            console.log(`Сохранены значения фильтра года в localStorage: ${yearSliderMin.value} - ${yearSliderMax.value}`);
+
             updateYearValue();
             applyFilters();
-
-            // Снимаем флаг
-            window.isUpdatingFromInput = false;
         });
 
         yearSliderMin.addEventListener('mouseover', () => {
@@ -3618,23 +3398,19 @@
 
         // Обработчики событий для ползунка максимального года
         yearSliderMax.addEventListener('input', () => {
-            // Устанавливаем флаг, что обновление происходит из обработчика события input
-            window.isUpdatingFromInput = true;
-
             const minVal = parseInt(yearSliderMin.value);
             const maxVal = parseInt(yearSliderMax.value);
             if (maxVal < minVal + 1) {
                 yearSliderMax.value = minVal + 1;
             }
-            // Явно сохраняем значения фильтра года при изменении ползунка
-            currentYearFilterMin = parseInt(yearSliderMin.value);
-            currentYearFilterMax = parseInt(yearSliderMax.value);
-            // console.log(`Сохранены значения фильтра года при изменении максимального года: ${currentYearFilterMin} - ${currentYearFilterMax}`);
+
+            // Сохраняем значения в localStorage
+            localStorage.setItem('yearFilterMin', yearSliderMin.value);
+            localStorage.setItem('yearFilterMax', yearSliderMax.value);
+            console.log(`Сохранены значения фильтра года в localStorage: ${yearSliderMin.value} - ${yearSliderMax.value}`);
+
             updateYearValue();
             applyFilters();
-
-            // Снимаем флаг
-            window.isUpdatingFromInput = false;
         });
 
         yearSliderMax.addEventListener('mouseover', () => {
@@ -3911,14 +3687,6 @@
             if (modal === addGameModal) {
                 resetAddGameForm();
             }
-
-            // Применяем фильтры при закрытии модального окна, чтобы сохранить текущие фильтры
-            applyFilters(false);
-
-            // Восстанавливаем значения фильтра года
-            // console.log(`Значения перед восстановлением в closeModal: ${yearSliderMin.value} - ${yearSliderMax.value}`);
-            restoreYearFilter();
-            // console.log(`Значения после восстановления в closeModal: ${yearSliderMin.value} - ${yearSliderMax.value}`);
         }
 
         document.querySelectorAll('.close').forEach(closeBtn => {
@@ -4015,7 +3783,38 @@
             resetAddGameForm();
         }
 
-        // Функция addNewGame перенесена в конец файла для избежания дублирования
+        function addNewGame(gameData) {
+            const existingGame = findExistingGame(gameData);
+            if (existingGame) {
+                console.log('Найдена существующая версия игры:', existingGame.name);
+                if (gameData.name.length < existingGame.name.length) {
+                    Object.assign(existingGame, gameData);
+                    updateGameCell(existingGame);
+                } else {
+                }
+            } else {
+                const newGame = {
+                    id: Date.now(),
+                    ...gameData,
+                    isCustom: true,
+                    importedFromApi: gameData.importedFromApi || false,
+                    completed: false,
+                    inProgress: false,
+                    color: getRandomPastelColor()
+                };
+                games.push(newGame);
+                const cell = createCell(newGame);
+
+                // Добавляем ячейку в сетку с учетом сортировки по году
+                insertCellInOrder(cell);
+            }
+
+            saveGames();
+            updateCounter();
+            populateFilters();
+            applyFilters();
+            updateGridSize();
+        }
 
         document.getElementById('addGameForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -4467,139 +4266,32 @@
                 return;
             }
 
-            // Сохраняем текущие значения фильтра года перед импортом игр
-            // console.log(`Текущие значения ползунков перед импортом: ${yearSliderMin.value} - ${yearSliderMax.value}`);
-            // console.log(`Текущие значения глобальных переменных перед импортом: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-
-            // Сохраняем текущие значения ползунков
-            // Только если они отличаются от текущих значений глобальных переменных
-            const currentMinValue = parseInt(yearSliderMin.value);
-            const currentMaxValue = parseInt(yearSliderMax.value);
-
-            if (currentMinValue !== currentYearFilterMin || currentMaxValue !== currentYearFilterMax) {
-                currentYearFilterMin = currentMinValue;
-                currentYearFilterMax = currentMaxValue;
-                // console.log(`Обновлены значения фильтра года перед импортом: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-            } else {
-                // console.log(`Значения фильтра года не изменились перед импортом: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-            }
-
             isImporting = true;
             showLoadingMessage();
             console.log('Начало импорта игр из IGDB');
             try {
                 const existingIds = games.map(game => game.id.toString());
-                let newGames = []; // Объявляем переменную в начале функции
+                const indexResponse = await fetch('data/index.json');
+                if (!indexResponse.ok) {
+                    throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
+                }
+                const index = await indexResponse.json();
 
-                // Загружаем поисковый индекс, если он есть
-                let searchIdx = await loadSearchIndex();
-                let index;
-
-                if (searchIdx) {
-                    // Если поисковый индекс загружен, используем его для определения файлов
-                    console.log('Используем поисковый индекс для импорта');
-
-                    // Создаем маппинг игр по файлам
-                    const fileMap = {};
-                    searchIdx.forEach(game => {
-                        if (!fileMap[game.file_number]) {
-                            fileMap[game.file_number] = [];
-                        }
-                        fileMap[game.file_number].push(game.id);
-                    });
-
-                    // Загружаем индекс для получения информации о количестве файлов
-                    if (gameIndex !== null) {
-                        index = gameIndex;
-                    } else {
-                        const indexResponse = await fetch('data/index.json');
-                        if (!indexResponse.ok) {
-                            throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                        }
-                        index = await indexResponse.json();
-                        gameIndex = index;
+                let newGames = [];
+                for (let i = 1; i <= index.total_files; i++) {
+                    const response = await fetch(`data/games_${i}.json`);
+                    if (!response.ok) {
+                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
                     }
-
-                    // Загружаем все файлы последовательно
-                    // Очищаем массив новых игр
-                    newGames = [];
-                    for (let i = 1; i <= index.total_files; i++) {
-                        let fileGames;
-
-                        // Используем предварительно загруженные файлы, если они есть
-                        if (gameFiles[i]) {
-                            fileGames = gameFiles[i];
-                            console.log(`Используем предварительно загруженный файл games_${i}.json для импорта`);
-                        } else {
-                            // Если файл не загружен, загружаем его
-                            console.log(`Загружаем файл games_${i}.json при импорте`);
-                            const response = await fetch(`data/games_${i}.json`);
-                            if (!response.ok) {
-                                throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                            }
-                            fileGames = await response.json();
-                            // Сохраняем файл для будущих запросов
-                            gameFiles[i] = fileGames;
-                        }
-
-                        newGames = newGames.concat(fileGames.filter(game => !existingIds.includes(game.id.toString())));
-                        if (newGames.length >= count) {
-                            break;
-                        }
-                    }
-                } else {
-                    // Если поисковый индекс не загружен, используем старый метод
-                    console.log('Используем стандартный метод импорта');
-
-                    // Используем предварительно загруженный индекс, если он есть
-                    if (gameIndex !== null) {
-                        index = gameIndex;
-                        console.log('Используем предварительно загруженный индекс для импорта');
-                    } else {
-                        // Если индекс не загружен, загружаем его
-                        console.log('Загружаем индекс при импорте');
-                        const indexResponse = await fetch('data/index.json');
-                        if (!indexResponse.ok) {
-                            throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                        }
-                        index = await indexResponse.json();
-                        // Сохраняем индекс для будущих запросов
-                        gameIndex = index;
-                    }
-
-                    // Очищаем массив новых игр
-                    newGames = [];
-                    for (let i = 1; i <= index.total_files; i++) {
-                        let fileGames;
-
-                        // Используем предварительно загруженные файлы, если они есть
-                        if (gameFiles[i]) {
-                            fileGames = gameFiles[i];
-                            console.log(`Используем предварительно загруженный файл games_${i}.json для импорта`);
-                        } else {
-                            // Если файл не загружен, загружаем его
-                            console.log(`Загружаем файл games_${i}.json при импорте`);
-                            const response = await fetch(`data/games_${i}.json`);
-                            if (!response.ok) {
-                                throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                            }
-                            fileGames = await response.json();
-                            // Сохраняем файл для будущих запросов
-                            gameFiles[i] = fileGames;
-                        }
-
-                        newGames = newGames.concat(fileGames.filter(game => !existingIds.includes(game.id.toString())));
-                        if (newGames.length >= count) {
-                            break;
-                        }
+                    const fileGames = await response.json();
+                    newGames = newGames.concat(fileGames.filter(game => !existingIds.includes(game.id.toString())));
+                    if (newGames.length >= count) {
+                        break;
                     }
                 }
 
                 let addedGames = 0;
                 const maxGamesToAdd = Math.min(count, 3000 - games.length);
-
-                // Создаем массив игр для добавления
-                const gamesToAdd = [];
 
                 for (const game of newGames) {
                     if (addedGames >= maxGamesToAdd) {
@@ -4619,32 +4311,14 @@
                         inProgress: false
                     };
                     if (!isDuplicateGame(newGame)) {
-                        gamesToAdd.push(newGame);
+                        await addNewGameWithDelay(newGame);
                         addedGames++;
                     } else {
                         console.log(`Игра "${newGame.name}" не добавлена`);
                     }
                 }
 
-                // Добавляем игры постепенно с небольшой задержкой
-                const actuallyAddedGames = await addGamesWithDelay(gamesToAdd);
-                addedGames = actuallyAddedGames; // Обновляем счетчик добавленных игр
-
-                // Сохраняем игры и обновляем фильтры только один раз
-                if (actuallyAddedGames > 0) {
-                    saveGames();
-                    updateFiltersAndCounter();
-                    updateSaturation();
-                }
-
                 console.log('Импорт завершен успешно');
-
-                // Явно вызываем applyFilters после завершения импорта для правильной сортировки игр без года
-                applyFilters(false);
-
-                // Восстанавливаем значения фильтра года
-                restoreYearFilter();
-
                 alert(`Импорт завершен. Добавлено ${addedGames} новых игр.`);
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
@@ -4655,78 +4329,25 @@
             }
         }
 
-        // Функция для постепенного добавления игр с задержкой
-        async function addGamesWithDelay(games) {
-            // Проверяем, не идет ли уже процесс добавления игр
-            if (isAddingGames) {
-                console.warn('Уже идет процесс добавления игр. Подождите, пока он завершится.');
-                return 0;
-            }
-
-            isAddingGames = true;
-
-            try {
-                // Добавляем игры по одной с задержкой 10 мс между каждой игрой
-                let addedCount = 0;
-                for (const game of games) {
-                    try {
-                        addNewGame(game);
-                        addedCount++;
-                        // Добавляем небольшую задержку между добавлением каждой игры
-                        await new Promise(resolve => setTimeout(resolve, 10));
-                    } catch (error) {
-                        console.error(`Ошибка при добавлении игры ${game.name}:`, error);
-                        // Продолжаем добавлять остальные игры
-                    }
-                }
-                console.log(`Успешно добавлено ${addedCount} из ${games.length} игр`);
-                return addedCount;
-            } finally {
-                // Снимаем флаг в любом случае
-                isAddingGames = false;
-            }
+        function addNewGameWithDelay(game) {
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    addNewGame(game);
+                    saveGames();
+                    updateFiltersAndCounter();
+                    resolve();
+                    updateSaturation();
+                }, 10);
+            });
         }
 
-        function addNewGame(gameData) {
-            // Проверяем, является ли параметр объектом gameData или готовым объектом game
-            if (gameData.hasOwnProperty('name') && !gameData.hasOwnProperty('id')) {
-                // Это объект gameData, нужно создать новый объект game
-                const existingGame = findExistingGame(gameData);
-                if (existingGame) {
-                    console.log('Найдена существующая версия игры:', existingGame.name);
-                    if (gameData.name.length < existingGame.name.length) {
-                        Object.assign(existingGame, gameData);
-                        updateGameCell(existingGame);
-                        return;
-                    }
-                } else {
-                    // Создаем новый объект game
-                    gameData = {
-                        id: Date.now(),
-                        ...gameData,
-                        isCustom: true,
-                        importedFromApi: gameData.importedFromApi || false,
-                        completed: false,
-                        inProgress: false,
-                        color: getRandomPastelColor()
-                    };
-                }
-            }
-
-            // Добавляем игру в массив
-            games.push(gameData);
-            const cell = createCell(gameData);
-
-            // Добавляем ячейку в сетку с учетом сортировки по году
-            insertCellInOrder(cell);
-
+        function addNewGame(game) {
+            games.push(game);
+            const cell = createCell(game);
+            grid.appendChild(cell);
             updateGridSize();
             saveGames();
             updateFiltersAndCounter();
-
-            // Явно вызываем applyFilters для правильной сортировки игр без года
-            applyFilters(false);
-
             updateSaturation();
         }
 
@@ -4737,297 +4358,8 @@
         }
 
         function updateFiltersAndCounter() {
-            // Сохраняем текущие значения фильтра года перед обновлением фильтров
-            // console.log(`Текущие значения ползунков в updateFiltersAndCounter: ${yearSliderMin.value} - ${yearSliderMax.value}`);
-            // console.log(`Текущие значения глобальных переменных в updateFiltersAndCounter: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-
-            // Не перезаписываем значения фильтра года, если они уже были установлены пользователем
-            // Текущие значения фильтра года сохраняются при изменении ползунков
-            // console.log(`Сохранены значения фильтра года в updateFiltersAndCounter: ${currentYearFilterMin} - ${currentYearFilterMax}`);
-
             populateFilters();
             updateCounter();
-            // Явно вызываем applyFilters для правильной сортировки игр без года
-            applyFilters(false);
-
-            // Восстанавливаем значения фильтра года
-            restoreYearFilter();
-        }
-
-        // Функция для предварительной загрузки индекса игр в фоновом режиме
-        async function preloadGameIndex() {
-            if (gameIndex !== null || isIndexLoading) {
-                return; // Индекс уже загружен или загружается
-            }
-
-            isIndexLoading = true;
-            console.log('Начало предварительной загрузки индекса игр');
-
-            try {
-                // Загружаем индекс
-                const indexResponse = await fetch('data/index.json');
-                if (!indexResponse.ok) {
-                    throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                }
-                gameIndex = await indexResponse.json();
-
-                // Загружаем первые несколько файлов с играми (например, первые 3 файла)
-                const filesToPreload = Math.min(3, gameIndex.total_files);
-
-                for (let i = 1; i <= filesToPreload; i++) {
-                    const response = await fetch(`data/games_${i}.json`);
-                    if (!response.ok) {
-                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                    }
-                    const fileGames = await response.json();
-                    gameFiles[i] = fileGames;
-                }
-
-                console.log(`Предварительная загрузка индекса и ${filesToPreload} файлов игр завершена`);
-            } catch (error) {
-                console.error('Ошибка при предварительной загрузке индекса:', error);
-                // Сбрасываем индекс в случае ошибки
-                gameIndex = null;
-                gameFiles = [];
-            } finally {
-                isIndexLoading = false;
-            }
-        }
-
-        // Функция для загрузки поискового индекса
-        async function loadSearchIndex() {
-            if (searchIndex !== null || isSearchIndexLoading) {
-                return searchIndex; // Индекс уже загружен или загружается
-            }
-
-            isSearchIndexLoading = true;
-            console.log('Начало загрузки поискового индекса');
-
-            try {
-                const response = await fetch('data/search_index.json');
-                if (!response.ok) {
-                    throw new Error(`Ошибка загрузки поискового индекса: ${response.status} ${response.statusText}`);
-                }
-                searchIndex = await response.json();
-                console.log(`Поисковый индекс загружен (${searchIndex.length} игр)`);
-                return searchIndex;
-            } catch (error) {
-                console.error('Ошибка при загрузке поискового индекса:', error);
-                return null;
-            } finally {
-                isSearchIndexLoading = false;
-            }
-        }
-
-        // Функция для предварительной загрузки поискового индекса
-        function preloadSearchIndex() {
-            setTimeout(() => {
-                loadSearchIndex().then(() => {
-                    console.log('Поисковый индекс предварительно загружен');
-                }).catch(error => {
-                    console.error('Ошибка при предварительной загрузке поискового индекса:', error);
-                });
-            }, 2000); // Задержка в 2 секунды после загрузки страницы
-        }
-
-        // Функция для поиска игр с использованием индекса
-        async function searchGamesWithIndex(gameName) {
-            const index = await loadSearchIndex();
-            if (!index) {
-                // Если индекс не загружен, используем старый метод поиска
-                return searchGamesWithoutIndex(gameName);
-            }
-
-            console.log('Поиск с использованием индекса');
-            const lowerQuery = gameName.toLowerCase();
-
-            // Фильтрация игр по запросу
-            console.log(`Поиск по запросу: "${lowerQuery}" в ${index.length} играх`);
-
-            // Добавляем более гибкий поиск
-            const matchedGames = index.filter(game => {
-                if (!game.name) return false;
-                const gameName = game.name.toLowerCase();
-                return gameName.includes(lowerQuery);
-            });
-
-            console.log(`Найдено игр: ${matchedGames.length}`);
-
-            // Если ничего не найдено, попробуем более простой поиск
-            if (matchedGames.length === 0 && lowerQuery.length > 1) {
-                console.log('Пробуем более простой поиск');
-                // Попробуем найти игры, содержащие хотя бы одну букву из запроса
-                for (const char of lowerQuery) {
-                    const additionalMatches = index.filter(game => {
-                        if (!game.name) return false;
-                        return game.name.toLowerCase().includes(char);
-                    });
-                    if (additionalMatches.length > 0) {
-                        console.log(`Найдено дополнительных игр по букве '${char}': ${additionalMatches.length}`);
-                        matchedGames.push(...additionalMatches);
-                    }
-                }
-
-                // Удаляем дубликаты
-                const uniqueIds = new Set();
-                const uniqueGames = [];
-                for (const game of matchedGames) {
-                    if (!uniqueIds.has(game.id)) {
-                        uniqueIds.add(game.id);
-                        uniqueGames.push(game);
-                    }
-                }
-                matchedGames = uniqueGames;
-                console.log(`После удаления дубликатов: ${matchedGames.length} игр`);
-            }
-
-            // Добавляем релевантность к каждой игре
-            matchedGames.forEach(game => {
-                game.relevance = calculateRelevance(game.name, lowerQuery);
-            });
-
-            // Сортировка по релевантности
-            matchedGames.sort((a, b) => b.relevance - a.relevance);
-
-            // Ограничение результатов
-            const limitedResults = matchedGames.slice(0, 100);
-            console.log(`Возвращаем ${limitedResults.length} результатов`);
-
-            // Загрузка полных данных для найденных игр
-            const fullResults = await loadFullGameData(limitedResults);
-
-            return fullResults;
-        }
-
-        // Функция для загрузки полных данных для найденных игр
-        async function loadFullGameData(matchedGames) {
-            console.log(`Загрузка полных данных для ${matchedGames.length} игр`);
-
-            // Проверяем, что есть игры для загрузки
-            if (!matchedGames || matchedGames.length === 0) {
-                console.log('Нет игр для загрузки полных данных');
-                return [];
-            }
-
-            // Группировка игр по файлам
-            const gamesByFile = {};
-            matchedGames.forEach(game => {
-                if (!game.file_number) {
-                    console.log(`Игра без номера файла:`, game);
-                    return;
-                }
-                if (!gamesByFile[game.file_number]) {
-                    gamesByFile[game.file_number] = [];
-                }
-                // Убедимся, что ID игры всегда строка
-                const gameId = String(game.id);
-                gamesByFile[game.file_number].push(gameId);
-            });
-
-            // Загрузка необходимых файлов и извлечение полных данных
-            const fullGames = [];
-            console.log(`Необходимо загрузить файлы: ${Object.keys(gamesByFile).join(', ')}`);
-
-            for (const [fileNumber, gameIds] of Object.entries(gamesByFile)) {
-                try {
-                    let fileGames;
-
-                    // Используем предварительно загруженные файлы, если они есть
-                    if (gameFiles[fileNumber]) {
-                        fileGames = gameFiles[fileNumber];
-                        console.log(`Используем предварительно загруженный файл games_${fileNumber}.json`);
-                    } else {
-                        // Если файл не загружен, загружаем его
-                        console.log(`Загружаем файл games_${fileNumber}.json`);
-                        try {
-                            const response = await fetch(`data/games_${fileNumber}.json`);
-                            if (!response.ok) {
-                                throw new Error(`Ошибка загрузки файла games_${fileNumber}.json: ${response.status} ${response.statusText}`);
-                            }
-                            fileGames = await response.json();
-                            // Сохраняем файл для будущих запросов
-                            gameFiles[fileNumber] = fileGames;
-                        } catch (error) {
-                            console.error(`Ошибка при загрузке файла games_${fileNumber}.json:`, error);
-                            continue; // Пропускаем этот файл и переходим к следующему
-                        }
-                    }
-
-                    if (!fileGames || !Array.isArray(fileGames)) {
-                        console.error(`Файл games_${fileNumber}.json не содержит массив игр`);
-                        continue;
-                    }
-
-                    // Находим игры по ID
-                    // Преобразуем ID в строки для корректного сравнения
-                    const relevantGames = fileGames.filter(game => {
-                        const gameIdStr = String(game.id);
-                        return gameIds.includes(gameIdStr) || gameIds.includes(game.id);
-                    });
-                    console.log(`Найдено ${relevantGames.length} игр в файле ${fileNumber}`);
-                    fullGames.push(...relevantGames);
-                } catch (error) {
-                    console.error(`Ошибка при обработке файла ${fileNumber}:`, error);
-                }
-            }
-
-            return fullGames;
-        }
-
-        // Резервный метод поиска без использования индекса
-        async function searchGamesWithoutIndex(gameName) {
-            console.log('Поиск без использования индекса');
-
-            // Используем предварительно загруженный индекс, если он есть
-            let index;
-            if (gameIndex !== null) {
-                index = gameIndex;
-            } else {
-                // Если индекс не загружен, загружаем его
-                const indexResponse = await fetch('data/index.json');
-                if (!indexResponse.ok) {
-                    throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                }
-                index = await indexResponse.json();
-                gameIndex = index;
-            }
-
-            let matchedGames = [];
-            for (let i = 1; i <= index.total_files; i++) {
-                let fileGames;
-
-                // Используем предварительно загруженные файлы, если они есть
-                if (gameFiles[i]) {
-                    fileGames = gameFiles[i];
-                } else {
-                    // Если файл не загружен, загружаем его
-                    const response = await fetch(`data/games_${i}.json`);
-                    if (!response.ok) {
-                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                    }
-                    fileGames = await response.json();
-                    gameFiles[i] = fileGames;
-                }
-
-                const matches = fileGames.filter(game =>
-                    game.name.toLowerCase().includes(gameName.toLowerCase())
-                );
-
-                // Добавляем релевантность к каждой игре
-                matches.forEach(game => {
-                    game.relevance = calculateRelevance(game.name, gameName);
-                });
-
-                matchedGames = matchedGames.concat(matches);
-                if (matchedGames.length >= 100) {
-                    break;
-                }
-            }
-
-            // Сортируем игры по релевантности
-            matchedGames.sort((a, b) => b.relevance - a.relevance);
-
-            return matchedGames.slice(0, 100);
         }
 
         function chunkArray(array, size) {
@@ -5085,26 +4417,12 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM полностью загружен');
-
-            // Начинаем загрузку поискового индекса сразу
-            preloadSearchIndex();
-
             initializeImportButton();
-
-            // Загружаем игры из localStorage
             loadSavedGames();
-
-            // Обновляем счетчик пройденных игр
-            updateCounter();
-
-            // Популируем фильтры после загрузки всех игр
-            console.log(`Популируем фильтры для ${games.length} игр`);
-            populateFilters();
-
-            // Применяем фильтры и рендерим игры
-            applyFilters(false);
             renderGames(true); // Принудительно сортируем по ID при загрузке страницы
-            updateInProgressRow(); // Размещаем ячейки по рядам
+            updateCounter();
+            populateFilters();
+            updateInProgressRow(); // Сначала размещаем ячейки по рядам
             initializeCacheClearing();
 
             // Восстанавливаем состояние completedFilter и hideCompletedButton перед применением фильтров
@@ -5121,17 +4439,6 @@
 
 
             applyFilters(true); // Применяем фильтры после всей инициализации и расстановки ячеек, принудительно сортируя по ID
-
-            // Дополнительно применяем фильтры с небольшой задержкой, чтобы гарантировать правильную сортировку
-            setTimeout(() => {
-                applyFilters(false);
-
-                // Предварительная загрузка индекса игр в фоновом режиме после загрузки основных элементов таблицы
-                setTimeout(() => {
-                    preloadGameIndex();
-                    // Поисковый индекс уже загружается в начале страницы
-                }, 1000); // Задержка в 1 секунду, чтобы не мешать загрузке основных элементов
-            }, 100);
 
             const addGameButton = document.getElementById('addGameButton');
             const addGameModal = document.getElementById('addGameModal');
