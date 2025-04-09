@@ -2812,9 +2812,25 @@
             updateCounter();
         }
 
+        // Флаг, указывающий, что страница полностью загружена
+        let isPageFullyLoaded = false;
+
         function populateFilters() {
+            // Если страница еще не полностью загружена и это не вызов из DOMContentLoaded,
+            // не выполняем функцию
+            if (!isPageFullyLoaded && document.readyState !== 'complete') {
+                console.log('Страница еще не полностью загружена, пропускаем вызов populateFilters');
+                return;
+            }
+
             // Фильтруем игры без года (null) при определении диапазона лет
-            const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
+            const gamesWithYear = games.filter(game => game.year !== null);
+            if (gamesWithYear.length === 0) {
+                console.warn('Нет игр с указанным годом');
+                return;
+            }
+
+            const years = [...new Set(gamesWithYear.map(game => game.year))].sort((a, b) => a - b);
             const platforms = [...new Set(games.flatMap(game => game.platforms))].sort();
             const genres = [...new Set(games.flatMap(game => game.genres))].sort();
 
@@ -3589,7 +3605,6 @@
 
         togglePreviewBtn.classList.toggle('disabled', !previewEnabled);
 
-        populateFilters();
         games.forEach(game => {
             const cell = createCell(game);
             if (game.inProgress) {
@@ -3607,7 +3622,6 @@
             cell.classList.toggle('hidden', hideCompleted);
         });
 
-        populateFilters();
         applyFilters();
         updateInProgressRow();
 
@@ -3684,7 +3698,8 @@
 
                 completedGames = games.filter(game => game.completed).length;
                 updateCounter();
-                populateFilters();
+                // Вызываем updateFiltersAndCounter вместо populateFilters
+                updateFiltersAndCounter();
                 applyFilters();
 
                 console.log(`Удалено ${deletedCount} добавленных игр`);
@@ -3827,7 +3842,8 @@
 
             saveGames();
             updateCounter();
-            populateFilters();
+            // Вызываем updateFiltersAndCounter вместо populateFilters
+            updateFiltersAndCounter();
             applyFilters();
             updateGridSize();
         }
@@ -4028,7 +4044,8 @@
 
                 updateCustomGameList();
                 updateCounter();
-                populateFilters();
+                // Вызываем updateFiltersAndCounter вместо populateFilters
+                updateFiltersAndCounter();
                 applyFilters();
                 updateGridSize();
             }
@@ -4056,7 +4073,8 @@
                 }
             });
             updateGridSize();
-            populateFilters();
+            // Вызываем updateFiltersAndCounter вместо populateFilters
+            updateFiltersAndCounter();
             applyFilters();
         }
 
@@ -4433,6 +4451,10 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM полностью загружен');
+
+            // Устанавливаем флаг, что страница полностью загружена
+            isPageFullyLoaded = true;
+
             initializeImportButton();
 
             // Сначала загружаем все игры из localStorage
