@@ -1686,6 +1686,7 @@
             align-items: center;
             z-index: 9999;
             pointer-events: none;
+            transition: opacity 0.5s ease; /* Добавляем плавную анимацию */
         }
 
         .loading-message {
@@ -1903,17 +1904,8 @@
         let inProgressMode = false;
         let hideCompleted = JSON.parse(localStorage.getItem('hideCompleted')) || false;
 
-        // Старые ключи для совместимости
-        let savedMinYear = localStorage.getItem('yearFilterMin') || localStorage.getItem('minYear');
-        let savedMaxYear = localStorage.getItem('yearFilterMax') || localStorage.getItem('maxYear');
-
-        // Удаляем старые ключи, если они есть
-        if (localStorage.getItem('minYear')) {
-            localStorage.removeItem('minYear');
-        }
-        if (localStorage.getItem('maxYear')) {
-            localStorage.removeItem('maxYear');
-        }
+        let savedMinYear = localStorage.getItem('minYear');
+        let savedMaxYear = localStorage.getItem('maxYear');
         let selectedPlatforms = JSON.parse(localStorage.getItem('selectedPlatforms')) || [];
         let selectedGenres = JSON.parse(localStorage.getItem('selectedGenres')) || [];
         const gamesList = [
@@ -2812,102 +2804,42 @@
             updateCounter();
         }
 
-        // Флаг, указывающий, что страница полностью загружена
-        let isPageFullyLoaded = false;
-
         function populateFilters() {
-            // Если страница еще не полностью загружена и это не вызов из DOMContentLoaded,
-            // не выполняем функцию
-            if (!isPageFullyLoaded && document.readyState !== 'complete') {
-                console.log('Страница еще не полностью загружена, пропускаем вызов populateFilters');
-                return;
-            }
-
             // Фильтруем игры без года (null) при определении диапазона лет
-            const gamesWithYear = games.filter(game => game.year !== null);
-            if (gamesWithYear.length === 0) {
-                console.warn('Нет игр с указанным годом');
-                return;
-            }
-
-            const years = [...new Set(gamesWithYear.map(game => game.year))].sort((a, b) => a - b);
+            const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
             const platforms = [...new Set(games.flatMap(game => game.platforms))].sort();
             const genres = [...new Set(games.flatMap(game => game.genres))].sort();
 
             const minGameYear = Math.min(...years);
             const maxGameYear = Math.max(...years);
-            // Устанавливаем значения по умолчанию
-            minYear = minGameYear;
-            maxYear = maxGameYear;
-
-            // Если есть сохраненные значения, используем их
-            if (savedMinYear) {
-                const parsedMinYear = parseInt(savedMinYear);
-                if (parsedMinYear >= minGameYear && parsedMinYear <= maxGameYear) {
-                    minYear = parsedMinYear;
+            // Проверяем, активен ли фильтр по годам
+            if (savedMinYear && parseInt(savedMinYear) > minGameYear) {
+                minYear = parseInt(savedMinYear);
+            } else {
+                minYear = minGameYear;
+                // Удаляем значение из localStorage, если оно равно минимальному году
+                if (savedMinYear) {
+                    localStorage.removeItem('minYear');
                 }
             }
 
-            if (savedMaxYear) {
-                const parsedMaxYear = parseInt(savedMaxYear);
-                if (parsedMaxYear >= minGameYear && parsedMaxYear <= maxGameYear) {
-                    maxYear = parsedMaxYear;
+            if (savedMaxYear && parseInt(savedMaxYear) < maxGameYear) {
+                maxYear = parseInt(savedMaxYear);
+            } else {
+                maxYear = maxGameYear;
+                // Удаляем значение из localStorage, если оно равно максимальному году
+                if (savedMaxYear) {
+                    localStorage.removeItem('maxYear');
                 }
             }
 
             // Обновляем атрибуты ползунков
             yearSliderMin.min = minGameYear;
             yearSliderMin.max = maxGameYear;
+            yearSliderMin.value = minYear;
             yearSliderMax.min = minGameYear;
             yearSliderMax.max = maxGameYear;
-
-            // Проверяем, есть ли сохраненные значения фильтра года в localStorage
-            const savedFilterMin = localStorage.getItem('yearFilterMin');
-            const savedFilterMax = localStorage.getItem('yearFilterMax');
-
-            // Устанавливаем значения по умолчанию
-            let sliderMinValue = minGameYear;
-            let sliderMaxValue = maxGameYear;
-
-            if (savedFilterMin && savedFilterMax) {
-                // Если есть сохраненные значения, проверяем, что они находятся в допустимом диапазоне
-                const savedMin = parseInt(savedFilterMin);
-                const savedMax = parseInt(savedFilterMax);
-
-                if (savedMin >= minGameYear && savedMin <= maxGameYear) {
-                    sliderMinValue = savedMin;
-                } else {
-                    console.log(`Сохраненный минимальный год ${savedMin} выходит за пределы диапазона ${minGameYear}-${maxGameYear}`);
-                }
-
-                if (savedMax >= minGameYear && savedMax <= maxGameYear) {
-                    sliderMaxValue = savedMax;
-                } else {
-                    console.log(`Сохраненный максимальный год ${savedMax} выходит за пределы диапазона ${minGameYear}-${maxGameYear}`);
-                }
-
-                // Проверяем, что минимальный год не больше максимального
-                if (sliderMinValue > sliderMaxValue - 1) {
-                    sliderMinValue = sliderMaxValue - 1;
-                    console.log(`Скорректирован минимальный год: ${sliderMinValue}`);
-                }
-
-                console.log(`Используем сохраненные значения фильтра года: ${sliderMinValue} - ${sliderMaxValue}`);
-            } else {
-                console.log(`Нет сохраненных значений фильтра года, используем полный диапазон: ${minGameYear} - ${maxGameYear}`);
-            }
-
-            // Устанавливаем значения ползунков
-            yearSliderMin.value = sliderMinValue;
-            yearSliderMax.value = sliderMaxValue;
-
-            // Сохраняем значения в глобальных переменных
-            currentYearFilterMin = sliderMinValue;
-            currentYearFilterMax = sliderMaxValue;
-
-            // Сохраняем значения в localStorage
-            localStorage.setItem('yearFilterMin', sliderMinValue);
-            localStorage.setItem('yearFilterMax', sliderMaxValue);
+            yearSliderMax.value = maxYear;
 
             // Обновляем метки годов
             document.getElementById('minYearLabel').textContent = minGameYear;
@@ -3007,17 +2939,23 @@
             const maxYear = parseInt(yearSliderMax.value);
             yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
 
-            // Сохраняем значения в глобальных переменных
-            currentYearFilterMin = minYear;
-            currentYearFilterMax = maxYear;
-
             // Проверяем, установлены ли ползунки на минимальное и максимальное значения
             const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
             const minGameYear = Math.min(...years);
             const maxGameYear = Math.max(...years);
 
-            // Не используем старые ключи 'minYear' и 'maxYear'
-            // Всегда сохраняем значения в localStorage под ключами 'yearFilterMin' и 'yearFilterMax'
+            // Если ползунки установлены на минимальное и максимальное значения, удаляем значения из localStorage
+            if (minYear <= minGameYear) {
+                localStorage.removeItem('minYear');
+            } else {
+                localStorage.setItem('minYear', minYear);
+            }
+
+            if (maxYear >= maxGameYear) {
+                localStorage.removeItem('maxYear');
+            } else {
+                localStorage.setItem('maxYear', maxYear);
+            }
 
             // Обновляем подсветку трека ползунка
             updateSliderTrack();
@@ -3348,10 +3286,8 @@
 
             localStorage.removeItem('selectedPlatforms');
             localStorage.removeItem('selectedGenres');
-            localStorage.removeItem('yearFilterMin');
-            localStorage.removeItem('yearFilterMax');
-            localStorage.removeItem('minYear'); // Удаляем старые ключи для совместимости
-            localStorage.removeItem('maxYear'); // Удаляем старые ключи для совместимости
+            localStorage.removeItem('minYear');
+            localStorage.removeItem('maxYear');
             localStorage.removeItem('hideCompleted');
 
             const currentSaturation = saturationSlider.value;
@@ -3412,11 +3348,6 @@
             if (minVal > maxVal - 1) {
                 yearSliderMin.value = maxVal - 1;
             }
-
-            // Сохраняем значения в localStorage
-            localStorage.setItem('yearFilterMin', yearSliderMin.value);
-            localStorage.setItem('yearFilterMax', yearSliderMax.value);
-
             updateYearValue();
             applyFilters();
         });
@@ -3436,11 +3367,6 @@
             if (maxVal < minVal + 1) {
                 yearSliderMax.value = minVal + 1;
             }
-
-            // Сохраняем значения в localStorage
-            localStorage.setItem('yearFilterMin', yearSliderMin.value);
-            localStorage.setItem('yearFilterMax', yearSliderMax.value);
-
             updateYearValue();
             applyFilters();
         });
@@ -3605,6 +3531,7 @@
 
         togglePreviewBtn.classList.toggle('disabled', !previewEnabled);
 
+        populateFilters();
         games.forEach(game => {
             const cell = createCell(game);
             if (game.inProgress) {
@@ -3622,6 +3549,7 @@
             cell.classList.toggle('hidden', hideCompleted);
         });
 
+        populateFilters();
         applyFilters();
         updateInProgressRow();
 
@@ -3698,8 +3626,7 @@
 
                 completedGames = games.filter(game => game.completed).length;
                 updateCounter();
-                // Вызываем updateFiltersAndCounter вместо populateFilters
-                updateFiltersAndCounter();
+                populateFilters();
                 applyFilters();
 
                 console.log(`Удалено ${deletedCount} добавленных игр`);
@@ -3842,8 +3769,7 @@
 
             saveGames();
             updateCounter();
-            // Вызываем updateFiltersAndCounter вместо populateFilters
-            updateFiltersAndCounter();
+            populateFilters();
             applyFilters();
             updateGridSize();
         }
@@ -4044,8 +3970,7 @@
 
                 updateCustomGameList();
                 updateCounter();
-                // Вызываем updateFiltersAndCounter вместо populateFilters
-                updateFiltersAndCounter();
+                populateFilters();
                 applyFilters();
                 updateGridSize();
             }
@@ -4073,8 +3998,7 @@
                 }
             });
             updateGridSize();
-            // Вызываем updateFiltersAndCounter вместо populateFilters
-            updateFiltersAndCounter();
+            populateFilters();
             applyFilters();
         }
 
@@ -4352,13 +4276,17 @@
                     }
                 }
 
-                console.log('Импорт завершен успешно');
-                alert(`Импорт завершен. Добавлено ${addedGames} новых игр.`);
+                console.log(`Импорт завершен успешно. Добавлено ${addedGames} новых игр.`);
+
+                // Показываем сообщение об успешном добавлении
+                showSuccessMessage(`Успешно добавлено ${addedGames} игр!`);
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
-                alert(`Не удалось импортировать игры: ${error.message}`);
+                // Показываем сообщение об ошибке
+                showSuccessMessage(`Ошибка: ${error.message}`);
             } finally {
-                hideLoadingMessage();
+                // Не скрываем сообщение, так как оно будет скрыто автоматически
+                // hideLoadingMessage();
                 isImporting = false;
             }
         }
@@ -4405,11 +4333,48 @@
         }
 
         function showLoadingMessage() {
-            document.getElementById('loadingOverlay').style.display = 'flex';
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingMessage = loadingOverlay.querySelector('.loading-message');
+            loadingMessage.textContent = 'Загружается, подождите...';
+            loadingOverlay.style.display = 'flex';
+            // Добавляем обработчик клика для скрытия сообщения
+            loadingOverlay.onclick = null; // Удаляем предыдущий обработчик, если он был
+            loadingOverlay.style.pointerEvents = 'none'; // Отключаем клики во время загрузки
         }
 
         function hideLoadingMessage() {
-            document.getElementById('loadingOverlay').style.display = 'none';
+            // Используем функцию с анимацией для скрытия сообщения
+            hideLoadingMessageWithAnimation();
+        }
+
+        function showSuccessMessage(message) {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingMessage = loadingOverlay.querySelector('.loading-message');
+            loadingMessage.textContent = message || 'Успешно добавлено!';
+            loadingOverlay.style.display = 'flex';
+            loadingOverlay.style.pointerEvents = 'auto'; // Включаем клики, чтобы можно было закрыть сообщение
+
+            // Добавляем обработчик клика для скрытия сообщения
+            loadingOverlay.onclick = function() {
+                hideLoadingMessageWithAnimation();
+            };
+
+            // Автоматически скрываем сообщение через 3 секунды
+            setTimeout(hideLoadingMessageWithAnimation, 3000);
+        }
+
+        function hideLoadingMessageWithAnimation() {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.transition = 'opacity 0.5s ease';
+            loadingOverlay.style.opacity = '0';
+
+            // После завершения анимации скрываем элемент и сбрасываем стили
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+                loadingOverlay.style.transition = '';
+                loadingOverlay.style.opacity = '1';
+                loadingOverlay.onclick = null;
+            }, 500);
         }
 
         function initializeImportButton() {
@@ -4451,23 +4416,12 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM полностью загружен');
-
-            // Устанавливаем флаг, что страница полностью загружена
-            isPageFullyLoaded = true;
-
             initializeImportButton();
-
-            // Сначала загружаем все игры из localStorage
             loadSavedGames();
-            console.log(`Загружено ${games.length} игр`);
-
-            // Затем устанавливаем фильтры на основе всех игр
-            populateFilters();
-
-            // Обновляем счетчик и рендерим игры
-            updateCounter();
             renderGames(true); // Принудительно сортируем по ID при загрузке страницы
-            updateInProgressRow(); // Размещаем ячейки по рядам
+            updateCounter();
+            populateFilters();
+            updateInProgressRow(); // Сначала размещаем ячейки по рядам
             initializeCacheClearing();
 
             // Восстанавливаем состояние completedFilter и hideCompletedButton перед применением фильтров
