@@ -2994,14 +2994,35 @@
         }
 
         function shouldShowGame(game) {
-            const minGameYear = Math.min(...games.filter(g => g.year !== null).map(g => g.year));
+            // Получаем текущие значения фильтров
+            const years = [...new Set(games.filter(g => g.year !== null).map(g => g.year))].sort((a, b) => a - b);
+            const minGameYear = Math.min(...years);
+            const maxGameYear = Math.max(...years);
+
+            // Проверяем, изменены ли ползунки из их стандартного положения
+            const minVal = parseInt(yearSliderMin.value);
+            const maxVal = parseInt(yearSliderMax.value);
+
+            // Проверяем, активна ли кнопка "Только пройденные"
             const showCompleted = completedFilter.classList.contains('active');
+
+            // Проверяем все условия фильтра
             return (
+                // Проверяем фильтр "Скрыть пройденные"
                 (!hideCompleted || !game.completed) &&
+
+                // Проверяем фильтр "Только пройденные"
                 (showCompleted ? game.completed : true) &&
+
+                // Проверяем фильтр по жанрам
                 (selectedGenres.length === 0 || game.genres.some(genre => selectedGenres.includes(genre))) &&
+
+                // Проверяем фильтр по платформам
                 (selectedPlatforms.length === 0 || game.platforms.some(platform => selectedPlatforms.includes(platform))) &&
-                (game.year === null || (game.year >= Math.max(yearSliderMin.value, minGameYear) && game.year <= yearSliderMax.value))
+
+                // Проверяем фильтр по годам
+                // Если у игры нет года, показываем ее всегда
+                (game.year === null || (game.year >= minVal && game.year <= maxVal))
             );
         }
 
@@ -4340,13 +4361,23 @@
         function addNewGame(game, updateFilters = true) {
             games.push(game);
             const cell = createCell(game);
-            grid.appendChild(cell);
+
+            // Добавляем ячейку в сетку с учетом текущих фильтров
+            if (game.inProgress) {
+                inProgressRow.appendChild(cell);
+            } else {
+                // Используем insertCellInOrder вместо простого добавления в конец
+                insertCellInOrder(cell);
+            }
+
             updateGridSize();
             saveGames();
+
             // Вызываем updateFiltersAndCounter только если нужно обновить фильтры
             if (updateFilters) {
                 updateFiltersAndCounter();
             }
+
             updateSaturation();
         }
 
