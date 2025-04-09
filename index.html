@@ -2206,31 +2206,54 @@
 
             showLoadingMessage();
             try {
+                console.log('Начинаем загрузку индекса...');
                 const indexResponse = await fetch('data/index.json');
+                console.log('Ответ получен:', indexResponse.status, indexResponse.statusText);
+
                 if (!indexResponse.ok) {
                     throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
                 }
+
+                console.log('Парсим JSON...');
                 const index = await indexResponse.json();
+                console.log('Индекс успешно загружен:', index);
 
                 let matchedGames = [];
                 for (let i = 1; i <= index.total_files; i++) {
-                    const response = await fetch(`data/games_${i}.json`);
-                    if (!response.ok) {
-                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                    }
-                    const fileGames = await response.json();
-                    const matches = fileGames.filter(game =>
-                        game.name.toLowerCase().includes(gameName.toLowerCase())
-                    );
+                    try {
+                        console.log(`Загружаем файл games_${i}.json...`);
+                        const response = await fetch(`data/games_${i}.json`);
+                        console.log(`Ответ для games_${i}.json:`, response.status, response.statusText);
 
-                    // Добавляем релевантность к каждой игре
-                    matches.forEach(game => {
-                        game.relevance = calculateRelevance(game.name, gameName);
-                    });
+                        if (!response.ok) {
+                            console.error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                            continue; // Пропускаем этот файл и продолжаем с следующего
+                        }
 
-                    matchedGames = matchedGames.concat(matches);
-                    if (matchedGames.length >= 100) {
-                        break;
+                        console.log(`Парсим JSON для games_${i}.json...`);
+                        const fileGames = await response.json();
+                        console.log(`Файл games_${i}.json успешно загружен, игр в файле: ${fileGames.length}`);
+
+                        const matches = fileGames.filter(game =>
+                            game.name.toLowerCase().includes(gameName.toLowerCase())
+                        );
+                        console.log(`Найдено совпадений в файле games_${i}.json: ${matches.length}`);
+
+                        // Добавляем релевантность к каждой игре
+                        matches.forEach(game => {
+                            game.relevance = calculateRelevance(game.name, gameName);
+                        });
+
+                        matchedGames = matchedGames.concat(matches);
+                        console.log(`Всего найдено игр: ${matchedGames.length}`);
+
+                        if (matchedGames.length >= 100) {
+                            console.log('Достигнут лимит в 100 игр, прекращаем поиск');
+                            break;
+                        }
+                    } catch (fileError) {
+                        console.error(`Ошибка при обработке файла games_${i}.json:`, fileError);
+                        continue; // Пропускаем этот файл и продолжаем с следующего
                     }
                 }
 
@@ -4249,23 +4272,51 @@
             showLoadingMessage();
             console.log('Начало импорта игр из IGDB');
             try {
+                console.log('Начинаем импорт игр из IGDB...');
                 const existingIds = games.map(game => game.id.toString());
+                console.log(`Текущее количество игр: ${games.length}, уникальных ID: ${existingIds.length}`);
+
+                console.log('Загружаем индекс...');
                 const indexResponse = await fetch('data/index.json');
+                console.log('Ответ получен:', indexResponse.status, indexResponse.statusText);
+
                 if (!indexResponse.ok) {
                     throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
                 }
+
+                console.log('Парсим JSON индекса...');
                 const index = await indexResponse.json();
+                console.log('Индекс успешно загружен:', index);
 
                 let newGames = [];
                 for (let i = 1; i <= index.total_files; i++) {
-                    const response = await fetch(`data/games_${i}.json`);
-                    if (!response.ok) {
-                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                    }
-                    const fileGames = await response.json();
-                    newGames = newGames.concat(fileGames.filter(game => !existingIds.includes(game.id.toString())));
-                    if (newGames.length >= count) {
-                        break;
+                    try {
+                        console.log(`Загружаем файл games_${i}.json...`);
+                        const response = await fetch(`data/games_${i}.json`);
+                        console.log(`Ответ для games_${i}.json:`, response.status, response.statusText);
+
+                        if (!response.ok) {
+                            console.error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                            continue; // Пропускаем этот файл и продолжаем с следующего
+                        }
+
+                        console.log(`Парсим JSON для games_${i}.json...`);
+                        const fileGames = await response.json();
+                        console.log(`Файл games_${i}.json успешно загружен, игр в файле: ${fileGames.length}`);
+
+                        const filteredGames = fileGames.filter(game => !existingIds.includes(game.id.toString()));
+                        console.log(`Новых игр в файле games_${i}.json: ${filteredGames.length}`);
+
+                        newGames = newGames.concat(filteredGames);
+                        console.log(`Всего новых игр: ${newGames.length}`);
+
+                        if (newGames.length >= count) {
+                            console.log(`Достигнут лимит в ${count} игр, прекращаем поиск`);
+                            break;
+                        }
+                    } catch (fileError) {
+                        console.error(`Ошибка при обработке файла games_${i}.json:`, fileError);
+                        continue; // Пропускаем этот файл и продолжаем с следующего
                     }
                 }
 
