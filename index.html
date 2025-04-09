@@ -4382,6 +4382,56 @@
         let savedYearFilterMax = null;
         // Флаг для отслеживания видимости сообщения
         let isMessageVisible = false;
+        // Флаг для отслеживания блокировки кнопок импорта
+        let importButtonsDisabled = false;
+
+        // Функция для блокировки кнопок импорта
+        function disableImportButtons() {
+            const importButton = document.getElementById('importFromApiButton');
+            const importModalButton = document.getElementById('importFromApiModalButton');
+            const searchGameModalButton = document.getElementById('searchGameModalButton');
+
+            if (importButton) {
+                importButton.classList.add('button-disabled');
+                importButton.disabled = true;
+            }
+
+            if (importModalButton) {
+                importModalButton.classList.add('button-disabled');
+                importModalButton.disabled = true;
+            }
+
+            if (searchGameModalButton) {
+                searchGameModalButton.classList.add('button-disabled');
+                searchGameModalButton.disabled = true;
+            }
+
+            importButtonsDisabled = true;
+        }
+
+        // Функция для разблокировки кнопок импорта
+        function enableImportButtons() {
+            const importButton = document.getElementById('importFromApiButton');
+            const importModalButton = document.getElementById('importFromApiModalButton');
+            const searchGameModalButton = document.getElementById('searchGameModalButton');
+
+            if (importButton) {
+                importButton.classList.remove('button-disabled');
+                importButton.disabled = false;
+            }
+
+            if (importModalButton) {
+                importModalButton.classList.remove('button-disabled');
+                importModalButton.disabled = false;
+            }
+
+            if (searchGameModalButton) {
+                searchGameModalButton.classList.remove('button-disabled');
+                searchGameModalButton.disabled = false;
+            }
+
+            importButtonsDisabled = false;
+        }
 
         async function importFromIGDB(count = 100) {
             // Проверяем, не идет ли уже импорт или не отображается ли сообщение
