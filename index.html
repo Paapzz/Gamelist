@@ -2105,18 +2105,42 @@
 {"number":1000,"title":"wizardry-crusaders-of-the-dark-savant","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2kkd.jpg","year":1992,"genres":["Adventure","Role-playing (RPG)"],"platforms":["Apple Macintosh","DOS","FM Towns","PC-9800","PlayStation","Windows PC"]}
         ];
 
+        // Предварительно скомпилированные регулярные выражения
+        const ROMAN_NUMERAL_REGEX = /\b(i{1,3}|iv|v|vi{1,3}|ix|x|xi{1,3}|xiv|xv|xvi{1,3}|xix|xx|xxi{1,3})\b/gi;
+        const SIMPLE_ROMAN_CHECK = /\b(i|v|x)\b|\bi{2,3}\b|\biv\b|\bvi{1,3}\b|\bix\b|\bxi{1,3}\b|\bxiv\b|\bxv\b|\bxvi{1,3}\b|\bxix\b|\bxx\b|\bxxi{1,3}\b/i;
+        const WORD_BOUNDARY_REGEX = /\b\w/g;
+
+        // Кэш для уже отформатированных названий
+        const formattedTitleCache = new Map();
+
         // Функция для правильного форматирования названий игр с римскими цифрами
         function formatGameTitle(title) {
+            // Проверяем, есть ли результат в кэше
+            if (formattedTitleCache.has(title)) {
+                return formattedTitleCache.get(title);
+            }
+
             // Заменяем дефисы на пробелы
             let formattedTitle = title.replace(/-/g, ' ');
 
-            // Регулярное выражение для поиска римских цифр
-            const romanNumeralRegex = /\b(i{1,3}|iv|v|vi{1,3}|ix|x|xi{1,3}|xiv|xv|xvi{1,3}|xix|xx|xxi{1,3})\b/gi;
+            // Предварительная проверка на наличие римских цифр
+            const hasRomanNumerals = SIMPLE_ROMAN_CHECK.test(formattedTitle.toLowerCase());
 
+            // Если римских цифр нет, применяем только стандартное форматирование
+            if (!hasRomanNumerals) {
+                const result = formattedTitle.replace(WORD_BOUNDARY_REGEX, l => l.toUpperCase());
+                formattedTitleCache.set(title, result);
+                return result;
+            }
+
+            // Если римские цифры есть, применяем полное форматирование
             // Сохраняем найденные римские цифры и их позиции
             const romanNumerals = [];
             let match;
-            while ((match = romanNumeralRegex.exec(formattedTitle)) !== null) {
+
+            // Сбрасываем индекс регулярного выражения
+            ROMAN_NUMERAL_REGEX.lastIndex = 0;
+            while ((match = ROMAN_NUMERAL_REGEX.exec(formattedTitle)) !== null) {
                 romanNumerals.push({
                     value: match[0],
                     start: match.index,
@@ -2125,7 +2149,7 @@
             }
 
             // Делаем первую букву каждого слова заглавной
-            formattedTitle = formattedTitle.replace(/\b\w/g, l => l.toUpperCase());
+            formattedTitle = formattedTitle.replace(WORD_BOUNDARY_REGEX, l => l.toUpperCase());
 
             // Заменяем римские цифры на их верхний регистр
             for (const numeral of romanNumerals) {
@@ -2134,6 +2158,9 @@
                                 upperCaseNumeral +
                                 formattedTitle.substring(numeral.end);
             }
+
+            // Сохраняем результат в кэше
+            formattedTitleCache.set(title, formattedTitle);
 
             return formattedTitle;
         }
@@ -2157,32 +2184,81 @@
             if (savedGames) {
                 let parsedGames = JSON.parse(savedGames);
 
-                // Проверяем, было ли уже выполнено переформатирование
-                if (!romanNumeralsFormatted) {
-                    console.log('Выполняется переформатирование римских цифр в названиях игр...');
-
-                    // Переформатируем названия игр с римскими цифрами
-                    parsedGames.forEach(game => {
-                        if (game.name) {
-                            game.name = formatGameTitle(game.name);
-                        }
-                    });
-
-                    // Сохраняем игры с обновленными названиями
-                    games = parsedGames;
-                    localStorage.setItem('games', JSON.stringify(games));
-
-                    // Устанавливаем флаг, что переформатирование выполнено
-                    localStorage.setItem('romanNumeralsFormatted', 'true');
-                    console.log('Переформатирование завершено.');
-                } else {
-                    // Если переформатирование уже было выполнено, просто загружаем игры
-                    games = parsedGames;
-                }
-
+                // Загружаем игры сразу
+                games = parsedGames;
                 completedGames = games.filter(game => game.completed).length;
                 updateInProgressRow();
+
+                // Проверяем, было ли уже выполнено переформатирование
+                if (!romanNumeralsFormatted) {
+                    // Выполняем переформатирование асинхронно
+                    setTimeout(() => {
+                        console.log('Выполняется переформатирование римских цифр в названиях игр...');
+
+                        // Разбиваем игры на пакеты по 100 штук
+                        const batchSize = 100;
+                        const totalGames = parsedGames.length;
+                        let processedGames = 0;
+                        let gamesUpdated = false;
+
+                        function processBatch() {
+                            const startIndex = processedGames;
+                            const endIndex = Math.min(processedGames + batchSize, totalGames);
+
+                            for (let i = startIndex; i < endIndex; i++) {
+                                const game = parsedGames[i];
+                                if (game.name) {
+                                    const formattedName = formatGameTitle(game.name);
+                                    if (formattedName !== game.name) {
+                                        game.name = formattedName;
+                                        gamesUpdated = true;
+                                    }
+                                }
+                            }
+
+                            processedGames = endIndex;
+
+                            // Обновляем прогресс
+                            if (processedGames % 500 === 0 || processedGames === totalGames) {
+                                console.log(`Обработано ${processedGames} из ${totalGames} игр`);
+                            }
+
+                            if (processedGames < totalGames) {
+                                // Обрабатываем следующий пакет
+                                setTimeout(processBatch, 0);
+                            } else {
+                                // Завершаем обработку
+                                if (gamesUpdated) {
+                                    games = parsedGames;
+                                    localStorage.setItem('games', JSON.stringify(games));
+
+                                    // Обновляем отображение
+                                    renderGames();
+                                }
+
+                                // Устанавливаем флаг, что переформатирование выполнено
+                                localStorage.setItem('romanNumeralsFormatted', 'true');
+                                console.log('Переформатирование завершено.');
+                            }
+                        }
+
+                        // Запускаем обработку первого пакета
+                        setTimeout(processBatch, 100);
+                    }, 500); // Небольшая задержка, чтобы не блокировать загрузку страницы
+                }
             }
+        }
+
+        // Функция для обновления отображения игр
+        function renderGames() {
+            // Обновляем отображение игр на странице
+            document.querySelectorAll('.cell').forEach(cell => {
+                const gameId = cell.getAttribute('data-game-id');
+                const game = games.find(g => g.id.toString() === gameId);
+                if (game) {
+                    cell.title = game.name;
+                }
+            });
         }
 
         function saveGames() {
