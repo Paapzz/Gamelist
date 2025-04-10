@@ -2954,10 +2954,23 @@
                 const gameId = cell.getAttribute('data-game-id');
                 const game = games.find(g => g.id.toString() === gameId);
 
-                if (game && shouldShowGame(game) && (searchTerm === '' || gameName.includes(searchTerm))) {
-                    cell.style.display = '';
+                // Проверяем, находится ли ячейка в зоне "In Progress"
+                const isInProgressRow = cell.parentElement.id === 'inProgressRow';
+
+                // Если ячейка в зоне "In Progress", применяем только поиск, без фильтров
+                if (isInProgressRow) {
+                    if (searchTerm === '' || gameName.includes(searchTerm)) {
+                        cell.style.display = '';
+                    } else {
+                        cell.style.display = 'none';
+                    }
                 } else {
-                    cell.style.display = 'none';
+                    // Для обычных игр применяем и фильтры, и поиск
+                    if (game && shouldShowGame(game) && (searchTerm === '' || gameName.includes(searchTerm))) {
+                        cell.style.display = '';
+                    } else {
+                        cell.style.display = 'none';
+                    }
                 }
             });
             updateInProgressRow();
@@ -3239,11 +3252,18 @@
                 // Decide initial visibility based on filters ONLY (not search yet)
                 const gameId = cell.getAttribute('data-game-id');
                 const game = games.find(g => g.id.toString() === gameId);
-                if (game && shouldShowGame(game)) {
-                     cell.style.display = ''; // Show if passes filters
+
+                // Проверяем, находится ли ячейка в зоне "In Progress"
+                const isInProgressRow = cell.parentElement.id === 'inProgressRow';
+
+                // Если ячейка в зоне "In Progress", показываем ее всегда, независимо от фильтров
+                if (isInProgressRow) {
+                    cell.style.display = ''; // Всегда показываем игры в зоне "In Progress"
+                } else if (game && shouldShowGame(game)) {
+                    cell.style.display = ''; // Показываем обычные игры, если они проходят фильтры
                 } else {
-                     cell.style.display = 'none'; // Hide if fails filters
-                     if(game) hiddenGames.push(game); // Keep track of hidden games
+                    cell.style.display = 'none'; // Скрываем игры, которые не проходят фильтры
+                    if(game) hiddenGames.push(game); // Отслеживаем скрытые игры
                 }
             });
 
@@ -3288,9 +3308,16 @@
                  document.querySelectorAll('.cell').forEach(cell => {
                     const gameId = cell.getAttribute('data-game-id');
                     const game = games.find(g => g.id.toString() === gameId);
-                     if (game && shouldShowGame(game)) {
-                         cell.style.display = '';
-                     }
+
+                    // Проверяем, находится ли ячейка в зоне "In Progress"
+                    const isInProgressRow = cell.parentElement.id === 'inProgressRow';
+
+                    // Если ячейка в зоне "In Progress", показываем ее всегда
+                    if (isInProgressRow) {
+                        cell.style.display = ''; // Всегда показываем игры в зоне "In Progress"
+                    } else if (game && shouldShowGame(game)) {
+                        cell.style.display = ''; // Показываем обычные игры, если они проходят фильтры
+                    }
                  });
             }
 
