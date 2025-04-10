@@ -1880,6 +1880,7 @@
         let gameIndex = null; // Индекс с информацией о файлах игр
         const gameFiles = {}; // Кэш загруженных файлов игр
         let isSearchIndexLoading = false; // Флаг, указывающий, что поисковый индекс в процессе загрузки
+        window.messageTimer = null; // Таймер для сообщений
 
         // Функция для загрузки поискового индекса
         async function loadSearchIndex() {
@@ -2377,8 +2378,14 @@
         }
 
         async function searchGameFromApi() {
+            console.log('[DEBUG] searchGameFromApi вызван');
+            console.log('[DEBUG] Состояние: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible, ', importButtonsDisabled =', importButtonsDisabled);
+
             const gameName = searchGameInput.value.trim();
+            console.log('[DEBUG] Введенное название игры:', gameName);
+
             if (!gameName) {
+                console.log('[DEBUG] Название игры не введено, показываем сообщение');
                 showMessage('Введите название');
 
                 // Добавляем обработчик события для скрытия сообщения при вводе
@@ -2397,17 +2404,37 @@
             }
 
             // Не показываем сообщение о загрузке
+            console.log('[DEBUG] Начинаем поиск игры');
             try {
                 // Используем новую функцию поиска с индексом
                 const matchedGames = await searchGamesWithIndex(gameName);
+                console.log('[DEBUG] Найдено игр:', matchedGames.length);
                 displaySearchResults(matchedGames);
+
                 // Показываем сообщение об успешном поиске
-                handleImportCompletion('Успешно добавлено!');
+                console.log('[DEBUG] Состояние перед вызовом handleImportCompletion: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible);
+
+                // Проверяем, что сообщение не отображается в данный момент
+                if (isMessageVisible) {
+                    console.log('[DEBUG] Сообщение уже отображается, пропускаем вызов handleImportCompletion');
+                } else {
+                    console.log('[DEBUG] Вызываем handleImportCompletion с сообщением об успехе');
+                    handleImportCompletion('Успешно добавлено!');
+                }
             } catch (error) {
-                console.error('Ошибка при поиске игры:', error);
+                console.error('[DEBUG] Ошибка при поиске игры:', error);
                 searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
+
                 // Показываем сообщение об ошибке
-                handleImportCompletion(`Ошибка: ${error.message}`);
+                console.log('[DEBUG] Состояние перед вызовом handleImportCompletion: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible);
+
+                // Проверяем, что сообщение не отображается в данный момент
+                if (isMessageVisible) {
+                    console.log('[DEBUG] Сообщение уже отображается, пропускаем вызов handleImportCompletion');
+                } else {
+                    console.log('[DEBUG] Вызываем handleImportCompletion с сообщением об ошибке');
+                    handleImportCompletion(`Ошибка: ${error.message}`);
+                }
             }
         }
 
@@ -4444,9 +4471,12 @@
         }
 
         async function importFromIGDB(count = 100) {
+            console.log(`[DEBUG] importFromIGDB вызван с count=${count}`);
+            console.log('[DEBUG] Состояние перед проверкой: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible, ', importButtonsDisabled =', importButtonsDisabled);
+
             // Проверяем, не идет ли уже импорт или не отображается ли сообщение
             if (isImporting || isMessageVisible || importButtonsDisabled) {
-                console.log('Импорт уже идет или отображается сообщение');
+                console.log('[DEBUG] Импорт уже идет или отображается сообщение, выходим');
                 return;
             }
 
@@ -4457,8 +4487,10 @@
             // Блокируем кнопки импорта
             importButtonsDisabled = true;
             disableImportButtons();
+            console.log('[DEBUG] Кнопки импорта заблокированы, importButtonsDisabled =', importButtonsDisabled);
 
             isImporting = true;
+            console.log('[DEBUG] Установлен флаг isImporting =', isImporting);
             // Не показываем сообщение о загрузке
             console.log('Начало импорта игр из IGDB');
             try {
@@ -4571,9 +4603,16 @@
                 }
 
                 console.log('Импорт завершен успешно');
+                console.log('[DEBUG] Состояние перед вызовом handleImportCompletion: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible);
 
-                // Используем новую функцию для обработки завершения импорта
-                handleImportCompletion('Успешно добавлено!');
+                // Проверяем, что сообщение не отображается в данный момент
+                if (isMessageVisible) {
+                    console.log('[DEBUG] Сообщение уже отображается, пропускаем вызов handleImportCompletion');
+                } else {
+                    // Используем новую функцию для обработки завершения импорта
+                    console.log('[DEBUG] Вызываем handleImportCompletion');
+                    handleImportCompletion('Успешно добавлено!');
+                }
 
                 // Восстанавливаем значения фильтров после добавления игр
                 if (savedYearFilterMin !== null && savedYearFilterMax !== null) {
@@ -4592,9 +4631,16 @@
                 }
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
+                console.log('[DEBUG] Состояние перед вызовом handleImportCompletion: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible);
 
-                // Используем новую функцию для обработки ошибки
-                handleImportCompletion(`Ошибка: ${error.message}`);
+                // Проверяем, что сообщение не отображается в данный момент
+                if (isMessageVisible) {
+                    console.log('[DEBUG] Сообщение уже отображается, пропускаем вызов handleImportCompletion');
+                } else {
+                    // Используем новую функцию для обработки ошибки
+                    console.log('[DEBUG] Вызываем handleImportCompletion с сообщением об ошибке');
+                    handleImportCompletion(`Ошибка: ${error.message}`);
+                }
 
                 // Восстанавливаем значения фильтров в случае ошибки
                 if (savedYearFilterMin !== null && savedYearFilterMax !== null) {
@@ -4674,13 +4720,20 @@
         }
 
         function hideLoadingMessageWithAnimation(resetText = true) {
+            console.log('[DEBUG] hideLoadingMessageWithAnimation вызван с resetText =', resetText);
+            console.log('[DEBUG] Состояние перед скрытием: isMessageVisible =', isMessageVisible);
+
             const loadingOverlay = document.getElementById('loadingOverlay');
+            console.log('[DEBUG] Текущее сообщение:', loadingOverlay.querySelector('.loading-message').textContent);
+
             // Плавно уменьшаем прозрачность
             loadingOverlay.style.transition = 'opacity 0.25s ease'; // Ускоряем анимацию в 2 раза (было 0.5s)
             loadingOverlay.style.opacity = '0';
+            console.log('[DEBUG] Началась анимация скрытия');
 
             // После завершения анимации скрываем элемент
-            setTimeout(() => {
+            const animationTimeout = setTimeout(() => {
+                console.log('[DEBUG] Анимация завершена, скрываем элемент');
                 loadingOverlay.style.display = 'none';
                 loadingOverlay.style.opacity = '1'; // Сбрасываем прозрачность для следующего показа
                 loadingOverlay.style.transition = ''; // Сбрасываем анимацию
@@ -4688,25 +4741,35 @@
 
                 // Удаляем все обработчики кликов
                 loadingOverlay.onclick = null;
+                console.log('[DEBUG] Обработчик клика удален');
 
                 // Возвращаем исходный текст загрузки, если нужно
                 if (resetText) {
                     const loadingMessage = loadingOverlay.querySelector('.loading-message');
                     if (loadingMessage) {
                         loadingMessage.textContent = 'Загружается, подождите...';
+                        console.log('[DEBUG] Текст сброшен на исходный');
                     }
                 }
 
                 // Сбрасываем флаг видимости сообщения
                 isMessageVisible = false;
+                console.log('[DEBUG] Флаг isMessageVisible сброшен на', isMessageVisible);
 
                 // Разблокируем кнопки импорта
                 enableImportButtons();
+                console.log('[DEBUG] Кнопки импорта разблокированы');
             }, 250); // Ускоряем время анимации исчезновения в 2 раза (было 500)
+            console.log('[DEBUG] Установлен таймер анимации:', animationTimeout);
         }
 
         // Функция для обработки завершения импорта (успешного или с ошибкой)
         function handleImportCompletion(message) {
+            console.log('[DEBUG] handleImportCompletion вызван с сообщением:', message);
+            console.log('[DEBUG] isMessageVisible =', isMessageVisible);
+            console.log('[DEBUG] isImporting =', isImporting);
+            console.log('[DEBUG] importButtonsDisabled =', importButtonsDisabled);
+
             const loadingOverlay = document.getElementById('loadingOverlay');
             const loadingMessage = loadingOverlay.querySelector('.loading-message');
             loadingMessage.textContent = message;
@@ -4714,24 +4777,44 @@
             // Показываем сообщение об успешном добавлении
             loadingOverlay.style.display = 'flex';
             isMessageVisible = true;
+            console.log('[DEBUG] Сообщение показано, isMessageVisible =', isMessageVisible);
 
             // Делаем сообщение кликабельным
             loadingOverlay.style.pointerEvents = 'auto';
 
+            // Очищаем предыдущий таймер, если он существует
+            if (window.messageTimer) {
+                console.log('[DEBUG] Очищаем предыдущий таймер:', window.messageTimer);
+                clearTimeout(window.messageTimer);
+            }
+
             // Функция для сброса состояния
             const resetState = () => {
+                console.log('[DEBUG] resetState вызван');
                 hideLoadingMessageWithAnimation(false);
                 isImporting = false;
                 isMessageVisible = false;
                 importButtonsDisabled = false;
                 enableImportButtons();
+                console.log('[DEBUG] После resetState: isMessageVisible =', isMessageVisible);
             };
 
             // Добавляем обработчик клика
             loadingOverlay.onclick = resetState;
 
             // Устанавливаем таймер на 2 секунды для всех сообщений
-            setTimeout(resetState, 2000);
+            if (window.messageTimer) {
+                console.log('[DEBUG] Очищаем существующий таймер перед установкой нового');
+                clearTimeout(window.messageTimer);
+                window.messageTimer = null;
+            }
+
+            window.messageTimer = setTimeout(() => {
+                console.log('[DEBUG] Таймер сработал через 2 секунды');
+                resetState();
+                window.messageTimer = null; // Сбрасываем таймер после срабатывания
+            }, 2000);
+            console.log('[DEBUG] Установлен новый таймер:', window.messageTimer);
         }
 
         function initializeImportButton() {
