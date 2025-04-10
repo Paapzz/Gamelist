@@ -1728,28 +1728,6 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         /* Keep specific background/color/opacity hovers if needed */
-
-        /* Стиль для заблокированных кнопок */
-        .button-disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            pointer-events: none;
-            box-shadow: none !important;
-            transform: none !important;
-            filter: grayscale(50%) !important;
-            background-color: #888 !important;
-            color: #ddd !important;
-            border-color: #777 !important;
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            pointer-events: none;
-            background-color: #888 !important;
-            color: #ddd !important;
-            border-color: #777 !important;
-        }
          #completedFilter:hover:not(.active) { background-color: #16831b; }
          #resetFiltersButton:hover { background-color: #b92f2f; }
          #hideCompletedButton:hover:not(.active) { background-color: #1565b6; }
@@ -2434,8 +2412,7 @@
         function displaySearchResults(games) {
             searchResults.innerHTML = '';
             if (games.length === 0) {
-                const searchTerm = searchGameInput.value.trim();
-                searchResults.innerHTML = `<p class="no-games-found">По запросу "${searchTerm}" ничего не найдено.</p>`;
+                searchResults.innerHTML = '<p class="no-games-found">Игры не найдены.</p>';
                 return;
             }
 
@@ -2552,6 +2529,9 @@
                 clearTimeout(messageTimeout);
             }
 
+            // Устанавливаем флаг, что сообщение видимо
+            isMessageVisible = true;
+
             const overlay = document.createElement('div');
             overlay.className = 'message-overlay';
             overlay.textContent = message;
@@ -2559,6 +2539,8 @@
 
             messageTimeout = setTimeout(() => {
                 overlay.remove();
+                // Сбрасываем флаг после удаления сообщения
+                isMessageVisible = false;
             }, 3000);
         }
 
@@ -2566,10 +2548,6 @@
             addGameModal.style.display = 'none';
             searchGameInput.value = '';
             searchResults.innerHTML = '';
-
-            // Не сбрасываем флаги импорта при закрытии окна,
-            // чтобы при повторном открытии кнопки были заблокированы, если импорт еще идет
-            console.log('Закрытие окна добавления игр. Статус импорта:', isImporting ? 'Импорт в процессе' : 'Импорт не выполняется');
         }
 
         // Функция для расчета релевантности игры по отношению к поисковому запросу (для сортировки)
@@ -4407,13 +4385,13 @@
         });
 
         let isImporting = false;
+        // Сохраняем текущие значения фильтров перед добавлением игр
+        let savedYearFilterMin = null;
+        let savedYearFilterMax = null;
         // Флаг для отслеживания видимости сообщения
         let isMessageVisible = false;
         // Флаг для отслеживания блокировки кнопок импорта
         let importButtonsDisabled = false;
-        // Сохраняем текущие значения фильтров перед добавлением игр
-        let savedYearFilterMin = null;
-        let savedYearFilterMax = null;
 
         // Функция для блокировки кнопок импорта
         function disableImportButtons() {
@@ -4565,9 +4543,6 @@
                 let addedGames = 0;
                 const maxGamesToAdd = Math.min(count, 3000 - games.length);
 
-                // Создаем массив для хранения промисов добавления игр
-                const addPromises = [];
-
                 for (const game of newGames) {
                     if (addedGames >= maxGamesToAdd) {
                         break;
@@ -4586,28 +4561,37 @@
                         inProgress: false
                     };
                     if (!isDuplicateGame(newGame)) {
-                        // Добавляем промис в массив
-                        addPromises.push(addNewGameWithDelay(newGame));
+                        await addNewGameWithDelay(newGame);
                         addedGames++;
                     } else {
                         console.log(`Игра "${newGame.name}" не добавлена`);
                     }
                 }
 
-                // Ждем завершения всех промисов добавления игр
-                await Promise.all(addPromises);
-
-                // Обновляем фильтры только один раз после добавления всех игр
-                populateFilters();
-
                 console.log('Импорт завершен успешно');
 
-                // Показываем сообщение об успешном завершении
+                // Используем новую функцию для обработки завершения импорта
                 handleImportCompletion('Успешно добавлено!');
+
+                // Восстанавливаем значения фильтров после добавления игр
+                if (savedYearFilterMin !== null && savedYearFilterMax !== null) {
+                    // Обновляем фильтры с учетом новых игр
+                    populateFilters();
+
+                    // Восстанавливаем сохраненные значения фильтров
+                    yearSliderMin.value = savedYearFilterMin;
+                    yearSliderMax.value = savedYearFilterMax;
+
+                    // Обновляем отображение значений фильтров
+                    updateYearValue();
+
+                    // Применяем фильтры
+                    applyFilters();
+                }
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
 
-                // Показываем сообщение об ошибке
+                // Используем новую функцию для обработки ошибки
                 handleImportCompletion(`Ошибка: ${error.message}`);
 
                 // Восстанавливаем значения фильтров в случае ошибки
@@ -4618,8 +4602,11 @@
                     applyFilters();
                 }
             } finally {
-                // Не сбрасываем флаги в finally, так как это делается в обработчиках клика и таймера
-                // Сбрасываем только сохраненные значения фильтров
+                // Не скрываем сообщение в блоке finally, так как оно уже скрывается в блоке try
+                // В случае ошибки мы показываем сообщение об ошибке через showMessage
+                isImporting = false;
+
+                // Сбрасываем сохраненные значения фильтров
                 savedYearFilterMin = null;
                 savedYearFilterMax = null;
             }
@@ -4687,7 +4674,7 @@
         function hideLoadingMessageWithAnimation(resetText = true) {
             const loadingOverlay = document.getElementById('loadingOverlay');
             // Плавно уменьшаем прозрачность
-            loadingOverlay.style.transition = 'opacity 0.5s ease';
+            loadingOverlay.style.transition = 'opacity 0.25s ease'; // Ускоряем анимацию в 2 раза (было 0.5s)
             loadingOverlay.style.opacity = '0';
 
             // После завершения анимации скрываем элемент
@@ -4710,7 +4697,10 @@
 
                 // Сбрасываем флаг видимости сообщения
                 isMessageVisible = false;
-            }, 500); // Время анимации исчезновения
+
+                // Разблокируем кнопки импорта
+                enableImportButtons();
+            }, 250); // Ускоряем время анимации исчезновения в 2 раза (было 500)
         }
 
         // Функция для обработки завершения импорта (успешного или с ошибкой)
@@ -4734,8 +4724,8 @@
             // Добавляем обработчик клика
             loadingOverlay.onclick = resetState;
 
-            // Устанавливаем таймер
-            setTimeout(resetState, 3000);
+            // Устанавливаем таймер на 2 секунды для сообщения об успехе
+            setTimeout(resetState, message === 'Успешно добавлено!' ? 2000 : 3000);
         }
 
         function initializeImportButton() {
@@ -4838,15 +4828,6 @@
             if (addGameButton) {
                 addGameButton.addEventListener('click', () => {
                     addGameModal.style.display = 'block';
-
-                    // При открытии модального окна проверяем, идет ли импорт
-                    if (isImporting || isMessageVisible || importButtonsDisabled) {
-                        console.log('При открытии окна: Импорт в процессе, блокируем кнопки');
-                        disableImportButtons();
-                    } else {
-                        console.log('При открытии окна: Импорт не выполняется, разблокируем кнопки');
-                        enableImportButtons();
-                    }
                 });
             } else {
                 console.error('Кнопка "Добавить игру" в шапке не найдена');
