@@ -1882,7 +1882,6 @@
         let isSearchIndexLoading = false; // Флаг, указывающий, что поисковый индекс в процессе загрузки
         window.messageTimer = null; // Таймер для сообщений
         window.animationTimer = null; // Таймер для анимаций
-        window.importInProgress = false; // Флаг для отслеживания состояния импорта
 
         // Функция для загрузки поискового индекса
         async function loadSearchIndex() {
@@ -4426,9 +4425,6 @@
 
         // Функция для блокировки кнопок импорта
         function disableImportButtons() {
-            console.log('[DEBUG] disableImportButtons вызван');
-            console.log('[DEBUG] Состояние перед блокировкой: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible, ', importButtonsDisabled =', importButtonsDisabled, ', window.importInProgress =', window.importInProgress);
-
             const importButton = document.getElementById('importFromApiButton');
             const importModalButton = document.getElementById('importFromApiModalButton');
             const searchGameModalButton = document.getElementById('searchGameModalButton');
@@ -4436,33 +4432,25 @@
             if (importButton) {
                 importButton.classList.add('button-disabled');
                 importButton.disabled = true;
-                console.log('[DEBUG] Кнопка importButton заблокирована');
             }
 
             if (importModalButton) {
                 importModalButton.classList.add('button-disabled');
                 importModalButton.disabled = true;
-                console.log('[DEBUG] Кнопка importModalButton заблокирована');
             }
 
             if (searchGameModalButton) {
                 searchGameModalButton.classList.add('button-disabled');
                 searchGameModalButton.disabled = true;
-                console.log('[DEBUG] Кнопка searchGameModalButton заблокирована');
             }
 
             importButtonsDisabled = true;
-            console.log('[DEBUG] Флаг importButtonsDisabled установлен в', importButtonsDisabled);
         }
 
         // Функция для разблокировки кнопок импорта
         function enableImportButtons() {
-            console.log('[DEBUG] enableImportButtons вызван');
-            console.log('[DEBUG] Состояние перед разблокировкой: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible, ', importButtonsDisabled =', importButtonsDisabled, ', window.importInProgress =', window.importInProgress);
-
             // Проверяем, что импорт действительно завершен
-            if (isImporting || window.importInProgress) {
-                console.log('[DEBUG] Импорт еще выполняется, кнопки остаются заблокированными');
+            if (isImporting) {
                 return; // Не разблокируем кнопки, если импорт еще идет
             }
 
@@ -4473,33 +4461,25 @@
             if (importButton) {
                 importButton.classList.remove('button-disabled');
                 importButton.disabled = false;
-                console.log('[DEBUG] Кнопка importButton разблокирована');
             }
 
             if (importModalButton) {
                 importModalButton.classList.remove('button-disabled');
                 importModalButton.disabled = false;
-                console.log('[DEBUG] Кнопка importModalButton разблокирована');
             }
 
             if (searchGameModalButton) {
                 searchGameModalButton.classList.remove('button-disabled');
                 searchGameModalButton.disabled = false;
-                console.log('[DEBUG] Кнопка searchGameModalButton разблокирована');
             }
 
             importButtonsDisabled = false;
-            console.log('[DEBUG] Флаг importButtonsDisabled сброшен на', importButtonsDisabled);
         }
 
         async function importFromIGDB(count = 100) {
-            console.log(`[DEBUG] importFromIGDB вызван с count=${count}`);
-            console.log('[DEBUG] Состояние перед проверкой: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible, ', importButtonsDisabled =', importButtonsDisabled);
-
             // Проверяем, не идет ли уже импорт или не отображается ли сообщение
-            if (isImporting || isMessageVisible || importButtonsDisabled || window.importInProgress) {
-                console.log('[DEBUG] Импорт уже идет или отображается сообщение, выходим');
-                console.log('[DEBUG] isImporting =', isImporting, ', isMessageVisible =', isMessageVisible, ', importButtonsDisabled =', importButtonsDisabled, ', window.importInProgress =', window.importInProgress);
+            if (isImporting || isMessageVisible || importButtonsDisabled) {
+                console.log('Импорт уже идет или отображается сообщение, выходим');
                 return;
             }
 
@@ -4512,10 +4492,8 @@
             disableImportButtons();
             console.log('[DEBUG] Кнопки импорта заблокированы, importButtonsDisabled =', importButtonsDisabled);
 
-            // Устанавливаем флаги импорта
+            // Устанавливаем флаг импорта
             isImporting = true;
-            window.importInProgress = true;
-            console.log('[DEBUG] Установлены флаги: isImporting =', isImporting, ', window.importInProgress =', window.importInProgress);
             // Не показываем сообщение о загрузке
             console.log('Начало импорта игр из IGDB');
             try {
@@ -4677,12 +4655,13 @@
             } finally {
                 // Не скрываем сообщение в блоке finally, так как оно уже скрывается в блоке try
                 // В случае ошибки мы показываем сообщение об ошибке через showMessage
-                console.log('[DEBUG] Завершение импорта в блоке finally');
 
-                // Сбрасываем флаги импорта
+                // Сбрасываем флаг импорта
                 isImporting = false;
-                window.importInProgress = false;
-                console.log('[DEBUG] Флаги сброшены: isImporting =', isImporting, ', window.importInProgress =', window.importInProgress);
+
+                // Разблокируем кнопки импорта
+                importButtonsDisabled = false;
+                enableImportButtons();
 
                 // Сбрасываем сохраненные значения фильтров
                 savedYearFilterMin = null;
@@ -4695,12 +4674,23 @@
                 setTimeout(() => {
                     // Добавляем игру без обновления фильтров
                     games.push(game);
+
+                    // Обновляем фильтры до создания ячейки
+                    populateFilters();
+
                     const cell = createCell(game);
-                    grid.appendChild(cell);
+
+                    // Применяем фильтры к новой ячейке перед добавлением
+                    const shouldDisplay = shouldDisplayGame(game);
+                    if (!shouldDisplay) {
+                        cell.style.display = 'none';
+                    }
+
+                    // Добавляем ячейку в сетку с учетом фильтров
+                    insertCellInOrder(cell);
+
                     updateGridSize();
                     saveGames();
-                    // Не вызываем updateFiltersAndCounter для каждой игры
-                    // Только обновляем счетчик
                     updateCounter();
                     resolve();
                     updateSaturation();
@@ -4710,11 +4700,24 @@
 
         function addNewGame(game) {
             games.push(game);
+
+            // Обновляем фильтры до создания ячейки
+            populateFilters();
+
             const cell = createCell(game);
-            grid.appendChild(cell);
+
+            // Применяем фильтры к новой ячейке перед добавлением
+            const shouldDisplay = shouldDisplayGame(game);
+            if (!shouldDisplay) {
+                cell.style.display = 'none';
+            }
+
+            // Добавляем ячейку в сетку с учетом фильтров
+            insertCellInOrder(cell);
+
             updateGridSize();
             saveGames();
-            updateFiltersAndCounter();
+            updateCounter();
             updateSaturation();
         }
 
@@ -4753,27 +4756,16 @@
 
         // Функция для обработки завершения импорта (успешного или с ошибкой)
         function handleImportCompletion(message) {
-            console.log('[DEBUG] handleImportCompletion вызван с сообщением:', message);
-            console.log('[DEBUG] isMessageVisible =', isMessageVisible);
-            console.log('[DEBUG] isImporting =', isImporting);
-            console.log('[DEBUG] importButtonsDisabled =', importButtonsDisabled);
-
             // Очищаем все существующие таймеры
             if (window.messageTimer) {
-                console.log('[DEBUG] Очищаем предыдущий таймер:', window.messageTimer);
                 clearTimeout(window.messageTimer);
                 window.messageTimer = null;
             }
 
             if (window.animationTimer) {
-                console.log('[DEBUG] Очищаем предыдущий таймер анимации:', window.animationTimer);
                 clearTimeout(window.animationTimer);
                 window.animationTimer = null;
             }
-
-            // Блокируем кнопки импорта на время показа сообщения
-            importButtonsDisabled = true;
-            disableImportButtons();
 
             const loadingOverlay = document.getElementById('loadingOverlay');
             const loadingMessage = loadingOverlay.querySelector('.loading-message');
@@ -4783,33 +4775,23 @@
             loadingOverlay.style.opacity = '1';
             loadingOverlay.style.display = 'flex';
             isMessageVisible = true;
-            console.log('[DEBUG] Сообщение показано, isMessageVisible =', isMessageVisible);
 
             // Делаем сообщение кликабельным
             loadingOverlay.style.pointerEvents = 'auto';
 
             // Функция для сброса состояния
             const resetState = () => {
-                console.log('[DEBUG] resetState вызван');
-                console.log('[DEBUG] Состояние перед скрытием: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible, ', importButtonsDisabled =', importButtonsDisabled);
-
                 // Проверяем, что нет активной анимации
                 if (window.animationTimer) {
-                    console.log('[DEBUG] Анимация уже выполняется, пропускаем новую');
                     return; // Пропускаем выполнение, если анимация уже идет
                 }
 
                 // Плавно уменьшаем прозрачность
                 loadingOverlay.style.transition = 'opacity 0.5s ease';
                 loadingOverlay.style.opacity = '0';
-                console.log('[DEBUG] Началась анимация скрытия');
-
-                // Сохраняем текущее состояние импорта
-                const wasImporting = isImporting;
 
                 // После завершения анимации скрываем элемент
                 window.animationTimer = setTimeout(() => {
-                    console.log('[DEBUG] Анимация завершена, скрываем элемент');
                     loadingOverlay.style.display = 'none';
                     loadingOverlay.style.opacity = '1';
                     loadingOverlay.style.transition = '';
@@ -4825,20 +4807,6 @@
                     // Сбрасываем флаг видимости сообщения
                     isMessageVisible = false;
 
-                    // Если импорт был завершен к моменту вызова resetState, только тогда разблокируем кнопки
-                    console.log('[DEBUG] Проверка состояния импорта: wasImporting =', wasImporting, ', window.importInProgress =', window.importInProgress);
-
-                    if (!wasImporting && !window.importInProgress) {
-                        console.log('[DEBUG] Импорт был завершен, разблокируем кнопки');
-                        isImporting = false;
-                        importButtonsDisabled = false;
-                        enableImportButtons();
-                    } else {
-                        console.log('[DEBUG] Импорт еще выполняется, кнопки остаются заблокированными');
-                    }
-
-                    console.log('[DEBUG] Состояние после скрытия: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible, ', importButtonsDisabled =', importButtonsDisabled);
-
                     window.animationTimer = null;
                 }, 500);
             };
@@ -4848,11 +4816,9 @@
 
             // Устанавливаем таймер на 2 секунды для всех сообщений
             window.messageTimer = setTimeout(() => {
-                console.log('[DEBUG] Таймер сработал через 2 секунды');
                 resetState();
                 window.messageTimer = null; // Сбрасываем таймер после срабатывания
             }, 2000);
-            console.log('[DEBUG] Установлен новый таймер:', window.messageTimer);
         }
 
         function initializeImportButton() {
