@@ -2635,6 +2635,14 @@
         }
 
         function addGameFromSearch(game) {
+            console.log('Вызвана функция addGameFromSearch');
+            console.log('Текущие значения фильтра годов в addGameFromSearch:', {
+                minYear: yearSliderMin.value,
+                maxYear: yearSliderMax.value,
+                savedMinYear: localStorage.getItem('minYear'),
+                savedMaxYear: localStorage.getItem('maxYear')
+            });
+
             // Применяем форматирование для римских цифр в названии
             const formattedName = formatGameTitle(game.name);
 
@@ -2652,9 +2660,44 @@
             };
 
             if (!isDuplicateGame(newGame)) {
+                // Сохраняем текущие значения фильтра годов перед добавлением игры
+                const currentMinYear = yearSliderMin.value;
+                const currentMaxYear = yearSliderMax.value;
+                console.log('Значения фильтра годов перед добавлением игры:', {
+                    minYear: currentMinYear,
+                    maxYear: currentMaxYear
+                });
+
                 addNewGame(newGame);
+
+                // Проверяем значения фильтра годов после добавления игры
+                console.log('Значения фильтра годов после добавления игры:', {
+                    minYear: yearSliderMin.value,
+                    maxYear: yearSliderMax.value,
+                    savedMinYear: localStorage.getItem('minYear'),
+                    savedMaxYear: localStorage.getItem('maxYear')
+                });
+
+                // Восстанавливаем значения фильтра годов
+                yearSliderMin.value = currentMinYear;
+                yearSliderMax.value = currentMaxYear;
+
+                // Обновляем отображение значения годов
+                updateYearValue();
+                updateSliderTrack();
+
+                // Применяем фильтры с восстановленными значениями
+                applyFilters();
+
                 saveGames();
                 showMessage('Игра успешно добавлена!');
+
+                console.log('Итоговые значения фильтра годов:', {
+                    minYear: yearSliderMin.value,
+                    maxYear: yearSliderMax.value,
+                    savedMinYear: localStorage.getItem('minYear'),
+                    savedMaxYear: localStorage.getItem('maxYear')
+                });
             } else {
                 showMessage('Эта игра уже есть в вашем списке.');
             }
@@ -4103,14 +4146,6 @@
         }
 
         function addNewGame(gameData) {
-            // Добавляем логирование для отслеживания проблемы со сбросом фильтра годов
-            console.log('До добавления игры - значения фильтра годов:', {
-                minYear: yearSliderMin.value,
-                maxYear: yearSliderMax.value,
-                savedMinYear: localStorage.getItem('minYear'),
-                savedMaxYear: localStorage.getItem('maxYear')
-            });
-
             const existingGame = findExistingGame(gameData);
             if (existingGame) {
                 if (gameData.name.length < existingGame.name.length) {
@@ -4153,14 +4188,6 @@
 
             applyFilters();
             updateGridSize();
-
-            // Добавляем логирование после добавления игры
-            console.log('После добавления игры - значения фильтра годов:', {
-                minYear: yearSliderMin.value,
-                maxYear: yearSliderMax.value,
-                savedMinYear: localStorage.getItem('minYear'),
-                savedMaxYear: localStorage.getItem('maxYear')
-            });
         }
 
         document.getElementById('addGameForm').addEventListener('submit', function(e) {
