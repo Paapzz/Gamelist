@@ -1698,13 +1698,8 @@
             font-size: 24px;
             text-align: center;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            cursor: pointer; /* Добавляем курсор указателя для кликабельности */
-            transition: transform 0.2s ease, box-shadow 0.2s ease; /* Добавляем анимацию при наведении */
-        }
-
-        .loading-message:hover {
-            transform: scale(1.05);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            pointer-events: none; /* Делаем сообщение некликабельным */
+            transition: opacity 0.3s ease; /* Добавляем анимацию прозрачности */
         }
 
         /* --- NEW General Hover Effect --- */
@@ -4743,8 +4738,8 @@
             loadingOverlay.style.display = 'flex';
             isMessageVisible = true;
 
-            // Делаем сообщение кликабельным
-            loadingOverlay.style.pointerEvents = 'auto';
+            // Делаем сообщение неблокирующим
+            loadingOverlay.style.pointerEvents = 'none';
 
             // Функция для сброса состояния
             const resetState = () => {
@@ -4763,7 +4758,6 @@
                     loadingOverlay.style.opacity = '1';
                     loadingOverlay.style.transition = '';
                     loadingOverlay.style.pointerEvents = 'none';
-                    loadingOverlay.onclick = null;
 
                     // Возвращаем исходный текст загрузки
                     const loadingMessage = loadingOverlay.querySelector('.loading-message');
@@ -4778,14 +4772,11 @@
                 }, 500);
             };
 
-            // Добавляем обработчик клика
-            loadingOverlay.onclick = resetState;
-
-            // Устанавливаем таймер на 2 секунды для всех сообщений
+            // Устанавливаем таймер на 1 секунду для всех сообщений
             window.messageTimer = setTimeout(() => {
                 resetState();
                 window.messageTimer = null; // Сбрасываем таймер после срабатывания
-            }, 2000);
+            }, 1000);
         }
 
         function initializeImportButton() {
