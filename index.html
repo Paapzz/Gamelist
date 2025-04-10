@@ -2152,8 +2152,34 @@
 
         function loadSavedGames() {
             const savedGames = localStorage.getItem('games');
+            const romanNumeralsFormatted = localStorage.getItem('romanNumeralsFormatted');
+
             if (savedGames) {
-                games = JSON.parse(savedGames);
+                let parsedGames = JSON.parse(savedGames);
+
+                // Проверяем, было ли уже выполнено переформатирование
+                if (!romanNumeralsFormatted) {
+                    console.log('Выполняется переформатирование римских цифр в названиях игр...');
+
+                    // Переформатируем названия игр с римскими цифрами
+                    parsedGames.forEach(game => {
+                        if (game.name) {
+                            game.name = formatGameTitle(game.name);
+                        }
+                    });
+
+                    // Сохраняем игры с обновленными названиями
+                    games = parsedGames;
+                    localStorage.setItem('games', JSON.stringify(games));
+
+                    // Устанавливаем флаг, что переформатирование выполнено
+                    localStorage.setItem('romanNumeralsFormatted', 'true');
+                    console.log('Переформатирование завершено.');
+                } else {
+                    // Если переформатирование уже было выполнено, просто загружаем игры
+                    games = parsedGames;
+                }
+
                 completedGames = games.filter(game => game.completed).length;
                 updateInProgressRow();
             }
