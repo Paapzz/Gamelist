@@ -4648,7 +4648,7 @@
                     const cell = createCell(game);
 
                     // Применяем фильтры к новой ячейке перед добавлением
-                    const shouldDisplay = shouldDisplayGame(game);
+                    const shouldDisplay = shouldShowGame(game);
                     if (!shouldDisplay) {
                         cell.style.display = 'none';
                     }
@@ -4674,7 +4674,7 @@
             const cell = createCell(game);
 
             // Применяем фильтры к новой ячейке перед добавлением
-            const shouldDisplay = shouldDisplayGame(game);
+            const shouldDisplay = shouldShowGame(game);
             if (!shouldDisplay) {
                 cell.style.display = 'none';
             }
