@@ -1925,34 +1925,18 @@
 
             console.log(`Найдено игр: ${matchedGames.length}`);
 
-                // Если ничего не найдено, попробуем более простой поиск
-            if (matchedGames.length === 0 && lowerQuery.length > 1) {
-                console.log('Пробуем более простой поиск');
-                // Попробуем найти игры, содержащие хотя бы одну букву из запроса
-                for (const char of lowerQuery) {
-                    const additionalMatches = index.filter(game => {
-                        if (!game.name) return false;
-                        return game.name.toLowerCase().includes(char);
-                    });
-                    if (additionalMatches.length > 0) {
-                        console.log(`Найдено дополнительных игр по букве '${char}': ${additionalMatches.length}`);
-                        matchedGames.push(...additionalMatches);
-                    }
+            // Удаляем дубликаты
+            const uniqueIds = new Set();
+            const uniqueGames = [];
+            for (const game of matchedGames) {
+                if (!uniqueIds.has(game.id)) {
+                    uniqueIds.add(game.id);
+                    uniqueGames.push(game);
                 }
-
-                // Удаляем дубликаты
-                const uniqueIds = new Set();
-                const uniqueGames = [];
-                for (const game of matchedGames) {
-                    if (!uniqueIds.has(game.id)) {
-                        uniqueIds.add(game.id);
-                        uniqueGames.push(game);
-                    }
-                }
-                matchedGames.length = 0;
-                matchedGames.push(...uniqueGames);
-                console.log(`После удаления дубликатов: ${matchedGames.length} игр`);
             }
+            matchedGames.length = 0;
+            matchedGames.push(...uniqueGames);
+            console.log(`После удаления дубликатов: ${matchedGames.length} игр`);
 
             // Добавляем релевантность к каждой игре
             matchedGames.forEach(game => {
@@ -2535,10 +2519,7 @@
                 const matchedGames = await searchGamesWithIndex(gameName);
                 displaySearchResults(matchedGames);
 
-                // Показываем сообщение об успешном поиске
-                if (!isMessageVisible) {
-                    handleImportCompletion('Успешно добавлено!');
-                }
+                // Не показываем сообщение при поиске
             } catch (error) {
                 console.error('Ошибка при поиске игры:', error);
                 searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
