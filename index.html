@@ -2379,14 +2379,9 @@
         }
 
         async function searchGameFromApi() {
-            console.log('[DEBUG] searchGameFromApi вызван');
-            console.log('[DEBUG] Состояние: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible, ', importButtonsDisabled =', importButtonsDisabled);
-
             const gameName = searchGameInput.value.trim();
-            console.log('[DEBUG] Введенное название игры:', gameName);
 
             if (!gameName) {
-                console.log('[DEBUG] Название игры не введено, показываем сообщение');
                 showMessage('Введите название');
 
                 // Добавляем обработчик события для скрытия сообщения при вводе
@@ -2405,35 +2400,21 @@
             }
 
             // Не показываем сообщение о загрузке
-            console.log('[DEBUG] Начинаем поиск игры');
             try {
                 // Используем новую функцию поиска с индексом
                 const matchedGames = await searchGamesWithIndex(gameName);
-                console.log('[DEBUG] Найдено игр:', matchedGames.length);
                 displaySearchResults(matchedGames);
 
                 // Показываем сообщение об успешном поиске
-                console.log('[DEBUG] Состояние перед вызовом handleImportCompletion: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible);
-
-                // Проверяем, что сообщение не отображается в данный момент
-                if (isMessageVisible) {
-                    console.log('[DEBUG] Сообщение уже отображается, пропускаем вызов handleImportCompletion');
-                } else {
-                    console.log('[DEBUG] Вызываем handleImportCompletion с сообщением об успехе');
+                if (!isMessageVisible) {
                     handleImportCompletion('Успешно добавлено!');
                 }
             } catch (error) {
-                console.error('[DEBUG] Ошибка при поиске игры:', error);
+                console.error('Ошибка при поиске игры:', error);
                 searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
 
                 // Показываем сообщение об ошибке
-                console.log('[DEBUG] Состояние перед вызовом handleImportCompletion: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible);
-
-                // Проверяем, что сообщение не отображается в данный момент
-                if (isMessageVisible) {
-                    console.log('[DEBUG] Сообщение уже отображается, пропускаем вызов handleImportCompletion');
-                } else {
-                    console.log('[DEBUG] Вызываем handleImportCompletion с сообщением об ошибке');
+                if (!isMessageVisible) {
                     handleImportCompletion(`Ошибка: ${error.message}`);
                 }
             }
@@ -3941,11 +3922,9 @@
         function addNewGame(gameData) {
             const existingGame = findExistingGame(gameData);
             if (existingGame) {
-                console.log('Найдена существующая версия игры:', existingGame.name);
                 if (gameData.name.length < existingGame.name.length) {
                     Object.assign(existingGame, gameData);
                     updateGameCell(existingGame);
-                } else {
                 }
             } else {
                 const newGame = {
@@ -4536,10 +4515,8 @@
                         // Используем предварительно загруженные файлы, если они есть
                         if (gameFiles[i]) {
                             fileGames = gameFiles[i];
-                            console.log(`Используем предварительно загруженный файл games_${i}.json для импорта`);
                         } else {
                             // Если файл не загружен, загружаем его
-                            console.log(`Загружаем файл games_${i}.json при импорте`);
                             const response = await fetch(`data/games_${i}.json`);
                             if (!response.ok) {
                                 throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
@@ -4600,20 +4577,14 @@
                     if (!isDuplicateGame(newGame)) {
                         await addNewGameWithDelay(newGame);
                         addedGames++;
-                    } else {
-                        console.log(`Игра "${newGame.name}" не добавлена`);
                     }
                 }
 
                 console.log('Импорт завершен успешно');
-                console.log('[DEBUG] Состояние перед вызовом handleImportCompletion: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible);
 
                 // Проверяем, что сообщение не отображается в данный момент
-                if (isMessageVisible) {
-                    console.log('[DEBUG] Сообщение уже отображается, пропускаем вызов handleImportCompletion');
-                } else {
+                if (!isMessageVisible) {
                     // Используем новую функцию для обработки завершения импорта
-                    console.log('[DEBUG] Вызываем handleImportCompletion');
                     handleImportCompletion('Успешно добавлено!');
                 }
 
@@ -4634,14 +4605,10 @@
                 }
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
-                console.log('[DEBUG] Состояние перед вызовом handleImportCompletion: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible);
 
                 // Проверяем, что сообщение не отображается в данный момент
-                if (isMessageVisible) {
-                    console.log('[DEBUG] Сообщение уже отображается, пропускаем вызов handleImportCompletion');
-                } else {
+                if (!isMessageVisible) {
                     // Используем новую функцию для обработки ошибки
-                    console.log('[DEBUG] Вызываем handleImportCompletion с сообщением об ошибке');
                     handleImportCompletion(`Ошибка: ${error.message}`);
                 }
 
