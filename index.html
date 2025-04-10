@@ -2105,9 +2105,42 @@
 {"number":1000,"title":"wizardry-crusaders-of-the-dark-savant","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2kkd.jpg","year":1992,"genres":["Adventure","Role-playing (RPG)"],"platforms":["Apple Macintosh","DOS","FM Towns","PC-9800","PlayStation","Windows PC"]}
         ];
 
+        // Функция для правильного форматирования названий игр с римскими цифрами
+        function formatGameTitle(title) {
+            // Заменяем дефисы на пробелы
+            let formattedTitle = title.replace(/-/g, ' ');
+
+            // Регулярное выражение для поиска римских цифр
+            const romanNumeralRegex = /\b(i{1,3}|iv|v|vi{1,3}|ix|x|xi{1,3}|xiv|xv|xvi{1,3}|xix|xx|xxi{1,3})\b/gi;
+
+            // Сохраняем найденные римские цифры и их позиции
+            const romanNumerals = [];
+            let match;
+            while ((match = romanNumeralRegex.exec(formattedTitle)) !== null) {
+                romanNumerals.push({
+                    value: match[0],
+                    start: match.index,
+                    end: match.index + match[0].length
+                });
+            }
+
+            // Делаем первую букву каждого слова заглавной
+            formattedTitle = formattedTitle.replace(/\b\w/g, l => l.toUpperCase());
+
+            // Заменяем римские цифры на их верхний регистр
+            for (const numeral of romanNumerals) {
+                const upperCaseNumeral = numeral.value.toUpperCase();
+                formattedTitle = formattedTitle.substring(0, numeral.start) +
+                                upperCaseNumeral +
+                                formattedTitle.substring(numeral.end);
+            }
+
+            return formattedTitle;
+        }
+
         games = gamesList.map(game => ({
             id: game.number,
-            name: game.title.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            name: formatGameTitle(game.title),
             imageUrl: game.image_url,
             year: game.year,
             genres: game.genres,
@@ -2480,9 +2513,12 @@
         }
 
         function addGameFromSearch(game) {
+            // Применяем форматирование для римских цифр в названии
+            const formattedName = formatGameTitle(game.name);
+
             const newGame = {
                 id: Date.now(),
-                name: game.name,
+                name: formattedName,
                 year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                 genres: game.genres ? game.genres.map(g => g.name) : [],
                 platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
@@ -3917,9 +3953,12 @@
                 return;
             }
 
+            // Применяем форматирование для римских цифр в названии
+            const formattedName = formatGameTitle(name);
+
             const gameData = {
                 id: isEditing ? editingGameId : Date.now(),
-                name: name,
+                name: formattedName,
                 year: parseInt(document.getElementById('gameYear').value) || null,
                 platforms: document.getElementById('gamePlatforms').value.split(',').map(p => p.trim()).filter(p => p),
                 genres: document.getElementById('gameGenres').value.split(',').map(g => g.trim()).filter(g => g),
@@ -3981,8 +4020,11 @@
                 return;
             }
 
+            // Применяем форматирование для римских цифр в названии
+            const formattedName = formatGameTitle(name);
+
             const gameData = {
-                name: name,
+                name: formattedName,
                 year: parseInt(document.getElementById('gameYear').value) || null,
                 platforms: document.getElementById('gamePlatforms').value.split(',').map(p => p.trim()).filter(p => p),
                 genres: document.getElementById('gameGenres').value.split(',').map(g => g.trim()).filter(g => g),
@@ -4583,9 +4625,12 @@
                     if (addedGames >= maxGamesToAdd) {
                         break;
                     }
+                    // Применяем форматирование для римских цифр в названии
+                    const formattedName = formatGameTitle(game.name);
+
                     const newGame = {
                         id: game.id,
-                        name: game.name,
+                        name: formattedName,
                         imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
                         year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                         genres: game.genres ? game.genres.map(g => g.name) : [],
