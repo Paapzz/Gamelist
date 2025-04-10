@@ -1581,6 +1581,23 @@
             transform: scale(0.95);
             border-radius: 4px;
         }
+
+        /* Стиль для кнопки "Уже есть" */
+        .add-game-button.disabled {
+            background-color: #9E9E9E;
+            cursor: not-allowed;
+            opacity: 0.7;
+            transform: scale(0.95);
+            box-shadow: none;
+        }
+
+        /* Убираем эффекты при наведении на кнопку "Уже есть" */
+        .add-game-button.disabled:hover {
+            transform: scale(0.95);
+            filter: none;
+            box-shadow: none;
+            background-color: #9E9E9E;
+        }
         #optionsList {
             max-height: 300px;
             overflow-y: auto;
@@ -2547,14 +2564,36 @@
                 resultElement.className = 'search-result';
                 const releaseYear = game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : 'N/A';
 
+                // Проверяем, есть ли уже такая игра в списке
+                const newGame = {
+                    name: formatGameTitle(game.name),
+                    year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null
+                };
+                const isDuplicate = isDuplicateGame(newGame);
+
+                // Создаем разные кнопки в зависимости от того, есть ли игра в списке
+                const buttonClass = isDuplicate ? 'add-game-button disabled' : 'add-game-button';
+                const buttonText = isDuplicate ? 'Уже есть' : 'Добавить';
+
                 resultElement.innerHTML = `
                     <div class="game-info">
                         <span class="game-name">${game.name}</span>
                         <span class="game-year">(${releaseYear})</span>
                     </div>
-                    <button type="button" class="add-game-button">Добавить</button>
+                    <button type="button" class="${buttonClass}">${buttonText}</button>
                 `;
-                resultElement.querySelector('.add-game-button').addEventListener('click', () => addGameFromSearch(game));
+
+                // Добавляем обработчик события только если игра еще не добавлена
+                if (!isDuplicate) {
+                    resultElement.querySelector('.add-game-button').addEventListener('click', () => {
+                        addGameFromSearch(game);
+                        // После добавления игры меняем кнопку на "Уже есть"
+                        const button = resultElement.querySelector('.add-game-button');
+                        button.textContent = 'Уже есть';
+                        button.classList.add('disabled');
+                        button.removeEventListener('click', arguments.callee);
+                    });
+                }
 
                 // Добавляем анимацию плавного появления
                 resultElement.style.opacity = '0';
@@ -4064,6 +4103,14 @@
         }
 
         function addNewGame(gameData) {
+            // Добавляем логирование для отслеживания проблемы со сбросом фильтра годов
+            console.log('До добавления игры - значения фильтра годов:', {
+                minYear: yearSliderMin.value,
+                maxYear: yearSliderMax.value,
+                savedMinYear: localStorage.getItem('minYear'),
+                savedMaxYear: localStorage.getItem('maxYear')
+            });
+
             const existingGame = findExistingGame(gameData);
             if (existingGame) {
                 if (gameData.name.length < existingGame.name.length) {
@@ -4089,9 +4136,31 @@
 
             saveGames();
             updateCounter();
+
+            // Сохраняем текущие значения фильтра годов
+            const currentMinYear = yearSliderMin.value;
+            const currentMaxYear = yearSliderMax.value;
+
             populateFilters();
+
+            // Восстанавливаем значения фильтра годов
+            yearSliderMin.value = currentMinYear;
+            yearSliderMax.value = currentMaxYear;
+
+            // Обновляем отображение значения годов
+            updateYearValue();
+            updateSliderTrack();
+
             applyFilters();
             updateGridSize();
+
+            // Добавляем логирование после добавления игры
+            console.log('После добавления игры - значения фильтра годов:', {
+                minYear: yearSliderMin.value,
+                maxYear: yearSliderMax.value,
+                savedMinYear: localStorage.getItem('minYear'),
+                savedMaxYear: localStorage.getItem('maxYear')
+            });
         }
 
         document.getElementById('addGameForm').addEventListener('submit', function(e) {
