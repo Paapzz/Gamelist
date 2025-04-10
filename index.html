@@ -2396,16 +2396,18 @@
                 return;
             }
 
-            showLoadingMessage();
+            // Не показываем сообщение о загрузке
             try {
                 // Используем новую функцию поиска с индексом
                 const matchedGames = await searchGamesWithIndex(gameName);
                 displaySearchResults(matchedGames);
+                // Показываем сообщение об успешном поиске
+                handleImportCompletion('Успешно добавлено!');
             } catch (error) {
                 console.error('Ошибка при поиске игры:', error);
                 searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
-            } finally {
-                hideLoadingMessage();
+                // Показываем сообщение об ошибке
+                handleImportCompletion(`Ошибка: ${error.message}`);
             }
         }
 
@@ -4457,7 +4459,7 @@
             disableImportButtons();
 
             isImporting = true;
-            showLoadingMessage();
+            // Не показываем сообщение о загрузке
             console.log('Начало импорта игр из IGDB');
             try {
                 const existingIds = games.map(game => game.id.toString());
@@ -4709,6 +4711,10 @@
             const loadingMessage = loadingOverlay.querySelector('.loading-message');
             loadingMessage.textContent = message;
 
+            // Показываем сообщение об успешном добавлении
+            loadingOverlay.style.display = 'flex';
+            isMessageVisible = true;
+
             // Делаем сообщение кликабельным
             loadingOverlay.style.pointerEvents = 'auto';
 
@@ -4724,8 +4730,8 @@
             // Добавляем обработчик клика
             loadingOverlay.onclick = resetState;
 
-            // Устанавливаем таймер на 2 секунды для сообщения об успехе
-            setTimeout(resetState, message === 'Успешно добавлено!' ? 2000 : 3000);
+            // Устанавливаем таймер на 2 секунды для всех сообщений
+            setTimeout(resetState, 2000);
         }
 
         function initializeImportButton() {
