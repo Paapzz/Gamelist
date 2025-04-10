@@ -3880,6 +3880,10 @@
             }
         });
 
+        addGameButton.addEventListener('click', () => {
+            addGameModal.style.display = 'block';
+        });
+
         customGameListButton.addEventListener('click', () => {
             updateCustomGameList();
             customGameListModal.style.display = 'block';
@@ -4598,64 +4602,13 @@
 
                 console.log('Импорт завершен успешно');
 
-                // Заменяем alert на неблокирующее сообщение
-                // Меняем текст в окне загрузки на успешное сообщение
-                const loadingOverlay = document.getElementById('loadingOverlay');
-                const loadingMessage = loadingOverlay.querySelector('.loading-message');
-                loadingMessage.textContent = 'Успешно добавлено!';
-
-                // Делаем сообщение кликабельным
-                loadingOverlay.style.pointerEvents = 'auto';
-
-                // Добавляем обработчик клика на само сообщение
-                loadingOverlay.onclick = () => {
-                    hideLoadingMessageWithAnimation(false); // Не сбрасываем текст сообщения
-                    // Сбрасываем флаги импорта только после успешного завершения
-                    isImporting = false;
-                    isMessageVisible = false;
-                    importButtonsDisabled = false;
-                    enableImportButtons();
-                };
-
-                // Автоматически скрываем через 3 секунды
-                setTimeout(() => {
-                    hideLoadingMessageWithAnimation(false); // Не сбрасываем текст сообщения
-                    // Сбрасываем флаги импорта только после успешного завершения
-                    isImporting = false;
-                    isMessageVisible = false;
-                    importButtonsDisabled = false;
-                    enableImportButtons();
-                }, 3000);
+                // Показываем сообщение об успешном завершении
+                handleImportCompletion('Успешно добавлено!');
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
 
-                // Заменяем alert на неблокирующее сообщение
-                const loadingOverlay = document.getElementById('loadingOverlay');
-                const loadingMessage = loadingOverlay.querySelector('.loading-message');
-                loadingMessage.textContent = `Ошибка: ${error.message}`;
-
-                // Делаем сообщение кликабельным
-                loadingOverlay.style.pointerEvents = 'auto';
-
-                // Добавляем обработчик клика на само сообщение
-                loadingOverlay.onclick = () => {
-                    hideLoadingMessageWithAnimation(false); // Не сбрасываем текст сообщения
-                    // Сбрасываем флаги импорта
-                    isImporting = false;
-                    isMessageVisible = false;
-                    importButtonsDisabled = false;
-                    enableImportButtons();
-                };
-
-                // Автоматически скрываем через 3 секунды
-                setTimeout(() => {
-                    hideLoadingMessageWithAnimation(false); // Не сбрасываем текст сообщения
-                    // Сбрасываем флаги импорта
-                    isImporting = false;
-                    isMessageVisible = false;
-                    importButtonsDisabled = false;
-                    enableImportButtons();
-                }, 3000);
+                // Показываем сообщение об ошибке
+                handleImportCompletion(`Ошибка: ${error.message}`);
 
                 // Восстанавливаем значения фильтров в случае ошибки
                 if (savedYearFilterMin !== null && savedYearFilterMax !== null) {
@@ -4758,6 +4711,31 @@
                 // Сбрасываем флаг видимости сообщения
                 isMessageVisible = false;
             }, 500); // Время анимации исчезновения
+        }
+
+        // Функция для обработки завершения импорта (успешного или с ошибкой)
+        function handleImportCompletion(message) {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingMessage = loadingOverlay.querySelector('.loading-message');
+            loadingMessage.textContent = message;
+
+            // Делаем сообщение кликабельным
+            loadingOverlay.style.pointerEvents = 'auto';
+
+            // Функция для сброса состояния
+            const resetState = () => {
+                hideLoadingMessageWithAnimation(false);
+                isImporting = false;
+                isMessageVisible = false;
+                importButtonsDisabled = false;
+                enableImportButtons();
+            };
+
+            // Добавляем обработчик клика
+            loadingOverlay.onclick = resetState;
+
+            // Устанавливаем таймер
+            setTimeout(resetState, 3000);
         }
 
         function initializeImportButton() {
