@@ -1881,6 +1881,7 @@
         const gameFiles = {}; // Кэш загруженных файлов игр
         let isSearchIndexLoading = false; // Флаг, указывающий, что поисковый индекс в процессе загрузки
         window.messageTimer = null; // Таймер для сообщений
+        window.animationTimer = null; // Таймер для анимаций
 
         // Функция для загрузки поискового индекса
         async function loadSearchIndex() {
@@ -4719,49 +4720,7 @@
             isMessageVisible = false;
         }
 
-        function hideLoadingMessageWithAnimation(resetText = true) {
-            console.log('[DEBUG] hideLoadingMessageWithAnimation вызван с resetText =', resetText);
-            console.log('[DEBUG] Состояние перед скрытием: isMessageVisible =', isMessageVisible);
-
-            const loadingOverlay = document.getElementById('loadingOverlay');
-            console.log('[DEBUG] Текущее сообщение:', loadingOverlay.querySelector('.loading-message').textContent);
-
-            // Плавно уменьшаем прозрачность
-            loadingOverlay.style.transition = 'opacity 0.25s ease'; // Ускоряем анимацию в 2 раза (было 0.5s)
-            loadingOverlay.style.opacity = '0';
-            console.log('[DEBUG] Началась анимация скрытия');
-
-            // После завершения анимации скрываем элемент
-            const animationTimeout = setTimeout(() => {
-                console.log('[DEBUG] Анимация завершена, скрываем элемент');
-                loadingOverlay.style.display = 'none';
-                loadingOverlay.style.opacity = '1'; // Сбрасываем прозрачность для следующего показа
-                loadingOverlay.style.transition = ''; // Сбрасываем анимацию
-                loadingOverlay.style.pointerEvents = 'none'; // Сбрасываем обработчик клика
-
-                // Удаляем все обработчики кликов
-                loadingOverlay.onclick = null;
-                console.log('[DEBUG] Обработчик клика удален');
-
-                // Возвращаем исходный текст загрузки, если нужно
-                if (resetText) {
-                    const loadingMessage = loadingOverlay.querySelector('.loading-message');
-                    if (loadingMessage) {
-                        loadingMessage.textContent = 'Загружается, подождите...';
-                        console.log('[DEBUG] Текст сброшен на исходный');
-                    }
-                }
-
-                // Сбрасываем флаг видимости сообщения
-                isMessageVisible = false;
-                console.log('[DEBUG] Флаг isMessageVisible сброшен на', isMessageVisible);
-
-                // Разблокируем кнопки импорта
-                enableImportButtons();
-                console.log('[DEBUG] Кнопки импорта разблокированы');
-            }, 250); // Ускоряем время анимации исчезновения в 2 раза (было 500)
-            console.log('[DEBUG] Установлен таймер анимации:', animationTimeout);
-        }
+        // Функция hideLoadingMessageWithAnimation удалена, так как ее функциональность теперь встроена в handleImportCompletion
 
         // Функция для обработки завершения импорта (успешного или с ошибкой)
         function handleImportCompletion(message) {
@@ -4770,11 +4729,29 @@
             console.log('[DEBUG] isImporting =', isImporting);
             console.log('[DEBUG] importButtonsDisabled =', importButtonsDisabled);
 
+            // Очищаем все существующие таймеры
+            if (window.messageTimer) {
+                console.log('[DEBUG] Очищаем предыдущий таймер:', window.messageTimer);
+                clearTimeout(window.messageTimer);
+                window.messageTimer = null;
+            }
+
+            if (window.animationTimer) {
+                console.log('[DEBUG] Очищаем предыдущий таймер анимации:', window.animationTimer);
+                clearTimeout(window.animationTimer);
+                window.animationTimer = null;
+            }
+
+            // Блокируем кнопки импорта на время показа сообщения
+            importButtonsDisabled = true;
+            disableImportButtons();
+
             const loadingOverlay = document.getElementById('loadingOverlay');
             const loadingMessage = loadingOverlay.querySelector('.loading-message');
             loadingMessage.textContent = message;
 
             // Показываем сообщение об успешном добавлении
+            loadingOverlay.style.opacity = '1';
             loadingOverlay.style.display = 'flex';
             isMessageVisible = true;
             console.log('[DEBUG] Сообщение показано, isMessageVisible =', isMessageVisible);
@@ -4782,33 +4759,48 @@
             // Делаем сообщение кликабельным
             loadingOverlay.style.pointerEvents = 'auto';
 
-            // Очищаем предыдущий таймер, если он существует
-            if (window.messageTimer) {
-                console.log('[DEBUG] Очищаем предыдущий таймер:', window.messageTimer);
-                clearTimeout(window.messageTimer);
-            }
-
             // Функция для сброса состояния
             const resetState = () => {
                 console.log('[DEBUG] resetState вызван');
-                hideLoadingMessageWithAnimation(false);
-                isImporting = false;
-                isMessageVisible = false;
-                importButtonsDisabled = false;
-                enableImportButtons();
-                console.log('[DEBUG] После resetState: isMessageVisible =', isMessageVisible);
+
+                // Плавно уменьшаем прозрачность
+                loadingOverlay.style.transition = 'opacity 0.5s ease';
+                loadingOverlay.style.opacity = '0';
+                console.log('[DEBUG] Началась анимация скрытия');
+
+                // После завершения анимации скрываем элемент
+                window.animationTimer = setTimeout(() => {
+                    console.log('[DEBUG] Анимация завершена, скрываем элемент');
+                    loadingOverlay.style.display = 'none';
+                    loadingOverlay.style.opacity = '1';
+                    loadingOverlay.style.transition = '';
+                    loadingOverlay.style.pointerEvents = 'none';
+                    loadingOverlay.onclick = null;
+
+                    // Возвращаем исходный текст загрузки
+                    const loadingMessage = loadingOverlay.querySelector('.loading-message');
+                    if (loadingMessage) {
+                        loadingMessage.textContent = 'Загружается, подождите...';
+                    }
+
+                    // Сбрасываем флаги
+                    isImporting = false;
+                    isMessageVisible = false;
+                    importButtonsDisabled = false;
+
+                    // Разблокируем кнопки импорта
+                    enableImportButtons();
+
+                    console.log('[DEBUG] Состояние после скрытия: isImporting =', isImporting, ', isMessageVisible =', isMessageVisible, ', importButtonsDisabled =', importButtonsDisabled);
+
+                    window.animationTimer = null;
+                }, 500);
             };
 
             // Добавляем обработчик клика
             loadingOverlay.onclick = resetState;
 
             // Устанавливаем таймер на 2 секунды для всех сообщений
-            if (window.messageTimer) {
-                console.log('[DEBUG] Очищаем существующий таймер перед установкой нового');
-                clearTimeout(window.messageTimer);
-                window.messageTimer = null;
-            }
-
             window.messageTimer = setTimeout(() => {
                 console.log('[DEBUG] Таймер сработал через 2 секунды');
                 resetState();
