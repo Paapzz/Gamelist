@@ -3191,6 +3191,100 @@
             updateCounter();
         }
 
+        // Функция для обновления фильтров платформ
+        function updatePlatformFilters(platforms) {
+            platformsList.innerHTML = '';
+
+            const uniquePlatforms = [...new Set(platforms)];
+
+            uniquePlatforms.forEach(platform => {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `platform-${platform}`;
+                checkbox.value = platform;
+                checkbox.checked = selectedPlatforms.includes(platform);
+                checkbox.addEventListener('change', () => {
+                    if (checkbox.checked) {
+                        selectedPlatforms.push(platform);
+                    } else {
+                        selectedPlatforms = selectedPlatforms.filter(p => p !== platform);
+                    }
+                    localStorage.setItem('selectedPlatforms', JSON.stringify(selectedPlatforms));
+                    applyFilters();
+                });
+                // Создаем контейнер для чекбокса и метки
+                const container = document.createElement('div');
+                container.style.display = 'flex';
+                container.style.alignItems = 'flex-start';
+                container.style.marginBottom = '3px';
+
+                // Добавляем чекбокс в контейнер
+                container.appendChild(checkbox);
+
+                // Создаем метку
+                const label = document.createElement('label');
+                label.htmlFor = `platform-${platform}`;
+                label.textContent = platform;
+                label.style.marginLeft = '6px';
+                label.style.wordWrap = 'break-word';
+                label.style.whiteSpace = 'normal';
+                label.style.flex = '1';
+
+                // Добавляем метку в контейнер
+                container.appendChild(label);
+
+                // Добавляем контейнер в список
+                platformsList.appendChild(container);
+            });
+        }
+
+        // Функция для обновления фильтров жанров
+        function updateGenreFilters(genres) {
+            genresList.innerHTML = '';
+
+            const uniqueGenres = [...new Set(genres)];
+
+            uniqueGenres.forEach(genre => {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `genre-${genre}`;
+                checkbox.value = genre;
+                checkbox.checked = selectedGenres.includes(genre);
+                checkbox.addEventListener('change', () => {
+                    if (checkbox.checked) {
+                        selectedGenres.push(genre);
+                    } else {
+                        selectedGenres = selectedGenres.filter(g => g !== genre);
+                    }
+                    localStorage.setItem('selectedGenres', JSON.stringify(selectedGenres));
+                    applyFilters();
+                });
+                // Создаем контейнер для чекбокса и метки
+                const container = document.createElement('div');
+                container.style.display = 'flex';
+                container.style.alignItems = 'flex-start';
+                container.style.marginBottom = '3px';
+
+                // Добавляем чекбокс в контейнер
+                container.appendChild(checkbox);
+
+                // Создаем метку
+                const label = document.createElement('label');
+                label.htmlFor = `genre-${genre}`;
+                label.textContent = genre;
+                label.style.marginLeft = '6px';
+                label.style.wordWrap = 'break-word';
+                label.style.whiteSpace = 'normal';
+                label.style.flex = '1';
+
+                // Добавляем метку в контейнер
+                container.appendChild(label);
+
+                // Добавляем контейнер в список
+                genresList.appendChild(container);
+            });
+        }
+
         function populateFilters() {
             // Фильтруем игры без года (null) при определении диапазона лет
             const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
@@ -3234,91 +3328,9 @@
 
             updateYearValue();
 
-            platformsList.innerHTML = '';
-            genresList.innerHTML = '';
-
-            const uniquePlatforms = [...new Set(platforms)];
-            const uniqueGenres = [...new Set(genres)];
-
-            uniquePlatforms.forEach(platform => {
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.id = `platform-${platform}`;
-                checkbox.value = platform;
-                checkbox.checked = selectedPlatforms.includes(platform);
-                checkbox.addEventListener('change', () => {
-                    if (checkbox.checked) {
-                        selectedPlatforms.push(platform);
-                    } else {
-                        selectedPlatforms = selectedPlatforms.filter(p => p !== platform);
-                    }
-                    localStorage.setItem('selectedPlatforms', JSON.stringify(selectedPlatforms));
-                    applyFilters();
-                });
-                // Создаем контейнер для чекбокса и метки
-                const container = document.createElement('div');
-                container.style.display = 'flex';
-                container.style.alignItems = 'flex-start';
-                container.style.marginBottom = '3px';
-
-                // Добавляем чекбокс в контейнер
-                container.appendChild(checkbox);
-
-                // Создаем метку
-                const label = document.createElement('label');
-                label.htmlFor = `platform-${platform}`;
-                label.textContent = platform;
-                label.style.marginLeft = '6px';
-                label.style.wordWrap = 'break-word';
-                label.style.whiteSpace = 'normal';
-                label.style.flex = '1';
-
-                // Добавляем метку в контейнер
-                container.appendChild(label);
-
-                // Добавляем контейнер в список
-                platformsList.appendChild(container);
-            });
-
-            uniqueGenres.forEach(genre => {
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.id = `genre-${genre}`;
-                checkbox.value = genre;
-                checkbox.checked = selectedGenres.includes(genre);
-                checkbox.addEventListener('change', () => {
-                    if (checkbox.checked) {
-                        selectedGenres.push(genre);
-                    } else {
-                        selectedGenres = selectedGenres.filter(g => g !== genre);
-                    }
-                    localStorage.setItem('selectedGenres', JSON.stringify(selectedGenres));
-                    applyFilters();
-                });
-                // Создаем контейнер для чекбокса и метки
-                const container = document.createElement('div');
-                container.style.display = 'flex';
-                container.style.alignItems = 'flex-start';
-                container.style.marginBottom = '3px';
-
-                // Добавляем чекбокс в контейнер
-                container.appendChild(checkbox);
-
-                // Создаем метку
-                const label = document.createElement('label');
-                label.htmlFor = `genre-${genre}`;
-                label.textContent = genre;
-                label.style.marginLeft = '6px';
-                label.style.wordWrap = 'break-word';
-                label.style.whiteSpace = 'normal';
-                label.style.flex = '1';
-
-                // Добавляем метку в контейнер
-                container.appendChild(label);
-
-                // Добавляем контейнер в список
-                genresList.appendChild(container);
-            });
+            // Используем новые функции для обновления фильтров
+            updatePlatformFilters(platforms);
+            updateGenreFilters(genres);
         }
 
         function updateYearValue() {
@@ -4172,15 +4184,30 @@
             saveGames();
             updateCounter();
 
+            // Обновляем фильтры без изменения значений слайдеров
             // Сохраняем текущие значения фильтра годов
             const currentMinYear = yearSliderMin.value;
             const currentMaxYear = yearSliderMax.value;
 
-            populateFilters();
+            // Сохраняем текущие значения в localStorage
+            const savedMinYear = localStorage.getItem('minYear');
+            const savedMaxYear = localStorage.getItem('maxYear');
+
+            // Обновляем фильтры платформ и жанров
+            const platforms = [...new Set(games.flatMap(game => game.platforms))].sort();
+            const genres = [...new Set(games.flatMap(game => game.genres))].sort();
+
+            // Обновляем списки платформ и жанров
+            updatePlatformFilters(platforms);
+            updateGenreFilters(genres);
 
             // Восстанавливаем значения фильтра годов
             yearSliderMin.value = currentMinYear;
             yearSliderMax.value = currentMaxYear;
+
+            // Восстанавливаем значения в localStorage
+            if (savedMinYear) localStorage.setItem('minYear', savedMinYear);
+            if (savedMaxYear) localStorage.setItem('maxYear', savedMaxYear);
 
             // Обновляем отображение значения годов
             updateYearValue();
