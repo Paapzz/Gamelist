@@ -1284,6 +1284,20 @@
         .cell.search-match {
             filter: saturate(100%) !important;
         }
+        @keyframes messageAppear {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            40% { transform: translate(-50%, -50%) scale(0.95); }
+            60% { transform: translate(-50%, -50%) scale(1.05); }
+            80% { transform: translate(-50%, -50%) scale(0.98); }
+            100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        @keyframes messageFadeOut {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
         .message-overlay {
             position: fixed;
             top: 50%;
@@ -1295,7 +1309,32 @@
             padding: 10px 20px;
             border-radius: 20px;
             z-index: 9998;
-            pointer-events: none;
+            pointer-events: auto;
+            animation: messageAppear 0.5s ease-out forwards;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+            text-align: center;
+            min-width: 200px;
+            cursor: pointer;
+        }
+
+        .message-overlay.success {
+            background-color: rgba(40, 167, 69, 0.9);
+            box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);
+        }
+
+        .message-overlay.info {
+            background-color: rgba(0, 123, 255, 0.9);
+            box-shadow: 0 0 15px rgba(0, 123, 255, 0.5);
+        }
+
+        .message-overlay.warning {
+            background-color: rgba(255, 193, 7, 0.9);
+            color: #212529;
+            box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
+        }
+
+        .message-overlay.fade-out {
+            animation: messageFadeOut 0.5s ease-out forwards;
         }
 
         #addGameForm {
@@ -2711,7 +2750,7 @@
                 });
 
                 saveGames();
-                showMessage('Игра успешно добавлена!');
+                showMessage('Игра успешно добавлена!', 'success');
 
                 console.log('Итоговые значения фильтра годов:', {
                     minYear: yearSliderMin.value,
@@ -2720,7 +2759,7 @@
                     savedMaxYear: localStorage.getItem('maxYear')
                 });
             } else {
-                showMessage('Эта игра уже есть в вашем списке.');
+                showMessage('Эта игра уже есть в вашем списке.', 'info');
             }
         }
 
@@ -2750,26 +2789,81 @@
             return platformMap[platformId] || null;
         }
 
-        function showMessage(message) {
+        function showMessage(message, type = 'default') {
             const existingMessage = document.querySelector('.message-overlay');
             if (existingMessage) {
-                existingMessage.remove();
+                // Если сообщение уже существует, добавляем анимацию исчезновения
+                existingMessage.classList.add('fade-out');
+
+                // Удаляем сообщение после завершения анимации
+                setTimeout(() => {
+                    if (existingMessage.parentNode) {
+                        existingMessage.remove();
+                    }
+                }, 500); // Время анимации исчезновения
+
                 clearTimeout(messageTimeout);
             }
 
             // Устанавливаем флаг, что сообщение видимо
             isMessageVisible = true;
 
+            // Создаем новое сообщение с анимацией появления
             const overlay = document.createElement('div');
             overlay.className = 'message-overlay';
-            overlay.textContent = message;
+
+            // Добавляем класс в зависимости от типа сообщения
+            if (message.includes('успешно') || message.includes('Успешно')) {
+                overlay.classList.add('success');
+            } else if (message.includes('уже есть') || message.includes('Уже есть')) {
+                overlay.classList.add('info');
+            } else if (message.includes('ошибк') || message.includes('Ошибк')) {
+                overlay.classList.add('warning');
+            } else if (type === 'success') {
+                overlay.classList.add('success');
+            } else if (type === 'info') {
+                overlay.classList.add('info');
+            } else if (type === 'warning') {
+                overlay.classList.add('warning');
+            }
+
+            // Добавляем иконку в зависимости от типа сообщения
+            let icon = '';
+            if (overlay.classList.contains('success')) {
+                icon = '✓ ';
+            } else if (overlay.classList.contains('info')) {
+                icon = 'ℹ ';
+            } else if (overlay.classList.contains('warning')) {
+                icon = '⚠ ';
+            }
+
+            overlay.textContent = icon + message;
+
+            // Добавляем возможность закрыть сообщение по клику
+            overlay.addEventListener('click', function() {
+                overlay.classList.add('fade-out');
+                setTimeout(() => {
+                    if (overlay.parentNode) {
+                        overlay.remove();
+                        isMessageVisible = false;
+                    }
+                }, 500);
+                clearTimeout(messageTimeout);
+            });
+
             document.body.appendChild(overlay);
 
+            // Автоматически скрываем сообщение через 1 секунду
             messageTimeout = setTimeout(() => {
-                overlay.remove();
-                // Сбрасываем флаг после удаления сообщения
-                isMessageVisible = false;
-            }, 3000);
+                overlay.classList.add('fade-out');
+                setTimeout(() => {
+                    if (overlay.parentNode) {
+                        overlay.remove();
+                        // Сбрасываем флаг после удаления сообщения
+                        isMessageVisible = false;
+                    }
+                }, 500);
+            }, 1000); // Показываем сообщение в течение 1 секунды
         }
 
         function closeAddGameModal() {
