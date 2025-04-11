@@ -1286,8 +1286,10 @@
         }
         @keyframes messageAppear {
             0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-            30% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-            60% { transform: translate(-50%, -50%) scale(0.95); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            40% { transform: translate(-50%, -50%) scale(0.95); }
+            60% { transform: translate(-50%, -50%) scale(1.05); }
+            80% { transform: translate(-50%, -50%) scale(0.98); }
             100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         }
 
@@ -1308,7 +1310,7 @@
             border-radius: 20px;
             z-index: 9998;
             pointer-events: auto;
-            animation: messageAppear 0.25s ease-out forwards;
+            animation: messageAppear 0.5s ease-out forwards;
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
             text-align: center;
             min-width: 200px;
@@ -1332,7 +1334,7 @@
         }
 
         .message-overlay.fade-out {
-            animation: messageFadeOut 0.25s ease-out forwards;
+            animation: messageFadeOut 0.5s ease-out forwards;
         }
 
         #addGameForm {
@@ -2621,15 +2623,29 @@
                     <button type="button" class="${buttonClass}">${buttonText}</button>
                 `;
 
-                // Добавляем обработчик события только если игра еще не добавлена
+                // Добавляем обработчик события для всех кнопок
+                const button = resultElement.querySelector('.add-game-button');
+
                 if (!isDuplicate) {
-                    resultElement.querySelector('.add-game-button').addEventListener('click', (event) => {
+                    // Если игра еще не добавлена, добавляем обработчик для добавления
+                    button.addEventListener('click', (event) => {
                         addGameFromSearch(game, event);
                         // После добавления игры меняем кнопку на "Уже есть"
-                        const button = resultElement.querySelector('.add-game-button');
                         button.textContent = 'Уже есть';
                         button.classList.add('disabled');
+
+                        // Удаляем старый обработчик
                         button.removeEventListener('click', arguments.callee);
+
+                        // Добавляем новый обработчик для кнопки "Уже есть"
+                        button.addEventListener('click', () => {
+                            showMessage('Эта игра уже есть в вашем списке.', 'info');
+                        });
+                    });
+                } else {
+                    // Если игра уже добавлена, добавляем обработчик для показа сообщения
+                    button.addEventListener('click', () => {
+                        showMessage('Эта игра уже есть в вашем списке.', 'info');
                     });
                 }
 
@@ -2757,15 +2773,6 @@
                     savedMinYear: localStorage.getItem('minYear'),
                     savedMaxYear: localStorage.getItem('maxYear')
                 });
-            } else {
-                // Проверяем, была ли нажата кнопка "Уже есть" или кнопка "Добавить"
-                const button = event && event.target;
-                const isDisabledButton = button && button.classList && button.classList.contains('disabled');
-
-                // Показываем сообщение только если нажата кнопка "Добавить", а не "Уже есть"
-                if (!isDisabledButton) {
-                    showMessage('Эта игра уже есть в вашем списке.', 'info');
-                }
             }
         }
 
@@ -2859,7 +2866,7 @@
 
             document.body.appendChild(overlay);
 
-            // Автоматически скрываем сообщение через 500 мс
+            // Автоматически скрываем сообщение через 1 секунду
             messageTimeout = setTimeout(() => {
                 overlay.classList.add('fade-out');
                 setTimeout(() => {
@@ -2868,8 +2875,8 @@
                         // Сбрасываем флаг после удаления сообщения
                         isMessageVisible = false;
                     }
-                }, 250); // Уменьшаем время анимации исчезновения на 50%
-            }, 500); // Уменьшаем время показа сообщения на 50%
+                }, 500); // Время анимации исчезновения
+            }, 1000); // Показываем сообщение в течение 1 секунды
         }
 
         function closeAddGameModal() {
