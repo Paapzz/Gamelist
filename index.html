@@ -1286,10 +1286,8 @@
         }
         @keyframes messageAppear {
             0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-            40% { transform: translate(-50%, -50%) scale(0.95); }
-            60% { transform: translate(-50%, -50%) scale(1.05); }
-            80% { transform: translate(-50%, -50%) scale(0.98); }
+            30% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            60% { transform: translate(-50%, -50%) scale(0.95); }
             100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         }
 
@@ -1310,7 +1308,7 @@
             border-radius: 20px;
             z-index: 9998;
             pointer-events: auto;
-            animation: messageAppear 0.5s ease-out forwards;
+            animation: messageAppear 0.25s ease-out forwards;
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
             text-align: center;
             min-width: 200px;
@@ -1334,7 +1332,7 @@
         }
 
         .message-overlay.fade-out {
-            animation: messageFadeOut 0.5s ease-out forwards;
+            animation: messageFadeOut 0.25s ease-out forwards;
         }
 
         #addGameForm {
@@ -1628,6 +1626,7 @@
             opacity: 0.7;
             transform: scale(0.95);
             box-shadow: none;
+            filter: saturate(70%); /* Уменьшаем насыщенность на 30% */
         }
 
         /* Убираем эффекты при наведении на кнопку "Уже есть" */
@@ -2624,8 +2623,8 @@
 
                 // Добавляем обработчик события только если игра еще не добавлена
                 if (!isDuplicate) {
-                    resultElement.querySelector('.add-game-button').addEventListener('click', () => {
-                        addGameFromSearch(game);
+                    resultElement.querySelector('.add-game-button').addEventListener('click', (event) => {
+                        addGameFromSearch(game, event);
                         // После добавления игры меняем кнопку на "Уже есть"
                         const button = resultElement.querySelector('.add-game-button');
                         button.textContent = 'Уже есть';
@@ -2673,7 +2672,7 @@
             });
         }
 
-        function addGameFromSearch(game) {
+        function addGameFromSearch(game, event) {
             console.log('Вызвана функция addGameFromSearch');
             console.log('Текущие значения фильтра годов в addGameFromSearch:', {
                 minYear: yearSliderMin.value,
@@ -2759,7 +2758,14 @@
                     savedMaxYear: localStorage.getItem('maxYear')
                 });
             } else {
-                showMessage('Эта игра уже есть в вашем списке.', 'info');
+                // Проверяем, была ли нажата кнопка "Уже есть" или кнопка "Добавить"
+                const button = event && event.target;
+                const isDisabledButton = button && button.classList && button.classList.contains('disabled');
+
+                // Показываем сообщение только если нажата кнопка "Добавить", а не "Уже есть"
+                if (!isDisabledButton) {
+                    showMessage('Эта игра уже есть в вашем списке.', 'info');
+                }
             }
         }
 
@@ -2853,7 +2859,7 @@
 
             document.body.appendChild(overlay);
 
-            // Автоматически скрываем сообщение через 1 секунду
+            // Автоматически скрываем сообщение через 500 мс
             messageTimeout = setTimeout(() => {
                 overlay.classList.add('fade-out');
                 setTimeout(() => {
@@ -2862,8 +2868,8 @@
                         // Сбрасываем флаг после удаления сообщения
                         isMessageVisible = false;
                     }
-                }, 500);
-            }, 1000); // Показываем сообщение в течение 1 секунды
+                }, 250); // Уменьшаем время анимации исчезновения на 50%
+            }, 500); // Уменьшаем время показа сообщения на 50%
         }
 
         function closeAddGameModal() {
@@ -5166,54 +5172,26 @@
                 window.animationTimer = null;
             }
 
+            // Скрываем сообщение о загрузке
             const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.display = 'none';
+
+            // Возвращаем исходный текст загрузки
             const loadingMessage = loadingOverlay.querySelector('.loading-message');
-            loadingMessage.textContent = message;
+            if (loadingMessage) {
+                loadingMessage.textContent = 'Загружается, подождите...';
+            }
 
-            // Показываем сообщение об успешном добавлении
-            loadingOverlay.style.opacity = '1';
-            loadingOverlay.style.display = 'flex';
-            isMessageVisible = true;
+            // Определяем тип сообщения
+            let messageType = 'default';
+            if (message.includes('успешно') || message.includes('Успешно')) {
+                messageType = 'success';
+            } else if (message.includes('ошибк') || message.includes('Ошибк')) {
+                messageType = 'warning';
+            }
 
-            // Делаем сообщение неблокирующим
-            loadingOverlay.style.pointerEvents = 'none';
-
-            // Функция для сброса состояния
-            const resetState = () => {
-                // Проверяем, что нет активной анимации
-                if (window.animationTimer) {
-                    return; // Пропускаем выполнение, если анимация уже идет
-                }
-
-                // Плавно уменьшаем прозрачность
-                loadingOverlay.style.transition = 'opacity 0.5s ease';
-                loadingOverlay.style.opacity = '0';
-
-                // После завершения анимации скрываем элемент
-                window.animationTimer = setTimeout(() => {
-                    loadingOverlay.style.display = 'none';
-                    loadingOverlay.style.opacity = '1';
-                    loadingOverlay.style.transition = '';
-                    loadingOverlay.style.pointerEvents = 'none';
-
-                    // Возвращаем исходный текст загрузки
-                    const loadingMessage = loadingOverlay.querySelector('.loading-message');
-                    if (loadingMessage) {
-                        loadingMessage.textContent = 'Загружается, подождите...';
-                    }
-
-                    // Сбрасываем флаг видимости сообщения
-                    isMessageVisible = false;
-
-                    window.animationTimer = null;
-                }, 500);
-            };
-
-            // Устанавливаем таймер на 1 секунду для всех сообщений
-            window.messageTimer = setTimeout(() => {
-                resetState();
-                window.messageTimer = null; // Сбрасываем таймер после срабатывания
-            }, 1000);
+            // Используем новую функцию showMessage с анимацией
+            showMessage(message, messageType);
         }
 
         function initializeImportButton() {
