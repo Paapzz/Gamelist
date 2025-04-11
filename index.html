@@ -2905,16 +2905,17 @@
 
             // Создаем объект с информацией об игре из атрибутов data-*
             const gameInfo = {
-                name: cell.dataset.gameName || game.name,
-                year: cell.dataset.gameYear || game.year,
+                name: cell.dataset.gameName || (game ? game.name : 'Unknown'),
+                year: cell.dataset.gameYear || (game ? game.year : 'N/A'),
                 completed: cell.classList.contains('completed'),
-                imageUrl: game.imageUrl
+                imageUrl: game ? game.imageUrl : null
             };
 
             if (gameInfo.completed) {
                 showGameTitle(e, gameInfo);
             } else if (previewEnabled) {
-                showPreview(e, game); // Для предпросмотра используем оригинальный объект game
+                // Для предпросмотра используем объект gameInfo вместо оригинального объекта game
+                showPreview(e, gameInfo);
             } else {
                 showGameTitle(e, gameInfo);
             }
@@ -2926,7 +2927,7 @@
             preview.style.display = 'block';
             const img = preview.querySelector('img');
 
-            if (game.imageUrl) {
+            if (game && game.imageUrl) {
                 img.src = game.imageUrl;
             } else {
                 // Используем изображение-заглушку из константы
@@ -2955,7 +2956,7 @@
                 }
             };
 
-            if (game.imageUrl) {
+            if (game && game.imageUrl) {
                 img.onload = () => {
                     const aspectRatio = img.naturalWidth / img.naturalHeight;
                     const maxWidth = window.innerWidth * 0.65;
@@ -2972,13 +2973,17 @@
                     updatePreviewPosition();
                 };
             } else {
-                abbreviationPlaceholder.style.width = '200px';
-                abbreviationPlaceholder.style.height = '300px';
+                // Устанавливаем фиксированные размеры для изображения-заглушки
+                img.style.width = '200px';
+                img.style.height = '300px';
                 updatePreviewPosition();
             }
 
-            const yearText = game.year ? ` (${game.year})` : ' (N/A)';
-            preview.querySelector('p').textContent = `${game.name}${yearText}`;
+            // Используем название и год игры из объекта game, если они есть
+            const name = game && game.name ? game.name : 'Unknown';
+            const year = game && game.year ? game.year : 'N/A';
+            const yearText = year !== 'N/A' ? ` (${year})` : ' (N/A)';
+            preview.querySelector('p').textContent = `${name}${yearText}`;
             startPreviewTimeout();
         }
 
@@ -2998,9 +3003,21 @@
         }
 
         function updateGameInfoPosition(e, game) {
+            // Получаем ячейку, на которую наведен курсор
+            const cell = e.currentTarget;
+
+            // Создаем объект с информацией об игре из атрибутов data-*
+            const gameInfo = {
+                name: cell.dataset.gameName || (game ? game.name : 'Unknown'),
+                year: cell.dataset.gameYear || (game ? game.year : 'N/A'),
+                completed: cell.classList.contains('completed'),
+                imageUrl: game ? game.imageUrl : null
+            };
+
             if (previewEnabled) {
+                // Для предпросмотра ничего не делаем
             } else {
-                showGameTitle(e, game);
+                showGameTitle(e, gameInfo);
             }
         }
 
@@ -4491,7 +4508,9 @@
              // Keep mousemove for title/preview positioning if needed, but not for scaling
              cell.addEventListener('mousemove', (e) => {
                  if (gameTitle.style.display === 'block' || preview.style.display === 'block') {
-                    showPreviewOrTitle(e, game); // Update position if visible
+                    // Используем updateGameInfoPosition вместо showPreviewOrTitle
+                    // для обновления позиции подсказки
+                    updateGameInfoPosition(e, game);
                  }
              });
 
