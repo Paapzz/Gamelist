@@ -2671,7 +2671,7 @@
                 addNewGame(newGame);
 
                 // Проверяем значения фильтра годов после добавления игры
-                console.log('Значения фильтра годов после добавления игры:', {
+                console.log('Значения фильтра годов после добавления игры, но до восстановления:', {
                     minYear: yearSliderMin.value,
                     maxYear: yearSliderMax.value,
                     savedMinYear: localStorage.getItem('minYear'),
@@ -2682,12 +2682,33 @@
                 yearSliderMin.value = currentMinYear;
                 yearSliderMax.value = currentMaxYear;
 
-                // Обновляем отображение значения годов
-                updateYearValue();
-                updateSliderTrack();
+                // Используем специальную функцию, которая не изменяет значения в localStorage
+                updateYearValueWithoutStorage();
+
+                // Восстанавливаем значения в localStorage
+                if (localStorage.getItem('minYear') !== currentMinYear && currentMinYear) {
+                    localStorage.setItem('minYear', currentMinYear);
+                }
+                if (localStorage.getItem('maxYear') !== currentMaxYear && currentMaxYear) {
+                    localStorage.setItem('maxYear', currentMaxYear);
+                }
+
+                console.log('Значения фильтра годов после восстановления в localStorage:', {
+                    minYear: yearSliderMin.value,
+                    maxYear: yearSliderMax.value,
+                    savedMinYear: localStorage.getItem('minYear'),
+                    savedMaxYear: localStorage.getItem('maxYear')
+                });
 
                 // Применяем фильтры с восстановленными значениями
                 applyFilters();
+
+                console.log('Значения фильтра годов после вызова applyFilters():', {
+                    minYear: yearSliderMin.value,
+                    maxYear: yearSliderMax.value,
+                    savedMinYear: localStorage.getItem('minYear'),
+                    savedMaxYear: localStorage.getItem('maxYear')
+                });
 
                 saveGames();
                 showMessage('Игра успешно добавлена!');
@@ -3334,6 +3355,14 @@
         }
 
         function updateYearValue() {
+            // Добавляем логирование для отслеживания значений фильтра годов
+            console.log('Значения фильтра годов в начале updateYearValue():', {
+                minYear: yearSliderMin.value,
+                maxYear: yearSliderMax.value,
+                savedMinYear: localStorage.getItem('minYear'),
+                savedMaxYear: localStorage.getItem('maxYear')
+            });
+
             const minYear = parseInt(yearSliderMin.value);
             const maxYear = parseInt(yearSliderMax.value);
             yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
@@ -3356,11 +3385,32 @@
                 localStorage.setItem('maxYear', maxYear);
             }
 
+            // Добавляем логирование для отслеживания значений фильтра годов
+            console.log('Значения фильтра годов в конце updateYearValue():', {
+                minYear: yearSliderMin.value,
+                maxYear: yearSliderMax.value,
+                savedMinYear: localStorage.getItem('minYear'),
+                savedMaxYear: localStorage.getItem('maxYear')
+            });
+
             // Обновляем подсветку трека ползунка
             updateSliderTrack();
 
             // Обновляем позицию тултипов
             updateTooltips();
+        }
+
+        // Функция для обновления значения годов без изменения localStorage
+        function updateYearValueWithoutStorage() {
+            console.log('Вызвана функция updateYearValueWithoutStorage');
+
+            // Обновляем только текстовое отображение значения
+            const minYear = parseInt(yearSliderMin.value);
+            const maxYear = parseInt(yearSliderMax.value);
+            yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
+
+            // Обновляем полосу прогресса
+            updateSliderTrack();
         }
 
         // Функция для обновления подсветки трека ползунка
@@ -3405,6 +3455,14 @@
         }
 
         function applyFilters(forceIdSort = false) {
+            // Добавляем логирование для отслеживания значений фильтра годов
+            console.log('Значения фильтра годов в начале applyFilters():', {
+                minYear: yearSliderMin.value,
+                maxYear: yearSliderMax.value,
+                savedMinYear: localStorage.getItem('minYear'),
+                savedMaxYear: localStorage.getItem('maxYear')
+            });
+
             const searchTerm = currentSearchTerm.toLowerCase();
             let visibleGames = 0;
             let hiddenGames = [];
@@ -3539,6 +3597,14 @@
 
             // DO NOT call updateInProgressRow() here.
             updateSaturation(); // This seems fine to call.
+
+            // Добавляем логирование для отслеживания значений фильтра годов
+            console.log('Значения фильтра годов в конце applyFilters():', {
+                minYear: yearSliderMin.value,
+                maxYear: yearSliderMax.value,
+                savedMinYear: localStorage.getItem('minYear'),
+                savedMaxYear: localStorage.getItem('maxYear')
+            });
         }
 
         function toggleCompletedFilter() {
@@ -4209,9 +4275,8 @@
             if (savedMinYear) localStorage.setItem('minYear', savedMinYear);
             if (savedMaxYear) localStorage.setItem('maxYear', savedMaxYear);
 
-            // Обновляем отображение значения годов
-            updateYearValue();
-            updateSliderTrack();
+            // Используем специальную функцию, которая не изменяет значения в localStorage
+            updateYearValueWithoutStorage();
 
             applyFilters();
             updateGridSize();
