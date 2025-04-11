@@ -2900,12 +2900,23 @@
         }
 
         function showPreviewOrTitle(e, game) {
-            if (game.completed) {
-                showGameTitle(e, game);
+            // Получаем ячейку, на которую наведен курсор
+            const cell = e.currentTarget;
+
+            // Создаем объект с информацией об игре из атрибутов data-*
+            const gameInfo = {
+                name: cell.dataset.gameName || game.name,
+                year: cell.dataset.gameYear || game.year,
+                completed: cell.classList.contains('completed'),
+                imageUrl: game.imageUrl
+            };
+
+            if (gameInfo.completed) {
+                showGameTitle(e, gameInfo);
             } else if (previewEnabled) {
-                showPreview(e, game);
+                showPreview(e, game); // Для предпросмотра используем оригинальный объект game
             } else {
-                showGameTitle(e, game);
+                showGameTitle(e, gameInfo);
             }
         }
 
@@ -2972,7 +2983,10 @@
         }
 
         function showGameTitle(e, game) {
-            gameTitle.innerHTML = `${game.name}<span class="game-year">${game.year ? `(${game.year})` : '(N/A)'}</span>`;
+            // Используем название и год игры из объекта game
+            const name = game.name || 'Unknown';
+            const year = game.year || 'N/A';
+            gameTitle.innerHTML = `${name}<span class="game-year">${year !== 'N/A' ? `(${year})` : '(N/A)'}</span>`;
             gameTitle.style.display = 'block';
 
             const titleRect = gameTitle.getBoundingClientRect();
@@ -4455,6 +4469,8 @@
             cell.appendChild(img);
 
             cell.title = game.name;
+            cell.dataset.gameName = game.name; // Сохраняем название игры в атрибуте data-game-name
+            cell.dataset.gameYear = game.year || 'N/A'; // Сохраняем год игры в атрибуте data-game-year
             cell.addEventListener('click', () => toggleCell(cell, game.id));
 
             // Handle hover animation with JS
@@ -4559,6 +4575,8 @@
             const cell = document.querySelector(`.cell[data-game-id="${game.id}"]`);
             if (cell) {
                 cell.title = game.name;
+                cell.dataset.gameName = game.name; // Сохраняем название игры в атрибуте data-game-name
+                cell.dataset.gameYear = game.year || 'N/A'; // Сохраняем год игры в атрибуте data-game-year
                 if (game.imageUrl) {
                     cell.innerHTML = `<img src="${game.imageUrl}" alt="${game.name}">`;
                 } else {
