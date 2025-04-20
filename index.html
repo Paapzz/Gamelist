@@ -1623,6 +1623,36 @@
             background-color: rgba(0, 0, 0, 0.1); /* Легкий фон для каждой строки */
             border-left: 3px solid rgba(76, 175, 80, 0.5); /* Зеленая полоса слева */
         }
+        .search-result .game-info {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            overflow: hidden;
+        }
+        .search-result-image {
+            width: 40px;
+            height: 60px;
+            object-fit: cover;
+            margin-right: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .game-text-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .game-name {
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .game-year {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-left: 5px;
+        }
 
         /* Добавляем легкое и минималистичное выделение всей строки при наведении */
         .search-result:hover {
@@ -2713,16 +2743,64 @@
                 const buttonClass = isDuplicate ? 'add-game-button disabled' : 'add-game-button';
                 const buttonText = isDuplicate ? 'Уже есть' : 'Добавить';
 
-                resultElement.innerHTML = `
-                    <div class="game-info">
-                        <span class="game-name">${game.name}</span>
-                        <span class="game-year">(${releaseYear})</span>
-                    </div>
-                    <button type="button" class="${buttonClass}">${buttonText}</button>
-                `;
+                // Преобразуем URL изображения для предварительного просмотра
+                let imageUrl = '';
+                if (game.cover && game.cover.url) {
+                    imageUrl = convertImageUrl(game.cover.url);
+                    console.log('Преобразованный URL для предварительного просмотра:', imageUrl);
+                }
 
-                // Добавляем обработчик события для всех кнопок
-                const button = resultElement.querySelector('.add-game-button');
+                // Создаем информацию об игре
+                const gameInfoDiv = document.createElement('div');
+                gameInfoDiv.className = 'game-info';
+
+                // Добавляем миниатюру изображения, если оно есть
+                if (imageUrl && imageUrl.startsWith('http')) {
+                    const imgElement = document.createElement('img');
+                    imgElement.className = 'search-result-image';
+                    imgElement.src = imageUrl;
+                    imgElement.alt = game.name;
+                    imgElement.onerror = function() {
+                        console.warn('Ошибка загрузки изображения в результатах поиска:', imageUrl);
+                        this.src = DEFAULT_GAME_IMAGE;
+                    };
+                    gameInfoDiv.appendChild(imgElement);
+                } else {
+                    // Если изображения нет, используем заглушку
+                    const imgElement = document.createElement('img');
+                    imgElement.className = 'search-result-image';
+                    imgElement.src = DEFAULT_GAME_IMAGE;
+                    imgElement.alt = game.name;
+                    gameInfoDiv.appendChild(imgElement);
+                }
+
+                // Добавляем текстовую информацию
+                const textInfoDiv = document.createElement('div');
+                textInfoDiv.className = 'game-text-info';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'game-name';
+                nameSpan.textContent = game.name;
+
+                const yearSpan = document.createElement('span');
+                yearSpan.className = 'game-year';
+                yearSpan.textContent = `(${releaseYear})`;
+
+                textInfoDiv.appendChild(nameSpan);
+                textInfoDiv.appendChild(yearSpan);
+                gameInfoDiv.appendChild(textInfoDiv);
+
+                // Добавляем кнопку
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = buttonClass;
+                button.textContent = buttonText;
+
+                // Добавляем элементы в результат
+                resultElement.appendChild(gameInfoDiv);
+                resultElement.appendChild(button);
+
+                // Используем созданную кнопку для добавления обработчиков событий
 
                 if (!isDuplicate) {
                     // Если игра еще не добавлена, добавляем обработчик для добавления
@@ -2813,6 +2891,21 @@
 
             console.log('URL изображения:', game.cover ? game.cover.url : 'нет');
             console.log('Преобразованный URL:', game.cover ? convertImageUrl(game.cover.url) : 'нет');
+
+            // Добавляем дополнительную проверку URL изображения
+            if (game.cover && game.cover.url) {
+                console.log('Оригинальный URL изображения:', game.cover.url);
+                const convertedUrl = convertImageUrl(game.cover.url);
+                console.log('Преобразованный URL изображения:', convertedUrl);
+
+                // Проверяем, что URL изображения корректный
+                if (convertedUrl && convertedUrl.startsWith('http')) {
+                    newGame.imageUrl = convertedUrl;
+                } else {
+                    console.warn('Некорректный URL изображения, используем заглушку');
+                    newGame.imageUrl = '';
+                }
+            }
 
             if (!isDuplicateGame(newGame)) {
                 // Сохраняем текущие значения фильтра годов перед добавлением игры
@@ -4607,10 +4700,18 @@
             img.style.filter = `saturate(${currentSaturation}%)`;
 
             // Если у игры есть изображение, используем его
-            if (game.imageUrl) {
+            if (game.imageUrl && game.imageUrl.trim() !== '') {
+                console.log('Используем URL изображения для игры:', game.name, game.imageUrl);
                 img.src = game.imageUrl;
+
+                // Добавляем обработчик ошибки загрузки изображения
+                img.onerror = function() {
+                    console.warn('Ошибка загрузки изображения:', game.imageUrl);
+                    this.src = DEFAULT_GAME_IMAGE;
+                };
             } else {
                 // Используем изображение-заглушку из константы
+                console.log('Используем изображение-заглушку для игры:', game.name);
                 img.src = DEFAULT_GAME_IMAGE;
             }
 
@@ -5265,6 +5366,8 @@
         function convertImageUrl(url) {
             if (!url) return '';
 
+            console.log('Преобразование URL изображения:', url);
+
             // Проверяем, содержит ли URL уже полный путь
             if (url.includes('https://images.igdb.com/igdb/image/upload/')) {
                 // Если URL уже содержит полный путь, но не содержит t_cover_big, добавляем его
@@ -5272,10 +5375,19 @@
                     // Извлекаем имя файла
                     const parts = url.split('/');
                     const fileName = parts[parts.length - 1];
-                    return `https://images.igdb.com/igdb/image/upload/t_cover_big/${fileName}`;
+                    const result = `https://images.igdb.com/igdb/image/upload/t_cover_big/${fileName}`;
+                    console.log('Результат преобразования URL (1):', result);
+                    return result;
                 }
                 // Если URL уже содержит t_cover_big, возвращаем его как есть
+                console.log('Результат преобразования URL (2):', url);
                 return url;
+            }
+
+            // Проверяем, содержит ли URL другой полный путь
+            if (url.startsWith('http')) {
+                console.log('Результат преобразования URL (3):', url);
+                return url; // Возвращаем полный URL как есть
             }
 
             // Стандартная обработка для относительных URL
@@ -5284,13 +5396,16 @@
                 // Пытаемся получить имя файла из URL
                 const fileName = url.split('/').pop();
                 if (fileName) {
-                    return baseUrl + fileName;
+                    const result = baseUrl + fileName;
+                    console.log('Результат преобразования URL (4):', result);
+                    return result;
                 }
             } catch (error) {
                 console.error('Error converting image URL:', error);
             }
 
             // В случае ошибки возвращаем пустую строку
+            console.warn('Не удалось преобразовать URL изображения:', url);
             return '';
         }
 
