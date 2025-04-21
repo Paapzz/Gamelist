@@ -2657,7 +2657,7 @@
             showLoadingMessage();
             try {
                 // Загружаем индекс
-                const indexResponse = await fetch('./data/index.json');
+                const indexResponse = await fetch('/data/index.json');
                 if (!indexResponse.ok) {
                     throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
                 }
@@ -2673,7 +2673,7 @@
                         fileGames = gameFiles[i];
                     } else {
                         // Если файл не загружен, загружаем его
-                        const response = await fetch(`./data/games_${i}.json`);
+                        const response = await fetch(`/data/games_${i}.json`);
                         if (!response.ok) {
                             throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
                         }
