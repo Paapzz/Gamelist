@@ -2264,21 +2264,17 @@
             return formattedTitle;
         }
 
-        games = gamesList.map(game => {
-            const imageUrl = game.image_url;
-            return {
-                id: game.number,
-                name: formatGameTitle(game.title),
-                imageUrl: imageUrl,
-                image_url: imageUrl, // Добавляем дублирующее свойство для совместимости
-                year: game.year,
-                genres: game.genres,
-                platforms: game.platforms,
-                completed: false,
-                inProgress: false,
-                isCustom: false
-            };
-        });
+        games = gamesList.map(game => ({
+            id: game.number,
+            name: formatGameTitle(game.title),
+            imageUrl: game.image_url,
+            year: game.year,
+            genres: game.genres,
+            platforms: game.platforms,
+            completed: false,
+            inProgress: false,
+            isCustom: false
+        }));
 
         function loadSavedGames() {
             const savedGames = localStorage.getItem('games');
@@ -2769,10 +2765,10 @@
             if (game.cover && game.cover.url) {
                 console.log('addGameFromSearch: Found cover.url:', game.cover.url);
                 imageUrl = convertImageUrl(game.cover.url);
-            } else if (game.imageUrl && game.imageUrl.trim() !== '') {
+            } else if (game.imageUrl) {
                 console.log('addGameFromSearch: Found imageUrl:', game.imageUrl);
                 imageUrl = game.imageUrl;
-            } else if (game.image_url && game.image_url.trim() !== '') {
+            } else if (game.image_url) {
                 console.log('addGameFromSearch: Found image_url:', game.image_url);
                 imageUrl = game.image_url;
             } else {
@@ -2788,7 +2784,6 @@
                 genres: game.genres ? game.genres.map(g => g.name) : [],
                 platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
                 imageUrl: imageUrl,
-                image_url: imageUrl, // Добавляем дублирующее свойство для совместимости
                 isCustom: true,
                 importedFromApi: true,
                 completed: false,
@@ -3868,14 +3863,15 @@
                 cell.style.display = 'none';
             });
 
-            let imgSrc = game.imageUrl || game.image_url;
+            let imgSrc = game.imageUrl;
             let content;
+            const currentSaturation = saturationSlider.value;
             if (!imgSrc) {
                 // Используем изображение-заглушку из константы
-                content = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}">`;
+                content = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
                 console.log('showRandomSelection: Using default image for game:', game.name);
             } else {
-                content = `<img src="${imgSrc}" alt="${game.name}">`;
+                content = `<img src="${imgSrc}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
                 console.log('showRandomSelection: Using image for game:', game.name, imgSrc);
             }
 
@@ -4426,7 +4422,6 @@
                 platforms: document.getElementById('gamePlatforms').value.split(',').map(p => p.trim()).filter(p => p),
                 genres: document.getElementById('gameGenres').value.split(',').map(g => g.trim()).filter(g => g),
                 imageUrl: imageUrl,
-                image_url: imageUrl, // Добавляем дублирующее свойство для совместимости
                 isCustom: true,
                 importedFromApi: false,
                 completed: false,
@@ -4521,8 +4516,7 @@
                 year: parseInt(document.getElementById('gameYear').value) || null,
                 platforms: document.getElementById('gamePlatforms').value.split(',').map(p => p.trim()).filter(p => p),
                 genres: document.getElementById('gameGenres').value.split(',').map(g => g.trim()).filter(g => g),
-                imageUrl: imageUrl,
-                image_url: imageUrl, // Добавляем дублирующее свойство для совместимости
+                imageUrl: imageUrl
             };
 
             addNewGame(gameData);
@@ -5162,7 +5156,6 @@
                         id: game.id,
                         name: formattedName,
                         imageUrl: imageUrl,
-                        image_url: imageUrl, // Добавляем дублирующее свойство для совместимости
                         year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                         genres: game.genres ? game.genres.map(g => g.name) : [],
                         platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null) : [],
