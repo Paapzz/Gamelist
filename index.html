@@ -20,13 +20,13 @@
             left: 0;
             right: 0;
             background-color: #333;
-            padding: 5px;
+            padding: 5px; 
             display: flex;
             align-items: center;
             justify-content: space-between;
             z-index: 1000;
             overflow: hidden;
-            height: 30px;
+            height: 30px; 
         }
         #leftGroup, #rightGroup {
             display: flex;
@@ -40,15 +40,13 @@
             text-decoration: none;
             display: inline-block;
             font-size: 14px;
-            margin: 0 5px; /* Общий отступ для большинства кнопок */
+            margin: 0 5px;
             cursor: pointer;
             transition: all 0.3s ease;
             border-radius: 5px;
             font-weight: bold;
             text-transform: uppercase;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            /* Ensure transition covers hover properties */
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, color 0.3s ease, opacity 0.3s ease;
         }
         #togglePreview {
             background-color: #4CAF50;
@@ -63,14 +61,11 @@
         #inProgressButton {
             background-color: #ff9900;
             transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
         }
-        /* Эффект ripple для кнопки В процессе удален */
         #inProgressButton.active {
             background-color: #FFA726;
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3), 0 0 0 2px rgba(255, 152, 0, 0.3);
-            transform: scale(0.98);
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 152, 0, 0.7);
+            transform: translateY(2px);
         }
         #completedFilter, #hideCompletedButton {
             flex: 1;
@@ -98,28 +93,11 @@
         }
         #hideCompletedButton {
             background-color: #2196F3;
-            border: none;
-            color: white;
-            text-align: center;
-            text-decoration: none;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            height: 38px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-            position: relative;
-            overflow: hidden;
         }
         #hideCompletedButton.active {
             background-color: #1976D2;
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3), 0 0 0 2px rgba(33, 150, 243, 0.3);
-            transform: scale(0.98);
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 15px rgba(33, 150, 243, 0.7);
+            transform: translateY(3px);
         }
         .button-disabled {
             opacity: 0.5;
@@ -127,7 +105,6 @@
         }
         #filtersButton {
             background-color: #4CAF50;
-            margin-right: 0; /* Убираем правый отступ у кнопки Фильтры */
         }
         #clearSearchButton {
             background-color: #f44336;
@@ -136,11 +113,7 @@
             padding: 0;
             margin-left: 5px;
             font-size: 18px;
-            /* line-height: 24px; */ /* Убрано, т.к. есть flexbox */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold; /* Добавлено */
+            line-height: 24px;
         }
         #randomButton {
             background-color: #2a2a2a;
@@ -148,70 +121,38 @@
         #addGameButton {
             background-color: #2196F3;
         }
-        #togglePreview:hover, #resetButton:hover, #filtersButton:hover, #clearSearchButton:hover, #resetFiltersButton:hover, #randomButton:hover, #importFromApiButton:hover, #addGameButton:hover {
-            transform: scale(1.05);
-            filter: brightness(1.1);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            transition: all 0.2s ease;
-        }
-        #inProgressButton:hover:not(.active) {
-            background-color: #FFA000;
+        #togglePreview:hover, #resetButton:hover, #inProgressButton:hover, #hideCompletedButton:hover, #filtersButton:hover, #clearSearchButton:hover, #resetFiltersButton:hover, #randomButton:hover, #importFromApiButton:hover, #addGameButton:hover {
+            opacity: 0.9;
             transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(255, 152, 0, 0.3);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
-        #inProgressButton.active:hover {
-            background-color: #FFA726;
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3), 0 0 0 2px rgba(255, 152, 0, 0.3);
-        }
-        #togglePreview:active, #resetButton:active, #filtersButton:active, #clearSearchButton:active, #resetFiltersButton:active, #randomButton:active, #importFromApiButton:active, #addGameButton:active {
+        #togglePreview:active, #resetButton:active, #inProgressButton:active, #hideCompletedButton:active, #filtersButton:active, #clearSearchButton:active, #resetFiltersButton:active, #randomButton:active, #importFromApiButton:active, #addGameButton:active {
             transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
-        #inProgressButton:active {
-            background-color: #E65100;
-            transform: scale(0.98);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
         #customGameListButton {
-            background-color: #FF9800;
+            background-color: #c29129;
             border: none;
             color: white;
-            padding: 8px 12px;
+            padding: 5px 10px;
             text-align: center;
             text-decoration: none;
             display: inline-block;
-            font-size: 12px;
-            margin: 0 auto;
+            font-size: 14px;
+            margin: 10px 0;
+            margin-left: 20px;
             cursor: pointer;
             transition: all 0.3s ease;
-            border-radius: 8px;
-            font-weight: normal;
+            border-radius: 5px;
+            font-weight: bold;
             text-transform: uppercase;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            letter-spacing: 0.3px;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 150px; /* Минимальная ширина */
-        }
-
-        /* Эффект ripple для кнопки Список игр удален */
-
-        #customGameListButton:hover {
-            background-color: #F57C00;
-            box-shadow: 0 4px 8px rgba(255, 152, 0, 0.3);
-        }
-
-        #customGameListButton:active {
-            background-color: #EF6C00;
-            transform: scale(0.98);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
-        #filtersPanel h3 { /* Центрируем кнопку внутри h3 */
-             text-align: center;
-             margin-bottom: 0; /* Убираем лишний отступ у h3 */
+
+        #customGameListButton:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
 
         #customGameListButton:active {
@@ -233,13 +174,13 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(to right,
-                black,
-                violet,
-                blue,
-                green,
-                yellow,
-                orange,
+            background: linear-gradient(to right, 
+                black, 
+                violet, 
+                blue, 
+                green, 
+                yellow, 
+                orange, 
                 red
             );
         }
@@ -269,46 +210,19 @@
             font-weight: bold;
             text-transform: uppercase;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-             /* Add transition */
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, opacity 0.3s ease;
         }
-        /* Remove old hover */
+        #searchGameButton:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
         #searchGameButton:active {
             transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         #deleteAllCustomGamesButton, #deleteAllApiGamesButton {
-            margin: 10px auto;
-            display: block;
-            background-color: #f44336;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
-            font-size: 12px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            position: relative;
-            overflow: hidden;
-            width: 250px; /* Фиксированная ширина вместо max-width */
-            text-align: center;
-            white-space: nowrap;
-            margin-left: auto;
-            margin-right: auto;
+            margin-right: 10px;
         }
-        #deleteAllCustomGamesButton:hover, #deleteAllApiGamesButton:hover {
-            background-color: #d32f2f;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(244, 67, 54, 0.3);
-        }
-        #deleteAllCustomGamesButton:active, #deleteAllApiGamesButton:active {
-            background-color: #b71c1c;
-            transform: scale(0.98);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        /* Эффект ripple для кнопок Удалить все добавленные игры удален */
         #deleteAllApiGamesButton {
             background-color: #f44336;
             color: white;
@@ -323,10 +237,12 @@
             transition: all 0.3s ease;
             border-radius: 5px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-             /* Add transition */
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, opacity 0.3s ease;
         }
-        /* Remove old hover */
+        #deleteAllApiGamesButton:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
         #deleteAllApiGamesButton:active {
             transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -336,17 +252,17 @@
             left: 50%;
             transform: translateX(-50%);
             background-color: rgba(0, 0, 0, 0.5);
-            border-radius: 15px;
-            padding: 3px 10px;
+            border-radius: 15px; 
+            padding: 3px 10px; 
             z-index: 1;
-            height: 24px;
+            height: 24px; 
             display: flex;
             align-items: center;
         }
         #counter {
             color: white;
             font-weight: bold;
-            font-size: 18px;
+            font-size: 18px; 
         }
         #grid {
             display: grid;
@@ -383,7 +299,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background:
+            background: 
                 linear-gradient(to top right, transparent calc(50% - 1px), red calc(50% - 1px), red calc(50% + 1px), transparent calc(50% + 1px)),
                 linear-gradient(to bottom right, transparent calc(50% - 1px), red calc(50% - 1px), red calc(50% + 1px), transparent calc(50% + 1px));
             z-index: 2;
@@ -448,52 +364,9 @@
         }
         #sizeSlider {
             margin: 0;
-            width: 30vw; /* Возвращаем исходную ширину */
-            -webkit-appearance: none;
-            appearance: none;
-            height: 6px;
-            background: linear-gradient(to right, #333, #4CAF50, #333);
-            border-radius: 3px;
-            outline: none;
-            opacity: 0.7;
-            transition: opacity 0.2s;
-        }
-
-        #sizeSlider:hover {
-            opacity: 1;
-        }
-
-        #sizeSlider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #4CAF50;
-            cursor: pointer;
-            box-shadow: 0 0 0 2px #fff, 0 0 10px rgba(0, 0, 0, 0.3);
-            transition: all 0.2s ease;
-        }
-
-        #sizeSlider::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #4CAF50;
-            cursor: pointer;
-            box-shadow: 0 0 0 2px #fff, 0 0 10px rgba(0, 0, 0, 0.3);
-            border: none;
-            transition: all 0.2s ease;
-        }
-
-        #sizeSlider::-webkit-slider-thumb:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 0 2px #fff, 0 0 15px rgba(76, 175, 80, 0.5);
-        }
-
-        #sizeSlider::-moz-range-thumb:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 0 2px #fff, 0 0 15px rgba(76, 175, 80, 0.5);
+            width: 30vw;
+            transform: none;
+            position: static;
         }
         #sizeSliderContainer {
             position: fixed;
@@ -502,10 +375,9 @@
             transform: translateX(-50%);
             background-color: rgba(0, 0, 0, 0.8);
             border-radius: 20px;
-            padding: 5px 15px;
+            padding: 5px 8px;
             display: flex;
             align-items: center;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
         }
         .preview {
             position: fixed;
@@ -560,251 +432,92 @@
             top: 40px;
             left: 10px;
             background-color: #333;
-            padding: 15px; /* Более компактные отступы */
-            border-radius: 12px;
+            padding: 12px;
+            border-radius: 5px;
             z-index: 1005;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3), 0 6px 12px rgba(0,0,0,0.22);
             display: none;
-            max-height: calc(100vh - 50px); /* Максимальная высота с учетом верхней панели */
+            max-height: calc(102vh - 60px);
             overflow-y: auto;
-            width: 330px; /* Увеличиваем ширину для длинных названий */
-            border: 1px solid rgba(255,255,255,0.05);
-            backdrop-filter: blur(5px);
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            width: 300px;
         }
         #yearSlider {
             width: 100%;
         }
-        #platformsList, #genresList {
-            padding: 5px 10px;
-            margin: 5px 0;
-            /* Высота будет установлена динамически через JavaScript */
-            min-height: calc(3em + 20px); /* Минимальная высота для 3 пунктов */
+        #platformsList {
+            padding: 0;
+            padding-left: 11px;
+            margin-right: 13px;
+            flex-wrap: wrap;
+            gap: 5px;
+            max-height: 200px;
             overflow-y: auto;
-            background-color: rgba(0,0,0,0.15);
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.05);
-            scrollbar-width: thin;
-            scrollbar-color: #4CAF50 #333;
-            transition: max-height 0.3s ease;
         }
-
-
-
-        #platformsList::-webkit-scrollbar, #genresList::-webkit-scrollbar {
-            width: 6px;
+        #genresList {
+            margin: 0; 
+            padding-left: 0; 
+            padding: 0;
+            flex-wrap: wrap;
+            gap: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 12px;
         }
-
-        #platformsList::-webkit-scrollbar-track, #genresList::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.2);
-            border-radius: 3px;
-        }
-
-        #platformsList::-webkit-scrollbar-thumb, #genresList::-webkit-scrollbar-thumb {
-            background-color: #4CAF50;
-            border-radius: 3px;
-        }
-
-        #platformsList label, #genresList label {
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        #platformsList label:hover, #genresList label:hover {
-            color: #4CAF50;
-        }
-
-        #platformsList input[type="checkbox"], #genresList input[type="checkbox"] {
-            accent-color: #4CAF50;
-        }
-        /* Стили для контейнера ползунка выбора года */
-        .year-slider-container {
-            background-color: rgba(0,0,0,0.15);
-            border-radius: 10px;
-            padding: 15px;
-            margin: 10px 0 20px;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
-            border: 1px solid rgba(255,255,255,0.05);
-        }
-
-        .year-slider-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .year-value-container {
-            background-color: rgba(76, 175, 80, 0.2);
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-weight: 600;
-            color: #4CAF50;
-            min-width: 80px;
-            text-align: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            border: 1px solid rgba(76, 175, 80, 0.3);
-        }
-
         .double-slider {
             position: relative;
             width: 100%;
             height: 40px;
-            margin: 10px 0;
         }
-
         .double-slider input[type="range"] {
             -webkit-appearance: none;
             width: 100%;
-            height: 6px;
+            height: 4px;
             background: none;
             pointer-events: none;
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            z-index: 3;
+            z-index: 2;
             appearance: none;
         }
-
         .double-slider input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
             background: #4CAF50;
             cursor: pointer;
             pointer-events: auto;
+            margin-top: -6px;
             box-shadow: 0 0 0 3px #fff, 0 0 0 6px rgba(76, 175, 80, 0.1);
-            border: none;
-            z-index: 4;
-            transition: all 0.2s ease;
+            z-index: 3;
         }
-
-        .double-slider input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 0 2px #fff, 0 0 15px rgba(76, 175, 80, 0.5);
-        }
-
         .double-slider input[type="range"]::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
             background: #4CAF50;
             cursor: pointer;
             pointer-events: auto;
             box-shadow: 0 0 0 3px #fff, 0 0 0 6px rgba(76, 175, 80, 0.1);
             border: none;
-            z-index: 4;
-            transition: all 0.2s ease;
+            z-index: 3;
         }
-
-        .double-slider input[type="range"]::-moz-range-thumb:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 0 2px #fff, 0 0 15px rgba(76, 175, 80, 0.5);
-        }
-
         .slider-track {
             width: 100%;
-            height: 6px;
-            background: rgba(255,255,255,0.1);
+            height: 4px;
+            background: #ddd;
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            border-radius: 3px;
+            border-radius: 2px;
             z-index: 1;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
         }
-
-        .slider-track-highlight {
-            position: absolute;
-            height: 100%;
-            background: linear-gradient(to right, #388E3C, #4CAF50, #81C784);
-            border-radius: 3px;
-            z-index: 2;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-        }
-
-        .year-slider-labels {
-            display: flex;
-            justify-content: space-between;
+        #yearValue {
+            text-align: center;
             margin-top: 10px;
-            color: rgba(255,255,255,0.7);
-            font-size: 12px;
-            position: relative;
-            height: 20px;
+            font-weight: bold;
+            color: inherit;
         }
-
-        .year-slider-labels span {
-            position: absolute;
-            transform: translateX(-50%);
-        }
-
-        .year-slider-labels span:first-child {
-            left: 0;
-            transform: translateX(0);
-        }
-
-        .year-slider-labels span:last-child {
-            right: 0;
-            left: auto;
-            transform: translateX(0);
-        }
-
-        .slider-tooltip {
-            position: absolute;
-            background-color: #4CAF50;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 12px;
-            top: -25px;
-            transform: translateX(-50%);
-            opacity: 0;
-            transition: opacity 0.2s ease;
-            pointer-events: none;
-            z-index: 5;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        .slider-tooltip::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 5px solid transparent;
-            border-right: 5px solid transparent;
-            border-top: 5px solid #4CAF50;
-        }
-        #filtersPanel h4 { /* Стили для заголовков фильтров */
-            margin-top: 8px;
-            margin-bottom: 5px;
-            padding-bottom: 4px;
-            border-bottom: 2px solid rgba(76, 175, 80, 0.5);
-            font-size: 1.05em;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-            color: #fff;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-            position: relative;
-        }
-        #filtersPanel h4::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            width: 40px;
-            height: 2px;
-            background-color: #4CAF50; /* Акцентный зеленый цвет */
-            transition: width 0.3s ease;
-        }
-        /* Убираем анимацию при наведении на заголовок, теперь она будет управляться через JavaScript */
-        #filtersPanel h4.active::after {
-            width: 100%;
-        }
-        /* Стили для #yearValue перенесены в .year-value-container */
         #inProgressRow {
             display: flex;
             flex-wrap: wrap;
@@ -831,8 +544,6 @@
             display: flex;
             justify-content: space-between;
             margin-bottom: 10px;
-            flex-wrap: wrap; /* Разрешаем перенос на новую строку */
-            gap: 5px; /* Добавляем отступы между кнопками */
         }
         #filterButtons button {
             flex: 1;
@@ -872,157 +583,70 @@
             margin: 4px;
             cursor: pointer;
             transition: all 0.3s ease;
-            border-radius: 8px;
+            border-radius: 5px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            position: relative;
-            overflow: hidden;
         }
         #completedFilter, #hideCompletedButton {
             width: calc(50% - 10px);
         }
         #completedFilter {
-            height: 38px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
             line-height: 1.2;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-            font-size: 13px;
-        }
-        /* Эффект волны при нажатии */
-        #completedFilter::after, #hideCompletedButton::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 5px;
-            height: 5px;
-            background: rgba(255, 255, 255, 0.5);
-            opacity: 0;
-            border-radius: 100%;
-            transform: scale(1, 1) translate(-50%, -50%);
-            transform-origin: 50% 50%;
         }
         #resetFiltersButton {
-            padding: 8px 12px;
-            width: 75%;
-            margin: 15px auto 5px;
+            padding: 7px;
+            width: 70%;
+            margin: 2px auto;
             display: block;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-            border-radius: 8px;
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            font-size: 12px;
         }
-        /* Эффект ripple для кнопки Сбросить фильтры удален */
         #resetFiltersButton:hover {
             background-color: #b92f2f;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
-        #hideCompletedButton:hover:not(.active) {
+        #hideCompletedButton:hover {
             background-color: #1976D2;
-            box-shadow: 0 6px 12px rgba(33, 150, 243, 0.3);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        #completedFilter:hover {
+            background-color: #16831b;
             transform: translateY(-2px);
-        }
-        #hideCompletedButton.active:hover {
-            background-color: #1976D2;
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3), 0 0 0 2px rgba(33, 150, 243, 0.3);
-        }
-        #completedFilter:hover:not(.active) {
-            background-color: #388E3C;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(76, 175, 80, 0.3);
-        }
-        #completedFilter.active:hover {
-            background-color: #2E7D32;
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3), 0 0 0 2px rgba(76, 175, 80, 0.3);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+
         }
         #resetFiltersButton:active {
             background-color: #8a161c;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
             transform: translateY(6px);
         }
-
-        /* Эффект ripple для кнопок Только пройденные и Скрыть пройденные удален */
-
-        /* Анимация ripple удалена */
-
         #completedFilter:active {
-            background-color: #2E7D32;
-            transform: scale(0.98);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            background-color: #17811d;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            transform: translateY(2px);
         }
         #hideCompletedButton:active {
-            background-color: #1565C0;
-            transform: scale(0.98);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            background-color: #0D47A1;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            transform: translateY(2px);
+        }
+        #completedFilter.active, #hideCompletedButton.active {
+            background-color: #1976D2;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 15px rgba(33, 150, 243, 0.7);
         }
         #completedFilter.active {
-            background-color: #2E7D32;
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3), 0 0 0 2px rgba(76, 175, 80, 0.3);
-            transform: scale(0.98);
+            background-color: #11831b;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 15px rgba(20, 190, 48, 0.671);
         }
-
         #saturationContainer {
             margin-top: 15px;
             text-align: center;
-            background: rgba(0,0,0,0.15);
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.05);
-        }
-        #saturationContainer label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 600;
-            color: #fff;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-            font-size: 13px;
         }
         #saturationSlider {
             width: 100%;
             margin-top: 5px;
-            height: 6px;
-            -webkit-appearance: none;
-            appearance: none;
-            background: linear-gradient(to right, #888, #4CAF50);
-            outline: none;
-            border-radius: 3px;
-        }
-        #saturationSlider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #4CAF50;
-            cursor: pointer;
-            box-shadow: 0 0 5px rgba(0,0,0,0.3);
-            border: 2px solid #fff;
-            transition: all 0.2s ease;
-        }
-        #saturationSlider::-webkit-slider-thumb:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
-        }
-        #saturationSlider::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #4CAF50;
-            cursor: pointer;
-            box-shadow: 0 0 5px rgba(0,0,0,0.3);
-            border: 2px solid #fff;
-            transition: all 0.2s ease;
-        }
-        #saturationSlider::-moz-range-thumb:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
         }
         #randomButton {
             background-color: #2a2a2a;
@@ -1044,7 +668,7 @@
             background-size: 400% 400%;
             animation: rainbow 222s linear infinite;
         }
-        @keyframes rainbow {
+        @keyframes rainbow { 
             to {
                 background-position: 2000vh;
             }
@@ -1117,7 +741,7 @@
             font-size: 16px;
             font-weight: bold;
             text-transform: uppercase;
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, opacity 0.3s ease; /* Update transition */
+            transition: background-color 0.3s, transform 0.1s;
         }
         #dontWantButton, #wantToPlayButton {
             flex: 1;
@@ -1139,7 +763,9 @@
             color: white;
             width: calc(100% - 20px);
         }
-        /* Remove old hover */
+        #dontWantButton:hover, #wantToPlayButton:hover, #anotherRandomButton:hover {
+            opacity: 0.9;
+        }
         #dontWantButton:active, #wantToPlayButton:active, #anotherRandomButton:active {
             transform: scale(0.98);
         }
@@ -1157,7 +783,7 @@
             width: 24px;
             height: 24px;
             padding: 0;
-            /* margin-left: 5px; */ /* Убрано отсюда */
+            margin-left: 5px;
             font-size: 18px;
             line-height: 24px;
             text-align: center;
@@ -1166,21 +792,16 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-             /* Add transition */
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, opacity 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-        }
-        #resetFiltersButtonHeader { /* Явный стиль для кнопки сброса фильтров */
-             margin-left: 5px; /* Гарантируем отступ здесь */
         }
         #clearSearchButton, #resetFiltersButtonHeader {
             background-color: #f44336;
             color: white;
         }
-        /* Remove old hover */
+        #clearSearchButton:hover, #resetFiltersButtonHeader:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
         #clearSearchButton:active, #resetFiltersButtonHeader:active {
             transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -1207,19 +828,18 @@
             backdrop-filter: blur(5px);
         }
         .modal-content {
-            background-color: #333;
+            background-color: #2a2a2a;
             margin: 3% auto;
-            padding: 25px;
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 12px;
+            padding: 30px;
+            border: none;
+            border-radius: 10px;
             width: 90%;
             max-width: 500px;
             color: white;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3), 0 6px 12px rgba(0,0,0,0.22);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             max-height: calc(95vh - 40px);
             overflow-y: auto;
             bottom: 15vh;
-            backdrop-filter: blur(5px);
         }
         .button-container {
             display: flex;
@@ -1237,9 +857,9 @@
             font-size: 28px;
             font-weight: bold;
             cursor: pointer;
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, color 0.3s ease; /* Add transition */
+            transition: color 0.3s;
         }
-        /* Remove old hover */
+        .close:hover,
         .close:focus {
             color: #fff;
         }
@@ -1248,26 +868,6 @@
             max-height: 300px;
             overflow-y: auto;
             margin-top: 10px;
-            scrollbar-width: thin; /* Для Firefox */
-            scrollbar-color: #4CAF50 rgba(0,0,0,0.2); /* Для Firefox: цвет ползунка и фона */
-        }
-
-        #searchResults::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        #searchResults::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.2);
-            border-radius: 3px;
-        }
-
-        #searchResults::-webkit-scrollbar-thumb {
-            background-color: #4CAF50; /* Зеленый цвет для ползунка */
-            border-radius: 3px;
-        }
-
-        #searchResults::-webkit-scrollbar-thumb:hover {
-            background-color: #3d8b40; /* Более темный зеленый при наведении */
         }
         .search-result {
             display: flex;
@@ -1297,7 +897,28 @@
             z-index: 9998;
             pointer-events: none;
         }
-
+        #closeSearchResults {
+            background-color: #f44336 !important;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin-left: 300px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            border-radius: 5px;
+            display: none;
+            flex-shrink: 0;
+        }
+        #closeSearchResults:hover {
+            background-color: #d32f2f;
+        }
+        #closeSearchResults:active {
+            background-color: #b71c1c;
+        }
         #addGameForm {
             display: flex;
             flex-direction: column;
@@ -1335,7 +956,7 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, opacity 0.3s ease; /* Update transition */
+            transition: background-color 0.3s, transform 0.1s;
         }
         #addGameForm button {
             background-color: #4CAF50;
@@ -1345,7 +966,11 @@
             background-color: #f44336;
             color: white;
         }
-        /* Remove old hover */
+        #addGameForm button:hover,
+        #cancelAddGame:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
         #addGameForm button:active,
         #cancelAddGame:active {
             transform: translateY(0);
@@ -1382,37 +1007,24 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
-            padding: 8px 12px;
-            background-color: rgba(0,0,0,0.15);
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.05);
-            transition: all 0.2s ease;
-        }
-        .custom-game-item:hover {
-            background-color: rgba(0,0,0,0.25);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            margin-bottom: 10px;
+            padding: 5px;
+            background-color: #444;
+            border-radius: 5px;
         }
         .custom-game-item button {
             margin-left: 10px;
-            padding: 6px 12px;
+            padding: 5px 10px;
             border: none;
-            border-radius: 6px;
+            border-radius: 3px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
-            font-size: 12px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            position: relative;
-            overflow: hidden;
+            transition: background-color 0.3s;
         }
         .custom-game-item .delete-game {
             background-color: #f44336;
             color: white;
         }
-        /* Эффект ripple для кнопок в списке игр удален */
-        .custom-game-item .delete-game:hover { /* Keep background hover */
+        .custom-game-item .delete-game:hover {
             background-color: #d32f2f;
         }
         .delete-game {
@@ -1446,12 +1058,13 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Update transition */
+            transition: all 0.3s ease;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
             transform: translateY(-5px);
         }
-        .input-with-button button:hover { /* Keep background hover */
+        .input-with-button button:hover {
             background-color: #1976D2;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
         .input-with-button button:active {
             background-color: #0D47A1;
@@ -1465,7 +1078,7 @@
             border-radius: 5px;
             color: white;
             cursor: pointer;
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
+            transition: background-color 0.3s;
         }
         #buttonContainer {
             display: flex;
@@ -1476,31 +1089,6 @@
             display: block;
             margin-top: 10px;
         }
-
-        .search-input-wrapper {
-            position: relative;
-            margin-bottom: 15px;
-        }
-
-
-
-        #performSearchButton {
-            display: block;
-            width: 60%;
-            margin: 0 auto 15px;
-            padding: 10px;
-            background-color: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-
-        #performSearchButton:hover {
-            background-color: #1976D2;
-        }
         #searchResults {
             margin-top: 10px;
             max-height: 300px;
@@ -1510,65 +1098,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px; /* Увеличиваем отступ снизу */
-            padding: 8px 10px; /* Увеличиваем внутренние отступы */
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            background-color: rgba(0, 0, 0, 0.1); /* Легкий фон для каждой строки */
-            border-left: 3px solid rgba(76, 175, 80, 0.5); /* Зеленая полоса слева */
-        }
-
-        /* Добавляем легкое и минималистичное выделение всей строки при наведении */
-        .search-result:hover {
-            background-color: rgba(76, 175, 80, 0.15); /* Более заметный фон при наведении */
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-            border-left: 3px solid #4CAF50; /* Более яркая полоса при наведении */
-            transform: translateX(2px); /* Небольшое смещение вправо при наведении */
-        }
-
-        /* Стили для информации об игре */
-        .game-info {
-            display: flex;
-            flex-direction: column;
-            flex-grow: 1;
-            margin-right: 10px;
-        }
-
-        .game-name {
-            font-weight: 500;
-            font-size: 15px;
-            margin-bottom: 2px;
-            color: #fff;
-        }
-
-        .game-year {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        /* Стиль для сообщения "Игры не найдены" */
-        .no-games-found {
-            text-align: center;
-            padding: 15px;
-            background-color: rgba(0, 0, 0, 0.2);
-            border-radius: 6px;
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 15px;
-            margin: 10px 0;
-            border-left: 3px solid #f44336; /* Красная полоса слева */
-        }
-
-        /* Стиль для сообщения об ошибке при поиске */
-        .search-error {
-            text-align: center;
-            padding: 15px;
-            background-color: rgba(244, 67, 54, 0.1); /* Легкий красный фон */
-            border-radius: 6px;
-            color: rgba(255, 255, 255, 0.9);
-            font-size: 15px;
-            margin: 10px 0;
-            border-left: 3px solid #f44336; /* Красная полоса слева */
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            margin-bottom: 5px;
         }
         .add-game-button {
             background-color: #4CAF50;
@@ -1576,10 +1106,6 @@
             border: none;
             padding: 5px 10px;
             cursor: pointer;
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
-            /* Уменьшаем кнопку на 5% */
-            transform: scale(0.95);
-            border-radius: 4px;
         }
         #optionsList {
             max-height: 300px;
@@ -1597,50 +1123,30 @@
             padding: 10px 20px;
             border-radius: 5px;
             cursor: pointer;
-            transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
         }
         #customGameSearchInput {
             width: 100%;
-            padding: 10px 15px;
-            margin-bottom: 15px;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
-            background-color: rgba(0,0,0,0.2);
-            color: white;
-            font-size: 14px;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-            box-sizing: border-box; /* Чтобы padding включался в ширину */
-        }
-        #customGameSearchInput:focus {
-            outline: none;
-            border-color: rgba(76, 175, 80, 0.5);
-            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2), inset 0 1px 3px rgba(0,0,0,0.2);
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
         }
         #customGameList {
             max-height: 400px;
             overflow-y: auto;
             padding-right: 10px;
-            margin-top: 15px;
-            margin-bottom: 15px;
-            width: 100%;
-            box-sizing: border-box;
-            scrollbar-width: thin; /* Для Firefox */
-            scrollbar-color: #f44336 rgba(0,0,0,0.2); /* Для Firefox: цвет ползунка и фона */
         }
         #customGameList::-webkit-scrollbar {
-            width: 6px;
+            width: 10px;
         }
         #customGameList::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.2);
-            border-radius: 3px;
+            background: #f1f1f1;
         }
         #customGameList::-webkit-scrollbar-thumb {
-            background-color: #f44336; /* Красный цвет для ползунка */
-            border-radius: 3px;
+            background: #888;
         }
         #customGameList::-webkit-scrollbar-thumb:hover {
-            background-color: #d32f2f; /* Более темный красный при наведении */
+            background: #555;
         }
         .abbreviation-placeholder {
             display: flex;
@@ -1696,42 +1202,6 @@
             font-size: 24px;
             text-align: center;
         }
-
-        /* --- NEW General Hover Effect --- */
-        /* Place this rule towards the end to help override specifics */
-        button:hover,
-        .close:hover,
-        .delete-game:hover
-        {
-            /* Exclude buttons with specific active/disabled states or unique hovers */
-            &:not(.active):not(.disabled):not(#randomButton):not(.button-disabled) {
-                 transform: scale(1.05);
-                 filter: brightness(1.1);
-                 box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            }
-        }
-
-        /* Отдельный стиль для кнопки "Добавить", чтобы учесть уменьшенный размер */
-        .add-game-button:hover {
-            transform: scale(1.0); /* Возвращаем к нормальному размеру при наведении */
-            filter: brightness(1.1);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-        /* Keep specific background/color/opacity hovers if needed */
-         #completedFilter:hover:not(.active) { background-color: #16831b; }
-         #resetFiltersButton:hover { background-color: #b92f2f; }
-         #hideCompletedButton:hover:not(.active) { background-color: #1976D2; }
-         .custom-game-item .delete-game:hover { background-color: #d32f2f; }
-         .input-with-button button:hover { background-color: #1976D2; }
-         #closeSearchResults:hover { background-color: #d32f2f; }
-         .close:hover { color: #fff; }
-         #dontWantButton:hover, #wantToPlayButton:hover, #anotherRandomButton:hover { opacity: 0.9; }
-         /* Убрано для кнопки Список игр */
-         #searchGameButton:hover { opacity: 0.9; }
-         #deleteAllApiGamesButton:hover { opacity: 0.9; }
-         #clearSearchButton:hover, #resetFiltersButtonHeader:hover { opacity: 0.9; }
-         #addGameForm button:hover, #cancelAddGame:hover { opacity: 0.9; }
-
     </style>
 </head>
 <body>
@@ -1772,40 +1242,24 @@
     </div>
     <div class="game-title" id="gameTitle"></div>
     <div id="filtersPanel">
-
-        <div class="year-slider-container">
-            <div class="year-slider-header">
-                <label for="yearSlider">Год выпуска:</label>
-                <div class="year-value-container">
-                    <span id="yearValue"></span>
-                </div>
-            </div>
-            <div class="double-slider">
-                <div class="slider-track">
-                    <div class="slider-track-highlight"></div>
-                </div>
-                <input type="range" id="yearSliderMin" min="1971" max="2023" value="1971">
-                <input type="range" id="yearSliderMax" min="1972" max="2023" value="2024">
-                <div class="slider-tooltip min-tooltip"></div>
-                <div class="slider-tooltip max-tooltip"></div>
-            </div>
-            <div class="year-slider-labels">
-                <span id="minYearLabel"></span>
-                <span id="maxYearLabel"></span>
-            </div>
+        <h3>
+            <button id="customGameListButton">Список игр</button>
+        </h3>
+        <label for="yearSlider">Год выпуска: <span id="yearValue"></span></label>
+        <div class="double-slider">
+            <input type="range" id="yearSliderMin" min="1971" max="2023" value="1971">
+            <input type="range" id="yearSliderMax" min="1972" max="2023" value="2024">
+            <div class="slider-track"></div>
         </div>
         <h4>Платформы:</h4>
         <div id="platformsList"></div>
         <h4>Жанры:</h4>
         <div id="genresList"></div>
-        <div id="filterButtons" style="margin-top: 15px;">
+        <div id="filterButtons">
             <button id="completedFilter">Только<br>пройденные</button>
             <button id="hideCompletedButton">Скрыть пройденные</button>
         </div>
-        <div style="text-align: center; margin: 10px 0;">
-            <button id="customGameListButton" style="transform: scale(1.1);">Список игр</button>
-        </div>
-        <div style="text-align: center; margin-bottom: 10px;">
+        <div id="resetFiltersButtonContainer">
             <button id="resetFiltersButton">Сбросить фильтры</button>
         </div>
         <div id="saturationContainer">
@@ -1834,10 +1288,9 @@
                     <button type="button" id="searchGameModalButton">Добавить 10 игр</button>
                 </div>
                 <div id="searchInputContainer" style="display: none;">
-                    <div class="search-input-wrapper">
-                        <input type="text" id="searchGameInput" placeholder="Введите название игры">
-                    </div>
+                    <input type="text" id="searchGameInput" placeholder="Введите название игры">
                     <button type="button" id="performSearchButton">Поиск</button>
+                    <button id="closeSearchResults" type="button">Очистить</button>
                 </div>
                 <div id="searchResults"></div>
             </form>
@@ -1854,12 +1307,10 @@
     <div id="customGameListModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h2>Список игр</h2>
-            <input type="text" id="customGameSearchInput" placeholder="Поиск...">
+            <h2>Список добавленных игр</h2>
+            <input type="text" id="customGameSearchInput" placeholder="Поиск игры...">
             <div id="customGameList"></div>
-            <div style="text-align: center;">
-                <button id="deleteAllApiGamesButton">Удалить все добавленные игры</button>
-            </div>
+            <button id="deleteAllApiGamesButton">Удалить все добавленные игры</button>
         </div>
     </div>
 
@@ -1957,12 +1408,12 @@
             if (!gameId) {
                 return;
             }
-
+            
             const game = games.find(g => g.id && g.id.toString() === gameId.toString());
             if (!game) {
                 return;
             }
-
+                        
             if (inProgressMode) {
                 if (!game.inProgress && !game.completed) {
                     game.inProgress = true;
@@ -1990,14 +1441,14 @@
                 }
             }
             updateSaturation();
-
+            
             cell.classList.remove('completed', 'in-progress');
             if (game.completed) {
                 cell.classList.add('completed');
             } else if (game.inProgress) {
                 cell.classList.add('in-progress');
             }
-
+            
             if (game.inProgress) {
                 if (cell.parentElement !== inProgressRow) {
                     grid.removeChild(cell);
@@ -2017,9 +1468,10 @@
             }
 
             updateCellSize(cell, game.inProgress);
-
-            // Добавляем или удаляем класс hidden в зависимости от состояния hideCompleted и статуса игры
-            cell.classList.toggle('hidden', hideCompleted && game.completed);
+            
+            if (hideCompleted) {
+                cell.classList.toggle('hidden', game.completed);
+            }
 
             if (game.inProgress) {
                 cell.classList.add('in-progress');
@@ -2035,88 +1487,11 @@
             applyFilters();
         }
 
-        // Функция для сортировки игр по году (игры без года в конце)
-        function sortGamesByYear(gamesArray) {
-            // Проверяем, установлены ли в фильтрах конкретные значения минимального и максимального года
-            const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
-            const minGameYear = Math.min(...years);
-            const maxGameYear = Math.max(...years);
-
-            // Проверяем, изменены ли ползунки из их стандартного положения
-            const minVal = parseInt(yearSliderMin.value);
-            const maxVal = parseInt(yearSliderMax.value);
-
-            // Фильтр считается активным, если пользователь изменил ползунки
-            // И они не находятся на минимальном и максимальном значениях
-            const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
-
-            // Если пользователь изменил ползунки, сортируем игры по году (игры без года в конце)
-            if (isYearFilterActive) {
-                return [...gamesArray].sort((a, b) => {
-                    // Если обе игры имеют год, сортируем по возрастанию
-                    if (a.year !== null && b.year !== null) {
-                        return a.year - b.year;
-                    }
-                    // Если только у первой игры нет года, она идет в конец
-                    if (a.year === null && b.year !== null) {
-                        return 1;
-                    }
-                    // Если только у второй игры нет года, она идет в конец
-                    if (a.year !== null && b.year === null) {
-                        return -1;
-                    }
-                    // Если у обеих игр нет года, сортируем по ID
-                    return a.id - b.id;
-                });
-            }
-
-            // Если пользователь не изменил ползунки, сортируем по ID
-            return [...gamesArray].sort((a, b) => a.id - b.id);
-        }
-
-        function renderGames(forceIdSort = false) {
+        function renderGames() {
             grid.innerHTML = '';
             inProgressRow.innerHTML = '';
             let renderedCells = 0;
-
-            // Проверяем, активен ли фильтр по годам
-            const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
-            const minGameYear = Math.min(...years);
-            const maxGameYear = Math.max(...years);
-
-            const minVal = parseInt(yearSliderMin.value);
-            const maxVal = parseInt(yearSliderMax.value);
-
-            // Фильтр считается активным, если пользователь изменил ползунки
-            const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
-
-            // Сортируем игры перед отображением
-            let sortedGames;
-
-            if (isYearFilterActive && !forceIdSort) {
-                // Если фильтр по годам активен, сортируем по году (игры без года в конец)
-                sortedGames = [...games].sort((a, b) => {
-                    // Если обе игры имеют год, сортируем по возрастанию
-                    if (a.year !== null && b.year !== null) {
-                        return a.year - b.year;
-                    }
-                    // Если только у первой игры нет года, она идет в конец
-                    if (a.year === null && b.year !== null) {
-                        return 1;
-                    }
-                    // Если только у второй игры нет года, она идет в конец
-                    if (a.year !== null && b.year === null) {
-                        return -1;
-                    }
-                    // Если у обеих игр нет года, сортируем по ID
-                    return a.id - b.id;
-                });
-            } else {
-                // Если фильтр по годам не активен или указан параметр forceIdSort, сортируем по ID
-                sortedGames = [...games].sort((a, b) => a.id - b.id);
-            }
-
-            sortedGames.forEach(game => {
+            games.forEach(game => {
                 const cell = createCell(game);
                 if (game.inProgress) {
                     inProgressRow.appendChild(cell);
@@ -2126,130 +1501,66 @@
                 renderedCells++;
             });
             updateInProgressRow();
-            // applyFilters(); // <-- Убираем этот вызов
-        }
+            applyFilters();
+        }        
 
         function insertCellInOrder(cell) {
             const gameId = parseInt(cell.dataset.gameId);
-            const game = games.find(g => g.id.toString() === gameId.toString());
             const cells = Array.from(grid.children);
-
-            // Проверяем, установлены ли в фильтрах конкретные значения минимального и максимального года
-            const years = [...new Set(games.filter(g => g.year !== null).map(g => g.year))].sort((a, b) => a - b);
-            const minGameYear = Math.min(...years);
-            const maxGameYear = Math.max(...years);
-
-            // Проверяем, изменены ли ползунки из их стандартного положения
-            const minVal = parseInt(yearSliderMin.value);
-            const maxVal = parseInt(yearSliderMax.value);
-
-            // Фильтр считается активным, если пользователь изменил ползунки
-            const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
-
-            if (isYearFilterActive && game && game.year !== null) {
-                // Если фильтр по годам активен и у игры есть год, ищем позицию по году
-                let insertIndex = -1;
-
-                for (let i = 0; i < cells.length; i++) {
-                    const cellId = parseInt(cells[i].dataset.gameId);
-                    const cellGame = games.find(g => g.id.toString() === cellId.toString());
-
-                    if (!cellGame) continue;
-
-                    // Если у текущей игры в сетке нет года, то вставляем перед ней
-                    if (cellGame.year === null) {
-                        insertIndex = i;
-                        break;
-                    }
-
-                    // Если год текущей игры в сетке больше года добавляемой игры, вставляем перед ней
-                    if (cellGame.year > game.year) {
-                        insertIndex = i;
-                        break;
-                    }
-                }
-
-                if (insertIndex === -1) {
-                    grid.appendChild(cell);
-                } else {
-                    grid.insertBefore(cell, cells[insertIndex]);
-                }
-            } else if (isYearFilterActive && game && game.year === null) {
-                // Если фильтр по годам активен и у игры нет года, добавляем в конец
+            const insertIndex = cells.findIndex(c => parseInt(c.dataset.gameId) > gameId);
+            
+            if (insertIndex === -1) {
                 grid.appendChild(cell);
             } else {
-                // Если фильтр по годам не активен, используем сортировку по ID
-                const insertIndex = cells.findIndex(c => parseInt(c.dataset.gameId) > gameId);
-
-                if (insertIndex === -1) {
-                    grid.appendChild(cell);
-                } else {
-                    grid.insertBefore(cell, cells[insertIndex]);
-                }
+                grid.insertBefore(cell, cells[insertIndex]);
             }
         }
 
         async function searchGameFromApi() {
-            const gameName = searchGameInput.value.trim();
-            if (!gameName) {
-                showMessage('Введите название');
-
-                // Добавляем обработчик события для скрытия сообщения при вводе
-                const messageOverlay = document.querySelector('.message-overlay');
-                if (messageOverlay) {
-                    const inputHandler = () => {
-                        if (searchGameInput.value.trim() !== '') {
-                            messageOverlay.remove();
-                            searchGameInput.removeEventListener('input', inputHandler);
-                        }
-                    };
-                    searchGameInput.addEventListener('input', inputHandler);
-                }
-
-                return;
-            }
-
             showLoadingMessage();
-            try {
-                const indexResponse = await fetch('data/index.json');
-                if (!indexResponse.ok) {
-                    throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                }
-                const index = await indexResponse.json();
-
-                let matchedGames = [];
-                for (let i = 1; i <= index.total_files; i++) {
-                    const response = await fetch(`data/games_${i}.json`);
-                    if (!response.ok) {
-                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+            const gameName = searchGameInput.value.trim();
+            if (gameName) {
+                try {
+                    const indexResponse = await fetch('data/index.json');
+                    if (!indexResponse.ok) {
+                        throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
                     }
-                    const fileGames = await response.json();
-                    const matches = fileGames.filter(game =>
-                        game.name.toLowerCase().includes(gameName.toLowerCase())
-                    );
-                    matchedGames = matchedGames.concat(matches);
-                    if (matchedGames.length >= 30) {
-                        break;
-                    }
-                }
+                    const index = await indexResponse.json();
 
-                matchedGames = matchedGames.slice(0, 30);
-                displaySearchResults(matchedGames);
-            } catch (error) {
-                console.error('Ошибка при поиске игры:', error);
-                searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
-            } finally {
-                hideLoadingMessage();
+                    let matchedGames = [];
+                    for (let i = 1; i <= index.total_files; i++) {
+                        const response = await fetch(`data/games_${i}.json`);
+                        if (!response.ok) {
+                            throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                        }
+                        const fileGames = await response.json();
+                        const matches = fileGames.filter(game => 
+                            game.name.toLowerCase().includes(gameName.toLowerCase())
+                        );
+                        matchedGames = matchedGames.concat(matches);
+                        if (matchedGames.length >= 30) {
+                            break;
+                        }
+                    }
+
+                    matchedGames = matchedGames.slice(0, 30);
+                    displaySearchResults(matchedGames);
+                } catch (error) {
+                    console.error('Ошибка при поиске игры:', error);
+                    searchResults.innerHTML = '<p>Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
+                } finally {
+                    hideLoadingMessage();
+                }
             }
         }
 
         function displaySearchResults(games) {
             searchResults.innerHTML = '';
             if (games.length === 0) {
-                searchResults.innerHTML = '<p class="no-games-found">Игры не найдены.</p>';
+                searchResults.innerHTML = '<p>Игры не найдены.</p>';
                 return;
             }
-
+            
             const uniqueGames = games.filter((game, index, self) =>
                 index === self.findIndex((t) => t.id === game.id)
             );
@@ -2259,27 +1570,13 @@
                 resultElement.className = 'search-result';
                 const releaseYear = game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : 'N/A';
                 resultElement.innerHTML = `
-                    <div class="game-info">
-                        <span class="game-name">${game.name}</span>
-                        <span class="game-year">(${releaseYear})</span>
-                    </div>
+                    <span>${game.name} (${releaseYear})</span>
                     <button type="button" class="add-game-button">Добавить</button>
                 `;
                 resultElement.querySelector('.add-game-button').addEventListener('click', () => addGameFromSearch(game));
-
-                // Добавляем анимацию плавного появления
-                resultElement.style.opacity = '0';
-                resultElement.style.transform = 'translateY(10px)';
                 searchResults.appendChild(resultElement);
-
-                // Запускаем анимацию с небольшой задержкой для каждого элемента
-                setTimeout(() => {
-                    resultElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                    resultElement.style.opacity = '1';
-                    resultElement.style.transform = 'translateY(0)';
-                }, 50 * uniqueGames.indexOf(game)); // Задержка зависит от порядкового номера элемента
             });
-            // Удалено, так как кнопка "Очистить" была удалена
+            document.getElementById('closeSearchResults').style.display = 'inline-block';
         }
 
         performSearchButton.addEventListener('click', () => {
@@ -2293,13 +1590,13 @@
                 const cell = createCell(game);
                 inProgressRow.appendChild(cell);
             });
-
+            
             if (inProgressRow.children.length > 0) {
                 inProgressRow.style.display = 'flex';
             } else {
                 inProgressRow.style.display = 'none';
             }
-
+            
             const size = sizeSlider.value;
             inProgressRow.querySelectorAll('.cell').forEach(cell => {
                 updateCellSize(cell, true);
@@ -2375,7 +1672,8 @@
         function closeAddGameModal() {
             addGameModal.style.display = 'none';
             searchGameInput.value = '';
-            searchResults.innerHTML = '';
+            searchResults.innerHTML = ''; 
+            document.getElementById('closeSearchResults').style.display = 'none';
         }
 
         function getRandomPastelColor() {
@@ -2402,7 +1700,7 @@
             const img = preview.querySelector('img');
             const abbreviationPlaceholder = preview.querySelector('.abbreviation-placeholder') || document.createElement('div');
             abbreviationPlaceholder.className = 'abbreviation-placeholder';
-
+            
             if (game.imageUrl) {
                 img.src = game.imageUrl;
                 img.style.display = 'block';
@@ -2417,15 +1715,15 @@
             const updatePreviewPosition = () => {
                 const previewRect = preview.getBoundingClientRect();
                 const margin = window.innerWidth * 0.05;
-
+                
                 let currentSide = preview.style.right === 'auto' ? 'left' : 'right';
-
+                
                 if (currentSide === 'left' && e.clientX < previewRect.right + margin) {
                     currentSide = 'right';
                 } else if (currentSide === 'right' && e.clientX > previewRect.left - margin) {
                     currentSide = 'left';
                 }
-
+                
                 if (currentSide === 'left') {
                     preview.style.left = '5%';
                     preview.style.right = 'auto';
@@ -2448,7 +1746,7 @@
                     }
                     img.style.width = `${width}px`;
                     img.style.height = `${height}px`;
-
+                    
                     updatePreviewPosition();
                 };
             } else {
@@ -2457,15 +1755,15 @@
                 updatePreviewPosition();
             }
 
-            const yearText = game.year ? ` (${game.year})` : ' (N/A)';
+            const yearText = game.year ? ` (${game.year})` : '';
             preview.querySelector('p').textContent = `${game.name}${yearText}`;
             startPreviewTimeout();
         }
 
         function showGameTitle(e, game) {
-            gameTitle.innerHTML = `${game.name}<span class="game-year">${game.year ? `(${game.year})` : '(N/A)'}</span>`;
+            gameTitle.innerHTML = `${game.name}<span class="game-year">${game.year ? `(${game.year})` : ''}</span>`;
             gameTitle.style.display = 'block';
-
+            
             const titleRect = gameTitle.getBoundingClientRect();
             const left = e.clientX - titleRect.width / 2;
             const top = e.clientY - titleRect.height - 10;
@@ -2517,16 +1815,12 @@
             document.documentElement.style.setProperty('--cell-size', `${size}px`);
             grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${size}px, 1fr))`;
             localStorage.setItem('gridSize', size);
-
+            
             updateAllCellSizes();
-
-            // Вызываем updateInProgressRow() только если ползунок не в движении
-            if (!sizeSliderMoving) {
-                updateInProgressRow();
-            }
+            updateInProgressRow();
 
             void grid.offsetHeight;
-            // Убираем вызов applyFilters() отсюда, так как он теперь в обработчике события change
+            applyFilters(); // Добавляем вызов applyFilters здесь
         }
 
         function lazyLoadImages() {
@@ -2631,7 +1925,7 @@
                 cell.style.width = `${size}px`;
                 cell.style.height = `${size * 1.33}px`;
             }
-
+            
             const abbreviationPlaceholder = cell.querySelector('.abbreviation-placeholder');
             if (abbreviationPlaceholder) {
                 abbreviationPlaceholder.style.fontSize = `${size * 0.15}px`;
@@ -2650,9 +1944,9 @@
         function toggleInProgressMode() {
             inProgressMode = !inProgressMode;
             inProgressButton.classList.toggle('active', inProgressMode);
-
+            
             const currentSearchValue = searchInput.value.toLowerCase().trim();
-
+            
             document.querySelectorAll('.cell').forEach(cell => {
                 const game = games.find(g => g.id === parseInt(cell.dataset.gameId));
                 cell.classList.remove('completed', 'in-progress');
@@ -2685,15 +1979,6 @@
             hideCompleted = !hideCompleted;
             hideCompletedButton.classList.toggle('active');
             localStorage.setItem('hideCompleted', hideCompleted);
-
-            // Делаем кнопку "Только пройденные" неактивной, если нажата кнопка "Скрыть пройденные"
-            completedFilter.classList.toggle('button-disabled', hideCompleted);
-
-            // Добавляем или удаляем класс hidden для пройденных игр
-            document.querySelectorAll('.cell.completed').forEach(cell => {
-                cell.classList.toggle('hidden', hideCompleted);
-            });
-
             applyFilters();
             updateSaturation();
         }
@@ -2708,7 +1993,7 @@
                 completedGames = 0;
                 localStorage.removeItem('completedGames');
                 localStorage.removeItem('inProgressGames');
-
+                
                 document.querySelectorAll('.cell').forEach(cell => {
                     cell.classList.remove('completed', 'in-progress');
                 });
@@ -2728,7 +2013,7 @@
                 applyFilters();
                 updateCounter();
                 updateProgressBar();
-
+                
                 searchInput.value = '';
                 searchGames();
 
@@ -2744,7 +2029,7 @@
                 const gameName = cell.title.toLowerCase();
                 const gameId = cell.getAttribute('data-game-id');
                 const game = games.find(g => g.id.toString() === gameId);
-
+                
                 if (game && shouldShowGame(game) && (searchTerm === '' || gameName.includes(searchTerm))) {
                     cell.style.display = '';
                 } else {
@@ -2769,46 +2054,20 @@
         }
 
         function populateFilters() {
-            // Фильтруем игры без года (null) при определении диапазона лет
-            const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
+            const years = [...new Set(games.map(game => game.year))].sort((a, b) => a - b);
             const platforms = [...new Set(games.flatMap(game => game.platforms))].sort();
             const genres = [...new Set(games.flatMap(game => game.genres))].sort();
 
             const minGameYear = Math.min(...years);
-            const maxGameYear = Math.max(...years);
-            // Проверяем, активен ли фильтр по годам
-            if (savedMinYear && parseInt(savedMinYear) > minGameYear) {
-                minYear = parseInt(savedMinYear);
-            } else {
-                minYear = minGameYear;
-                // Удаляем значение из localStorage, если оно равно минимальному году
-                if (savedMinYear) {
-                    localStorage.removeItem('minYear');
-                }
-            }
+            minYear = savedMinYear ? Math.max(parseInt(savedMinYear), minGameYear) : minGameYear;
+            maxYear = savedMaxYear ? parseInt(savedMaxYear) : years[years.length - 1];
 
-            if (savedMaxYear && parseInt(savedMaxYear) < maxGameYear) {
-                maxYear = parseInt(savedMaxYear);
-            } else {
-                maxYear = maxGameYear;
-                // Удаляем значение из localStorage, если оно равно максимальному году
-                if (savedMaxYear) {
-                    localStorage.removeItem('maxYear');
-                }
-            }
-
-            // Обновляем атрибуты ползунков
             yearSliderMin.min = minGameYear;
-            yearSliderMin.max = maxGameYear;
+            yearSliderMin.max = years[years.length - 1];
             yearSliderMin.value = minYear;
             yearSliderMax.min = minGameYear;
-            yearSliderMax.max = maxGameYear;
+            yearSliderMax.max = years[years.length - 1];
             yearSliderMax.value = maxYear;
-
-            // Обновляем метки годов
-            document.getElementById('minYearLabel').textContent = minGameYear;
-            document.getElementById('maxYearLabel').textContent = maxGameYear;
-
             updateYearValue();
 
             platformsList.innerHTML = '';
@@ -2832,29 +2091,12 @@
                     localStorage.setItem('selectedPlatforms', JSON.stringify(selectedPlatforms));
                     applyFilters();
                 });
-                // Создаем контейнер для чекбокса и метки
-                const container = document.createElement('div');
-                container.style.display = 'flex';
-                container.style.alignItems = 'flex-start';
-                container.style.marginBottom = '3px';
-
-                // Добавляем чекбокс в контейнер
-                container.appendChild(checkbox);
-
-                // Создаем метку
                 const label = document.createElement('label');
                 label.htmlFor = `platform-${platform}`;
                 label.textContent = platform;
-                label.style.marginLeft = '6px';
-                label.style.wordWrap = 'break-word';
-                label.style.whiteSpace = 'normal';
-                label.style.flex = '1';
-
-                // Добавляем метку в контейнер
-                container.appendChild(label);
-
-                // Добавляем контейнер в список
-                platformsList.appendChild(container);
+                platformsList.appendChild(checkbox);
+                platformsList.appendChild(label);
+                platformsList.appendChild(document.createElement('br'));
             });
 
             uniqueGenres.forEach(genre => {
@@ -2872,29 +2114,12 @@
                     localStorage.setItem('selectedGenres', JSON.stringify(selectedGenres));
                     applyFilters();
                 });
-                // Создаем контейнер для чекбокса и метки
-                const container = document.createElement('div');
-                container.style.display = 'flex';
-                container.style.alignItems = 'flex-start';
-                container.style.marginBottom = '3px';
-
-                // Добавляем чекбокс в контейнер
-                container.appendChild(checkbox);
-
-                // Создаем метку
                 const label = document.createElement('label');
                 label.htmlFor = `genre-${genre}`;
                 label.textContent = genre;
-                label.style.marginLeft = '6px';
-                label.style.wordWrap = 'break-word';
-                label.style.whiteSpace = 'normal';
-                label.style.flex = '1';
-
-                // Добавляем метку в контейнер
-                container.appendChild(label);
-
-                // Добавляем контейнер в список
-                genresList.appendChild(container);
+                genresList.appendChild(checkbox);
+                genresList.appendChild(label);
+                genresList.appendChild(document.createElement('br'));
             });
         }
 
@@ -2902,132 +2127,27 @@
             const minYear = parseInt(yearSliderMin.value);
             const maxYear = parseInt(yearSliderMax.value);
             yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
-
-            // Проверяем, установлены ли ползунки на минимальное и максимальное значения
-            const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
-            const minGameYear = Math.min(...years);
-            const maxGameYear = Math.max(...years);
-
-            // Если ползунки установлены на минимальное и максимальное значения, удаляем значения из localStorage
-            if (minYear <= minGameYear) {
-                localStorage.removeItem('minYear');
-            } else {
-                localStorage.setItem('minYear', minYear);
-            }
-
-            if (maxYear >= maxGameYear) {
-                localStorage.removeItem('maxYear');
-            } else {
-                localStorage.setItem('maxYear', maxYear);
-            }
-
-            // Обновляем подсветку трека ползунка
-            updateSliderTrack();
-
-            // Обновляем позицию тултипов
-            updateTooltips();
-        }
-
-        // Функция для обновления подсветки трека ползунка
-        function updateSliderTrack() {
-            const minVal = parseInt(yearSliderMin.value);
-            const maxVal = parseInt(yearSliderMax.value);
-            const minPos = (minVal - yearSliderMin.min) / (yearSliderMin.max - yearSliderMin.min) * 100;
-            const maxPos = (maxVal - yearSliderMax.min) / (yearSliderMax.max - yearSliderMax.min) * 100;
-
-            const trackHighlight = document.querySelector('.slider-track-highlight');
-            trackHighlight.style.left = `${minPos}%`;
-            trackHighlight.style.width = `${maxPos - minPos}%`;
-        }
-
-        // Функция для обновления позиции тултипов
-        function updateTooltips() {
-            const minVal = parseInt(yearSliderMin.value);
-            const maxVal = parseInt(yearSliderMax.value);
-            const minPos = (minVal - yearSliderMin.min) / (yearSliderMin.max - yearSliderMin.min) * 100;
-            const maxPos = (maxVal - yearSliderMax.min) / (yearSliderMax.max - yearSliderMax.min) * 100;
-
-            const minTooltip = document.querySelector('.min-tooltip');
-            const maxTooltip = document.querySelector('.max-tooltip');
-
-            minTooltip.textContent = minVal;
-            maxTooltip.textContent = maxVal;
-
-            minTooltip.style.left = `${minPos}%`;
-            maxTooltip.style.left = `${maxPos}%`;
+            localStorage.setItem('minYear', minYear);
+            localStorage.setItem('maxYear', maxYear);
         }
 
         function shouldShowGame(game) {
-            const minGameYear = Math.min(...games.filter(g => g.year !== null).map(g => g.year));
+            const minGameYear = Math.min(...games.map(g => g.year));
             const showCompleted = completedFilter.classList.contains('active');
             return (
                 (!hideCompleted || !game.completed) &&
                 (showCompleted ? game.completed : true) &&
                 (selectedGenres.length === 0 || game.genres.some(genre => selectedGenres.includes(genre))) &&
                 (selectedPlatforms.length === 0 || game.platforms.some(platform => selectedPlatforms.includes(platform))) &&
-                (game.year === null || (game.year >= Math.max(yearSliderMin.value, minGameYear) && game.year <= yearSliderMax.value))
+                game.year >= Math.max(yearSliderMin.value, minGameYear) && game.year <= yearSliderMax.value
             );
         }
 
-        function applyFilters(forceIdSort = false) {
+        function applyFilters() {
             const searchTerm = currentSearchTerm.toLowerCase();
             let visibleGames = 0;
             let hiddenGames = [];
             let firstInProgressMatchElement = null; // Store the first matching element in inProgressRow
-
-            // Проверяем, изменились ли фильтры по годам
-            const years = [...new Set(games.filter(g => g.year !== null).map(g => g.year))].sort((a, b) => a - b);
-            const minGameYear = Math.min(...years);
-            const maxGameYear = Math.max(...years);
-
-            // Проверяем, изменены ли ползунки из их стандартного положения
-            const minVal = parseInt(yearSliderMin.value);
-            const maxVal = parseInt(yearSliderMax.value);
-
-            // Фильтр считается активным, если пользователь изменил ползунки
-            const isYearFilterActive = minVal > minGameYear || maxVal < maxGameYear;
-
-            // Если фильтр по годам активен и не указан параметр forceIdSort, пересортируем игры в сетке
-            if (isYearFilterActive && !forceIdSort) {
-                // Собираем все игры, которые не в режиме "in progress"
-                const gridCells = Array.from(grid.children);
-                const gridGames = [];
-
-                // Сохраняем связь между игрой и ячейкой
-                gridCells.forEach(cell => {
-                    const gameId = cell.getAttribute('data-game-id');
-                    const game = games.find(g => g.id.toString() === gameId);
-                    if (game) {
-                        gridGames.push({ game, cell });
-                    }
-                });
-
-                // Сортируем игры по году (игры без года в конец)
-                gridGames.sort((a, b) => {
-                    // Если обе игры имеют год, сортируем по возрастанию
-                    if (a.game.year !== null && b.game.year !== null) {
-                        return a.game.year - b.game.year;
-                    }
-                    // Если только у первой игры нет года, она идет в конец
-                    if (a.game.year === null && b.game.year !== null) {
-                        return 1;
-                    }
-                    // Если только у второй игры нет года, она идет в конец
-                    if (a.game.year !== null && b.game.year === null) {
-                        return -1;
-                    }
-                    // Если у обеих игр нет года, сортируем по ID
-                    return a.game.id - b.game.id;
-                });
-
-                // Очищаем сетку
-                grid.innerHTML = '';
-
-                // Добавляем ячейки в новом порядке
-                gridGames.forEach(item => {
-                    grid.appendChild(item.cell);
-                });
-            }
 
             // Reset styles/visibility first
             document.querySelectorAll('.cell').forEach(cell => {
@@ -3102,11 +2222,9 @@
                 return;
             }
             completedFilter.classList.toggle('active');
-            const isActive = completedFilter.classList.contains('active');
-            localStorage.setItem('completedFilterActive', isActive); // Сохраняем состояние
             applyFilters();
-            hideCompletedButton.classList.toggle('button-disabled', isActive);
-            // saveGames(); // saveGames здесь, вероятно, не нужен, так как состояние игры не меняется
+            hideCompletedButton.classList.toggle('button-disabled', completedFilter.classList.contains('active'));
+            saveGames();
             updateFiltersAndCounter();
         }
 
@@ -3134,11 +2252,11 @@
 
         function showRandomSelection(game) {
             const randomCell = document.querySelector(`.cell[data-game-id="${game.id}"]`);
-
+            
             document.querySelectorAll('.cell').forEach(cell => {
                 cell.style.display = 'none';
             });
-
+            
             let imgSrc = game.image_url || game.imageUrl;
             let content;
             if (!imgSrc) {
@@ -3151,23 +2269,23 @@
             } else {
                 content = `<img src="${imgSrc}" alt="${game.name}">`;
             }
-
-            const yearText = game.year ? ` (${game.year})` : ' (N/A)';
+            
+            const yearText = game.year ? ` (${game.year})` : '';
             randomSelected.innerHTML = `
                 ${content}
                 <p>${game.name}${yearText}</p>
             `;
             randomSelectedContainer.style.display = 'flex';
-
+            
             const isLastOfUs2 = game.name.toLowerCase().includes('the last of us part ii');
-
+            
             document.getElementById('dontWantButton').textContent = isLastOfUs2 ? 'Да ну нафиг' : 'Не хочу';
             document.getElementById('wantToPlayButton').textContent = isLastOfUs2 ? 'Ну, с богом' : 'Хочу пройти!';
             document.getElementById('anotherRandomButton').textContent = isLastOfUs2 ? 'Давай может другую, а?' : 'Давай другую';
-
+            
             document.getElementById('topButtons').style.display = 'flex';
             document.getElementById('anotherRandomButton').style.display = 'block';
-
+            
             document.getElementById('wantToPlayButton').onclick = () => {
                 game.inProgress = true;
                 if (randomCell) {
@@ -3175,33 +2293,31 @@
                     if (randomCell.parentElement === grid) {
                         grid.removeChild(randomCell);
                     }
-                    // Добавляем ячейку в строку "В процессе" *перед* обновлением
                     inProgressRow.appendChild(randomCell);
                 }
-                updateInProgressRow(); // Обновляем строку "В процессе"
-                applyFilters(); // Применяем фильтры к обновленному состоянию
-                hideRandomSelection(); // Скрываем окно выбора (которое тоже вызывает applyFilters, но это не страшно)
+                hideRandomSelection();
+                updateInProgressRow();
                 saveGames();
-                // randomSelectedContainer.style.display = 'none'; // Это делается внутри hideRandomSelection
+                randomSelectedContainer.style.display = 'none';
                 currentRandomGame = null;
             };
-
+            
             document.getElementById('dontWantButton').onclick = () => {
                 currentRandomGame = null;
                 hideRandomSelection();
             };
-
+            
             document.getElementById('anotherRandomButton').onclick = () => {
                 currentRandomGame = null;
                 selectRandomGame();
             };
-
+            
             setTimeout(() => {
                 const selectedImg = randomSelected.querySelector('img');
                 const abbreviationPlaceholder = randomSelected.querySelector('.abbreviation-placeholder');
                 const containerWidth = (randomSelectedContainer.clientWidth - 40) * 1.5;
                 const containerHeight = (randomSelectedContainer.clientHeight - 200) * 1.5;
-
+                
                 if (abbreviationPlaceholder) {
                     abbreviationPlaceholder.style.width = '200px';
                     abbreviationPlaceholder.style.height = '300px';
@@ -3225,10 +2341,12 @@
 
         function hideRandomSelection() {
             randomSelectedContainer.style.display = 'none';
-            // Убран цикл, который сбрасывал display для всех ячеек
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.style.display = '';
+            });
             document.getElementById('topButtons').style.display = 'none';
             document.getElementById('anotherRandomButton').style.display = 'none';
-            applyFilters(); // Эта функция теперь корректно установит видимость
+            applyFilters();
         }
 
         function resetFilters() {
@@ -3271,24 +2389,6 @@
             //     cell.classList.remove('hidden');
             // });
 
-            // Перерисовываем все игры с нуля, сортируя по ID
-            grid.innerHTML = '';
-            inProgressRow.innerHTML = '';
-
-            // Сортируем игры по ID
-            const sortedGames = [...games].sort((a, b) => a.id - b.id);
-
-            sortedGames.forEach(game => {
-                const cell = createCell(game);
-                if (game.inProgress) {
-                    inProgressRow.appendChild(cell);
-                } else {
-                    grid.appendChild(cell);
-                }
-            });
-
-            updateInProgressRow();
-
             applyFilters(); // Эта функция теперь применит сброшенные фильтры и ТЕКУЩИЙ поисковый запрос
 
             saturationSlider.value = currentSaturation;
@@ -3310,7 +2410,6 @@
         randomButton.addEventListener('click', selectRandomGame);
         saturationSlider.addEventListener('input', updateSaturation);
 
-        // Обработчики событий для ползунка минимального года
         yearSliderMin.addEventListener('input', () => {
             const minVal = parseInt(yearSliderMin.value);
             const maxVal = parseInt(yearSliderMax.value);
@@ -3321,15 +2420,6 @@
             applyFilters();
         });
 
-        yearSliderMin.addEventListener('mouseover', () => {
-            document.querySelector('.min-tooltip').style.opacity = '1';
-        });
-
-        yearSliderMin.addEventListener('mouseout', () => {
-            document.querySelector('.min-tooltip').style.opacity = '0';
-        });
-
-        // Обработчики событий для ползунка максимального года
         yearSliderMax.addEventListener('input', () => {
             const minVal = parseInt(yearSliderMin.value);
             const maxVal = parseInt(yearSliderMax.value);
@@ -3340,122 +2430,7 @@
             applyFilters();
         });
 
-        yearSliderMax.addEventListener('mouseover', () => {
-            document.querySelector('.max-tooltip').style.opacity = '1';
-        });
-
-        yearSliderMax.addEventListener('mouseout', () => {
-            document.querySelector('.max-tooltip').style.opacity = '0';
-        });
-
-        // Инициализация подсветки трека и тултипов при загрузке
-        updateSliderTrack();
-        updateTooltips();
-
-        // Добавим обработчики событий для анимации полосок после загрузки игр
-        setTimeout(() => {
-            try {
-                // Находим заголовки по тексту
-                const headers = Array.from(document.querySelectorAll('#filtersPanel h4'));
-                const platformsHeader = headers.find(h => h.textContent === 'Платформы:');
-                const genresHeader = headers.find(h => h.textContent === 'Жанры:');
-
-                if (platformsHeader && genresHeader) {
-                    // Обработчики для списка платформ
-                    platformsList.addEventListener('mouseenter', () => {
-                        platformsHeader.classList.add('active');
-                    });
-
-                    platformsList.addEventListener('mouseleave', () => {
-                        platformsHeader.classList.remove('active');
-                    });
-
-                    platformsHeader.addEventListener('mouseenter', () => {
-                        platformsHeader.classList.add('active');
-                    });
-
-                    platformsHeader.addEventListener('mouseleave', () => {
-                        if (!platformsList.matches(':hover')) {
-                            platformsHeader.classList.remove('active');
-                        }
-                    });
-
-                    // Обработчики для списка жанров
-                    genresList.addEventListener('mouseenter', () => {
-                        genresHeader.classList.add('active');
-                    });
-
-                    genresList.addEventListener('mouseleave', () => {
-                        genresHeader.classList.remove('active');
-                    });
-
-                    genresHeader.addEventListener('mouseenter', () => {
-                        genresHeader.classList.add('active');
-                    });
-
-                    genresHeader.addEventListener('mouseleave', () => {
-                        if (!genresList.matches(':hover')) {
-                            genresHeader.classList.remove('active');
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('Error setting up header animations:', error);
-            }
-        }, 1000); // Даем время на загрузку игр и фильтров
-
-        // Добавляем переменную для отслеживания состояния ползунка
-        let sizeSliderMoving = false;
-
-        // Изменяем обработчик события для ползунка отдаления/приближения
-        sizeSlider.addEventListener('mousedown', () => {
-            sizeSliderMoving = true;
-            // Сохранение состояния видимости игр в блоке "в процессе" теперь в функции applyFilters()
-        });
-
-        // Добавляем обработчик события touchstart для мобильных устройств
-        sizeSlider.addEventListener('touchstart', () => {
-            sizeSliderMoving = true;
-        });
-
-        sizeSlider.addEventListener('mouseup', () => {
-            sizeSliderMoving = false;
-            applyFilters();
-        });
-
-        // Добавляем обработчик события touchend для мобильных устройств
-        sizeSlider.addEventListener('touchend', () => {
-            sizeSliderMoving = false;
-
-            // Обновляем строку "в процессе" и применяем фильтры после отпускания ползунка
-            updateInProgressRow();
-            applyFilters();
-        });
-
-        sizeSlider.addEventListener('input', () => {
-            sizeSliderMoving = true;
-            updateGridSize();
-        });
-
-        // Добавляем обработчик события при отпускании ползунка
-        sizeSlider.addEventListener('change', () => {
-            sizeSliderMoving = false;
-
-            // Обновляем строку "в процессе" и применяем фильтры после отпускания ползунка
-            updateInProgressRow();
-            applyFilters();
-        });
-
-        // Добавляем обработчики для случая, если мышь уходит за пределы окна
-        document.addEventListener('mouseup', () => {
-            if (sizeSliderMoving) {
-                sizeSliderMoving = false;
-
-                // Обновляем строку "в процессе" и применяем фильтры после отпускания ползунка
-                updateInProgressRow();
-                applyFilters();
-            }
-        });
+        sizeSlider.addEventListener('input', updateGridSize);
         togglePreviewBtn.addEventListener('click', togglePreview);
         inProgressButton.addEventListener('click', toggleInProgressMode);
         hideCompletedButton.addEventListener('click', toggleHideCompleted);
@@ -3474,21 +2449,7 @@
         clearSearchButton.addEventListener('click', clearSearch);
         filtersButton.addEventListener('click', (event) => {
             event.stopPropagation();
-
-            // Проверяем, открыта или закрыта панель фильтров
-            if (filtersPanel.style.display === 'none' || filtersPanel.style.display === '') {
-                // Открываем панель
-                filtersPanel.style.display = 'block';
-
-                // Устанавливаем высоту списков в зависимости от размера экрана
-                if (typeof setListsHeight === 'function') {
-                    // Даем небольшую задержку, чтобы панель успела отобразиться
-                    setTimeout(setListsHeight, 10);
-                }
-            } else {
-                // Закрываем панель
-                filtersPanel.style.display = 'none';
-            }
+            filtersPanel.style.display = filtersPanel.style.display === 'none' ? 'block' : 'none';
         });
         resetFiltersButton.addEventListener('click', resetFilters);
 
@@ -3514,28 +2475,22 @@
         updateCounter();
 
         hideCompletedButton.classList.toggle('active', hideCompleted);
-        document.querySelectorAll('.cell.completed').forEach(cell => {
-            cell.classList.toggle('hidden', hideCompleted);
-        });
-
+        if (hideCompleted) {
+            document.querySelectorAll('.cell.completed').forEach(cell => {
+                cell.classList.add('hidden');
+            });
+        }
+        
         populateFilters();
         applyFilters();
         updateInProgressRow();
 
-        window.addEventListener('resize', () => { // Обновляем обработчик resize
-            updateInProgressRow();
-            applyFilters(true); // Применяем фильтры после обновления ряда, принудительно сортируя по ID
-
-            // Устанавливаем высоту списков в зависимости от размера экрана
-            if (typeof setListsHeight === 'function') {
-                setListsHeight();
-            }
-        });
+        window.addEventListener('resize', updateInProgressRow);
         updateInProgressRow();
 
         const resetFiltersButtonHeader = document.getElementById('resetFiltersButtonHeader');
         resetFiltersButtonHeader.addEventListener('click', function(event) {
-            event.stopPropagation();
+            event.stopPropagation(); 
             resetFilters();
         });
 
@@ -3545,23 +2500,10 @@
             }
         });
 
-        // Закрытие панели фильтров при клике вне ее (и вне модального окна списка игр)
-        document.addEventListener('click', (event) => {
-            const isClickInsideFilters = filtersPanel.contains(event.target);
-            const isClickInsideCustomListModal = customGameListModal.contains(event.target);
-            const isFiltersButton = event.target === filtersButton || filtersButton.contains(event.target);
-            const isCustomListButton = event.target === customGameListButton; // Не закрывать при клике на кнопку открытия списка
-
-            if (!isClickInsideFilters && !isFiltersButton && !isClickInsideCustomListModal && !isCustomListButton) {
-                 filtersPanel.style.display = 'none';
-            }
-        });
-
         window.addEventListener('load', () => {
             setTimeout(() => {
-                updateGridSize(); // Может вызвать updateInProgressRow
-                updateInProgressRow(); // Убедимся, что ряд обновлен
-                applyFilters(true); // Применяем фильтры повторно после возможных перерисовок, принудительно сортируя по ID
+                updateGridSize();
+                updateInProgressRow();
             }, 100);
         });
 
@@ -3575,13 +2517,13 @@
         const customGameList = document.getElementById('customGameList');
 
         let customGames = JSON.parse(localStorage.getItem('customGames')) || [];
-
+      
         function deleteAllApiGames() {
             if (confirm('Вы уверены, что хотите удалить все добавленные игры?')) {
                 const initialCount = games.length;
                 games = games.filter(game => !game.isCustom && !game.importedFromApi);
                 const deletedCount = initialCount - games.length;
-
+                
                 const cells = document.querySelectorAll('.cell');
                 cells.forEach(cell => {
                     const gameId = cell.getAttribute('data-game-id');
@@ -3592,14 +2534,14 @@
                 });
 
                 saveGames();
-
+                
                 completedGames = games.filter(game => game.completed).length;
                 updateCounter();
                 populateFilters();
                 applyFilters();
-
+                
                 console.log(`Удалено ${deletedCount} добавленных игр`);
-
+               
                 updateCustomGameList();
             }
         }
@@ -3626,32 +2568,8 @@
             });
         });
 
-        // Добавляем переменную для отслеживания активного поля ввода
-        let isInputActive = false;
-
-        // Отслеживаем фокус на полях ввода
-        document.addEventListener('focusin', (event) => {
-            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
-                isInputActive = true;
-            }
-        });
-
-        // Отслеживаем потерю фокуса на полях ввода
-        document.addEventListener('focusout', (event) => {
-            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
-                // Даем небольшую задержку, чтобы проверить, не перешел ли фокус на другое поле ввода
-                setTimeout(() => {
-                    const activeElement = document.activeElement;
-                    if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
-                        isInputActive = false;
-                    }
-                }, 100);
-            }
-        });
-
         window.addEventListener('click', (event) => {
-            // Если клик по модальному окну и нет активного поля ввода
-            if (event.target.classList.contains('modal') && !isInputActive) {
+            if (event.target.classList.contains('modal')) {
                 if (event.target === addGameModal) {
                     closeAddGameModal();
                 } else {
@@ -3675,17 +2593,17 @@
         function handleFormSubmit(e) {
             e.preventDefault();
             const name = document.getElementById('gameName').value.trim();
-
+            
             if (!name) {
                 alert('Название игры обязательно для заполнения');
                 return;
             }
-
+            
             if (!isEditing && isNameOrAbbreviationExists(name, '')) {
                 alert('Игра с таким или похожим названием, или её ремейк/ремастер уже существует');
                 return;
             }
-
+            
             const gameData = {
                 id: isEditing ? editingGameId : Date.now(),
                 name: name,
@@ -3699,18 +2617,18 @@
                 inProgress: false,
                 color: getRandomPastelColor()
             };
-
+            
             if (isEditing) {
                 updateGame(editingGameId, gameData);
             } else {
                 addNewGame(gameData);
             }
-
+            
             closeModal(addGameModal);
             resetAddGameForm();
         }
 
-        function addNewGame(gameData) {
+        function addNewGame(gameData) {            
             const existingGame = findExistingGame(gameData);
             if (existingGame) {
                 console.log('Найдена существующая версия игры:', existingGame.name);
@@ -3731,9 +2649,7 @@
                 };
                 games.push(newGame);
                 const cell = createCell(newGame);
-
-                // Добавляем ячейку в сетку с учетом сортировки по году
-                insertCellInOrder(cell);
+                grid.appendChild(cell);
             }
 
             saveGames();
@@ -3746,12 +2662,12 @@
         document.getElementById('addGameForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const name = document.getElementById('gameName').value.trim();
-
+            
             if (!name) {
                 alert('Название игры обязательно для заполнения');
                 return;
             }
-
+            
             const gameData = {
                 name: name,
                 year: parseInt(document.getElementById('gameYear').value) || null,
@@ -3759,9 +2675,9 @@
                 genres: document.getElementById('gameGenres').value.split(',').map(g => g.trim()).filter(g => g),
                 imageUrl: document.getElementById('gameImageUrl').value.trim() || null,
             };
-
+            
             addNewGame(gameData);
-
+            
             closeModal(addGameModal);
             this.reset();
         });
@@ -3784,14 +2700,14 @@
                 document.getElementById('gamePlatforms').value = game.platforms.join(', ');
                 document.getElementById('gameGenres').value = game.genres.join(', ');
                 document.getElementById('gameImageUrl').value = game.imageUrl || '';
-
+                
                 document.querySelector('#addGameModal h2').textContent = 'Редактировать игру';
-
+                
                 document.querySelector('#addGameForm button[type="submit"]').textContent = 'Сохранить';
-
+                
                 addGameModal.style.display = 'block';
                 customGameListModal.style.display = 'none';
-
+                
                 isEditing = true;
                 editingGameId = gameId;
             }
@@ -3803,10 +2719,10 @@
             document.getElementById('gamePlatforms').value = '';
             document.getElementById('gameGenres').value = '';
             document.getElementById('gameImageUrl').value = '';
-
+            
             document.querySelector('#addGameModal h2').textContent = 'Добавить новую игру';
             document.querySelector('#addGameForm button[type="submit"]').textContent = 'Добавить';
-
+            
             isEditing = false;
             editingGameId = null;
         }
@@ -3826,7 +2742,7 @@
             if (game.isCustom) {
                 cell.classList.add('custom-game');
             }
-
+    
             let img;
             if (game.imageUrl) {
                 img = document.createElement('img');
@@ -3845,7 +2761,7 @@
                 placeholder.innerHTML = `<span style="color: ${color};">${game.name}</span>`;
                 cell.appendChild(placeholder);
             }
-
+    
             cell.title = game.name;
             cell.addEventListener('click', () => toggleCell(cell, game.id));
 
@@ -3872,7 +2788,7 @@
              });
 
             updateCellSize(cell, game.inProgress);
-
+    
             return cell;
         }
 
@@ -3894,7 +2810,7 @@
         function updateCustomGameList() {
             customGameList.innerHTML = '';
             const searchTerm = document.getElementById('customGameSearchInput').value.toLowerCase();
-
+            
             games.forEach(game => {
                 if (game.name.toLowerCase().includes(searchTerm)) {
                     const gameElement = document.createElement('div');
@@ -3908,7 +2824,7 @@
                     customGameList.appendChild(gameElement);
                 }
             });
-
+            
             customGameList.removeEventListener('click', customGameListClickHandler);
             customGameList.addEventListener('click', customGameListClickHandler);
         }
@@ -3930,13 +2846,13 @@
             if (gameId && confirm('Вы уверены, что хотите удалить эту игру?')) {
                 games = games.filter(g => g.id.toString() !== gameId.toString());
                 localStorage.setItem('games', JSON.stringify(games));
-
+                
                 const cellToRemove = document.querySelector(`.cell[data-game-id="${gameId}"]`);
                 if (cellToRemove) {
                     cellToRemove.remove();
                 } else {
                 }
-
+                
                 updateCustomGameList();
                 updateCounter();
                 populateFilters();
@@ -3998,8 +2914,8 @@
 
         function removeVersionSuffixes(name) {
             const suffixes = [
-                'hd', 'remake', 'remaster', 'remastered', 'definitive edition',
-                'special edition', 'complete edition', 'directors cut',
+                'hd', 'remake', 'remaster', 'remastered', 'definitive edition', 
+                'special edition', 'complete edition', 'directors cut', 
                 'game of the year', 'goty', 'enhanced edition', 'anniversary edition',
                 'collectors edition', 'extended edition', 'gold edition', 'platinum edition'
             ];
@@ -4011,12 +2927,12 @@
             const normalizedName = normalizeGameName(name);
             return games.some(game => {
                 if (game.id === excludeId) return false;
-
+                
                 const gameNormalizedName = normalizeGameName(game.name);
                 const gameAbbreviation = game.abbreviation ? normalizeGameName(game.abbreviation) : '';
                 const newAbbreviation = abbreviation ? normalizeGameName(abbreviation) : '';
-
-                return gameNormalizedName === normalizedName ||
+                
+                return gameNormalizedName === normalizedName || 
                     (gameAbbreviation && gameAbbreviation === newAbbreviation) ||
                     levenshteinDistance(gameNormalizedName, normalizedName) <= 2;
             });
@@ -4039,7 +2955,7 @@
             const normalizedNewName = normalizeGameName(newGame.name);
             return games.find(game => {
                 const normalizedExistingName = normalizeGameName(game.name);
-                return normalizedExistingName === normalizedNewName ||
+                return normalizedExistingName === normalizedNewName || 
                        levenshteinDistance(normalizedExistingName, normalizedNewName) <= 2;
             });
         }
@@ -4052,8 +2968,8 @@
 
         function isSpecialVersion(name) {
             const specialVersions = [
-                'hd', 'remake', 'remaster', 'remastered', 'definitive edition',
-                'special edition', 'complete edition', 'directors cut',
+                'hd', 'remake', 'remaster', 'remastered', 'definitive edition', 
+                'special edition', 'complete edition', 'directors cut', 
                 'game of the year', 'goty', 'enhanced edition', 'anniversary edition',
                 'collectors edition', 'extended edition', 'gold edition', 'platinum edition'
             ];
@@ -4063,11 +2979,11 @@
 
         function isDuplicateGame(newGame) {
             const normalizedNewName = normalizeGameName(newGame.name);
-            const newGameNumber = getGameNumber(newGame.name);
+            const newGameNumber = getGameNumber(newGame.name);            
             if (isSpecialVersion(newGame.name)) {
                 return true;
             }
-
+            
             const existingGame = games.find(game => {
                 const normalizedExistingName = normalizeGameName(game.name);
                 const existingGameNumber = getGameNumber(game.name);
@@ -4086,7 +3002,7 @@
             if (existingGame) {
                 return true;
             }
-
+            
             return false;
         }
 
@@ -4133,14 +3049,14 @@
         function showSelectOptions(type) {
             currentSelectType = type;
             selectOptionsTitle.textContent = type === 'platforms' ? 'Выберите платформы' : 'Выберите жанры';
-
-            const options = type === 'platforms'
+            
+            const options = type === 'platforms' 
                 ? [...new Set(games.flatMap(game => game.platforms))]
                 : [...new Set(games.flatMap(game => game.genres))];
-
+            
             const inputField = type === 'platforms' ? document.getElementById('gamePlatforms') : document.getElementById('gameGenres');
             const selectedValues = inputField.value.split(',').map(v => v.trim());
-
+            
             optionsList.innerHTML = options.map(option => `
                 <label>
                     <input type="checkbox" value="${option}" ${selectedValues.includes(option) ? 'checked' : ''}> ${option}
@@ -4255,7 +3171,7 @@
                 isImporting = false;
             }
         }
-
+        
         function addNewGameWithDelay(game) {
             return new Promise(resolve => {
                 setTimeout(() => {
@@ -4328,7 +3244,11 @@
                 console.error('Кнопка поиска игры в модальном окне не найдена');
             }
 
-            // Удалено, так как функционал перенесен на кнопку-крестик
+            if (closeSearchResultsButton) {
+                closeSearchResultsButton.addEventListener('click', clearSearchResults);
+            } else {
+                console.error('Кнопка очистки результатов поиска не найдена');
+            }
         }
 
         function clearSearchResults() {
@@ -4346,26 +3266,13 @@
             console.log('DOM полностью загружен');
             initializeImportButton();
             loadSavedGames();
-            renderGames(true); // Принудительно сортируем по ID при загрузке страницы
+            renderGames();
             updateCounter();
             populateFilters();
-            updateInProgressRow(); // Сначала размещаем ячейки по рядам
+            applyFilters();
+            updateInProgressRow();
             initializeCacheClearing();
-
-            // Восстанавливаем состояние completedFilter и hideCompletedButton перед применением фильтров
-            const savedCompletedFilterActive = localStorage.getItem('completedFilterActive') === 'true';
-            if (savedCompletedFilterActive) {
-                completedFilter.classList.add('active');
-                hideCompletedButton.classList.add('button-disabled');
-            } else {
-                 completedFilter.classList.remove('active');
-                 hideCompletedButton.classList.remove('button-disabled');
-            }
-            // Восстанавливаем состояние hideCompletedButton (уже сделано выше)
-            // hideCompletedButton.classList.toggle('active', hideCompleted);
-
-
-            applyFilters(true); // Применяем фильтры после всей инициализации и расстановки ячеек, принудительно сортируя по ID
+            
 
             const addGameButton = document.getElementById('addGameButton');
             const addGameModal = document.getElementById('addGameModal');
@@ -4373,7 +3280,7 @@
             completedFilter.addEventListener('click', toggleCompletedFilter);
             hideCompletedButton.addEventListener('click', toggleHideCompleted);
 
-            const performSearchButton = document.getElementById('performSearchButton');
+            const performSearchButton = document.getElementById('performSearchButton');        
             if (performSearchButton) {
                 performSearchButton.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -4382,26 +3289,15 @@
             }
 
             const searchGameInput = document.getElementById('searchGameInput');
-
             if (searchGameInput) {
-                // Обработчик нажатия Enter
                 searchGameInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
                         searchGameFromApi();
                     }
                 });
-
-                // Обработчик ввода текста для скрытия сообщения о необходимости ввести название
-                searchGameInput.addEventListener('input', () => {
-                    // Если есть сообщение о необходимости ввести название, скрываем его
-                    const messageOverlay = document.querySelector('.message-overlay');
-                    if (messageOverlay && searchGameInput.value.trim() !== '') {
-                        messageOverlay.remove();
-                    }
-                });
             }
-
+            
             if (addGameButton) {
                 addGameButton.addEventListener('click', () => {
                     addGameModal.style.display = 'block';
@@ -4416,56 +3312,6 @@
             if (searchInputContainer) {
                 searchInputContainer.style.display = 'block';
             }
-
-            // Динамическая настройка высоты списков платформ и жанров
-            function calculateListHeight() {
-                // Рассчитываем высоту в зависимости от размера экрана
-                const viewportHeight = window.innerHeight;
-
-                // Базовая высота списков
-                let listHeight = 150; // Средняя высота по умолчанию
-
-                // Если экран большой, увеличиваем высоту
-                if (viewportHeight > 900) {
-                    listHeight = 200; // Максимальная высота для больших экранов
-                } else if (viewportHeight > 700) {
-                    listHeight = 150; // Средняя высота для стандартных экранов
-                } else {
-                    listHeight = 100; // Минимальная высота для маленьких экранов
-                }
-
-                return listHeight;
-            }
-
-            // Функция для установки высоты списков
-            function setListsHeight() {
-                const platformsList = document.getElementById('platformsList');
-                const genresList = document.getElementById('genresList');
-                const filtersPanel = document.getElementById('filtersPanel');
-
-                if (!platformsList || !genresList || filtersPanel.style.display !== 'block') {
-                    return;
-                }
-
-                // Рассчитываем оптимальную высоту
-                const listHeight = calculateListHeight();
-
-                // Устанавливаем одинаковую высоту для обоих списков
-                platformsList.style.maxHeight = `${listHeight}px`;
-                genresList.style.maxHeight = `${listHeight}px`;
-            }
-
-            // Устанавливаем начальную высоту списков
-            const platformsList = document.getElementById('platformsList');
-            const genresList = document.getElementById('genresList');
-
-            if (platformsList && genresList) {
-                const initialHeight = calculateListHeight();
-                platformsList.style.maxHeight = `${initialHeight}px`;
-                genresList.style.maxHeight = `${initialHeight}px`;
-            }
-
-
         });
     </script>
 </body>
