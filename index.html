@@ -2764,7 +2764,7 @@
                 year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                 genres: game.genres ? game.genres.map(g => g.name) : [],
                 platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
-                imageUrl: game.cover ? convertImageUrl(game.cover.url) : null,
+                imageUrl: game.cover && game.cover.url ? convertImageUrl(game.cover.url) : null,
                 isCustom: true,
                 importedFromApi: true,
                 completed: false,
@@ -5102,7 +5102,7 @@
                     const newGame = {
                         id: game.id,
                         name: formattedName,
-                        imageUrl: game.cover ? convertImageUrl(game.cover.url) : null,
+                        imageUrl: game.cover && game.cover.url ? convertImageUrl(game.cover.url) : null,
                         year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                         genres: game.genres ? game.genres.map(g => g.name) : [],
                         platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null) : [],
@@ -5227,6 +5227,7 @@
         }
 
         function convertImageUrl(url) {
+            if (!url) return null;
             const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
             const fileName = url.split('/').pop();
             return baseUrl + fileName;
