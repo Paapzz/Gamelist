@@ -268,7 +268,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
             gap: 5px;
-            padding: 40px 10px 50px;
+            padding: 60px 10px 50px;
         }
         .cell {
             position: relative;
@@ -276,15 +276,12 @@
             cursor: pointer;
             transition: filter 0.3s, box-shadow 0.3s;
             overflow: hidden;
-            border-radius: 10%;
-            margin: 0;
         }
         .cell img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: filter 0.3s, transform 0.2s ease;
-            border-radius: 10%;
+            transition: filter 0.3s;
         }
         .cell.completed {
             filter: brightness(85%) !important;
@@ -305,8 +302,6 @@
             z-index: 2;
             pointer-events: none;
             filter: saturate(100%) !important;
-            border-radius: 10%;
-            transition: transform 0.2s ease;
         }
         .cell.completed::after {
             content: '';
@@ -317,32 +312,36 @@
             bottom: 0;
             background: linear-gradient(to bottom right, transparent calc(50% - 1px), #fff, transparent calc(50% + 1px));
             pointer-events: none;
-            border-radius: 10%;
+        }
+
+        .cell img {
             transition: transform 0.2s ease;
         }
-        .cell .abbreviation-placeholder,
-        .cell img,
+        .cell .abbreviation-placeholder {
+            transition: transform 0.2s ease;
+        }
         .cell.completed::before,
         .cell.completed::after {
-            transition: transform 0.16s ease; /* Увеличена скорость анимации */
-            border-radius: 10%; /* Keep border-radius consistent */
+            transition: transform 0.2s ease;
         }
-        /* Remove transform from hover, handle via JS class */
-        /* .cell:hover img,
-        .cell:hover .abbreviation-placeholder,
+        .cell:hover img {
+            transform: scale(0.90);
+        }
+        .cell:hover .abbreviation-placeholder {
+            transform: scale(0.90);
+        }
         .cell.completed:hover::before,
         .cell.completed:hover::after {
             transform: scale(0.90);
-        } */
-
-        /* New class for scaling */
-        .cell.scaling-out img,
-        .cell.scaling-out .abbreviation-placeholder,
-        .cell.completed.scaling-out::before,
-        .cell.completed.scaling-out::after {
-             transform: scale(0.90);
         }
-
+        .cell.in-progress {
+            filter: saturate(100%) !important;
+            position: relative; 
+            background: none;
+        }
+        .cell.in-progress::before {
+            content: none;
+        }
         .cell.search-dimmed {
             filter: brightness(30%);
         }
@@ -356,11 +355,6 @@
         }
         .cell.hidden {
             display: none;
-        }
-        .search-match-in-progress {
-            border-right: 1px solid #777; /* Тонкая серая линия */
-            /* Убраны padding-right и margin-right */
-            box-sizing: border-box; /* Оставляем для консистентности */
         }
         #sizeSlider {
             margin: 0;
@@ -1820,7 +1814,6 @@
             updateInProgressRow();
 
             void grid.offsetHeight;
-            applyFilters(); // Добавляем вызов applyFilters здесь
         }
 
         function lazyLoadImages() {
@@ -1980,7 +1973,7 @@
             hideCompletedButton.classList.toggle('active');
             localStorage.setItem('hideCompleted', hideCompleted);
             applyFilters();
-            updateSaturation();
+            completedFilter.classList.toggle('button-disabled', hideCompleted);
         }
 
         function resetProgress() {
@@ -2147,74 +2140,20 @@
             const searchTerm = currentSearchTerm.toLowerCase();
             let visibleGames = 0;
             let hiddenGames = [];
-            let firstInProgressMatchElement = null; // Store the first matching element in inProgressRow
-
-            // Reset styles/visibility first
             document.querySelectorAll('.cell').forEach(cell => {
-                cell.classList.remove('search-match-in-progress');
-                // Decide initial visibility based on filters ONLY (not search yet)
                 const gameId = cell.getAttribute('data-game-id');
                 const game = games.find(g => g.id.toString() === gameId);
-                if (game && shouldShowGame(game)) {
-                     cell.style.display = ''; // Show if passes filters
+        
+                if (game && shouldShowGame(game) && (searchTerm === '' || game.name.toLowerCase().includes(searchTerm))) {
+                    cell.style.display = '';
+                    visibleGames++;
                 } else {
-                     cell.style.display = 'none'; // Hide if fails filters
-                     if(game) hiddenGames.push(game); // Keep track of hidden games
-                }
+                    cell.style.display = 'none';
+                    hiddenGames.push(game);
+                }   
             });
-
-            // Now handle search term specifically
-            if (searchTerm !== '') {
-                document.querySelectorAll('#inProgressRow .cell').forEach(cell => {
-                    const gameId = cell.getAttribute('data-game-id');
-                    const game = games.find(g => g.id.toString() === gameId);
-                    const matchesSearch = game.name.toLowerCase().includes(searchTerm);
-
-                    if (cell.style.display !== 'none') { // Only consider cells currently visible based on filters
-                        if (matchesSearch) {
-                            if (!firstInProgressMatchElement) {
-                                firstInProgressMatchElement = cell; // Found the first one
-                            }
-                        } else {
-                            cell.style.display = 'none'; // Hide if doesn't match search
-                        }
-                    }
-                });
-
-                // Handle non-inProgress cells for search
-                 document.querySelectorAll('#grid .cell').forEach(cell => {
-                     if (cell.style.display !== 'none') { // Only consider cells currently visible based on filters
-                        const gameId = cell.getAttribute('data-game-id');
-                        const game = games.find(g => g.id.toString() === gameId);
-                        const matchesSearch = game.name.toLowerCase().includes(searchTerm);
-                        if (!matchesSearch) {
-                            cell.style.display = 'none'; // Hide if doesn't match search
-                        }
-                     }
-                 });
-
-                // Move the first match to the beginning and apply style
-                if (firstInProgressMatchElement) {
-                    inProgressRow.insertBefore(firstInProgressMatchElement, inProgressRow.firstChild);
-                    firstInProgressMatchElement.classList.add('search-match-in-progress');
-                }
-
-            } else {
-                 // If search is cleared, ensure all filter-passing cells are visible
-                 document.querySelectorAll('.cell').forEach(cell => {
-                    const gameId = cell.getAttribute('data-game-id');
-                    const game = games.find(g => g.id.toString() === gameId);
-                     if (game && shouldShowGame(game)) {
-                         cell.style.display = '';
-                     }
-                 });
-            }
-
-            // Count visible games AFTER applying search filter
-            visibleGames = Array.from(document.querySelectorAll('.cell')).filter(cell => cell.style.display !== 'none').length;
-
-            // DO NOT call updateInProgressRow() here.
-            updateSaturation(); // This seems fine to call.
+            updateInProgressRow();
+            updateSaturation();
         }
 
         function toggleCompletedFilter() {
@@ -2376,26 +2315,23 @@
             localStorage.removeItem('minYear');
             localStorage.removeItem('maxYear');
             localStorage.removeItem('hideCompleted');
-
+            
             const currentSaturation = saturationSlider.value;
-
-            // Убираем сброс поиска и вызов searchGames()
-            // searchInput.value = '';
-            // searchGames();
-
-            // Убираем цикл, который делает все ячейки видимыми.
-            // document.querySelectorAll('.cell').forEach(cell => {
-            //     cell.style.display = '';
-            //     cell.classList.remove('hidden');
-            // });
-
-            applyFilters(); // Эта функция теперь применит сброшенные фильтры и ТЕКУЩИЙ поисковый запрос
-
+            
+            searchInput.value = '';
+            searchGames();
+            
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.style.display = '';
+                cell.classList.remove('hidden');
+            });
+            
+            applyFilters();
+            
             saturationSlider.value = currentSaturation;
             updateSaturation();
             updateCounter();
-            // Убираем updateInProgressRow(), так как applyFilters уже должен обработать порядок
-            // updateInProgressRow();
+            updateInProgressRow();
         }
 
         function showAuthorCredit() {
@@ -2764,29 +2700,9 @@
     
             cell.title = game.name;
             cell.addEventListener('click', () => toggleCell(cell, game.id));
-
-            // Handle hover animation with JS
-            let scaleTimeoutId = null;
-            cell.addEventListener('mouseenter', (e) => {
-                clearTimeout(scaleTimeoutId); // Clear any pending scale-back timeout
-                cell.classList.add('scaling-out');
-                showPreviewOrTitle(e, game); // Keep showing preview/title logic
-            });
-
-            cell.addEventListener('mouseleave', () => {
-                 scaleTimeoutId = setTimeout(() => {
-                    cell.classList.remove('scaling-out');
-                 }, 50); // Wait for transition to finish (200ms)
-                 hidePreviewAndTitle(); // Keep hiding preview/title logic
-            });
-
-             // Keep mousemove for title/preview positioning if needed, but not for scaling
-             cell.addEventListener('mousemove', (e) => {
-                 if (gameTitle.style.display === 'block' || preview.style.display === 'block') {
-                    showPreviewOrTitle(e, game); // Update position if visible
-                 }
-             });
-
+            cell.addEventListener('mousemove', (e) => showPreviewOrTitle(e, game));
+            cell.addEventListener('mouseleave', hidePreviewAndTitle);
+    
             updateCellSize(cell, game.inProgress);
     
             return cell;
