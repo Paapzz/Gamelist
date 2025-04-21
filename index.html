@@ -3327,6 +3327,11 @@
                                             // Загружаем изображение через функцию convertImageUrl
                             const url = convertImageUrl(originalUrl);
                             if (url) {
+                                // Добавляем обработчик ошибки загрузки изображения до установки src
+                                img.onerror = function() {
+                                    this.src = DEFAULT_GAME_IMAGE;
+                                    this.onerror = null; // Предотвращаем зацикливание
+                                };
                                 img.src = url;
                                 // Обновляем URL в объекте игры
                                 const gameId = img.dataset.gameId;
@@ -3353,11 +3358,21 @@
 
         function loadImage(img) {
             if (img.dataset.src) {
+                // Добавляем обработчик ошибки загрузки изображения до установки src
+                img.onerror = function() {
+                    this.src = DEFAULT_GAME_IMAGE;
+                    this.onerror = null; // Предотвращаем зацикливание
+                };
                 img.src = img.dataset.src;
                 img.removeAttribute('data-src');
             } else if (img.dataset.originalUrl) {
                 const url = convertImageUrl(img.dataset.originalUrl);
                 if (url) {
+                    // Добавляем обработчик ошибки загрузки изображения до установки src
+                    img.onerror = function() {
+                        this.src = DEFAULT_GAME_IMAGE;
+                        this.onerror = null; // Предотвращаем зацикливание
+                    };
                     img.src = url;
                     // Обновляем URL в объекте игры
                     const gameId = img.dataset.gameId;
@@ -4766,15 +4781,14 @@
 
             // Если у игры есть URL изображения, загрузим его позже
             if (game.imageUrl && game.imageUrl.trim() !== '') {
-                // Загружаем изображение сразу, если оно уже есть
-                console.log('Используем URL изображения для игры:', game.name, game.imageUrl);
-                img.src = game.imageUrl;
-
-                // Добавляем обработчик ошибки загрузки изображения
+                // Добавляем обработчик ошибки загрузки изображения до установки src
                 img.onerror = function() {
                     console.warn('Ошибка загрузки изображения:', game.imageUrl);
                     this.src = DEFAULT_GAME_IMAGE;
+                    this.onerror = null; // Предотвращаем зацикливание
                 };
+                // Загружаем изображение сразу, если оно уже есть
+                img.src = game.imageUrl;
             } else {
                 // Если у игры есть обложка, но URL еще не загружен
                 if (game.cover && game.cover.url) {
@@ -5469,17 +5483,22 @@
                 return url;
             }
 
-            // Если URL содержит images.igdb.com, используем заглушку
-            // чтобы избежать проблем с CORB
-            if (url.includes('images.igdb.com')) {
+            try {
+                // Используем простой метод преобразования URL, как в версии 20.6
+                const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
+                const fileName = url.split('/').pop();
+
+                // Используем прокси для обхода CORS
+                // Добавляем случайный параметр, чтобы избежать кэширования
+                const finalUrl = `https://images.igdb.com/igdb/image/upload/t_cover_big/${fileName}?${Date.now()}`;
+
                 // Сохраняем в кэш
-                imageCache[url] = DEFAULT_GAME_IMAGE;
+                imageCache[url] = finalUrl;
+                return finalUrl;
+            } catch (error) {
+                console.error('Error converting image URL:', error);
                 return DEFAULT_GAME_IMAGE;
             }
-
-            // Для других URL возвращаем их как есть
-            imageCache[url] = url;
-            return url;
         }
 
         function updateFiltersAndCounter() {
