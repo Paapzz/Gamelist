@@ -2758,13 +2758,33 @@
             // Применяем форматирование для римских цифр в названии
             const formattedName = formatGameTitle(game.name);
 
+            // Проверяем наличие обложки и URL обложки
+            let imageUrl = '';
+            if (game.cover && game.cover.url) {
+                try {
+                    imageUrl = convertImageUrl(game.cover.url);
+                    console.log('Converted image URL:', imageUrl);
+                } catch (error) {
+                    console.error('Error converting image URL:', error);
+                    imageUrl = '';
+                }
+            } else if (game.image_url) {
+                try {
+                    imageUrl = convertImageUrl(game.image_url);
+                    console.log('Converted image_url:', imageUrl);
+                } catch (error) {
+                    console.error('Error converting image_url:', error);
+                    imageUrl = '';
+                }
+            }
+
             const newGame = {
                 id: Date.now(),
                 name: formattedName,
                 year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                 genres: game.genres ? game.genres.map(g => g.name) : [],
                 platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
-                imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
+                imageUrl: imageUrl,
                 isCustom: true,
                 importedFromApi: true,
                 completed: false,
@@ -3011,12 +3031,25 @@
             preview.style.display = 'block';
             const img = preview.querySelector('img');
 
-            if (game && game.imageUrl) {
-                img.src = game.imageUrl;
-            } else if (game && game.image_url) {
-                img.src = game.image_url;
-            } else {
-                // Используем изображение-заглушку из константы
+            try {
+                if (game && game.imageUrl && game.imageUrl.trim() !== '') {
+                    img.src = game.imageUrl;
+                    img.onerror = function() {
+                        console.warn('Failed to load image in showPreview:', game.imageUrl);
+                        img.src = DEFAULT_GAME_IMAGE;
+                    };
+                } else if (game && game.image_url && game.image_url.trim() !== '') {
+                    img.src = game.image_url;
+                    img.onerror = function() {
+                        console.warn('Failed to load image in showPreview:', game.image_url);
+                        img.src = DEFAULT_GAME_IMAGE;
+                    };
+                } else {
+                    // Используем изображение-заглушку из константы
+                    img.src = DEFAULT_GAME_IMAGE;
+                }
+            } catch (error) {
+                console.error('Error setting image source in showPreview:', error);
                 img.src = DEFAULT_GAME_IMAGE;
             }
             img.style.display = 'block';
@@ -3042,28 +3075,45 @@
                 }
             };
 
-            if (game && game.imageUrl) {
-                img.onload = () => {
-                    const aspectRatio = img.naturalWidth / img.naturalHeight;
-                    const maxWidth = window.innerWidth * 0.65;
-                    const maxHeight = window.innerHeight * 0.645;
-                    let width = maxWidth;
-                    let height = width / aspectRatio;
-                    if (height > maxHeight) {
-                        height = maxHeight;
-                        width = height * aspectRatio;
+            // Добавляем обработчик загрузки изображения
+            img.onload = () => {
+                try {
+                    // Если изображение загрузилось и это не заглушка
+                    if (img.src !== DEFAULT_GAME_IMAGE) {
+                        const aspectRatio = img.naturalWidth / img.naturalHeight;
+                        if (isNaN(aspectRatio) || aspectRatio <= 0) {
+                            // Если соотношение сторон некорректное, используем фиксированные размеры
+                            img.style.width = '200px';
+                            img.style.height = '300px';
+                        } else {
+                            const maxWidth = window.innerWidth * 0.65;
+                            const maxHeight = window.innerHeight * 0.645;
+                            let width = maxWidth;
+                            let height = width / aspectRatio;
+                            if (height > maxHeight) {
+                                height = maxHeight;
+                                width = height * aspectRatio;
+                            }
+                            img.style.width = `${width}px`;
+                            img.style.height = `${height}px`;
+                        }
+                    } else {
+                        // Если это заглушка, устанавливаем фиксированные размеры
+                        img.style.width = '200px';
+                        img.style.height = '300px';
                     }
-                    img.style.width = `${width}px`;
-                    img.style.height = `${height}px`;
-
-                    updatePreviewPosition();
-                };
-            } else {
-                // Устанавливаем фиксированные размеры для изображения-заглушки
-                img.style.width = '200px';
-                img.style.height = '300px';
+                } catch (error) {
+                    console.error('Error calculating image dimensions:', error);
+                    img.style.width = '200px';
+                    img.style.height = '300px';
+                }
                 updatePreviewPosition();
-            }
+            };
+
+            // Устанавливаем фиксированные размеры по умолчанию, пока изображение загружается
+            img.style.width = '200px';
+            img.style.height = '300px';
+            updatePreviewPosition();
 
             // Используем название и год игры из объекта game, если они есть
             const name = game && game.name ? game.name : 'Unknown';
@@ -4572,12 +4622,25 @@
             img.style.filter = `saturate(${currentSaturation}%)`;
 
             // Если у игры есть изображение, используем его
-            if (game.imageUrl) {
-                img.src = game.imageUrl;
-            } else if (game.image_url) {
-                img.src = game.image_url;
-            } else {
-                // Используем изображение-заглушку из константы
+            try {
+                if (game.imageUrl && game.imageUrl.trim() !== '') {
+                    img.src = game.imageUrl;
+                    img.onerror = function() {
+                        console.warn('Failed to load image:', game.imageUrl);
+                        img.src = DEFAULT_GAME_IMAGE;
+                    };
+                } else if (game.image_url && game.image_url.trim() !== '') {
+                    img.src = game.image_url;
+                    img.onerror = function() {
+                        console.warn('Failed to load image:', game.image_url);
+                        img.src = DEFAULT_GAME_IMAGE;
+                    };
+                } else {
+                    // Используем изображение-заглушку из константы
+                    img.src = DEFAULT_GAME_IMAGE;
+                }
+            } catch (error) {
+                console.error('Error setting image source:', error);
                 img.src = DEFAULT_GAME_IMAGE;
             }
 
@@ -4694,14 +4757,37 @@
                 cell.dataset.gameYear = game.year || 'N/A'; // Сохраняем год игры в атрибуте data-game-year
                 // Обновляем изображение
                 const currentSaturation = saturationSlider.value;
-                if (game.imageUrl) {
-                    cell.innerHTML = `<img src="${game.imageUrl}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
-                } else if (game.image_url) {
-                    cell.innerHTML = `<img src="${game.image_url}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
-                } else {
-                    // Используем изображение-заглушку из константы
-                    cell.innerHTML = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
+
+                // Создаем элемент изображения
+                const img = document.createElement('img');
+                img.alt = game.name;
+                img.style.filter = `saturate(${currentSaturation}%)`;
+
+                try {
+                    if (game.imageUrl && game.imageUrl.trim() !== '') {
+                        img.src = game.imageUrl;
+                        img.onerror = function() {
+                            console.warn('Failed to load image in updateGameCell:', game.imageUrl);
+                            img.src = DEFAULT_GAME_IMAGE;
+                        };
+                    } else if (game.image_url && game.image_url.trim() !== '') {
+                        img.src = game.image_url;
+                        img.onerror = function() {
+                            console.warn('Failed to load image in updateGameCell:', game.image_url);
+                            img.src = DEFAULT_GAME_IMAGE;
+                        };
+                    } else {
+                        // Используем изображение-заглушку из константы
+                        img.src = DEFAULT_GAME_IMAGE;
+                    }
+                } catch (error) {
+                    console.error('Error setting image source in updateGameCell:', error);
+                    img.src = DEFAULT_GAME_IMAGE;
                 }
+
+                // Очищаем ячейку и добавляем новое изображение
+                cell.innerHTML = '';
+                cell.appendChild(img);
                 updateCellSize(cell, game.inProgress);
             }
         }
@@ -5233,9 +5319,49 @@
         }
 
         function convertImageUrl(url) {
+            if (!url) {
+                console.warn('Empty URL passed to convertImageUrl');
+                return '';
+            }
+
+            console.log('Original URL:', url);
             const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
-            const fileName = url.split('/').pop();
-            return baseUrl + fileName;
+
+            try {
+                // Проверяем, содержит ли URL уже полный путь
+                if (url.includes('https://images.igdb.com/igdb/image/upload/')) {
+                    // Если да, заменяем размер изображения на t_cover_big
+                    const result = url.replace(/\/t_[^/]+\//, '/t_cover_big/');
+                    console.log('Converted URL (full path):', result);
+                    return result;
+                } else if (url.startsWith('//')) {
+                    // Если URL начинается с '//', добавляем 'https:'
+                    const fullUrl = 'https:' + url;
+                    // Проверяем, содержит ли полный URL путь к IGDB
+                    if (fullUrl.includes('images.igdb.com/igdb/image/upload/')) {
+                        const result = fullUrl.replace(/\/t_[^/]+\//, '/t_cover_big/');
+                        console.log('Converted URL (protocol-relative):', result);
+                        return result;
+                    }
+                }
+
+                // Если нет, извлекаем имя файла и добавляем его к базовому URL
+                let fileName;
+
+                // Проверяем, содержит ли URL путь
+                if (url.includes('/')) {
+                    fileName = url.split('/').pop();
+                } else {
+                    fileName = url;
+                }
+
+                const result = baseUrl + fileName;
+                console.log('Converted URL (file name):', result);
+                return result;
+            } catch (error) {
+                console.error('Error in convertImageUrl:', error, 'URL:', url);
+                return '';
+            }
         }
 
         function updateFiltersAndCounter() {
