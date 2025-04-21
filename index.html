@@ -2053,9 +2053,37 @@
             matchedGames.push(...uniqueGames);
             console.log(`После удаления дубликатов: ${matchedGames.length} игр`);
 
-            // Добавляем релевантность к каждой игре
+            // Проверяем и обрабатываем изображения
             matchedGames.forEach(game => {
+                // Добавляем релевантность к каждой игре
                 game.relevance = calculateRelevance(game.name, lowerQuery);
+
+                // Проверяем наличие изображения
+                if (game.image_url) {
+                    try {
+                        // Преобразуем URL изображения
+                        console.log('Found image_url in index:', game.image_url);
+                        game.imageUrl = convertImageUrl(game.image_url);
+                        console.log('Converted image_url to:', game.imageUrl);
+                    } catch (error) {
+                        console.error('Error converting image_url in index:', error);
+                        game.imageUrl = DEFAULT_GAME_IMAGE;
+                    }
+                } else if (game.cover && game.cover.url) {
+                    try {
+                        // Преобразуем URL обложки
+                        console.log('Found cover.url in index:', game.cover.url);
+                        game.imageUrl = convertImageUrl(game.cover.url);
+                        console.log('Converted cover.url to:', game.imageUrl);
+                    } catch (error) {
+                        console.error('Error converting cover.url in index:', error);
+                        game.imageUrl = DEFAULT_GAME_IMAGE;
+                    }
+                } else {
+                    // Если нет изображения, используем заглушку
+                    console.log('No image found for game in index:', game.name);
+                    game.imageUrl = DEFAULT_GAME_IMAGE;
+                }
             });
 
             // Сортировка по релевантности
@@ -2104,9 +2132,37 @@
                     game.name.toLowerCase().includes(gameName.toLowerCase())
                 );
 
-                // Добавляем релевантность к каждой игре
+                // Обрабатываем каждую найденную игру
                 matches.forEach(game => {
+                    // Добавляем релевантность к каждой игре
                     game.relevance = calculateRelevance(game.name, gameName);
+
+                    // Проверяем наличие изображения
+                    if (game.image_url) {
+                        try {
+                            // Преобразуем URL изображения
+                            console.log('Found image_url in file:', game.image_url);
+                            game.imageUrl = convertImageUrl(game.image_url);
+                            console.log('Converted image_url to:', game.imageUrl);
+                        } catch (error) {
+                            console.error('Error converting image_url in file:', error);
+                            game.imageUrl = DEFAULT_GAME_IMAGE;
+                        }
+                    } else if (game.cover && game.cover.url) {
+                        try {
+                            // Преобразуем URL обложки
+                            console.log('Found cover.url in file:', game.cover.url);
+                            game.imageUrl = convertImageUrl(game.cover.url);
+                            console.log('Converted cover.url to:', game.imageUrl);
+                        } catch (error) {
+                            console.error('Error converting cover.url in file:', error);
+                            game.imageUrl = DEFAULT_GAME_IMAGE;
+                        }
+                    } else {
+                        // Если нет изображения, используем заглушку
+                        console.log('No image found for game in file:', game.name);
+                        game.imageUrl = DEFAULT_GAME_IMAGE;
+                    }
                 });
 
                 matchedGames = matchedGames.concat(matches);
@@ -2628,13 +2684,61 @@
                 return;
             }
 
+            console.log('Searching for game:', gameName);
+
             // Не показываем сообщение о загрузке
             try {
-                // Используем новую функцию поиска с индексом
-                const matchedGames = await searchGamesWithIndex(gameName);
-                displaySearchResults(matchedGames);
+                // Сначала пробуем использовать поиск с индексом
+                let matchedGames = await searchGamesWithIndex(gameName);
 
-                // Не показываем сообщение при поиске
+                // Если не нашли игры в индексе, пробуем использовать API
+                if (matchedGames.length === 0) {
+                    console.log('No games found in index, trying API search');
+                    try {
+                        // Запрашиваем больше информации о обложках
+                        const response = await fetch(`https://api.igdb.com/v4/games`, {
+                            method: 'POST',
+                            headers: {
+                                'Client-ID': 'yjn6vz5c7c5qzn0j5hjdkhhc5m6s1h',
+                                'Authorization': 'Bearer 9ym4v8l9oj5jlgpn9kzwq9qfvvd9yd',
+                                'Content-Type': 'application/json'
+                            },
+                            body: `fields name,first_release_date,genres.name,platforms.id,cover.*; search "${gameName}"; limit 10; where version_parent = null;`
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`Ошибка API: ${response.status} ${response.statusText}`);
+                        }
+
+                        matchedGames = await response.json();
+                        console.log('API response:', matchedGames);
+
+                        // Проверяем и обрабатываем данные об обложках
+                        matchedGames.forEach(game => {
+                            if (game.cover) {
+                                console.log('Game cover data:', game.name, game.cover);
+
+                                // Если у игры есть обложка, но нет URL, проверяем другие свойства
+                                if (!game.cover.url) {
+                                    console.warn('Game has cover object but no URL:', game.name);
+
+                                    // Проверяем другие свойства, которые могут содержать URL
+                                    if (game.cover.image_id) {
+                                        console.log('Found image_id:', game.cover.image_id);
+                                        game.cover.url = game.cover.image_id; // Используем image_id как URL
+                                    }
+                                }
+                            } else {
+                                console.warn('Game has no cover data:', game.name);
+                            }
+                        });
+                    } catch (apiError) {
+                        console.error('Ошибка при поиске игры через API:', apiError);
+                        // Если поиск через API не удался, используем результаты из индекса
+                    }
+                }
+
+                displaySearchResults(matchedGames);
             } catch (error) {
                 console.error('Ошибка при поиске игры:', error);
                 searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
@@ -2759,23 +2863,50 @@
             const formattedName = formatGameTitle(game.name);
 
             // Проверяем наличие обложки и URL обложки
-            let imageUrl = '';
+            let imageUrl = DEFAULT_GAME_IMAGE; // Используем заглушку по умолчанию
+
+            // Проверяем все возможные источники URL изображения
             if (game.cover && game.cover.url) {
                 try {
+                    console.log('Found cover.url:', game.cover.url);
                     imageUrl = convertImageUrl(game.cover.url);
-                    console.log('Converted image URL:', imageUrl);
+                    console.log('Converted cover.url to:', imageUrl);
                 } catch (error) {
-                    console.error('Error converting image URL:', error);
-                    imageUrl = '';
+                    console.error('Error converting cover.url:', error);
                 }
             } else if (game.image_url) {
                 try {
+                    console.log('Found image_url:', game.image_url);
                     imageUrl = convertImageUrl(game.image_url);
-                    console.log('Converted image_url:', imageUrl);
+                    console.log('Converted image_url to:', imageUrl);
                 } catch (error) {
                     console.error('Error converting image_url:', error);
-                    imageUrl = '';
                 }
+            } else if (game.cover) {
+                // Если есть объект cover, но нет url, проверяем другие свойства
+                console.log('Found cover object without url property:', game.cover);
+
+                // Проверяем все свойства объекта cover
+                for (const key in game.cover) {
+                    if (typeof game.cover[key] === 'string' && game.cover[key].length > 0) {
+                        try {
+                            console.log(`Found cover.${key}:`, game.cover[key]);
+                            imageUrl = convertImageUrl(game.cover[key]);
+                            console.log(`Converted cover.${key} to:`, imageUrl);
+                            break; // Используем первое найденное строковое свойство
+                        } catch (error) {
+                            console.error(`Error converting cover.${key}:`, error);
+                        }
+                    }
+                }
+            } else {
+                console.log('No image source found for game:', game.name);
+            }
+
+            // Проверяем, что URL не пустой
+            if (!imageUrl || imageUrl.trim() === '') {
+                console.log('Using default image for game:', game.name);
+                imageUrl = DEFAULT_GAME_IMAGE;
             }
 
             const newGame = {
@@ -5321,23 +5452,25 @@
         function convertImageUrl(url) {
             if (!url) {
                 console.warn('Empty URL passed to convertImageUrl');
-                return '';
+                return DEFAULT_GAME_IMAGE; // Возвращаем заглушку вместо пустой строки
             }
 
             console.log('Original URL:', url);
-            const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
 
             try {
-                // Проверяем, содержит ли URL уже полный путь
+                // Проверяем различные форматы URL
+
+                // Формат 1: Полный URL с https://
                 if (url.includes('https://images.igdb.com/igdb/image/upload/')) {
-                    // Если да, заменяем размер изображения на t_cover_big
+                    // Заменяем размер изображения на t_cover_big
                     const result = url.replace(/\/t_[^/]+\//, '/t_cover_big/');
-                    console.log('Converted URL (full path):', result);
+                    console.log('Converted URL (full https path):', result);
                     return result;
-                } else if (url.startsWith('//')) {
-                    // Если URL начинается с '//', добавляем 'https:'
+                }
+
+                // Формат 2: URL без протокола, начинающийся с //
+                if (url.startsWith('//')) {
                     const fullUrl = 'https:' + url;
-                    // Проверяем, содержит ли полный URL путь к IGDB
                     if (fullUrl.includes('images.igdb.com/igdb/image/upload/')) {
                         const result = fullUrl.replace(/\/t_[^/]+\//, '/t_cover_big/');
                         console.log('Converted URL (protocol-relative):', result);
@@ -5345,10 +5478,50 @@
                     }
                 }
 
-                // Если нет, извлекаем имя файла и добавляем его к базовому URL
+                // Формат 3: Только имя файла (hash)
+                if (!url.includes('/') && !url.includes(':')) {
+                    const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
+                    const result = baseUrl + url;
+                    console.log('Converted URL (hash only):', result);
+                    return result;
+                }
+
+                // Формат 4: Относительный путь, начинающийся с /
+                if (url.startsWith('/') && !url.startsWith('//')) {
+                    const baseUrl = 'https://images.igdb.com';
+                    const result = baseUrl + url;
+                    console.log('Converted URL (relative path):', result);
+                    return result;
+                }
+
+                // Формат 5: Частичный путь с именем файла
+                if (url.includes('/') && !url.includes('://') && !url.startsWith('//')) {
+                    // Извлекаем имя файла из пути
+                    const fileName = url.split('/').pop();
+                    const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
+                    const result = baseUrl + fileName;
+                    console.log('Converted URL (partial path):', result);
+                    return result;
+                }
+
+                // Формат 6: Полный URL с другим протоколом (http://)
+                if (url.startsWith('http://')) {
+                    const httpsUrl = url.replace('http://', 'https://');
+                    console.log('Converted URL (http to https):', httpsUrl);
+                    return httpsUrl;
+                }
+
+                // Формат 7: Другой полный URL (https://)
+                if (url.startsWith('https://') && !url.includes('images.igdb.com')) {
+                    // Возвращаем URL как есть, если это не IGDB
+                    console.log('Using external URL as is:', url);
+                    return url;
+                }
+
+                // Если ни один из форматов не подошел, пробуем извлечь имя файла
+                const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
                 let fileName;
 
-                // Проверяем, содержит ли URL путь
                 if (url.includes('/')) {
                     fileName = url.split('/').pop();
                 } else {
@@ -5356,11 +5529,11 @@
                 }
 
                 const result = baseUrl + fileName;
-                console.log('Converted URL (file name):', result);
+                console.log('Converted URL (fallback):', result);
                 return result;
             } catch (error) {
                 console.error('Error in convertImageUrl:', error, 'URL:', url);
-                return '';
+                return DEFAULT_GAME_IMAGE; // Возвращаем заглушку вместо пустой строки
             }
         }
 
