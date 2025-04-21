@@ -2990,7 +2990,7 @@
                 name: cell.dataset.gameName || (game ? game.name : 'Unknown'),
                 year: cell.dataset.gameYear || (game ? game.year : 'N/A'),
                 completed: cell.classList.contains('completed'),
-                imageUrl: game ? game.imageUrl : null
+                imageUrl: game ? (game.imageUrl || game.image_url) : null
             };
 
             if (gameInfo.completed) {
@@ -3011,6 +3011,8 @@
 
             if (game && game.imageUrl) {
                 img.src = game.imageUrl;
+            } else if (game && game.image_url) {
+                img.src = game.image_url;
             } else {
                 // Используем изображение-заглушку из константы
                 img.src = DEFAULT_GAME_IMAGE;
@@ -3038,7 +3040,7 @@
                 }
             };
 
-            if (game && game.imageUrl) {
+            if (game && (game.imageUrl || game.image_url)) {
                 img.onload = () => {
                     const aspectRatio = img.naturalWidth / img.naturalHeight;
                     const maxWidth = window.innerWidth * 0.65;
@@ -3093,7 +3095,7 @@
                 name: cell.dataset.gameName || (game ? game.name : 'Unknown'),
                 year: cell.dataset.gameYear || (game ? game.year : 'N/A'),
                 completed: cell.classList.contains('completed'),
-                imageUrl: game ? game.imageUrl : null
+                imageUrl: game ? (game.imageUrl || game.image_url) : null
             };
 
             if (previewEnabled) {
@@ -3837,7 +3839,7 @@
                 cell.style.display = 'none';
             });
 
-            let imgSrc = game.image_url || game.imageUrl;
+            let imgSrc = game.imageUrl || game.image_url;
             let content;
             if (!imgSrc) {
                 // Используем изображение-заглушку из константы
@@ -4566,6 +4568,8 @@
             // Если у игры есть изображение, используем его
             if (game.imageUrl) {
                 img.src = game.imageUrl;
+            } else if (game.image_url) {
+                img.src = game.image_url;
             } else {
                 // Используем изображение-заглушку из константы
                 img.src = DEFAULT_GAME_IMAGE;
@@ -4684,10 +4688,11 @@
                 cell.dataset.gameYear = game.year || 'N/A'; // Сохраняем год игры в атрибуте data-game-year
                 if (game.imageUrl) {
                     cell.innerHTML = `<img src="${game.imageUrl}" alt="${game.name}">`;
+                } else if (game.image_url) {
+                    cell.innerHTML = `<img src="${game.image_url}" alt="${game.name}">`;
                 } else {
                     // Используем изображение-заглушку из константы
                     cell.innerHTML = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}">`;
-
                 }
                 updateCellSize(cell, game.inProgress);
             }
