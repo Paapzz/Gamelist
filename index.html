@@ -2758,32 +2758,13 @@
             // Применяем форматирование для римских цифр в названии
             const formattedName = formatGameTitle(game.name);
 
-            // Проверяем наличие свойства cover и его url
-            let imageUrl = '';
-            console.log('addGameFromSearch: Game object:', JSON.stringify(game));
-
-            if (game.cover && game.cover.url) {
-                console.log('addGameFromSearch: Found cover.url:', game.cover.url);
-                imageUrl = convertImageUrl(game.cover.url);
-            } else if (game.imageUrl) {
-                console.log('addGameFromSearch: Found imageUrl:', game.imageUrl);
-                imageUrl = game.imageUrl;
-            } else if (game.image_url) {
-                console.log('addGameFromSearch: Found image_url:', game.image_url);
-                imageUrl = game.image_url;
-            } else {
-                console.log('addGameFromSearch: No valid image URL found for game:', game.name);
-            }
-
-            console.log('addGameFromSearch: Final image URL for game:', game.name, imageUrl);
-
             const newGame = {
                 id: Date.now(),
                 name: formattedName,
                 year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                 genres: game.genres ? game.genres.map(g => g.name) : [],
                 platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
-                imageUrl: imageUrl,
+                imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
                 isCustom: true,
                 importedFromApi: true,
                 completed: false,
@@ -3011,7 +2992,7 @@
                 name: cell.dataset.gameName || (game ? game.name : 'Unknown'),
                 year: cell.dataset.gameYear || (game ? game.year : 'N/A'),
                 completed: cell.classList.contains('completed'),
-                imageUrl: game ? (game.imageUrl || game.image_url) : null
+                imageUrl: game ? game.imageUrl : null
             };
 
             if (gameInfo.completed) {
@@ -3032,14 +3013,11 @@
 
             if (game && game.imageUrl) {
                 img.src = game.imageUrl;
-                console.log('showPreview: Using imageUrl for game:', game.name, game.imageUrl);
             } else if (game && game.image_url) {
                 img.src = game.image_url;
-                console.log('showPreview: Using image_url for game:', game.name, game.image_url);
             } else {
                 // Используем изображение-заглушку из константы
                 img.src = DEFAULT_GAME_IMAGE;
-                console.log('showPreview: Using default image for game:', game ? game.name : 'unknown');
             }
             img.style.display = 'block';
 
@@ -3064,7 +3042,7 @@
                 }
             };
 
-            if (game && (game.imageUrl || game.image_url)) {
+            if (game && game.imageUrl) {
                 img.onload = () => {
                     const aspectRatio = img.naturalWidth / img.naturalHeight;
                     const maxWidth = window.innerWidth * 0.65;
@@ -3119,7 +3097,7 @@
                 name: cell.dataset.gameName || (game ? game.name : 'Unknown'),
                 year: cell.dataset.gameYear || (game ? game.year : 'N/A'),
                 completed: cell.classList.contains('completed'),
-                imageUrl: game ? (game.imageUrl || game.image_url) : null
+                imageUrl: game ? game.imageUrl : null
             };
 
             if (previewEnabled) {
@@ -3863,16 +3841,14 @@
                 cell.style.display = 'none';
             });
 
-            let imgSrc = game.imageUrl;
+            let imgSrc = game.imageUrl || game.image_url;
             let content;
             const currentSaturation = saturationSlider.value;
             if (!imgSrc) {
                 // Используем изображение-заглушку из константы
                 content = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
-                console.log('showRandomSelection: Using default image for game:', game.name);
             } else {
                 content = `<img src="${imgSrc}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
-                console.log('showRandomSelection: Using image for game:', game.name, imgSrc);
             }
 
             const yearText = game.year ? ` (${game.year})` : ' (N/A)';
@@ -4414,14 +4390,13 @@
             // Применяем форматирование для римских цифр в названии
             const formattedName = formatGameTitle(name);
 
-            const imageUrl = document.getElementById('gameImageUrl').value.trim() || null;
             const gameData = {
                 id: isEditing ? editingGameId : Date.now(),
                 name: formattedName,
                 year: parseInt(document.getElementById('gameYear').value) || null,
                 platforms: document.getElementById('gamePlatforms').value.split(',').map(p => p.trim()).filter(p => p),
                 genres: document.getElementById('gameGenres').value.split(',').map(g => g.trim()).filter(g => g),
-                imageUrl: imageUrl,
+                imageUrl: document.getElementById('gameImageUrl').value.trim() || null,
                 isCustom: true,
                 importedFromApi: false,
                 completed: false,
@@ -4439,29 +4414,27 @@
             resetAddGameForm();
         }
 
-        function addNewGame(gameData) {
-            const existingGame = findExistingGame(gameData);
-            if (existingGame) {
-                if (gameData.name.length < existingGame.name.length) {
-                    Object.assign(existingGame, gameData);
-                    updateGameCell(existingGame);
-                }
-            } else {
-                const newGame = {
-                    id: Date.now(),
-                    ...gameData,
-                    isCustom: true,
-                    importedFromApi: gameData.importedFromApi || false,
-                    completed: false,
-                    inProgress: false,
-                    color: getRandomPastelColor()
-                };
-                games.push(newGame);
-                const cell = createCell(newGame);
+        function addNewGame(game) {
+            games.push(game);
 
-                // Добавляем ячейку в сетку с учетом сортировки по году
-                insertCellInOrder(cell);
+            // Обновляем фильтры до создания ячейки
+            populateFilters();
+
+            const cell = createCell(game);
+
+            // Применяем фильтры к новой ячейке перед добавлением
+            const shouldDisplay = shouldShowGame(game);
+            if (!shouldDisplay) {
+                cell.style.display = 'none';
             }
+
+            // Добавляем ячейку в сетку с учетом фильтров
+            insertCellInOrder(cell);
+
+            updateGridSize();
+            saveGames();
+            updateCounter();
+            updateSaturation();
 
             saveGames();
             updateCounter();
@@ -4510,13 +4483,12 @@
             // Применяем форматирование для римских цифр в названии
             const formattedName = formatGameTitle(name);
 
-            const imageUrl = document.getElementById('gameImageUrl').value.trim() || null;
             const gameData = {
                 name: formattedName,
                 year: parseInt(document.getElementById('gameYear').value) || null,
                 platforms: document.getElementById('gamePlatforms').value.split(',').map(p => p.trim()).filter(p => p),
                 genres: document.getElementById('gameGenres').value.split(',').map(g => g.trim()).filter(g => g),
-                imageUrl: imageUrl
+                imageUrl: document.getElementById('gameImageUrl').value.trim() || null,
             };
 
             addNewGame(gameData);
@@ -4596,14 +4568,11 @@
             // Если у игры есть изображение, используем его
             if (game.imageUrl) {
                 img.src = game.imageUrl;
-                console.log('createCell: Using imageUrl for game:', game.name, game.imageUrl);
             } else if (game.image_url) {
                 img.src = game.image_url;
-                console.log('createCell: Using image_url for game:', game.name, game.image_url);
             } else {
                 // Используем изображение-заглушку из константы
                 img.src = DEFAULT_GAME_IMAGE;
-                console.log('createCell: Using default image for game:', game.name);
             }
 
             cell.appendChild(img);
@@ -4721,14 +4690,11 @@
                 const currentSaturation = saturationSlider.value;
                 if (game.imageUrl) {
                     cell.innerHTML = `<img src="${game.imageUrl}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
-                    console.log('updateGameCell: Using imageUrl for game:', game.name, game.imageUrl);
                 } else if (game.image_url) {
                     cell.innerHTML = `<img src="${game.image_url}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
-                    console.log('updateGameCell: Using image_url for game:', game.name, game.image_url);
                 } else {
                     // Используем изображение-заглушку из константы
                     cell.innerHTML = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
-                    console.log('updateGameCell: Using default image for game:', game.name);
                 }
                 updateCellSize(cell, game.inProgress);
             }
@@ -5133,29 +5099,10 @@
                     // Применяем форматирование для римских цифр в названии
                     const formattedName = formatGameTitle(game.name);
 
-                    // Проверяем наличие свойства cover и его url
-                    let imageUrl = '';
-                    console.log('importFromIGDB: Game object:', JSON.stringify(game));
-
-                    if (game.cover && game.cover.url) {
-                        console.log('importFromIGDB: Found cover.url:', game.cover.url);
-                        imageUrl = convertImageUrl(game.cover.url);
-                    } else if (game.imageUrl) {
-                        console.log('importFromIGDB: Found imageUrl:', game.imageUrl);
-                        imageUrl = game.imageUrl;
-                    } else if (game.image_url) {
-                        console.log('importFromIGDB: Found image_url:', game.image_url);
-                        imageUrl = game.image_url;
-                    } else {
-                        console.log('importFromIGDB: No valid image URL found for game:', game.name);
-                    }
-
-                    console.log('importFromIGDB: Final image URL for game:', game.name, imageUrl);
-
                     const newGame = {
                         id: game.id,
                         name: formattedName,
-                        imageUrl: imageUrl,
+                        imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
                         year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                         genres: game.genres ? game.genres.map(g => g.name) : [],
                         platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null) : [],
@@ -5280,31 +5227,9 @@
         }
 
         function convertImageUrl(url) {
-            if (!url || url.trim() === '') {
-                console.log('convertImageUrl: Empty URL provided');
-                return '';
-            }
-
-            console.log('convertImageUrl: Original URL:', url);
-
-            // Проверяем, что URL имеет правильный формат
-            if (!url.includes('/')) {
-                console.log('convertImageUrl: Invalid URL format, no slashes found');
-                return '';
-            }
-
             const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
             const fileName = url.split('/').pop();
-
-            if (!fileName) {
-                console.log('convertImageUrl: Could not extract filename from URL');
-                return '';
-            }
-
-            const finalUrl = baseUrl + fileName;
-            console.log('convertImageUrl: Final URL:', finalUrl);
-
-            return finalUrl;
+            return baseUrl + fileName;
         }
 
         function updateFiltersAndCounter() {
