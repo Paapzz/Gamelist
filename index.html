@@ -2005,24 +2005,23 @@
         // Функция для отслеживания и обработки CORB ошибок
         function monitorCORBErrors() {
             // Создаем кэш для запросов, чтобы избежать дублирования
-            const requestCache = new Set();
+            const requestCache = {};
 
             // Переопределяем метод fetch для отслеживания запросов
             const originalFetch = window.fetch;
             window.fetch = function(url, options) {
-                // Проверяем, был ли уже такой запрос
+                // Преобразуем URL в строку
                 const requestKey = url.toString();
-                if (requestCache.has(requestKey)) {
-                    console.log('Предотвращен дублирующийся запрос:', requestKey);
-                    // Возвращаем пустой ответ, чтобы избежать ошибок
-                    return Promise.resolve(new Response('[]', {
+
+                // Проверяем, есть ли данные в кэше
+                if (requestCache[requestKey]) {
+                    console.log('Используются кэшированные данные для:', requestKey);
+                    // Возвращаем кэшированные данные
+                    return Promise.resolve(new Response(JSON.stringify(requestCache[requestKey]), {
                         status: 200,
                         headers: { 'Content-Type': 'application/json' }
                     }));
                 }
-
-                // Добавляем запрос в кэш
-                requestCache.add(requestKey);
 
                 // Добавляем заголовки для предотвращения CORB
                 const newOptions = options || {};
@@ -2030,15 +2029,42 @@
                     newOptions.headers = {};
                 }
                 newOptions.headers['X-Requested-With'] = 'XMLHttpRequest';
+                newOptions.headers['Accept'] = 'application/json';
+                newOptions.mode = 'cors'; // Явно указываем режим CORS
 
                 // Вызываем оригинальный fetch с новыми опциями
-                return originalFetch(url, newOptions);
+                return originalFetch(url, newOptions)
+                    .then(response => {
+                        // Если ответ успешный, клонируем его для дальнейшей обработки
+                        if (response.ok) {
+                            // Клонируем ответ для чтения тела
+                            const clonedResponse = response.clone();
+
+                            // Обрабатываем тело ответа и сохраняем в кэш
+                            clonedResponse.json().then(data => {
+                                requestCache[requestKey] = data;
+                                console.log('Данные сохранены в кэше:', requestKey);
+                            }).catch(error => {
+                                console.error('Ошибка при обработке JSON:', error);
+                            });
+                        }
+
+                        // Возвращаем оригинальный ответ
+                        return response;
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при запросе:', requestKey, error);
+                        throw error;
+                    });
             };
 
             // Очищаем кэш при сбросе фильтров
             document.getElementById('resetFiltersButton').addEventListener('click', function() {
                 console.log('Очистка кэша запросов при сбросе фильтров');
-                requestCache.clear();
+                // Очищаем кэш запросов
+                for (const key in requestCache) {
+                    delete requestCache[key];
+                }
             });
         }
 
@@ -2052,7 +2078,7 @@
             console.log('Начало загрузки поискового индекса');
 
             try {
-                const response = await fetch('search_index.json');
+                const response = await fetch('./data/search_index.json');
                 if (!response.ok) {
                     throw new Error(`Ошибка загрузки поискового индекса: ${response.status} ${response.statusText}`);
                 }
@@ -2124,7 +2150,7 @@
                 index = gameIndex;
             } else {
                 // Если индекс не загружен, загружаем его
-                const indexResponse = await fetch('index.json');
+                const indexResponse = await fetch('./data/index.json');
                 if (!indexResponse.ok) {
                     throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
                 }
@@ -2141,7 +2167,7 @@
                     fileGames = gameFiles[i];
                 } else {
                     // Если файл не загружен, загружаем его
-                    const response = await fetch(`games_${i}.json`);
+                    const response = await fetch(`./data/games_${i}.json`);
                     if (!response.ok) {
                         throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
                     }
@@ -2179,7 +2205,7 @@
                     // Загружаем первый файл игр для ускорения первого поиска
                     try {
                         console.log('Предварительная загрузка первого файла игр...');
-                        fetch('games_1.json')
+                        fetch('./data/games_1.json')
                             .then(response => {
                                 if (!response.ok) {
                                     throw new Error(`Ошибка предварительной загрузки файла games_1.json: ${response.status} ${response.statusText}`);
@@ -2677,21 +2703,70 @@
                 return;
             }
 
-            // Не показываем сообщение о загрузке
+            // Показываем сообщение о загрузке
+            showLoadingMessage();
             try {
-                // Используем новую функцию поиска с индексом
-                const matchedGames = await searchGamesWithIndex(gameName);
+                // Загружаем индекс
+                const indexResponse = await fetch('./data/index.json');
+                if (!indexResponse.ok) {
+                    throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
+                }
+                const index = await indexResponse.json();
+
+                // Ищем игры во всех файлах
+                let matchedGames = [];
+                for (let i = 1; i <= index.total_files; i++) {
+                    let fileGames;
+
+                    // Используем предварительно загруженные файлы, если они есть
+                    if (gameFiles[i]) {
+                        fileGames = gameFiles[i];
+                    } else {
+                        // Если файл не загружен, загружаем его
+                        const response = await fetch(`./data/games_${i}.json`);
+                        if (!response.ok) {
+                            throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                        }
+                        fileGames = await response.json();
+                        gameFiles[i] = fileGames;
+                    }
+
+                    // Фильтруем игры по названию
+                    const matches = fileGames.filter(game =>
+                        game.name && game.name.toLowerCase().includes(gameName.toLowerCase())
+                    );
+
+                    // Добавляем релевантность к каждой игре
+                    matches.forEach(game => {
+                        game.relevance = calculateRelevance(game.name, gameName);
+                    });
+
+                    matchedGames = matchedGames.concat(matches);
+
+                    // Ограничиваем количество результатов
+                    if (matchedGames.length >= 100) {
+                        break;
+                    }
+                }
+
+                // Сортируем по релевантности
+                matchedGames.sort((a, b) => b.relevance - a.relevance);
+
+                // Ограничиваем до 100 результатов
+                matchedGames = matchedGames.slice(0, 100);
+
+                // Отображаем результаты
                 displaySearchResults(matchedGames);
 
-                // Не показываем сообщение при поиске
+                // Скрываем сообщение о загрузке
+                hideLoadingMessage();
             } catch (error) {
                 console.error('Ошибка при поиске игры:', error);
                 searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
 
                 // Показываем сообщение об ошибке
-                if (!isMessageVisible) {
-                    handleImportCompletion(`Ошибка: ${error.message}`);
-                }
+                hideLoadingMessage();
+                handleImportCompletion(`Ошибка: ${error.message}`);
             }
         }
 
@@ -5077,7 +5152,7 @@
                     if (gameIndex !== null) {
                         index = gameIndex;
                     } else {
-                        const indexResponse = await fetch('index.json');
+                        const indexResponse = await fetch('./data/index.json');
                         if (!indexResponse.ok) {
                             throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
                         }
@@ -5094,7 +5169,7 @@
                             fileGames = gameFiles[i];
                         } else {
                             // Если файл не загружен, загружаем его
-                            const response = await fetch(`games_${i}.json`);
+                            const response = await fetch(`./data/games_${i}.json`);
                             if (!response.ok) {
                                 throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
                             }
@@ -5112,14 +5187,14 @@
                     // Если поисковый индекс не загружен, используем старый метод
                     console.log('Используем стандартный метод импорта');
 
-                    const indexResponse = await fetch('index.json');
+                    const indexResponse = await fetch('./data/index.json');
                     if (!indexResponse.ok) {
                         throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
                     }
                     index = await indexResponse.json();
 
                     for (let i = 1; i <= index.total_files; i++) {
-                        const response = await fetch(`games_${i}.json`);
+                        const response = await fetch(`./data/games_${i}.json`);
                         if (!response.ok) {
                             throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
                         }
