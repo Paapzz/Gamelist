@@ -2264,17 +2264,21 @@
             return formattedTitle;
         }
 
-        games = gamesList.map(game => ({
-            id: game.number,
-            name: formatGameTitle(game.title),
-            imageUrl: game.image_url,
-            year: game.year,
-            genres: game.genres,
-            platforms: game.platforms,
-            completed: false,
-            inProgress: false,
-            isCustom: false
-        }));
+        games = gamesList.map(game => {
+            const imageUrl = game.image_url;
+            return {
+                id: game.number,
+                name: formatGameTitle(game.title),
+                imageUrl: imageUrl,
+                image_url: imageUrl, // Добавляем дублирующее свойство для совместимости
+                year: game.year,
+                genres: game.genres,
+                platforms: game.platforms,
+                completed: false,
+                inProgress: false,
+                isCustom: false
+            };
+        });
 
         function loadSavedGames() {
             const savedGames = localStorage.getItem('games');
@@ -2758,13 +2762,15 @@
             // Применяем форматирование для римских цифр в названии
             const formattedName = formatGameTitle(game.name);
 
+            const imageUrl = game.cover ? convertImageUrl(game.cover.url) : '';
             const newGame = {
                 id: Date.now(),
                 name: formattedName,
                 year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                 genres: game.genres ? game.genres.map(g => g.name) : [],
                 platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
-                imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
+                imageUrl: imageUrl,
+                image_url: imageUrl, // Добавляем дублирующее свойство для совместимости
                 isCustom: true,
                 importedFromApi: true,
                 completed: false,
@@ -4388,13 +4394,15 @@
             // Применяем форматирование для римских цифр в названии
             const formattedName = formatGameTitle(name);
 
+            const imageUrl = document.getElementById('gameImageUrl').value.trim() || null;
             const gameData = {
                 id: isEditing ? editingGameId : Date.now(),
                 name: formattedName,
                 year: parseInt(document.getElementById('gameYear').value) || null,
                 platforms: document.getElementById('gamePlatforms').value.split(',').map(p => p.trim()).filter(p => p),
                 genres: document.getElementById('gameGenres').value.split(',').map(g => g.trim()).filter(g => g),
-                imageUrl: document.getElementById('gameImageUrl').value.trim() || null,
+                imageUrl: imageUrl,
+                image_url: imageUrl, // Добавляем дублирующее свойство для совместимости
                 isCustom: true,
                 importedFromApi: false,
                 completed: false,
@@ -4483,12 +4491,14 @@
             // Применяем форматирование для римских цифр в названии
             const formattedName = formatGameTitle(name);
 
+            const imageUrl = document.getElementById('gameImageUrl').value.trim() || null;
             const gameData = {
                 name: formattedName,
                 year: parseInt(document.getElementById('gameYear').value) || null,
                 platforms: document.getElementById('gamePlatforms').value.split(',').map(p => p.trim()).filter(p => p),
                 genres: document.getElementById('gameGenres').value.split(',').map(g => g.trim()).filter(g => g),
-                imageUrl: document.getElementById('gameImageUrl').value.trim() || null,
+                imageUrl: imageUrl,
+                image_url: imageUrl, // Добавляем дублирующее свойство для совместимости
             };
 
             addNewGame(gameData);
@@ -5097,10 +5107,12 @@
                     // Применяем форматирование для римских цифр в названии
                     const formattedName = formatGameTitle(game.name);
 
+                    const imageUrl = game.cover ? convertImageUrl(game.cover.url) : '';
                     const newGame = {
                         id: game.id,
                         name: formattedName,
-                        imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
+                        imageUrl: imageUrl,
+                        image_url: imageUrl, // Добавляем дублирующее свойство для совместимости
                         year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                         genres: game.genres ? game.genres.map(g => g.name) : [],
                         platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null) : [],
@@ -5453,13 +5465,6 @@
             }
 
 
-            // Используем глобальные функции для работы с индексом
-
-
-
-
-
-            // Запускаем предварительную загрузку индекса
             preloadSearchIndex();
         });
     </script>
