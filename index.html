@@ -2610,6 +2610,11 @@
             });
             updateInProgressRow();
             // applyFilters(); // <-- Убираем этот вызов
+
+            // Запускаем ленивую загрузку изображений
+            setTimeout(() => {
+                lazyLoadImages();
+            }, 100);
         }
 
         function insertCellInOrder(cell) {
@@ -3311,41 +3316,94 @@
         }
 
         function lazyLoadImages() {
-            const images = document.querySelectorAll('img[data-src]');
-            if (!images.length) return;
-
-            const visibleImages = new Set();
-
-            const observer = new IntersectionObserver((entries, observer) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const img = entry.target;
-                        loadImage(img);
-                        observer.unobserve(img);
-                    } else {
-                        visibleImages.add(entry.target);
-                    }
+            // Загружаем изображения с data-src атрибутом
+            const imagesWithSrc = document.querySelectorAll('img[data-src]');
+            if (imagesWithSrc.length) {
+                const observer = new IntersectionObserver((entries, observer) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            img.src = img.dataset.src;
+                            img.removeAttribute('data-src');
+                            observer.unobserve(img);
+                        }
+                    });
                 });
 
-                const remainingImages = document.querySelectorAll('img[data-src]');
-                if (remainingImages.length === 0) {
-                    observer.disconnect();
-                }
-            });
+                imagesWithSrc.forEach(img => {
+                    observer.observe(img);
+                });
+            }
 
-            images.forEach(img => {
-                observer.observe(img);
-            });
+            // Загружаем изображения с data-original-url атрибутом
+            const imagesWithOriginalUrl = document.querySelectorAll('img[data-original-url]');
+            if (imagesWithOriginalUrl.length) {
+                const observer = new IntersectionObserver((entries, observer) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            const originalUrl = img.dataset.originalUrl;
+
+                            // Загружаем изображение через функцию convertImageUrl
+                            convertImageUrl(originalUrl).then(url => {
+                                if (url) {
+                                    img.src = url;
+                                    // Обновляем URL в объекте игры
+                                    const gameId = img.dataset.gameId;
+                                    if (gameId) {
+                                        const game = games.find(g => g.id.toString() === gameId);
+                                        if (game) {
+                                            game.imageUrl = url;
+                                        }
+                                    }
+                                }
+                            });
+
+                            // Удаляем атрибут, чтобы не загружать повторно
+                            img.removeAttribute('data-original-url');
+                            observer.unobserve(img);
+                        }
+                    });
+                });
+
+                imagesWithOriginalUrl.forEach(img => {
+                    observer.observe(img);
+                });
+            }
         }
 
         function loadImage(img) {
-            img.src = img.dataset.src;
-            img.removeAttribute('data-src');
+            if (img.dataset.src) {
+                img.src = img.dataset.src;
+                img.removeAttribute('data-src');
+            } else if (img.dataset.originalUrl) {
+                convertImageUrl(img.dataset.originalUrl).then(url => {
+                    if (url) {
+                        img.src = url;
+                        // Обновляем URL в объекте игры
+                        const gameId = img.dataset.gameId;
+                        if (gameId) {
+                            const game = games.find(g => g.id.toString() === gameId);
+                            if (game) {
+                                game.imageUrl = url;
+                            }
+                        }
+                    }
+                    img.removeAttribute('data-original-url');
+                });
+            }
         }
 
         function loadRemainingImages() {
-            const remainingImages = document.querySelectorAll('img[data-src]');
-            remainingImages.forEach(img => {
+            // Загружаем оставшиеся изображения с data-src
+            const remainingImagesWithSrc = document.querySelectorAll('img[data-src]');
+            remainingImagesWithSrc.forEach(img => {
+                loadImage(img);
+            });
+
+            // Загружаем оставшиеся изображения с data-original-url
+            const remainingImagesWithOriginalUrl = document.querySelectorAll('img[data-original-url]');
+            remainingImagesWithOriginalUrl.forEach(img => {
                 loadImage(img);
             });
         }
@@ -4722,8 +4780,15 @@
             const currentSaturation = saturationSlider.value;
             img.style.filter = `saturate(${currentSaturation}%)`;
 
-            // Если у игры есть изображение, используем его
+            // Используем заглушку по умолчанию
+            img.src = DEFAULT_GAME_IMAGE;
+
+            // Добавляем атрибут data-game-id для последующей загрузки изображения
+            img.dataset.gameId = game.id;
+
+            // Если у игры есть URL изображения, загрузим его позже
             if (game.imageUrl && game.imageUrl.trim() !== '') {
+                // Загружаем изображение сразу, если оно уже есть
                 console.log('Используем URL изображения для игры:', game.name, game.imageUrl);
                 img.src = game.imageUrl;
 
@@ -4733,9 +4798,11 @@
                     this.src = DEFAULT_GAME_IMAGE;
                 };
             } else {
-                // Используем изображение-заглушку из константы
-                console.log('Используем изображение-заглушку для игры:', game.name);
-                img.src = DEFAULT_GAME_IMAGE;
+                // Если у игры есть обложка, но URL еще не загружен
+                if (game.cover && game.cover.url) {
+                    // Добавляем атрибут data-original-url для последующей загрузки
+                    img.dataset.originalUrl = game.cover.url;
+                }
             }
 
             cell.appendChild(img);
@@ -5401,13 +5468,18 @@
             saveGames();
             updateCounter();
             updateSaturation();
+
+            // Запускаем ленивую загрузку изображений для новой ячейки
+            setTimeout(() => {
+                lazyLoadImages();
+            }, 100);
         }
 
         // Глобальные переменные для ограничения частоты запросов
         const imageCache = {}; // Кэш для URL изображений
         const requestQueue = []; // Очередь запросов на загрузку изображений
         let isProcessingQueue = false; // Флаг, указывающий, обрабатывается ли очередь в данный момент
-        const MAX_REQUESTS_PER_MINUTE = 60; // Максимальное количество запросов в минуту
+        const MAX_REQUESTS_PER_MINUTE = 30; // Максимальное количество запросов в минуту (1 запрос в 2 секунды)
         const REQUEST_INTERVAL = 60000 / MAX_REQUESTS_PER_MINUTE; // Интервал между запросами в мс
 
         // Функция для обработки очереди запросов
