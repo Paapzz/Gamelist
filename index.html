@@ -5228,9 +5228,28 @@
 
         function convertImageUrl(url) {
             if (!url) return null;
-            const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
-            const fileName = url.split('/').pop();
-            return baseUrl + fileName;
+            console.log('Original URL from IGDB:', url);
+
+            // Проверяем, содержит ли URL уже полный путь
+            if (url.includes('https://images.igdb.com/igdb/image/upload/')) {
+                // Если URL уже содержит полный путь, просто заменяем размер изображения
+                const convertedUrl = url.replace(/\/t_[^/]+\//, '/t_cover_big/');
+                console.log('Converted URL (full path):', convertedUrl);
+                return convertedUrl;
+            } else {
+                // Если URL не содержит полный путь, обрабатываем его как раньше
+                const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
+                let fileName = url;
+
+                // Если URL содержит слеши, извлекаем последнюю часть
+                if (url.includes('/')) {
+                    fileName = url.split('/').pop();
+                }
+
+                const convertedUrl = baseUrl + fileName;
+                console.log('Converted URL (partial path):', convertedUrl);
+                return convertedUrl;
+            }
         }
 
         function updateFiltersAndCounter() {
