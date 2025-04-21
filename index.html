@@ -2764,7 +2764,7 @@
                 year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                 genres: game.genres ? game.genres.map(g => g.name) : [],
                 platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
-                imageUrl: game.cover && game.cover.url ? convertImageUrl(game.cover.url) : null,
+                imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
                 isCustom: true,
                 importedFromApi: true,
                 completed: false,
@@ -4414,22 +4414,29 @@
             resetAddGameForm();
         }
 
-        function addNewGame(game) {
-            games.push(game);
+        function addNewGame(gameData) {
+            const existingGame = findExistingGame(gameData);
+            if (existingGame) {
+                if (gameData.name.length < existingGame.name.length) {
+                    Object.assign(existingGame, gameData);
+                    updateGameCell(existingGame);
+                }
+            } else {
+                const newGame = {
+                    id: Date.now(),
+                    ...gameData,
+                    isCustom: true,
+                    importedFromApi: gameData.importedFromApi || false,
+                    completed: false,
+                    inProgress: false,
+                    color: getRandomPastelColor()
+                };
+                games.push(newGame);
+                const cell = createCell(newGame);
 
-            // Обновляем фильтры до создания ячейки
-            populateFilters();
-
-            const cell = createCell(game);
-
-            // Применяем фильтры к новой ячейке перед добавлением
-            const shouldDisplay = shouldShowGame(game);
-            if (!shouldDisplay) {
-                cell.style.display = 'none';
+                // Добавляем ячейку в сетку с учетом сортировки по году
+                insertCellInOrder(cell);
             }
-
-            // Добавляем ячейку в сетку с учетом фильтров
-            insertCellInOrder(cell);
 
             updateGridSize();
             saveGames();
@@ -4439,7 +4446,6 @@
             saveGames();
             updateCounter();
 
-            // Обновляем фильтры без изменения значений слайдеров
             // Сохраняем текущие значения фильтра годов
             const currentMinYear = yearSliderMin.value;
             const currentMaxYear = yearSliderMax.value;
@@ -5102,7 +5108,7 @@
                     const newGame = {
                         id: game.id,
                         name: formattedName,
-                        imageUrl: game.cover && game.cover.url ? convertImageUrl(game.cover.url) : null,
+                        imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
                         year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                         genres: game.genres ? game.genres.map(g => g.name) : [],
                         platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null) : [],
