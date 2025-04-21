@@ -1933,7 +1933,7 @@
 
         <div class="year-slider-container">
             <div class="year-slider-header">
-                <label for="yearSlider">Год выпуска:</label>
+                <label for="yearSliderMin">Год выпуска:</label>
                 <div class="year-value-container">
                     <span id="yearValue"></span>
                 </div>
@@ -1967,8 +1967,8 @@
             <button id="resetFiltersButton">Сбросить фильтры</button>
         </div>
         <div id="saturationContainer">
-            <label for="saturationSlider">Насыщенность</label>
-            <input type="range" id="saturationSlider" min="0" max="100" value="100">
+            <label for="saturationSlider" id="saturationLabel">Насыщенность</label>
+            <input type="range" id="saturationSlider" min="0" max="100" value="100" aria-labelledby="saturationLabel">
         </div>
     </div>
     <div id="randomSelectedContainer">
@@ -2746,8 +2746,19 @@
                 // Преобразуем URL изображения для предварительного просмотра
                 let imageUrl = '';
                 if (game.cover && game.cover.url) {
-                    imageUrl = convertImageUrl(game.cover.url);
-                    console.log('Преобразованный URL для предварительного просмотра:', imageUrl);
+                    // Используем временное значение, пока загружается изображение
+                    imageUrl = DEFAULT_GAME_IMAGE;
+                    // Асинхронно загружаем изображение
+                    convertImageUrl(game.cover.url).then(url => {
+                        if (url) {
+                            console.log('Преобразованный URL для предварительного просмотра:', url);
+                            // Обновляем изображение, если оно еще отображается
+                            const imgElement = document.querySelector(`.search-result-image[alt="${game.name}"]`);
+                            if (imgElement) {
+                                imgElement.src = url;
+                            }
+                        }
+                    });
                 }
 
                 // Создаем информацию об игре
@@ -2876,13 +2887,14 @@
             // Применяем форматирование для римских цифр в названии
             const formattedName = formatGameTitle(game.name);
 
+            // Создаем объект игры с временным изображением
             const newGame = {
                 id: Date.now(),
                 name: formattedName,
                 year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                 genres: game.genres ? game.genres.map(g => g.name) : [],
                 platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
-                imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
+                imageUrl: '', // Сначала пустой URL
                 isCustom: true,
                 importedFromApi: true,
                 completed: false,
@@ -2890,21 +2902,32 @@
             };
 
             console.log('URL изображения:', game.cover ? game.cover.url : 'нет');
-            console.log('Преобразованный URL:', game.cover ? convertImageUrl(game.cover.url) : 'нет');
 
-            // Добавляем дополнительную проверку URL изображения
+            // Асинхронно загружаем изображение
             if (game.cover && game.cover.url) {
                 console.log('Оригинальный URL изображения:', game.cover.url);
-                const convertedUrl = convertImageUrl(game.cover.url);
-                console.log('Преобразованный URL изображения:', convertedUrl);
 
-                // Проверяем, что URL изображения корректный
-                if (convertedUrl && convertedUrl.startsWith('http')) {
-                    newGame.imageUrl = convertedUrl;
-                } else {
-                    console.warn('Некорректный URL изображения, используем заглушку');
-                    newGame.imageUrl = '';
-                }
+                // Запускаем асинхронное преобразование URL
+                convertImageUrl(game.cover.url).then(convertedUrl => {
+                    console.log('Преобразованный URL изображения:', convertedUrl);
+
+                    // Проверяем, что URL изображения корректный
+                    if (convertedUrl && convertedUrl.startsWith('http')) {
+                        // Обновляем URL изображения в объекте игры
+                        newGame.imageUrl = convertedUrl;
+
+                        // Обновляем изображение в DOM, если ячейка уже создана
+                        const cell = document.querySelector(`.cell[data-game-id="${newGame.id}"]`);
+                        if (cell) {
+                            const img = cell.querySelector('img');
+                            if (img) {
+                                img.src = convertedUrl;
+                            }
+                        }
+                    } else {
+                        console.warn('Некорректный URL изображения, используем заглушку');
+                    }
+                });
             }
 
             if (!isDuplicateGame(newGame)) {
@@ -5239,7 +5262,7 @@
                     const newGame = {
                         id: game.id,
                         name: formattedName,
-                        imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
+                        imageUrl: '', // Сначала пустой URL, будем загружать асинхронно
                         year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                         genres: game.genres ? game.genres.map(g => g.name) : [],
                         platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null) : [],
@@ -5249,6 +5272,23 @@
                         completed: false,
                         inProgress: false
                     };
+
+                    // Асинхронно загружаем изображение, если оно есть
+                    if (game.cover && game.cover.url) {
+                        convertImageUrl(game.cover.url).then(url => {
+                            if (url) {
+                                newGame.imageUrl = url;
+                                // Обновляем изображение в DOM, если ячейка уже создана
+                                const cell = document.querySelector(`.cell[data-game-id="${newGame.id}"]`);
+                                if (cell) {
+                                    const img = cell.querySelector('img');
+                                    if (img) {
+                                        img.src = url;
+                                    }
+                                }
+                            }
+                        });
+                    }
                     if (!isDuplicateGame(newGame)) {
                         await addNewGameWithDelay(newGame);
                         addedGames++;
@@ -5363,10 +5403,50 @@
             updateSaturation();
         }
 
+        // Глобальные переменные для ограничения частоты запросов
+        const imageCache = {}; // Кэш для URL изображений
+        const requestQueue = []; // Очередь запросов на загрузку изображений
+        let isProcessingQueue = false; // Флаг, указывающий, обрабатывается ли очередь в данный момент
+        const MAX_REQUESTS_PER_MINUTE = 60; // Максимальное количество запросов в минуту
+        const REQUEST_INTERVAL = 60000 / MAX_REQUESTS_PER_MINUTE; // Интервал между запросами в мс
+
+        // Функция для обработки очереди запросов
+        function processImageQueue() {
+            if (requestQueue.length === 0) {
+                isProcessingQueue = false;
+                return;
+            }
+
+            isProcessingQueue = true;
+            const request = requestQueue.shift();
+            const { url, callback } = request;
+
+            // Загружаем изображение
+            const img = new Image();
+            img.onload = function() {
+                // Сохраняем в кэш
+                imageCache[url] = url;
+                callback(url);
+
+                // Обрабатываем следующий запрос через интервал
+                setTimeout(processImageQueue, REQUEST_INTERVAL);
+            };
+            img.onerror = function() {
+                console.error('Ошибка загрузки изображения:', url);
+                callback(''); // Возвращаем пустую строку в случае ошибки
+
+                // Обрабатываем следующий запрос через интервал
+                setTimeout(processImageQueue, REQUEST_INTERVAL);
+            };
+            img.src = url;
+        }
+
         function convertImageUrl(url) {
             if (!url) return '';
 
             console.log('Преобразование URL изображения:', url);
+
+            let finalUrl = '';
 
             // Проверяем, содержит ли URL уже полный путь
             if (url.includes('https://images.igdb.com/igdb/image/upload/')) {
@@ -5375,38 +5455,55 @@
                     // Извлекаем имя файла
                     const parts = url.split('/');
                     const fileName = parts[parts.length - 1];
-                    const result = `https://images.igdb.com/igdb/image/upload/t_cover_big/${fileName}`;
-                    console.log('Результат преобразования URL (1):', result);
-                    return result;
+                    finalUrl = `https://images.igdb.com/igdb/image/upload/t_cover_big/${fileName}`;
+                } else {
+                    // Если URL уже содержит t_cover_big, возвращаем его как есть
+                    finalUrl = url;
                 }
-                // Если URL уже содержит t_cover_big, возвращаем его как есть
-                console.log('Результат преобразования URL (2):', url);
-                return url;
-            }
-
-            // Проверяем, содержит ли URL другой полный путь
-            if (url.startsWith('http')) {
-                console.log('Результат преобразования URL (3):', url);
-                return url; // Возвращаем полный URL как есть
-            }
-
-            // Стандартная обработка для относительных URL
-            const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
-            try {
-                // Пытаемся получить имя файла из URL
-                const fileName = url.split('/').pop();
-                if (fileName) {
-                    const result = baseUrl + fileName;
-                    console.log('Результат преобразования URL (4):', result);
-                    return result;
+            } else if (url.startsWith('http')) {
+                // Проверяем, содержит ли URL другой полный путь
+                finalUrl = url; // Возвращаем полный URL как есть
+            } else {
+                // Стандартная обработка для относительных URL
+                const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
+                try {
+                    // Пытаемся получить имя файла из URL
+                    const fileName = url.split('/').pop();
+                    if (fileName) {
+                        finalUrl = baseUrl + fileName;
+                    }
+                } catch (error) {
+                    console.error('Error converting image URL:', error);
+                    return ''; // В случае ошибки возвращаем пустую строку
                 }
-            } catch (error) {
-                console.error('Error converting image URL:', error);
             }
 
-            // В случае ошибки возвращаем пустую строку
-            console.warn('Не удалось преобразовать URL изображения:', url);
-            return '';
+            // Если URL не удалось преобразовать
+            if (!finalUrl) {
+                console.warn('Не удалось преобразовать URL изображения:', url);
+                return '';
+            }
+
+            // Проверяем, есть ли URL в кэше
+            if (imageCache[finalUrl]) {
+                console.log('URL найден в кэше:', finalUrl);
+                return finalUrl;
+            }
+
+            // Добавляем запрос в очередь
+            return new Promise((resolve) => {
+                requestQueue.push({
+                    url: finalUrl,
+                    callback: (result) => {
+                        resolve(result);
+                    }
+                });
+
+                // Запускаем обработку очереди, если она еще не запущена
+                if (!isProcessingQueue) {
+                    processImageQueue();
+                }
+            });
         }
 
         function updateFiltersAndCounter() {
