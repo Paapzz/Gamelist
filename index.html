@@ -1999,12 +1999,16 @@
         window.messageTimer = null; // Таймер для сообщений
         window.animationTimer = null; // Таймер для анимаций
 
-        // Обработчик ошибок загрузки изображений
+        // Обработчик ошибок загрузки ресурсов
         window.addEventListener('error', function(e) {
             if (e.target.tagName === 'IMG') {
                 console.warn('Ошибка загрузки изображения:', e.target.src);
                 // Заменяем на изображение-заглушку
                 e.target.src = DEFAULT_GAME_IMAGE;
+                // Предотвращаем вывод ошибки в консоль
+                e.preventDefault();
+            } else if (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK') {
+                console.warn('Ресурс не загружен:', e.target.src || e.target.href);
                 // Предотвращаем вывод ошибки в консоль
                 e.preventDefault();
             }
@@ -2145,13 +2149,24 @@
                 if (gameFiles[i]) {
                     fileGames = gameFiles[i];
                 } else {
-                    // Если файл не загружен, загружаем его
-                    const response = await fetch(`data/games_${i}.json`);
-                    if (!response.ok) {
-                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                    }
-                    fileGames = await response.json();
-                    gameFiles[i] = fileGames;
+                    // Если файл не загружен, загружаем его с использованием XMLHttpRequest
+                    fileGames = await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('GET', `data/games_${i}.json`, true);
+                        xhr.responseType = 'json';
+                        xhr.onload = function() {
+                            if (xhr.status === 200) {
+                                gameFiles[i] = xhr.response; // Сохраняем в кэш
+                                resolve(xhr.response);
+                            } else {
+                                reject(new Error(`Ошибка загрузки файла games_${i}.json: ${xhr.status}`));
+                            }
+                        };
+                        xhr.onerror = function() {
+                            reject(new Error(`Ошибка загрузки файла games_${i}.json: сетевая ошибка`));
+                        };
+                        xhr.send();
+                    });
                 }
 
                 const matches = fileGames.filter(game =>
@@ -5164,11 +5179,23 @@
                     if (gameIndex !== null) {
                         index = gameIndex;
                     } else {
-                        const indexResponse = await fetch('data/index.json');
-                        if (!indexResponse.ok) {
-                            throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                        }
-                        index = await indexResponse.json();
+                        // Загружаем индекс с использованием XMLHttpRequest
+                        index = await new Promise((resolve, reject) => {
+                            const xhr = new XMLHttpRequest();
+                            xhr.open('GET', 'data/index.json', true);
+                            xhr.responseType = 'json';
+                            xhr.onload = function() {
+                                if (xhr.status === 200) {
+                                    resolve(xhr.response);
+                                } else {
+                                    reject(new Error(`Ошибка загрузки индекса: ${xhr.status}`));
+                                }
+                            };
+                            xhr.onerror = function() {
+                                reject(new Error('Ошибка загрузки индекса: сетевая ошибка'));
+                            };
+                            xhr.send();
+                        });
                         gameIndex = index;
                     }
 
@@ -5180,14 +5207,24 @@
                         if (gameFiles[i]) {
                             fileGames = gameFiles[i];
                         } else {
-                            // Если файл не загружен, загружаем его
-                            const response = await fetch(`data/games_${i}.json`);
-                            if (!response.ok) {
-                                throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                            }
-                            fileGames = await response.json();
-                            // Сохраняем файл для будущих запросов
-                            gameFiles[i] = fileGames;
+                            // Если файл не загружен, загружаем его с использованием XMLHttpRequest
+                            fileGames = await new Promise((resolve, reject) => {
+                                const xhr = new XMLHttpRequest();
+                                xhr.open('GET', `data/games_${i}.json`, true);
+                                xhr.responseType = 'json';
+                                xhr.onload = function() {
+                                    if (xhr.status === 200) {
+                                        gameFiles[i] = xhr.response; // Сохраняем в кэш
+                                        resolve(xhr.response);
+                                    } else {
+                                        reject(new Error(`Ошибка загрузки файла games_${i}.json: ${xhr.status}`));
+                                    }
+                                };
+                                xhr.onerror = function() {
+                                    reject(new Error(`Ошибка загрузки файла games_${i}.json: сетевая ошибка`));
+                                };
+                                xhr.send();
+                            });
                         }
 
                         newGames = newGames.concat(fileGames.filter(game => !existingIds.includes(game.id.toString())));
@@ -5199,18 +5236,43 @@
                     // Если поисковый индекс не загружен, используем старый метод
                     console.log('Используем стандартный метод импорта');
 
-                    const indexResponse = await fetch('data/index.json');
-                    if (!indexResponse.ok) {
-                        throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                    }
-                    index = await indexResponse.json();
+                    // Загружаем индекс с использованием XMLHttpRequest
+                    index = await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('GET', 'data/index.json', true);
+                        xhr.responseType = 'json';
+                        xhr.onload = function() {
+                            if (xhr.status === 200) {
+                                resolve(xhr.response);
+                            } else {
+                                reject(new Error(`Ошибка загрузки индекса: ${xhr.status}`));
+                            }
+                        };
+                        xhr.onerror = function() {
+                            reject(new Error('Ошибка загрузки индекса: сетевая ошибка'));
+                        };
+                        xhr.send();
+                    });
 
                     for (let i = 1; i <= index.total_files; i++) {
-                        const response = await fetch(`data/games_${i}.json`);
-                        if (!response.ok) {
-                            throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                        }
-                        const fileGames = await response.json();
+                        // Загружаем файл с использованием XMLHttpRequest
+                        const fileGames = await new Promise((resolve, reject) => {
+                            const xhr = new XMLHttpRequest();
+                            xhr.open('GET', `data/games_${i}.json`, true);
+                            xhr.responseType = 'json';
+                            xhr.onload = function() {
+                                if (xhr.status === 200) {
+                                    gameFiles[i] = xhr.response; // Сохраняем в кэш
+                                    resolve(xhr.response);
+                                } else {
+                                    reject(new Error(`Ошибка загрузки файла games_${i}.json: ${xhr.status}`));
+                                }
+                            };
+                            xhr.onerror = function() {
+                                reject(new Error(`Ошибка загрузки файла games_${i}.json: сетевая ошибка`));
+                            };
+                            xhr.send();
+                        });
                         newGames = newGames.concat(fileGames.filter(game => !existingIds.includes(game.id.toString())));
                         if (newGames.length >= count) {
                             break;
