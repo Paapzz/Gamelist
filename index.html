@@ -426,19 +426,14 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: red;
+            background:
+                linear-gradient(to top right, transparent calc(50% - 1px), red calc(50% - 1px), red calc(50% + 1px), transparent calc(50% + 1px)),
+                linear-gradient(to bottom right, transparent calc(50% - 1px), red calc(50% - 1px), red calc(50% + 1px), transparent calc(50% + 1px));
             z-index: 2;
             pointer-events: none;
             filter: saturate(100%) !important;
             border-radius: 10%;
             transition: transform 0.2s ease;
-            /* Добавляем SVG маску для лучшего сглаживания */
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='133' viewBox='0 0 100 133'%3E%3Cline x1='-5' y1='-5' x2='105' y2='138' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='105' y1='-5' x2='-5' y2='138' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='133' viewBox='0 0 100 133'%3E%3Cline x1='-5' y1='-5' x2='105' y2='138' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='105' y1='-5' x2='-5' y2='138' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
-            -webkit-mask-size: 100% 100%;
-            mask-size: 100% 100%;
-            -webkit-mask-repeat: no-repeat;
-            mask-repeat: no-repeat;
         }
         .cell.completed::after {
             content: '';
@@ -447,17 +442,10 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(255, 255, 255, 0.7);
+            background: linear-gradient(to bottom right, transparent calc(50% - 1px), #fff, transparent calc(50% + 1px));
             pointer-events: none;
             border-radius: 10%;
             transition: transform 0.2s ease;
-            /* Добавляем SVG маску для лучшего сглаживания */
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='133' viewBox='0 0 100 133'%3E%3Cline x1='-5' y1='-5' x2='105' y2='138' stroke='black' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='133' viewBox='0 0 100 133'%3E%3Cline x1='-5' y1='-5' x2='105' y2='138' stroke='black' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-            -webkit-mask-size: 100% 100%;
-            mask-size: 100% 100%;
-            -webkit-mask-repeat: no-repeat;
-            mask-repeat: no-repeat;
         }
 
         .cell img,
@@ -1623,36 +1611,6 @@
             background-color: rgba(0, 0, 0, 0.1); /* Легкий фон для каждой строки */
             border-left: 3px solid rgba(76, 175, 80, 0.5); /* Зеленая полоса слева */
         }
-        .search-result .game-info {
-            display: flex;
-            align-items: center;
-            flex: 1;
-            overflow: hidden;
-        }
-        .search-result-image {
-            width: 40px;
-            height: 60px;
-            object-fit: cover;
-            margin-right: 10px;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-        .game-text-info {
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .game-name {
-            font-weight: bold;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .game-year {
-            font-size: 0.9em;
-            color: #aaa;
-            margin-left: 5px;
-        }
 
         /* Добавляем легкое и минималистичное выделение всей строки при наведении */
         .search-result:hover {
@@ -1933,7 +1891,7 @@
 
         <div class="year-slider-container">
             <div class="year-slider-header">
-                <label for="yearSliderMin">Год выпуска:</label>
+                <label for="yearSlider">Год выпуска:</label>
                 <div class="year-value-container">
                     <span id="yearValue"></span>
                 </div>
@@ -1967,8 +1925,8 @@
             <button id="resetFiltersButton">Сбросить фильтры</button>
         </div>
         <div id="saturationContainer">
-            <label for="saturationSlider" id="saturationLabel">Насыщенность</label>
-            <input type="range" id="saturationSlider" min="0" max="100" value="100" aria-labelledby="saturationLabel">
+            <label for="saturationSlider">Насыщенность</label>
+            <input type="range" id="saturationSlider" min="0" max="100" value="100">
         </div>
     </div>
     <div id="randomSelectedContainer">
@@ -2306,22 +2264,17 @@
             return formattedTitle;
         }
 
-        // Инициализируем игры из gamesList только если нет сохраненных игр в localStorage
-        if (!localStorage.getItem('games')) {
-            games = gamesList.map(game => ({
-                id: game.number,
-                name: formatGameTitle(game.title),
-                imageUrl: game.image_url,
-                year: game.year,
-                genres: game.genres,
-                platforms: game.platforms,
-                completed: false,
-                inProgress: false,
-                isCustom: false
-            }));
-            // Сохраняем игры в localStorage
-            localStorage.setItem('games', JSON.stringify(games));
-        }
+        games = gamesList.map(game => ({
+            id: game.number,
+            name: formatGameTitle(game.title),
+            imageUrl: game.image_url,
+            year: game.year,
+            genres: game.genres,
+            platforms: game.platforms,
+            completed: false,
+            inProgress: false,
+            isCustom: false
+        }));
 
         function loadSavedGames() {
             const savedGames = localStorage.getItem('games');
@@ -2330,32 +2283,9 @@
             if (savedGames) {
                 let parsedGames = JSON.parse(savedGames);
 
-                // Получаем ID игр из localStorage
-                const savedGameIds = new Set(parsedGames.map(game => game.id));
-
-                // Добавляем игры из gamesList, которых нет в localStorage
-                const gamesListMapped = gamesList.map(game => ({
-                    id: game.number,
-                    name: formatGameTitle(game.title),
-                    imageUrl: game.image_url,
-                    year: game.year,
-                    genres: game.genres,
-                    platforms: game.platforms,
-                    completed: false,
-                    inProgress: false,
-                    isCustom: false
-                }));
-
-                // Фильтруем игры из gamesList, которых нет в localStorage
-                const newGames = gamesListMapped.filter(game => !savedGameIds.has(game.id));
-
-                // Объединяем игры из localStorage с новыми играми из gamesList
-                games = [...parsedGames, ...newGames];
+                // Загружаем игры сразу
+                games = parsedGames;
                 completedGames = games.filter(game => game.completed).length;
-
-                // Сохраняем обновленный список игр в localStorage
-                localStorage.setItem('games', JSON.stringify(games));
-
                 updateInProgressRow();
 
                 // Проверяем, было ли уже выполнено переформатирование
@@ -2610,11 +2540,6 @@
             });
             updateInProgressRow();
             // applyFilters(); // <-- Убираем этот вызов
-
-            // Запускаем ленивую загрузку изображений
-            setTimeout(() => {
-                lazyLoadImages();
-            }, 100);
         }
 
         function insertCellInOrder(cell) {
@@ -2748,65 +2673,16 @@
                 const buttonClass = isDuplicate ? 'add-game-button disabled' : 'add-game-button';
                 const buttonText = isDuplicate ? 'Уже есть' : 'Добавить';
 
-                // Преобразуем URL изображения для предварительного просмотра
-                let imageUrl = '';
-                if (game.cover && game.cover.url) {
-                    // Преобразуем URL изображения
-                    imageUrl = convertImageUrl(game.cover.url);
-                    console.log('Преобразованный URL для предварительного просмотра:', imageUrl);
-                }
+                resultElement.innerHTML = `
+                    <div class="game-info">
+                        <span class="game-name">${game.name}</span>
+                        <span class="game-year">(${releaseYear})</span>
+                    </div>
+                    <button type="button" class="${buttonClass}">${buttonText}</button>
+                `;
 
-                // Создаем информацию об игре
-                const gameInfoDiv = document.createElement('div');
-                gameInfoDiv.className = 'game-info';
-
-                // Добавляем миниатюру изображения, если оно есть
-                if (imageUrl && imageUrl.startsWith('http')) {
-                    const imgElement = document.createElement('img');
-                    imgElement.className = 'search-result-image';
-                    imgElement.src = imageUrl;
-                    imgElement.alt = game.name;
-                    imgElement.onerror = function() {
-                        console.warn('Ошибка загрузки изображения в результатах поиска:', imageUrl);
-                        this.src = DEFAULT_GAME_IMAGE;
-                    };
-                    gameInfoDiv.appendChild(imgElement);
-                } else {
-                    // Если изображения нет, используем заглушку
-                    const imgElement = document.createElement('img');
-                    imgElement.className = 'search-result-image';
-                    imgElement.src = DEFAULT_GAME_IMAGE;
-                    imgElement.alt = game.name;
-                    gameInfoDiv.appendChild(imgElement);
-                }
-
-                // Добавляем текстовую информацию
-                const textInfoDiv = document.createElement('div');
-                textInfoDiv.className = 'game-text-info';
-
-                const nameSpan = document.createElement('span');
-                nameSpan.className = 'game-name';
-                nameSpan.textContent = game.name;
-
-                const yearSpan = document.createElement('span');
-                yearSpan.className = 'game-year';
-                yearSpan.textContent = `(${releaseYear})`;
-
-                textInfoDiv.appendChild(nameSpan);
-                textInfoDiv.appendChild(yearSpan);
-                gameInfoDiv.appendChild(textInfoDiv);
-
-                // Добавляем кнопку
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = buttonClass;
-                button.textContent = buttonText;
-
-                // Добавляем элементы в результат
-                resultElement.appendChild(gameInfoDiv);
-                resultElement.appendChild(button);
-
-                // Используем созданную кнопку для добавления обработчиков событий
+                // Добавляем обработчик события для всех кнопок
+                const button = resultElement.querySelector('.add-game-button');
 
                 if (!isDuplicate) {
                     // Если игра еще не добавлена, добавляем обработчик для добавления
@@ -2882,38 +2758,18 @@
             // Применяем форматирование для римских цифр в названии
             const formattedName = formatGameTitle(game.name);
 
-            // Создаем объект игры
             const newGame = {
                 id: Date.now(),
                 name: formattedName,
                 year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                 genres: game.genres ? game.genres.map(g => g.name) : [],
                 platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
-                imageUrl: DEFAULT_GAME_IMAGE, // Используем заглушку по умолчанию
+                imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
                 isCustom: true,
                 importedFromApi: true,
                 completed: false,
                 inProgress: false
             };
-
-            console.log('URL изображения:', game.cover ? game.cover.url : 'нет');
-
-            // Загружаем изображение, если оно есть
-            if (game.cover && game.cover.url) {
-                console.log('Оригинальный URL изображения:', game.cover.url);
-
-                // Преобразуем URL изображения
-                const convertedUrl = convertImageUrl(game.cover.url);
-                console.log('Преобразованный URL изображения:', convertedUrl);
-
-                // Проверяем, что URL изображения корректный
-                if (convertedUrl && convertedUrl.startsWith('http')) {
-                    // Обновляем URL изображения в объекте игры
-                    newGame.imageUrl = convertedUrl;
-                } else {
-                    console.warn('Некорректный URL изображения, используем заглушку');
-                }
-            }
 
             if (!isDuplicateGame(newGame)) {
                 // Сохраняем текущие значения фильтра годов перед добавлением игры
@@ -3296,130 +3152,42 @@
         }
 
         function lazyLoadImages() {
-            // Загружаем изображения с data-src атрибутом
-            const imagesWithSrc = document.querySelectorAll('img[data-src]');
-            if (imagesWithSrc.length) {
-                const observer = new IntersectionObserver((entries, observer) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            const img = entry.target;
-                            img.src = img.dataset.src;
-                            img.removeAttribute('data-src');
-                            observer.unobserve(img);
-                        }
-                    });
+            const images = document.querySelectorAll('img[data-src]');
+            if (!images.length) return;
+
+            const visibleImages = new Set();
+
+            const observer = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        loadImage(img);
+                        observer.unobserve(img);
+                    } else {
+                        visibleImages.add(entry.target);
+                    }
                 });
 
-                imagesWithSrc.forEach(img => {
-                    observer.observe(img);
-                });
-            }
+                const remainingImages = document.querySelectorAll('img[data-src]');
+                if (remainingImages.length === 0) {
+                    observer.disconnect();
+                }
+            });
 
-            // Загружаем изображения с data-original-url атрибутом
-            const imagesWithOriginalUrl = document.querySelectorAll('img[data-original-url]');
-            if (imagesWithOriginalUrl.length) {
-                const observer = new IntersectionObserver((entries, observer) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            const img = entry.target;
-                            const originalUrl = img.dataset.originalUrl;
-
-                                            // Загружаем изображение через функцию convertImageUrl
-                            const url = convertImageUrl(originalUrl);
-                            if (url) {
-                                // Добавляем обработчик ошибки загрузки изображения до установки src
-                                img.onerror = function() {
-                                    this.src = DEFAULT_GAME_IMAGE;
-                                    this.onerror = null; // Предотвращаем зацикливание
-                                };
-                                img.src = url;
-                                // Обновляем URL в объекте игры
-                                const gameId = img.dataset.gameId;
-                                if (gameId) {
-                                    const game = games.find(g => g.id.toString() === gameId);
-                                    if (game) {
-                                        game.imageUrl = url;
-                                    }
-                                }
-                            }
-
-                            // Удаляем атрибут, чтобы не загружать повторно
-                            img.removeAttribute('data-original-url');
-                            observer.unobserve(img);
-                        }
-                    });
-                });
-
-                imagesWithOriginalUrl.forEach(img => {
-                    observer.observe(img);
-                });
-            }
+            images.forEach(img => {
+                observer.observe(img);
+            });
         }
 
         function loadImage(img) {
-            if (img.dataset.src) {
-                // Добавляем обработчик ошибки загрузки изображения до установки src
-                img.onerror = function() {
-                    this.src = DEFAULT_GAME_IMAGE;
-                    this.onerror = null; // Предотвращаем зацикливание
-                };
-                img.src = img.dataset.src;
-                img.removeAttribute('data-src');
-            } else if (img.dataset.originalUrl) {
-                const url = convertImageUrl(img.dataset.originalUrl);
-                if (url) {
-                    // Добавляем обработчик ошибки загрузки изображения до установки src
-                    img.onerror = function() {
-                        this.src = DEFAULT_GAME_IMAGE;
-                        this.onerror = null; // Предотвращаем зацикливание
-                    };
-                    img.src = url;
-                    // Обновляем URL в объекте игры
-                    const gameId = img.dataset.gameId;
-                    if (gameId) {
-                        const game = games.find(g => g.id.toString() === gameId);
-                        if (game) {
-                            game.imageUrl = url;
-                        }
-                    }
-                }
-                img.removeAttribute('data-original-url');
-            }
+            img.src = img.dataset.src;
+            img.removeAttribute('data-src');
         }
 
         function loadRemainingImages() {
-            // Загружаем оставшиеся изображения с data-src
-            const remainingImagesWithSrc = document.querySelectorAll('img[data-src]');
-            remainingImagesWithSrc.forEach(img => {
+            const remainingImages = document.querySelectorAll('img[data-src]');
+            remainingImages.forEach(img => {
                 loadImage(img);
-            });
-
-            // Загружаем оставшиеся изображения с data-original-url
-            const remainingImagesWithOriginalUrl = document.querySelectorAll('img[data-original-url]');
-            remainingImagesWithOriginalUrl.forEach(img => {
-                loadImage(img);
-            });
-        }
-
-        // Функция для загрузки всех изображений и добавления обработчиков ошибок
-        function loadAllImages() {
-            // Загружаем все оставшиеся изображения
-            loadRemainingImages();
-
-            // Добавляем обработчики ошибок ко всем изображениям
-            const allImages = document.querySelectorAll('img');
-            allImages.forEach(img => {
-                if (!img.onerror) {
-                    img.onerror = function() {
-                        this.src = DEFAULT_GAME_IMAGE;
-                        this.onerror = null; // Предотвращаем зацикливание
-                    };
-                }
-
-                // Добавляем случайный параметр к URL изображения, чтобы избежать кэширования
-                if (img.src && img.src.includes('images.igdb.com') && !img.src.includes('?')) {
-                    img.src = img.src + '?' + Date.now();
-                }
             });
         }
 
@@ -4219,11 +3987,6 @@
             updateCounter();
             // Убираем updateInProgressRow(), так как applyFilters уже должен обработать порядок
             // updateInProgressRow();
-
-            // Загружаем все изображения и добавляем обработчики ошибок
-            setTimeout(function() {
-                loadAllImages();
-            }, 100);
         }
 
         function showAuthorCredit() {
@@ -4800,28 +4563,12 @@
             const currentSaturation = saturationSlider.value;
             img.style.filter = `saturate(${currentSaturation}%)`;
 
-            // Используем заглушку по умолчанию
-            img.src = DEFAULT_GAME_IMAGE;
-
-            // Добавляем атрибут data-game-id для последующей загрузки изображения
-            img.dataset.gameId = game.id;
-
-            // Если у игры есть URL изображения, загрузим его позже
-            if (game.imageUrl && game.imageUrl.trim() !== '') {
-                // Добавляем обработчик ошибки загрузки изображения до установки src
-                img.onerror = function() {
-                    console.warn('Ошибка загрузки изображения:', game.imageUrl);
-                    this.src = DEFAULT_GAME_IMAGE;
-                    this.onerror = null; // Предотвращаем зацикливание
-                };
-                // Загружаем изображение сразу, если оно уже есть
+            // Если у игры есть изображение, используем его
+            if (game.imageUrl) {
                 img.src = game.imageUrl;
             } else {
-                // Если у игры есть обложка, но URL еще не загружен
-                if (game.cover && game.cover.url) {
-                    // Добавляем атрибут data-original-url для последующей загрузки
-                    img.dataset.originalUrl = game.cover.url;
-                }
+                // Используем изображение-заглушку из константы
+                img.src = DEFAULT_GAME_IMAGE;
             }
 
             cell.appendChild(img);
@@ -5348,7 +5095,7 @@
                     const newGame = {
                         id: game.id,
                         name: formattedName,
-                        imageUrl: '', // Сначала пустой URL, будем загружать асинхронно
+                        imageUrl: game.cover ? convertImageUrl(game.cover.url) : '',
                         year: game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null,
                         genres: game.genres ? game.genres.map(g => g.name) : [],
                         platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null) : [],
@@ -5358,22 +5105,6 @@
                         completed: false,
                         inProgress: false
                     };
-
-                    // Загружаем изображение, если оно есть
-                    if (game.cover && game.cover.url) {
-                        const url = convertImageUrl(game.cover.url);
-                        if (url) {
-                            newGame.imageUrl = url;
-                            // Обновляем изображение в DOM, если ячейка уже создана
-                            const cell = document.querySelector(`.cell[data-game-id="${newGame.id}"]`);
-                            if (cell) {
-                                const img = cell.querySelector('img');
-                                if (img) {
-                                    img.src = url;
-                                }
-                            }
-                        }
-                    }
                     if (!isDuplicateGame(newGame)) {
                         await addNewGameWithDelay(newGame);
                         addedGames++;
@@ -5486,46 +5217,12 @@
             saveGames();
             updateCounter();
             updateSaturation();
-
-            // Запускаем ленивую загрузку изображений для новой ячейки
-            setTimeout(() => {
-                lazyLoadImages();
-            }, 100);
         }
 
-        // Глобальный кэш для URL изображений
-        const imageCache = {};
-
-        // Функция для преобразования URL изображения
         function convertImageUrl(url) {
-            if (!url) return DEFAULT_GAME_IMAGE;
-
-            // Проверяем, есть ли URL в кэше
-            if (imageCache[url]) {
-                return imageCache[url];
-            }
-
-            // Если URL уже содержит data:image, возвращаем его как есть
-            if (url.startsWith('data:image')) {
-                return url;
-            }
-
-            try {
-                // Используем простой метод преобразования URL, как в версии 20.6
-                const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
-                const fileName = url.split('/').pop();
-
-                // Используем прокси для обхода CORS
-                // Добавляем случайный параметр, чтобы избежать кэширования
-                const finalUrl = `https://images.igdb.com/igdb/image/upload/t_cover_big/${fileName}?${Date.now()}`;
-
-                // Сохраняем в кэш
-                imageCache[url] = finalUrl;
-                return finalUrl;
-            } catch (error) {
-                console.error('Error converting image URL:', error);
-                return DEFAULT_GAME_IMAGE;
-            }
+            const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
+            const fileName = url.split('/').pop();
+            return baseUrl + fileName;
         }
 
         function updateFiltersAndCounter() {
@@ -5759,11 +5456,6 @@
 
             // Запускаем предварительную загрузку индекса
             preloadSearchIndex();
-
-            // Загружаем все изображения и добавляем обработчики ошибок
-            setTimeout(function() {
-                loadAllImages();
-            }, 500);
         });
     </script>
 </body>
