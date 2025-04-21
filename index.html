@@ -2004,8 +2004,13 @@
 
         // Функция для отслеживания и обработки CORB ошибок
         function monitorCORBErrors() {
-            // Создаем кэш для запросов, чтобы избежать дублирования
-            const requestCache = {};
+            // Создаем глобальный кэш для запросов, чтобы избежать дублирования
+            window.requestCache = window.requestCache || {};
+
+            // Создаем флаг для отслеживания состояния переопределения fetch
+            if (window.fetchOverridden) {
+                return; // Если fetch уже переопределен, не делаем это снова
+            }
 
             // Переопределяем метод fetch для отслеживания запросов
             const originalFetch = window.fetch;
@@ -2014,10 +2019,10 @@
                 const requestKey = url.toString();
 
                 // Проверяем, есть ли данные в кэше
-                if (requestCache[requestKey]) {
+                if (window.requestCache[requestKey]) {
                     console.log('Используются кэшированные данные для:', requestKey);
                     // Возвращаем кэшированные данные
-                    return Promise.resolve(new Response(JSON.stringify(requestCache[requestKey]), {
+                    return Promise.resolve(new Response(JSON.stringify(window.requestCache[requestKey]), {
                         status: 200,
                         headers: { 'Content-Type': 'application/json' }
                     }));
@@ -2030,7 +2035,6 @@
                 }
                 newOptions.headers['X-Requested-With'] = 'XMLHttpRequest';
                 newOptions.headers['Accept'] = 'application/json';
-                newOptions.mode = 'cors'; // Явно указываем режим CORS
 
                 // Вызываем оригинальный fetch с новыми опциями
                 return originalFetch(url, newOptions)
@@ -2042,7 +2046,7 @@
 
                             // Обрабатываем тело ответа и сохраняем в кэш
                             clonedResponse.json().then(data => {
-                                requestCache[requestKey] = data;
+                                window.requestCache[requestKey] = data;
                                 console.log('Данные сохранены в кэше:', requestKey);
                             }).catch(error => {
                                 console.error('Ошибка при обработке JSON:', error);
@@ -2058,14 +2062,29 @@
                     });
             };
 
+            // Устанавливаем флаг, что fetch переопределен
+            window.fetchOverridden = true;
+
+            // Функция для очистки кэша
+            window.clearRequestCache = function() {
+                console.log('Очистка кэша запросов');
+                window.requestCache = {};
+            };
+
             // Очищаем кэш при сбросе фильтров
             document.getElementById('resetFiltersButton').addEventListener('click', function() {
                 console.log('Очистка кэша запросов при сбросе фильтров');
-                // Очищаем кэш запросов
-                for (const key in requestCache) {
-                    delete requestCache[key];
-                }
+                window.clearRequestCache();
             });
+
+            // Добавляем обработчик для кнопки сброса фильтров в шапке
+            const resetFiltersButtonHeader = document.getElementById('resetFiltersButtonHeader');
+            if (resetFiltersButtonHeader) {
+                resetFiltersButtonHeader.addEventListener('click', function() {
+                    console.log('Очистка кэша запросов при сбросе фильтров в шапке');
+                    window.clearRequestCache();
+                });
+            }
         }
 
         // Функция для загрузки поискового индекса
@@ -3135,6 +3154,8 @@
 
             if (game && game.imageUrl) {
                 img.src = game.imageUrl;
+            } else if (game && game.image_url) {
+                img.src = game.image_url;
             } else {
                 // Используем изображение-заглушку из константы
                 img.src = DEFAULT_GAME_IMAGE;
@@ -3961,14 +3982,14 @@
                 cell.style.display = 'none';
             });
 
-            let imgSrc = game.image_url || game.imageUrl;
+            let imgSrc = game.imageUrl || game.image_url;
             let content;
+            const currentSaturation = saturationSlider.value;
             if (!imgSrc) {
                 // Используем изображение-заглушку из константы
-                content = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}">`;
-
+                content = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
             } else {
-                content = `<img src="${imgSrc}" alt="${game.name}">`;
+                content = `<img src="${imgSrc}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
             }
 
             const yearText = game.year ? ` (${game.year})` : ' (N/A)';
@@ -4690,6 +4711,8 @@
             // Если у игры есть изображение, используем его
             if (game.imageUrl) {
                 img.src = game.imageUrl;
+            } else if (game.image_url) {
+                img.src = game.image_url;
             } else {
                 // Используем изображение-заглушку из константы
                 img.src = DEFAULT_GAME_IMAGE;
@@ -4806,13 +4829,18 @@
                 cell.title = game.name;
                 cell.dataset.gameName = game.name; // Сохраняем название игры в атрибуте data-game-name
                 cell.dataset.gameYear = game.year || 'N/A'; // Сохраняем год игры в атрибуте data-game-year
+
+                // Обновляем изображение
+                const currentSaturation = saturationSlider.value;
                 if (game.imageUrl) {
-                    cell.innerHTML = `<img src="${game.imageUrl}" alt="${game.name}">`;
+                    cell.innerHTML = `<img src="${game.imageUrl}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
+                } else if (game.image_url) {
+                    cell.innerHTML = `<img src="${game.image_url}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
                 } else {
                     // Используем изображение-заглушку из константы
-                    cell.innerHTML = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}">`;
-
+                    cell.innerHTML = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
                 }
+
                 updateCellSize(cell, game.inProgress);
             }
         }
