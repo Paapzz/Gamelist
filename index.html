@@ -3401,6 +3401,28 @@
             });
         }
 
+        // Функция для загрузки всех изображений и добавления обработчиков ошибок
+        function loadAllImages() {
+            // Загружаем все оставшиеся изображения
+            loadRemainingImages();
+
+            // Добавляем обработчики ошибок ко всем изображениям
+            const allImages = document.querySelectorAll('img');
+            allImages.forEach(img => {
+                if (!img.onerror) {
+                    img.onerror = function() {
+                        this.src = DEFAULT_GAME_IMAGE;
+                        this.onerror = null; // Предотвращаем зацикливание
+                    };
+                }
+
+                // Добавляем случайный параметр к URL изображения, чтобы избежать кэширования
+                if (img.src && img.src.includes('images.igdb.com') && !img.src.includes('?')) {
+                    img.src = img.src + '?' + Date.now();
+                }
+            });
+        }
+
         function saveGamesToCache() {
             localStorage.setItem('games', JSON.stringify(games));
         }
@@ -4197,6 +4219,11 @@
             updateCounter();
             // Убираем updateInProgressRow(), так как applyFilters уже должен обработать порядок
             // updateInProgressRow();
+
+            // Загружаем все изображения и добавляем обработчики ошибок
+            setTimeout(function() {
+                loadAllImages();
+            }, 100);
         }
 
         function showAuthorCredit() {
@@ -5732,6 +5759,11 @@
 
             // Запускаем предварительную загрузку индекса
             preloadSearchIndex();
+
+            // Загружаем все изображения и добавляем обработчики ошибок
+            setTimeout(function() {
+                loadAllImages();
+            }, 500);
         });
     </script>
 </body>
