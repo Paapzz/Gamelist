@@ -2762,7 +2762,16 @@
             // Применяем форматирование для римских цифр в названии
             const formattedName = formatGameTitle(game.name);
 
-            const imageUrl = game.cover ? convertImageUrl(game.cover.url) : '';
+            // Проверяем наличие свойства cover и его url
+            let imageUrl = '';
+            if (game.cover && game.cover.url) {
+                imageUrl = convertImageUrl(game.cover.url);
+            } else if (game.imageUrl) {
+                imageUrl = game.imageUrl;
+            } else if (game.image_url) {
+                imageUrl = game.image_url;
+            }
+
             const newGame = {
                 id: Date.now(),
                 name: formattedName,
@@ -5107,7 +5116,16 @@
                     // Применяем форматирование для римских цифр в названии
                     const formattedName = formatGameTitle(game.name);
 
-                    const imageUrl = game.cover ? convertImageUrl(game.cover.url) : '';
+                    // Проверяем наличие свойства cover и его url
+                    let imageUrl = '';
+                    if (game.cover && game.cover.url) {
+                        imageUrl = convertImageUrl(game.cover.url);
+                    } else if (game.imageUrl) {
+                        imageUrl = game.imageUrl;
+                    } else if (game.image_url) {
+                        imageUrl = game.image_url;
+                    }
+
                     const newGame = {
                         id: game.id,
                         name: formattedName,
