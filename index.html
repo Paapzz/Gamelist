@@ -2764,15 +2764,22 @@
 
             // Проверяем наличие свойства cover и его url
             let imageUrl = '';
+            console.log('addGameFromSearch: Game object:', JSON.stringify(game));
+
             if (game.cover && game.cover.url) {
+                console.log('addGameFromSearch: Found cover.url:', game.cover.url);
                 imageUrl = convertImageUrl(game.cover.url);
-            } else if (game.imageUrl) {
+            } else if (game.imageUrl && game.imageUrl.trim() !== '') {
+                console.log('addGameFromSearch: Found imageUrl:', game.imageUrl);
                 imageUrl = game.imageUrl;
-            } else if (game.image_url) {
+            } else if (game.image_url && game.image_url.trim() !== '') {
+                console.log('addGameFromSearch: Found image_url:', game.image_url);
                 imageUrl = game.image_url;
+            } else {
+                console.log('addGameFromSearch: No valid image URL found for game:', game.name);
             }
 
-            console.log('Image URL for game:', game.name, imageUrl);
+            console.log('addGameFromSearch: Final image URL for game:', game.name, imageUrl);
 
             const newGame = {
                 id: Date.now(),
@@ -3005,22 +3012,11 @@
             const cell = e.currentTarget;
 
             // Создаем объект с информацией об игре из атрибутов data-*
-            let imageUrl = null;
-            if (game) {
-                if (game.imageUrl && game.imageUrl.trim() !== '') {
-                    imageUrl = game.imageUrl;
-                    console.log('showPreviewOrTitle: Using imageUrl for game:', game.name, game.imageUrl);
-                } else if (game.image_url && game.image_url.trim() !== '') {
-                    imageUrl = game.image_url;
-                    console.log('showPreviewOrTitle: Using image_url for game:', game.name, game.image_url);
-                }
-            }
-
             const gameInfo = {
                 name: cell.dataset.gameName || (game ? game.name : 'Unknown'),
                 year: cell.dataset.gameYear || (game ? game.year : 'N/A'),
                 completed: cell.classList.contains('completed'),
-                imageUrl: imageUrl
+                imageUrl: game ? (game.imageUrl || game.image_url) : null
             };
 
             if (gameInfo.completed) {
@@ -3039,10 +3035,10 @@
             preview.style.display = 'block';
             const img = preview.querySelector('img');
 
-            if (game && game.imageUrl && game.imageUrl.trim() !== '') {
+            if (game && game.imageUrl) {
                 img.src = game.imageUrl;
                 console.log('showPreview: Using imageUrl for game:', game.name, game.imageUrl);
-            } else if (game && game.image_url && game.image_url.trim() !== '') {
+            } else if (game && game.image_url) {
                 img.src = game.image_url;
                 console.log('showPreview: Using image_url for game:', game.name, game.image_url);
             } else {
@@ -3073,7 +3069,7 @@
                 }
             };
 
-            if (game && ((game.imageUrl && game.imageUrl.trim() !== '') || (game.image_url && game.image_url.trim() !== ''))) {
+            if (game && (game.imageUrl || game.image_url)) {
                 img.onload = () => {
                     const aspectRatio = img.naturalWidth / img.naturalHeight;
                     const maxWidth = window.innerWidth * 0.65;
@@ -3124,22 +3120,11 @@
             const cell = e.currentTarget;
 
             // Создаем объект с информацией об игре из атрибутов data-*
-            let imageUrl = null;
-            if (game) {
-                if (game.imageUrl && game.imageUrl.trim() !== '') {
-                    imageUrl = game.imageUrl;
-                    console.log('updateGameInfoPosition: Using imageUrl for game:', game.name, game.imageUrl);
-                } else if (game.image_url && game.image_url.trim() !== '') {
-                    imageUrl = game.image_url;
-                    console.log('updateGameInfoPosition: Using image_url for game:', game.name, game.image_url);
-                }
-            }
-
             const gameInfo = {
                 name: cell.dataset.gameName || (game ? game.name : 'Unknown'),
                 year: cell.dataset.gameYear || (game ? game.year : 'N/A'),
                 completed: cell.classList.contains('completed'),
-                imageUrl: imageUrl
+                imageUrl: game ? (game.imageUrl || game.image_url) : null
             };
 
             if (previewEnabled) {
@@ -3883,15 +3868,7 @@
                 cell.style.display = 'none';
             });
 
-            let imgSrc = '';
-            if (game.imageUrl && game.imageUrl.trim() !== '') {
-                imgSrc = game.imageUrl;
-                console.log('showRandomSelection: Using imageUrl for game:', game.name, game.imageUrl);
-            } else if (game.image_url && game.image_url.trim() !== '') {
-                imgSrc = game.image_url;
-                console.log('showRandomSelection: Using image_url for game:', game.name, game.image_url);
-            }
-
+            let imgSrc = game.imageUrl || game.image_url;
             let content;
             if (!imgSrc) {
                 // Используем изображение-заглушку из константы
@@ -3899,6 +3876,7 @@
                 console.log('showRandomSelection: Using default image for game:', game.name);
             } else {
                 content = `<img src="${imgSrc}" alt="${game.name}">`;
+                console.log('showRandomSelection: Using image for game:', game.name, imgSrc);
             }
 
             const yearText = game.year ? ` (${game.year})` : ' (N/A)';
@@ -4622,10 +4600,10 @@
             img.style.filter = `saturate(${currentSaturation}%)`;
 
             // Если у игры есть изображение, используем его
-            if (game.imageUrl && game.imageUrl.trim() !== '') {
+            if (game.imageUrl) {
                 img.src = game.imageUrl;
                 console.log('createCell: Using imageUrl for game:', game.name, game.imageUrl);
-            } else if (game.image_url && game.image_url.trim() !== '') {
+            } else if (game.image_url) {
                 img.src = game.image_url;
                 console.log('createCell: Using image_url for game:', game.name, game.image_url);
             } else {
@@ -4745,15 +4723,17 @@
                 cell.title = game.name;
                 cell.dataset.gameName = game.name; // Сохраняем название игры в атрибуте data-game-name
                 cell.dataset.gameYear = game.year || 'N/A'; // Сохраняем год игры в атрибуте data-game-year
-                if (game.imageUrl && game.imageUrl.trim() !== '') {
-                    cell.innerHTML = `<img src="${game.imageUrl}" alt="${game.name}">`;
+                // Обновляем изображение
+                const currentSaturation = saturationSlider.value;
+                if (game.imageUrl) {
+                    cell.innerHTML = `<img src="${game.imageUrl}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
                     console.log('updateGameCell: Using imageUrl for game:', game.name, game.imageUrl);
-                } else if (game.image_url && game.image_url.trim() !== '') {
-                    cell.innerHTML = `<img src="${game.image_url}" alt="${game.name}">`;
+                } else if (game.image_url) {
+                    cell.innerHTML = `<img src="${game.image_url}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
                     console.log('updateGameCell: Using image_url for game:', game.name, game.image_url);
                 } else {
                     // Используем изображение-заглушку из константы
-                    cell.innerHTML = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}">`;
+                    cell.innerHTML = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}" style="filter: saturate(${currentSaturation}%);">`;
                     console.log('updateGameCell: Using default image for game:', game.name);
                 }
                 updateCellSize(cell, game.inProgress);
@@ -5161,13 +5141,22 @@
 
                     // Проверяем наличие свойства cover и его url
                     let imageUrl = '';
+                    console.log('importFromIGDB: Game object:', JSON.stringify(game));
+
                     if (game.cover && game.cover.url) {
+                        console.log('importFromIGDB: Found cover.url:', game.cover.url);
                         imageUrl = convertImageUrl(game.cover.url);
                     } else if (game.imageUrl) {
+                        console.log('importFromIGDB: Found imageUrl:', game.imageUrl);
                         imageUrl = game.imageUrl;
                     } else if (game.image_url) {
+                        console.log('importFromIGDB: Found image_url:', game.image_url);
                         imageUrl = game.image_url;
+                    } else {
+                        console.log('importFromIGDB: No valid image URL found for game:', game.name);
                     }
+
+                    console.log('importFromIGDB: Final image URL for game:', game.name, imageUrl);
 
                     const newGame = {
                         id: game.id,
@@ -5302,9 +5291,27 @@
                 console.log('convertImageUrl: Empty URL provided');
                 return '';
             }
+
+            console.log('convertImageUrl: Original URL:', url);
+
+            // Проверяем, что URL имеет правильный формат
+            if (!url.includes('/')) {
+                console.log('convertImageUrl: Invalid URL format, no slashes found');
+                return '';
+            }
+
             const baseUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/';
             const fileName = url.split('/').pop();
-            return baseUrl + fileName;
+
+            if (!fileName) {
+                console.log('convertImageUrl: Could not extract filename from URL');
+                return '';
+            }
+
+            const finalUrl = baseUrl + fileName;
+            console.log('convertImageUrl: Final URL:', finalUrl);
+
+            return finalUrl;
         }
 
         function updateFiltersAndCounter() {
