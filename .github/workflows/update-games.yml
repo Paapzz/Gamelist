@@ -110,43 +110,47 @@ jobs:
 
         print("Creating search index...")
         search_index = []
+        processed_ids = set() 
+        skipped_count = 0
 
-        for i in range(total_files):
-            file_num = i + 1
-            file_path = f'data/games_{file_num}.json'
+        for i, game in enumerate(all_games):
+            if not isinstance(game, dict):
+                skipped_count += 1
+                if skipped_count <= 10:
+                    print(f"Skipping non-dict game at index {i}: {type(game)}")
+                continue
 
-            try:
-                with open(file_path, 'r') as f:
-                    games = json.load(f)
-                    print(f"Processing {file_path}: {len(games)} games for search index")
+            if "id" not in game or "name" not in game or not game["name"]:
+                skipped_count += 1
+                if skipped_count <= 10:
+                    print(f"Skipping game without required fields at index {i}")
+                continue
 
-                    for game in games:
-                        game_info = {
-                            'id': game.get('id'),
-                            'name': game.get('name'),
-                            'file_number': file_num  # Add file number to the index
-                        }
+            game_id = str(game["id"])
+            if game_id in processed_ids:
+                skipped_count += 1
+                if skipped_count <= 10:
+                    print(f"Skipping duplicate game with ID {game_id} at index {i}")
+                continue
 
-                        if 'first_release_date' in game:
-                            try:
-                                # Convert timestamp to year
-                                from datetime import datetime
-                                timestamp = game['first_release_date']
-                                year = datetime.fromtimestamp(timestamp).year
-                                game_info['year'] = year
-                            except Exception as e:
-                                print(f"Error converting timestamp for game {game.get('id')}: {e}")
+            processed_ids.add(game_id)
+            file_number = math.floor(i / games_per_file) + 1
+            search_index.append({
+                "id": game_id,
+                "name": game["name"],
+                "first_release_date": game.get("first_release_date"),
+                "file_number": file_number
+            })
 
-                        search_index.append(game_info)
-            except Exception as e:
-                print(f"Error processing {file_path} for search index: {e}")
+        if skipped_count > 10:
+            print(f"... and {skipped_count - 10} more items were skipped")
 
         try:
             with open('data/search_index.json', 'w') as f:
                 json.dump(search_index, f)
-            print(f"Search index created with {len(search_index)} games")
+            print(f"Created search index with {len(search_index)} games")
         except Exception as e:
-            print(f"Error saving search index: {e}")
+            print(f"Error creating search index: {e}")
 
         print("Data processing complete!")
         EOF
