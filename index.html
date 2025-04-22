@@ -2247,11 +2247,25 @@
                 return formattedTitleCache.get(title);
             }
 
+            // Добавляем функцию для отладки
+            console.log('Форматируем название:', title);
+
             // Обрабатываем апострофы (например, "clancy-s" -> "clancy's")
-            let formattedTitle = title.replace(/([a-z])-s\b/g, "$1's");
+            let formattedTitle = title.replace(/([a-z])-s\b/gi, "$1's");
 
             // Также обрабатываем случай "clancy s" -> "clancy's"
-            formattedTitle = formattedTitle.replace(/([a-z])\s+s\b/g, "$1's");
+            formattedTitle = formattedTitle.replace(/([a-z])\s+s\b/gi, "$1's");
+
+            // Принудительно исправляем все варианты апострофов
+            formattedTitle = formattedTitle.replace(/([A-Za-z])'S\b/g, "$1's");
+            formattedTitle = formattedTitle.replace(/([A-Za-z])\u2019S\b/g, "$1's"); // Уникодный апостроф
+            formattedTitle = formattedTitle.replace(/([A-Za-z])\u2019s\b/g, "$1's"); // Уникодный апостроф
+
+            // Дополнительная проверка для конкретного случая
+            if (formattedTitle.includes("Legend'S")) {
+                formattedTitle = formattedTitle.replace("Legend'S", "Legend's");
+                console.log('Исправлено Legend\'S на Legend\'s');
+            }
 
             // Заменяем дефисы на пробелы
             formattedTitle = formattedTitle.replace(/-/g, ' ');
@@ -2297,6 +2311,12 @@
 
         // Функция для обработки предлогов и артиклей, чтобы они были с маленькой буквы
         function processLowercaseWords(text) {
+            // Специальная обработка для конкретного случая
+            if (text.includes("Legend'S") || text.includes("Legend's")) {
+                text = text.replace(/Legend'S/g, "Legend's");
+                console.log('Исправлено Legend\'S на Legend\'s');
+            }
+
             // Разбиваем текст на слова
             const words = text.split(' ');
 
@@ -2315,7 +2335,11 @@
                 }
             }
 
-            return words.join(' ');
+            // Обрабатываем случай "and the" -> "and The"
+            let result = words.join(' ');
+            result = result.replace(/\band the\b/gi, 'and The');
+
+            return result;
         }
 
         // Функция для тестирования форматирования названий игр
@@ -2335,7 +2359,9 @@
                 { input: 'assassin-s-creed-for-freedom', expected: 'Assassin\'s Creed for freedom' },
                 { input: 'ori-and-the-blind-forest', expected: 'Ori and The Blind Forest' },
                 { input: 'need-for-speed', expected: 'Need for Speed' },
-                { input: 'king-s-quest', expected: 'King\'s Quest' }
+                { input: 'king-s-quest', expected: 'King\'s Quest' },
+                { input: 'the-legend\'s-of-zelda-breath-of-the-wild', expected: 'The Legend\'s of Zelda Breath of The Wild' },
+                { input: 'sonic-and-the-secret-rings', expected: 'Sonic and The Secret Rings' }
             ];
 
             // Очищаем кэш перед тестированием
@@ -2396,7 +2422,7 @@
             // Счетчик переформатирований
             const reformatCount = parseInt(localStorage.getItem('reformatCount') || '0');
             // Текущая версия форматирования
-            const currentFormatVersion = '2.0'; // Увеличиваем при изменении форматирования
+            const currentFormatVersion = '2.4'; // Увеличиваем при изменении форматирования
 
             // Принудительно сбрасываем флаг при изменении версии форматирования
             if (titleFormatVersion !== currentFormatVersion) {
@@ -2449,11 +2475,43 @@
                         // Очищаем кэш форматированных названий, чтобы применить новые правила
                         formattedTitleCache.clear();
 
-                        // Разбиваем игры на пакеты по 100 штук
+                        // Обновляем названия игр из исходного массива gamesList
+                        console.log('Проверяем обновления в исходном массиве gamesList...');
+                        let updatedFromSource = 0;
+
+                        // Обновляем названия игр из исходного массива
+                        for (let i = 0; i < parsedGames.length; i++) {
+                            const game = parsedGames[i];
+                            // Ищем игру в исходном массиве по ID
+                            const sourceGame = gamesList.find(g => g.number === game.id);
+                            if (sourceGame && !game.isCustom) {
+                                // Если нашли игру и она не пользовательская, обновляем название
+                                let formattedName = formatGameTitle(sourceGame.title);
+                                if (formattedName !== game.name) {
+                                    console.log(`Обновлено из исходного массива: "${game.name}" -> "${formattedName}"`);
+
+                                    // Проверяем наличие проблемных случаев
+                                    if (formattedName.includes("'S")) {
+                                        console.log(`Внимание! Обнаружен неправильный апостроф в названии: ${formattedName}`);
+                                        // Дополнительная обработка
+                                        formattedName = formattedName.replace(/([A-Za-z])'S\b/g, "$1's");
+                                        console.log(`Исправлено на: ${formattedName}`);
+                                    }
+
+                                    game.name = formattedName;
+                                    gamesUpdated = true;
+                                    updatedFromSource++;
+                                }
+                            }
+                        }
+
+                        console.log(`Обновлено из исходного массива: ${updatedFromSource} игр`);
+
+                        // Разбиваем игры на пакеты по 100 штук для переформатирования
                         const batchSize = 100;
                         const totalGames = parsedGames.length;
                         let processedGames = 0;
-                        let gamesUpdated = false;
+                        // Переменная gamesUpdated уже объявлена выше
                         let reformattedCount = 0; // Счетчик переформатированных игр
 
                         function processBatch() {
@@ -2463,10 +2521,19 @@
                             for (let i = startIndex; i < endIndex; i++) {
                                 const game = parsedGames[i];
                                 if (game.name) {
-                                    const formattedName = formatGameTitle(game.name);
+                                    let formattedName = formatGameTitle(game.name);
                                     if (formattedName !== game.name) {
                                         // Выводим информацию о переформатировании названия
                                         console.log(`Переформатировано: "${game.name}" -> "${formattedName}"`);
+
+                                        // Проверяем наличие проблемных случаев
+                                        if (formattedName.includes("'S")) {
+                                            console.log(`Внимание! Обнаружен неправильный апостроф в названии: ${formattedName}`);
+                                            // Дополнительная обработка
+                                            formattedName = formattedName.replace(/([A-Za-z])'S\b/g, "$1's");
+                                            console.log(`Исправлено на: ${formattedName}`);
+                                        }
+
                                         game.name = formattedName;
                                         gamesUpdated = true;
                                         reformattedCount++; // Увеличиваем счетчик переформатированных игр
@@ -2506,11 +2573,13 @@
 
                                 console.log(`Переформатирование завершено. Версия форматирования: ${currentFormatVersion}`);
                                 console.log(`Всего переформатировано игр: ${reformattedCount} из ${totalGames}`);
+                                console.log(`Обновлено из исходного массива: ${updatedFromSource} игр`);
+                                console.log(`Всего обновлено игр: ${reformattedCount + updatedFromSource} из ${totalGames}`);
                                 console.log(`Счетчик переформатирований: ${newReformatCount}`);
 
                                 // Если ни одна игра не была переформатирована, предлагаем решение
-                                if (reformattedCount === 0) {
-                                    console.log('Ни одна игра не была переформатирована. Возможные решения:');
+                                if (reformattedCount === 0 && updatedFromSource === 0) {
+                                    console.log('Ни одна игра не была обновлена. Возможные решения:');
                                     console.log('1. Попробуйте очистить кэш браузера и перезагрузить страницу');
                                     console.log('2. Добавьте параметр "force_reformat=true" в URL');
                                     console.log('3. Удалите данные из localStorage и перезагрузите страницу');
