@@ -2760,10 +2760,92 @@
             try {
                 // Используем функцию searchGamesWithIndex для поиска игр
                 // Она автоматически использует предварительно загруженный индекс
-                const matchedGames = await searchGamesWithIndex(gameName);
+                const indexMatchedGames = await searchGamesWithIndex(gameName);
+
+                // Загружаем полную информацию об играх из файлов
+                const matchedGames = [];
+
+                // Загружаем индекс для получения информации о количестве файлов
+                let index;
+                if (gameIndex !== null) {
+                    index = gameIndex;
+                } else {
+                    const indexResponse = await fetch('data/index.json');
+                    if (!indexResponse.ok) {
+                        throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
+                    }
+                    index = await indexResponse.json();
+                    gameIndex = index;
+                }
+
+                // Создаем маппинг игр по файлам
+                const fileMap = {};
+                indexMatchedGames.forEach(game => {
+                    if (game.file_number) {
+                        if (!fileMap[game.file_number]) {
+                            fileMap[game.file_number] = [];
+                        }
+                        fileMap[game.file_number].push(game.id);
+                    }
+                });
+
+                // Если в индексе нет информации о файлах, проверяем все файлы
+                if (Object.keys(fileMap).length === 0) {
+                    // Проверяем все файлы
+                    for (let i = 1; i <= index.total_files; i++) {
+                        fileMap[i] = [];
+                    }
+                }
+
+                // Загружаем файлы и ищем в них игры
+                for (const fileNumber in fileMap) {
+                    let fileGames;
+
+                    // Используем предварительно загруженные файлы, если они есть
+                    if (gameFiles[fileNumber]) {
+                        fileGames = gameFiles[fileNumber];
+                    } else {
+                        // Если файл не загружен, загружаем его
+                        const response = await fetch(`./data/games_${fileNumber}.json`);
+                        if (!response.ok) {
+                            throw new Error(`Ошибка загрузки файла games_${fileNumber}.json: ${response.status} ${response.statusText}`);
+                        }
+                        fileGames = await response.json();
+                        gameFiles[fileNumber] = fileGames;
+                    }
+
+                    // Если есть список ID игр для этого файла, ищем только эти игры
+                    if (fileMap[fileNumber].length > 0) {
+                        const gameIds = fileMap[fileNumber];
+                        const matches = fileGames.filter(game => gameIds.includes(game.id));
+                        matchedGames.push(...matches);
+                    } else {
+                        // Иначе ищем все игры, которые соответствуют поисковому запросу
+                        const matches = fileGames.filter(game =>
+                            game.name && game.name.toLowerCase().includes(gameName.toLowerCase())
+                        );
+                        matchedGames.push(...matches);
+                    }
+
+                    // Ограничиваем количество результатов
+                    if (matchedGames.length >= 100) {
+                        break;
+                    }
+                }
+
+                // Добавляем релевантность к каждой игре
+                matchedGames.forEach(game => {
+                    game.relevance = calculateRelevance(game.name, gameName);
+                });
+
+                // Сортируем по релевантности
+                matchedGames.sort((a, b) => b.relevance - a.relevance);
+
+                // Ограничиваем до 100 результатов
+                const finalResults = matchedGames.slice(0, 100);
 
                 // Отображаем результаты
-                displaySearchResults(matchedGames);
+                displaySearchResults(finalResults);
 
                 // Скрываем сообщение о загрузке
                 hideLoadingMessage();
@@ -5483,9 +5565,6 @@
                  completedFilter.classList.remove('active');
                  hideCompletedButton.classList.remove('button-disabled');
             }
-            // Восстанавливаем состояние hideCompletedButton (уже сделано выше)
-            // hideCompletedButton.classList.toggle('active', hideCompleted);
-
 
             applyFilters(true); // Применяем фильтры после всей инициализации и расстановки ячеек, принудительно сортируя по ID
 
