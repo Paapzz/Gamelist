@@ -2955,34 +2955,45 @@
             };
 
             if (!isDuplicateGame(newGame)) {
+                console.log('[addGameFromSearch] Добавляем игру:', newGame.name, 'с годом:', newGame.year);
+
                 // Сохраняем текущие значения фильтра годов перед добавлением игры
                 const currentMinYear = yearSliderMin.value;
                 const currentMaxYear = yearSliderMax.value;
+                console.log('[addGameFromSearch] Текущие значения ползунков перед добавлением:', currentMinYear, '-', currentMaxYear);
 
                 // Проверяем, нужно ли обновить ползунки годов
+                console.log('[addGameFromSearch] Проверяем необходимость обновления ползунков');
                 updateYearSlidersIfNeeded(newGame);
 
+                console.log('[addGameFromSearch] Добавляем игру в список');
                 addNewGame(newGame);
 
                 // Восстанавливаем значения фильтра годов
+                console.log('[addGameFromSearch] Восстанавливаем значения ползунков:', currentMinYear, '-', currentMaxYear);
                 yearSliderMin.value = currentMinYear;
                 yearSliderMax.value = currentMaxYear;
 
                 // Используем специальную функцию, которая не изменяет значения в localStorage
+                console.log('[addGameFromSearch] Обновляем отображение без изменения localStorage');
                 updateYearValueWithoutStorage();
 
                 // Восстанавливаем значения в localStorage
                 if (localStorage.getItem('minYear') !== currentMinYear && currentMinYear) {
+                    console.log('[addGameFromSearch] Восстанавливаем minYear в localStorage:', currentMinYear);
                     localStorage.setItem('minYear', currentMinYear);
                 }
                 if (localStorage.getItem('maxYear') !== currentMaxYear && currentMaxYear) {
+                    console.log('[addGameFromSearch] Восстанавливаем maxYear в localStorage:', currentMaxYear);
                     localStorage.setItem('maxYear', currentMaxYear);
                 }
 
                 // Применяем фильтры с восстановленными значениями
+                console.log('[addGameFromSearch] Применяем фильтры');
                 applyFilters();
 
                 saveGames();
+                console.log('[addGameFromSearch] Игра успешно добавлена');
                 showMessage('Игра успешно добавлена!', 'success');
             }
         }
@@ -3698,39 +3709,73 @@
         }
 
         function updateYearValue() {
+            console.log('[updateYearValue] Начало обновления значений годов');
+
             const minYear = parseInt(yearSliderMin.value);
             const maxYear = parseInt(yearSliderMax.value);
             yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
+            console.log('[updateYearValue] Текущие значения ползунков:', minYear, '-', maxYear);
 
             // Проверяем, установлены ли ползунки на минимальное и максимальное значения
             const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
             const minGameYear = Math.min(...years);
             const maxGameYear = Math.max(...years);
+            console.log('[updateYearValue] Диапазон годов всех игр:', minGameYear, '-', maxGameYear);
+
+            // Обновляем атрибуты min и max у ползунков
+            const oldMin = yearSliderMin.min;
+            const oldMax = yearSliderMax.max;
+            yearSliderMin.min = minGameYear;
+            yearSliderMax.max = maxGameYear;
+            console.log('[updateYearValue] Атрибуты min/max ползунков обновлены с', oldMin, '-', oldMax, 'на', yearSliderMin.min, '-', yearSliderMax.max);
 
             // Если ползунки установлены на минимальное и максимальное значения, удаляем значения из localStorage
             if (minYear <= minGameYear) {
+                console.log('[updateYearValue] Минимальный год на полном диапазоне, удаляем из localStorage');
                 localStorage.removeItem('minYear');
             } else {
+                console.log('[updateYearValue] Минимальный год не на полном диапазоне, сохраняем в localStorage:', minYear);
                 localStorage.setItem('minYear', minYear);
             }
 
             if (maxYear >= maxGameYear) {
+                console.log('[updateYearValue] Максимальный год на полном диапазоне, удаляем из localStorage');
                 localStorage.removeItem('maxYear');
             } else {
+                console.log('[updateYearValue] Максимальный год не на полном диапазоне, сохраняем в localStorage:', maxYear);
                 localStorage.setItem('maxYear', maxYear);
             }
             updateSliderTrack();
             updateTooltips();
+            console.log('[updateYearValue] Обновление завершено');
         }
 
         // Функция для обновления значения годов без изменения localStorage
         function updateYearValueWithoutStorage() {
+            console.log('[updateYearValueWithoutStorage] Начало обновления значений годов без изменения localStorage');
+
             const minYear = parseInt(yearSliderMin.value);
             const maxYear = parseInt(yearSliderMax.value);
             yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
+            console.log('[updateYearValueWithoutStorage] Текущие значения ползунков:', minYear, '-', maxYear);
+
+            // Проверяем, установлены ли ползунки на минимальное и максимальное значения
+            const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
+            const minGameYear = Math.min(...years);
+            const maxGameYear = Math.max(...years);
+            console.log('[updateYearValueWithoutStorage] Диапазон годов всех игр:', minGameYear, '-', maxGameYear);
+
+            // Обновляем атрибуты min и max у ползунков
+            const oldMin = yearSliderMin.min;
+            const oldMax = yearSliderMax.max;
+            yearSliderMin.min = minGameYear;
+            yearSliderMax.max = maxGameYear;
+            console.log('[updateYearValueWithoutStorage] Атрибуты min/max ползунков обновлены с', oldMin, '-', oldMax, 'на', yearSliderMin.min, '-', yearSliderMax.max);
 
             // Обновляем полосу прогресса
             updateSliderTrack();
+            updateTooltips();
+            console.log('[updateYearValueWithoutStorage] Обновление завершено');
         }
 
         // Функция для обновления подсветки трека ползунка
@@ -4594,39 +4639,65 @@
 
         // Функция для обновления ползунков годов, если год игры выходит за пределы текущего диапазона
         function updateYearSlidersIfNeeded(game) {
+            console.log('[updateYearSlidersIfNeeded] Начало проверки для игры:', game.name, 'с годом:', game.year);
+
             // Если у игры нет года, ничего не делаем
-            if (!game.year) return;
+            if (!game.year) {
+                console.log('[updateYearSlidersIfNeeded] У игры нет года, выходим');
+                return;
+            }
 
             // Получаем текущие значения ползунков
             const currentMinYear = parseInt(yearSliderMin.value);
             const currentMaxYear = parseInt(yearSliderMax.value);
+            console.log('[updateYearSlidersIfNeeded] Текущие значения ползунков:', currentMinYear, '-', currentMaxYear);
 
             // Получаем минимальный и максимальный годы из всех игр
             const years = [...new Set(games.filter(g => g.year !== null).map(g => g.year))].sort((a, b) => a - b);
             const minGameYear = Math.min(...years);
             const maxGameYear = Math.max(...years);
+            console.log('[updateYearSlidersIfNeeded] Диапазон годов всех игр:', minGameYear, '-', maxGameYear);
 
-            // Проверяем, установлены ли ползунки на полный диапазон
-            const isMinAtFullRange = currentMinYear <= minGameYear;
-            const isMaxAtFullRange = currentMaxYear >= maxGameYear;
+            // Проверяем, есть ли значения в localStorage
+            const savedMinYear = localStorage.getItem('minYear');
+            const savedMaxYear = localStorage.getItem('maxYear');
+            console.log('[updateYearSlidersIfNeeded] Сохраненные значения в localStorage:', savedMinYear, '-', savedMaxYear);
+
+            // Если значения не сохранены в localStorage, значит пользователь не изменял их
+            const isMinAtFullRange = !savedMinYear || parseInt(savedMinYear) <= minGameYear;
+            const isMaxAtFullRange = !savedMaxYear || parseInt(savedMaxYear) >= maxGameYear;
+            console.log('[updateYearSlidersIfNeeded] Ползунки на полном диапазоне:', isMinAtFullRange, isMaxAtFullRange);
 
             let slidersUpdated = false;
 
             // Если год игры меньше текущего минимального года и ползунок на минимуме
             if (game.year < currentMinYear && isMinAtFullRange) {
+                console.log('[updateYearSlidersIfNeeded] Обновляем минимальный год с', currentMinYear, 'на', game.year);
                 yearSliderMin.value = game.year;
                 slidersUpdated = true;
+                // Удаляем значение из localStorage, чтобы показать, что ползунок на полном диапазоне
+                localStorage.removeItem('minYear');
             }
 
             // Если год игры больше текущего максимального года и ползунок на максимуме
             if (game.year > currentMaxYear && isMaxAtFullRange) {
+                console.log('[updateYearSlidersIfNeeded] Обновляем максимальный год с', currentMaxYear, 'на', game.year);
                 yearSliderMax.value = game.year;
                 slidersUpdated = true;
+                // Удаляем значение из localStorage, чтобы показать, что ползунок на полном диапазоне
+                localStorage.removeItem('maxYear');
             }
 
             // Если ползунки были обновлены, обновляем отображение
             if (slidersUpdated) {
+                console.log('[updateYearSlidersIfNeeded] Ползунки обновлены, обновляем отображение');
                 updateYearValue();
+                // Обновляем атрибуты min и max у ползунков
+                yearSliderMin.min = Math.min(...years);
+                yearSliderMax.max = Math.max(...years);
+                console.log('[updateYearSlidersIfNeeded] Новые атрибуты min/max ползунков:', yearSliderMin.min, '-', yearSliderMax.max);
+            } else {
+                console.log('[updateYearSlidersIfNeeded] Ползунки не требуют обновления');
             }
         }
 
@@ -5271,10 +5342,16 @@
                         inProgress: false
                     };
                     if (!isDuplicateGame(newGame)) {
+                        console.log('[importFromIGDB] Добавляем игру:', newGame.name, 'с годом:', newGame.year);
+
                         // Проверяем, нужно ли обновить ползунки годов
+                        console.log('[importFromIGDB] Проверяем необходимость обновления ползунков');
                         updateYearSlidersIfNeeded(newGame);
+
+                        console.log('[importFromIGDB] Добавляем игру в список с задержкой');
                         await addNewGameWithDelay(newGame);
                         addedGames++;
+                        console.log('[importFromIGDB] Игра успешно добавлена, всего добавлено:', addedGames);
                     }
                 }
 
