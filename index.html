@@ -2020,7 +2020,14 @@
 
         // Функция для загрузки поискового индекса
         async function loadSearchIndex() {
+            console.log('Вызвана функция loadSearchIndex');
+            console.log('Текущее состояние индекса:', {
+                searchIndex: searchIndex ? `Загружен (${searchIndex.length} игр)` : 'Не загружен',
+                isSearchIndexLoading
+            });
+
             if (searchIndex !== null || isSearchIndexLoading) {
+                console.log('Индекс уже загружен или загружается, возвращаем текущий индекс');
                 return searchIndex; // Индекс уже загружен или загружается
             }
 
@@ -2028,26 +2035,31 @@
             console.log('Начало загрузки поискового индекса');
 
             try {
+                console.log('Пытаемся загрузить файл data/search_index.json');
                 const response = await fetch('data/search_index.json');
                 if (!response.ok) {
                     throw new Error(`Ошибка загрузки поискового индекса: ${response.status} ${response.statusText}`);
                 }
                 searchIndex = await response.json();
-                console.log(`Поисковый индекс загружен (${searchIndex.length} игр)`);
+                console.log(`Поисковый индекс успешно загружен (${searchIndex.length} игр)`);
                 return searchIndex;
             } catch (error) {
                 console.error('Ошибка при загрузке поискового индекса:', error);
                 return null;
             } finally {
                 isSearchIndexLoading = false;
+                console.log('Завершена попытка загрузки индекса, isSearchIndexLoading =', isSearchIndexLoading);
             }
         }
 
         // Функция для поиска игр с использованием индекса
         async function searchGamesWithIndex(gameName) {
+            console.log('Вызвана функция searchGamesWithIndex с запросом:', gameName);
             const index = await loadSearchIndex();
+            console.log('Результат загрузки индекса:', index ? `Загружен (${index.length} игр)` : 'Не загружен');
             if (!index) {
                 // Если индекс не загружен, используем старый метод поиска
+                console.log('Индекс не загружен, используем резервный метод поиска');
                 return searchGamesWithoutIndex(gameName);
             }
 
@@ -2148,6 +2160,7 @@
 
         // Функция для предварительной загрузки поискового индекса
         function preloadSearchIndex() {
+            console.log('Запуск предварительной загрузки поискового индекса');
             setTimeout(() => {
                 loadSearchIndex().then(() => {
                     console.log('Поисковый индекс предварительно загружен');
@@ -2155,7 +2168,7 @@
                     // Загружаем первый файл игр для ускорения первого поиска
                     try {
                         console.log('Предварительная загрузка первого файла игр...');
-                        fetch('data/games_1.json')
+                        fetch('./data/games_1.json')
                             .then(response => {
                                 if (!response.ok) {
                                     throw new Error(`Ошибка предварительной загрузки файла games_1.json: ${response.status} ${response.statusText}`);
@@ -2735,9 +2748,12 @@
         }
 
         async function searchGameFromApi() {
+            console.log('Вызвана функция searchGameFromApi');
             const gameName = searchGameInput.value.trim();
+            console.log('Поисковый запрос:', gameName);
 
             if (!gameName) {
+                console.log('Пустой поисковый запрос, показываем сообщение');
                 showMessage('Введите название');
 
                 // Добавляем обработчик события для скрытия сообщения при вводе
@@ -2935,9 +2951,7 @@
             // Удалено, так как кнопка "Очистить" была удалена
         }
 
-        performSearchButton.addEventListener('click', () => {
-                console.log('Выполняется поиск игры:', searchGameInput.value);
-            });
+        // Обработчик кнопки поиска перенесен в блок инициализации
 
         function updateInProgressRow() {
             inProgressRow.innerHTML = '';
@@ -5576,18 +5590,24 @@
 
             const performSearchButton = document.getElementById('performSearchButton');
             if (performSearchButton) {
+                console.log('Найдена кнопка поиска, добавляем обработчик');
                 performSearchButton.addEventListener('click', (e) => {
+                    console.log('Нажата кнопка поиска');
                     e.preventDefault();
                     searchGameFromApi();
                 });
+            } else {
+                console.error('Кнопка поиска не найдена');
             }
 
             const searchGameInput = document.getElementById('searchGameInput');
 
             if (searchGameInput) {
+                console.log('Найдено поле ввода поиска, добавляем обработчики');
                 // Обработчик нажатия Enter
                 searchGameInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
+                        console.log('Нажата клавиша Enter в поле поиска');
                         e.preventDefault();
                         searchGameFromApi();
                     }
