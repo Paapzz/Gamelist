@@ -2247,8 +2247,7 @@
                 return formattedTitleCache.get(title);
             }
 
-            // Добавляем функцию для отладки
-            console.log('Форматируем название:', title);
+            // Форматируем название
 
             // Обрабатываем апострофы (например, "clancy-s" -> "clancy's")
             let formattedTitle = title.replace(/([a-z])-s\b/gi, "$1's");
@@ -2259,13 +2258,6 @@
             // Принудительно исправляем все варианты апострофов
             formattedTitle = formattedTitle.replace(/([A-Za-z])'S\b/g, "$1's");
             formattedTitle = formattedTitle.replace(/([A-Za-z])\u2019S\b/g, "$1's"); // Уникодный апостроф
-            formattedTitle = formattedTitle.replace(/([A-Za-z])\u2019s\b/g, "$1's"); // Уникодный апостроф
-
-            // Дополнительная проверка для конкретного случая
-            if (formattedTitle.includes("Legend'S")) {
-                formattedTitle = formattedTitle.replace("Legend'S", "Legend's");
-                console.log('Исправлено Legend\'S на Legend\'s');
-            }
 
             // Заменяем дефисы на пробелы
             formattedTitle = formattedTitle.replace(/-/g, ' ');
@@ -2302,20 +2294,12 @@
 
             // Обрабатываем предлоги и артикли, чтобы они были с маленькой буквы
             formattedTitle = processLowercaseWords(formattedTitle);
-
-            // Сохраняем результат в кэше
             formattedTitleCache.set(title, formattedTitle);
-
             return formattedTitle;
         }
 
         // Функция для обработки предлогов и артиклей, чтобы они были с маленькой буквы
         function processLowercaseWords(text) {
-            // Специальная обработка для конкретного случая
-            if (text.includes("Legend'S") || text.includes("Legend's")) {
-                text = text.replace(/Legend'S/g, "Legend's");
-                console.log('Исправлено Legend\'S на Legend\'s');
-            }
 
             // Разбиваем текст на слова
             const words = text.split(' ');
@@ -2340,64 +2324,6 @@
             result = result.replace(/\band the\b/gi, 'and The');
 
             return result;
-        }
-
-        // Функция для тестирования форматирования названий игр
-        function testFormatGameTitle() {
-            // Тестовые случаи
-            const testCases = [
-                { input: 'tom-clancy-s-splinter-cell', expected: 'Tom Clancy\'s Splinter Cell' },
-                { input: 'tom-clancy s-splinter-cell', expected: 'Tom Clancy\'s Splinter Cell' },
-                { input: 'medal-of-honor-for-valor', expected: 'Medal of Honor for valor' },
-                { input: 'call-of-duty-for-victory', expected: 'Call of Duty for victory' },
-                { input: 'super-mario-bros-iii', expected: 'Super Mario Bros III' },
-                { input: 'grand-theft-auto-v', expected: 'Grand Theft Auto V' },
-                { input: 'the-elder-scrolls-v-skyrim', expected: 'The Elder Scrolls V Skyrim' },
-                { input: 'final-fantasy-vii-remake', expected: 'Final Fantasy VII Remake' },
-                { input: 'resident-evil-4', expected: 'Resident Evil 4' },
-                { input: 'metal-gear-solid-v-the-phantom-pain', expected: 'Metal Gear Solid V The Phantom Pain' },
-                { input: 'assassin-s-creed-for-freedom', expected: 'Assassin\'s Creed for freedom' },
-                { input: 'ori-and-the-blind-forest', expected: 'Ori and The Blind Forest' },
-                { input: 'need-for-speed', expected: 'Need for Speed' },
-                { input: 'king-s-quest', expected: 'King\'s Quest' },
-                { input: 'the-legend\'s-of-zelda-breath-of-the-wild', expected: 'The Legend\'s of Zelda Breath of The Wild' },
-                { input: 'sonic-and-the-secret-rings', expected: 'Sonic and The Secret Rings' }
-            ];
-
-            // Очищаем кэш перед тестированием
-            formattedTitleCache.clear();
-
-            // Запускаем тесты
-            console.log('Тестирование функции formatGameTitle:');
-            let allTestsPassed = true;
-
-            testCases.forEach((testCase, index) => {
-                const result = formatGameTitle(testCase.input);
-                const passed = result === testCase.expected;
-
-                console.log(`Тест ${index + 1}: ${passed ? 'Пройден ✅' : 'Не пройден ❌'}`);
-                console.log(`  Вход: "${testCase.input}"`);
-                console.log(`  Ожидаемый результат: "${testCase.expected}"`);
-                console.log(`  Фактический результат: "${result}"`);
-
-                if (!passed) {
-                    allTestsPassed = false;
-                }
-            });
-
-            console.log(`Итог: ${allTestsPassed ? 'Все тесты пройдены ✅' : 'Некоторые тесты не пройдены ❌'}`);
-
-            // Очищаем кэш после тестирования
-            formattedTitleCache.clear();
-
-            return allTestsPassed;
-        }
-
-        // Запускаем тесты при загрузке страницы, если включен режим отладки
-        if (location.search.includes('debug=true')) {
-            setTimeout(() => {
-                testFormatGameTitle();
-            }, 1000);
         }
 
         games = gamesList.map(game => ({
@@ -2445,38 +2371,20 @@
                 // Принудительно переформатируем названия игр в режиме отладки
                 const forceReformat = location.search.includes('force_reformat=true');
 
-                // Выводим информацию о статусе форматирования
-                console.log('Статус форматирования:');
-                console.log('- Римские цифры отформатированы:', romanNumeralsFormatted ? 'Да' : 'Нет');
-                console.log('- Названия отформатированы:', titlesReformatted ? 'Да' : 'Нет');
-                console.log('- Текущая версия форматирования:', currentFormatVersion);
-                console.log('- Сохраненная версия форматирования:', titleFormatVersion || 'Не установлена');
-                console.log('- Количество переформатирований:', reformatCount);
-                console.log('- Принудительное переформатирование:', forceReformat ? 'Да' : 'Нет');
-                console.log('- Требуется переформатирование:', needsReformatting ? 'Да' : 'Нет');
-
                 // Принудительно запускаем переформатирование при первой загрузке после обновления
                 const forceFirstReformat = titleFormatVersion !== currentFormatVersion;
 
                 // Если переформатирование не требуется, но мы хотим его выполнить
-                if (!needsReformatting && !forceReformat && !forceFirstReformat) {
-                    console.log('Для принудительного переформатирования добавьте параметр "force_reformat=true" в URL');
-                    console.log('Или сбросьте флаги форматирования в localStorage:');
-                    console.log('1. Откройте консоль браузера (F12)');
-                    console.log('2. Выполните команду: localStorage.removeItem("titlesReformatted"); localStorage.removeItem("titleFormatVersion");');
-                    console.log('3. Перезагрузите страницу');
-                }
+                // Пустой блок, так как логи удалены
 
                 if (needsReformatting || forceReformat || forceFirstReformat) {
                     // Выполняем переформатирование асинхронно
                     setTimeout(() => {
-                        console.log('Выполняется переформатирование названий игр...');
 
                         // Очищаем кэш форматированных названий, чтобы применить новые правила
                         formattedTitleCache.clear();
 
                         // Обновляем названия игр из исходного массива gamesList
-                        console.log('Проверяем обновления в исходном массиве gamesList...');
                         let updatedFromSource = 0;
 
                         // Обновляем названия игр из исходного массива
@@ -2488,14 +2396,10 @@
                                 // Если нашли игру и она не пользовательская, обновляем название
                                 let formattedName = formatGameTitle(sourceGame.title);
                                 if (formattedName !== game.name) {
-                                    console.log(`Обновлено из исходного массива: "${game.name}" -> "${formattedName}"`);
-
                                     // Проверяем наличие проблемных случаев
                                     if (formattedName.includes("'S")) {
-                                        console.log(`Внимание! Обнаружен неправильный апостроф в названии: ${formattedName}`);
                                         // Дополнительная обработка
                                         formattedName = formattedName.replace(/([A-Za-z])'S\b/g, "$1's");
-                                        console.log(`Исправлено на: ${formattedName}`);
                                     }
 
                                     game.name = formattedName;
@@ -2505,7 +2409,7 @@
                             }
                         }
 
-                        console.log(`Обновлено из исходного массива: ${updatedFromSource} игр`);
+                        // Завершаем обновление из исходного массива
 
                         // Разбиваем игры на пакеты по 100 штук для переформатирования
                         const batchSize = 100;
@@ -2523,15 +2427,10 @@
                                 if (game.name) {
                                     let formattedName = formatGameTitle(game.name);
                                     if (formattedName !== game.name) {
-                                        // Выводим информацию о переформатировании названия
-                                        console.log(`Переформатировано: "${game.name}" -> "${formattedName}"`);
-
                                         // Проверяем наличие проблемных случаев
                                         if (formattedName.includes("'S")) {
-                                            console.log(`Внимание! Обнаружен неправильный апостроф в названии: ${formattedName}`);
                                             // Дополнительная обработка
                                             formattedName = formattedName.replace(/([A-Za-z])'S\b/g, "$1's");
-                                            console.log(`Исправлено на: ${formattedName}`);
                                         }
 
                                         game.name = formattedName;
@@ -2544,9 +2443,7 @@
                             processedGames = endIndex;
 
                             // Обновляем прогресс
-                            if (processedGames % 500 === 0 || processedGames === totalGames) {
-                                console.log(`Обработано ${processedGames} из ${totalGames} игр`);
-                            }
+                            // Пустой блок для возможного добавления индикатора прогресса в будущем
 
                             if (processedGames < totalGames) {
                                 // Обрабатываем следующий пакет
@@ -2559,7 +2456,6 @@
 
                                     // Обновляем отображение
                                     renderGames();
-                                    console.log('Названия игр обновлены с учетом новых правил форматирования.');
                                 }
 
                                 // Устанавливаем флаги, что переформатирование выполнено
@@ -2571,19 +2467,7 @@
                                 const newReformatCount = reformatCount + 1;
                                 localStorage.setItem('reformatCount', newReformatCount.toString());
 
-                                console.log(`Переформатирование завершено. Версия форматирования: ${currentFormatVersion}`);
-                                console.log(`Всего переформатировано игр: ${reformattedCount} из ${totalGames}`);
-                                console.log(`Обновлено из исходного массива: ${updatedFromSource} игр`);
-                                console.log(`Всего обновлено игр: ${reformattedCount + updatedFromSource} из ${totalGames}`);
-                                console.log(`Счетчик переформатирований: ${newReformatCount}`);
-
-                                // Если ни одна игра не была переформатирована, предлагаем решение
-                                if (reformattedCount === 0 && updatedFromSource === 0) {
-                                    console.log('Ни одна игра не была обновлена. Возможные решения:');
-                                    console.log('1. Попробуйте очистить кэш браузера и перезагрузить страницу');
-                                    console.log('2. Добавьте параметр "force_reformat=true" в URL');
-                                    console.log('3. Удалите данные из localStorage и перезагрузите страницу');
-                                }
+                                // Переформатирование завершено
                             }
                         }
 
@@ -5750,13 +5634,6 @@
                 platformsList.style.maxHeight = `${initialHeight}px`;
                 genresList.style.maxHeight = `${initialHeight}px`;
             }
-
-
-            // Используем глобальные функции для работы с индексом
-
-
-
-
 
             // Запускаем предварительную загрузку индекса
             preloadSearchIndex();
