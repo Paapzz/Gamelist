@@ -3765,31 +3765,25 @@
             const isUserModifiedMin = savedMinYear !== null;
             const isUserModifiedMax = savedMaxYear !== null;
 
+            // Проверяем, были ли изменены ползунки пользователем
+            // Если в localStorage есть флаг userModifiedSliders, значит пользователь изменял ползунки
+            const userModifiedSliders = localStorage.getItem('userModifiedSliders') === 'true';
+            console.log('[updateYearValue] Пользователь изменял ползунки:', userModifiedSliders);
+
             // Если пользователь не изменял ползунки, то устанавливаем их на полный диапазон
-            if (!isUserModifiedMin) {
-                // Если пользователь не изменял минимальный год, устанавливаем его на минимальный год из всех игр
+            if (!userModifiedSliders) {
+                // Если пользователь не изменял ползунки, устанавливаем их на полный диапазон
                 if (minYear !== minGameYear) {
                     console.log('[updateYearValue] Автоматически обновляем минимальный год с', minYear, 'на', minGameYear);
                     yearSliderMin.value = minGameYear;
                 }
-                console.log('[updateYearValue] Минимальный год на полном диапазоне, удаляем из localStorage');
-                localStorage.removeItem('minYear');
-            } else {
-                console.log('[updateYearValue] Минимальный год изменен пользователем, сохраняем в localStorage:', minYear);
-                localStorage.setItem('minYear', minYear);
-            }
-
-            if (!isUserModifiedMax) {
-                // Если пользователь не изменял максимальный год, устанавливаем его на максимальный год из всех игр
                 if (maxYear !== maxGameYear) {
                     console.log('[updateYearValue] Автоматически обновляем максимальный год с', maxYear, 'на', maxGameYear);
                     yearSliderMax.value = maxGameYear;
                 }
-                console.log('[updateYearValue] Максимальный год на полном диапазоне, удаляем из localStorage');
-                localStorage.removeItem('maxYear');
+                console.log('[updateYearValue] Ползунки на полном диапазоне');
             } else {
-                console.log('[updateYearValue] Максимальный год изменен пользователем, сохраняем в localStorage:', maxYear);
-                localStorage.setItem('maxYear', maxYear);
+                console.log('[updateYearValue] Пользователь изменил ползунки, оставляем значения:', minYear, '-', maxYear);
             }
 
             // Обновляем текст с учетом новых значений
@@ -4197,6 +4191,8 @@
             localStorage.removeItem('minYear');
             localStorage.removeItem('maxYear');
             localStorage.removeItem('hideCompleted');
+            localStorage.removeItem('userModifiedSliders');
+            console.log('[resetFilters] Сбросили флаг userModifiedSliders');
 
             const currentSaturation = saturationSlider.value;
 
@@ -4259,6 +4255,10 @@
                 yearSliderMin.value = maxVal - 1;
             }
 
+            // Устанавливаем флаг, что пользователь изменил ползунки
+            localStorage.setItem('userModifiedSliders', 'true');
+            console.log('[yearSliderMin] Пользователь изменил ползунки');
+
             updateYearValue();
             applyFilters();
         });
@@ -4280,6 +4280,10 @@
             if (maxVal < minVal + 1) {
                 yearSliderMax.value = minVal + 1;
             }
+
+            // Устанавливаем флаг, что пользователь изменил ползунки
+            localStorage.setItem('userModifiedSliders', 'true');
+            console.log('[yearSliderMax] Пользователь изменил ползунки');
 
             updateYearValue();
             applyFilters();
