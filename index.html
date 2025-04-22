@@ -3735,12 +3735,7 @@
         function updateYearValue() {
             console.log('[updateYearValue] Начало обновления значений годов');
 
-            const minYear = parseInt(yearSliderMin.value);
-            const maxYear = parseInt(yearSliderMax.value);
-            yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
-            console.log('[updateYearValue] Текущие значения ползунков:', minYear, '-', maxYear);
-
-            // Проверяем, установлены ли ползунки на минимальное и максимальное значения
+            // Получаем минимальный и максимальный годы из всех игр
             const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
             const minGameYear = Math.min(...years);
             const maxGameYear = Math.max(...years);
@@ -3753,22 +3748,55 @@
             yearSliderMax.max = maxGameYear;
             console.log('[updateYearValue] Атрибуты min/max ползунков обновлены с', oldMin, '-', oldMax, 'на', yearSliderMin.min, '-', yearSliderMax.max);
 
-            // Если ползунки установлены на минимальное и максимальное значения, удаляем значения из localStorage
-            if (minYear <= minGameYear) {
+            // Проверяем, есть ли значения в localStorage
+            const savedMinYear = localStorage.getItem('minYear');
+            const savedMaxYear = localStorage.getItem('maxYear');
+            console.log('[updateYearValue] Сохраненные значения в localStorage:', savedMinYear, '-', savedMaxYear);
+
+            // Получаем текущие значения ползунков
+            const minYear = parseInt(yearSliderMin.value);
+            const maxYear = parseInt(yearSliderMax.value);
+            yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
+            console.log('[updateYearValue] Текущие значения ползунков:', minYear, '-', maxYear);
+
+            // Проверяем, были ли изменены ползунки пользователем
+            // Если пользователь не изменял ползунки, то они должны быть на полном диапазоне
+            // Если в localStorage нет значений, то пользователь не изменял ползунки
+            const isUserModifiedMin = savedMinYear !== null;
+            const isUserModifiedMax = savedMaxYear !== null;
+
+            // Если пользователь не изменял ползунки, то устанавливаем их на полный диапазон
+            if (!isUserModifiedMin) {
+                // Если пользователь не изменял минимальный год, устанавливаем его на минимальный год из всех игр
+                if (minYear !== minGameYear) {
+                    console.log('[updateYearValue] Автоматически обновляем минимальный год с', minYear, 'на', minGameYear);
+                    yearSliderMin.value = minGameYear;
+                }
                 console.log('[updateYearValue] Минимальный год на полном диапазоне, удаляем из localStorage');
                 localStorage.removeItem('minYear');
             } else {
-                console.log('[updateYearValue] Минимальный год не на полном диапазоне, сохраняем в localStorage:', minYear);
+                console.log('[updateYearValue] Минимальный год изменен пользователем, сохраняем в localStorage:', minYear);
                 localStorage.setItem('minYear', minYear);
             }
 
-            if (maxYear >= maxGameYear) {
+            if (!isUserModifiedMax) {
+                // Если пользователь не изменял максимальный год, устанавливаем его на максимальный год из всех игр
+                if (maxYear !== maxGameYear) {
+                    console.log('[updateYearValue] Автоматически обновляем максимальный год с', maxYear, 'на', maxGameYear);
+                    yearSliderMax.value = maxGameYear;
+                }
                 console.log('[updateYearValue] Максимальный год на полном диапазоне, удаляем из localStorage');
                 localStorage.removeItem('maxYear');
             } else {
-                console.log('[updateYearValue] Максимальный год не на полном диапазоне, сохраняем в localStorage:', maxYear);
+                console.log('[updateYearValue] Максимальный год изменен пользователем, сохраняем в localStorage:', maxYear);
                 localStorage.setItem('maxYear', maxYear);
             }
+
+            // Обновляем текст с учетом новых значений
+            const updatedMinYear = parseInt(yearSliderMin.value);
+            const updatedMaxYear = parseInt(yearSliderMax.value);
+            yearValue.textContent = updatedMinYear === updatedMaxYear ? `${updatedMinYear}` : `${updatedMinYear} - ${updatedMaxYear}`;
+
             updateSliderTrack();
             updateTooltips();
             console.log('[updateYearValue] Обновление завершено');
@@ -3778,12 +3806,7 @@
         function updateYearValueWithoutStorage() {
             console.log('[updateYearValueWithoutStorage] Начало обновления значений годов без изменения localStorage');
 
-            const minYear = parseInt(yearSliderMin.value);
-            const maxYear = parseInt(yearSliderMax.value);
-            yearValue.textContent = minYear === maxYear ? `${minYear}` : `${minYear} - ${maxYear}`;
-            console.log('[updateYearValueWithoutStorage] Текущие значения ползунков:', minYear, '-', maxYear);
-
-            // Проверяем, установлены ли ползунки на минимальное и максимальное значения
+            // Получаем минимальный и максимальный годы из всех игр
             const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
             const minGameYear = Math.min(...years);
             const maxGameYear = Math.max(...years);
@@ -3795,6 +3818,42 @@
             yearSliderMin.min = minGameYear;
             yearSliderMax.max = maxGameYear;
             console.log('[updateYearValueWithoutStorage] Атрибуты min/max ползунков обновлены с', oldMin, '-', oldMax, 'на', yearSliderMin.min, '-', yearSliderMax.max);
+
+            // Проверяем, есть ли значения в localStorage
+            const savedMinYear = localStorage.getItem('minYear');
+            const savedMaxYear = localStorage.getItem('maxYear');
+            console.log('[updateYearValueWithoutStorage] Сохраненные значения в localStorage:', savedMinYear, '-', savedMaxYear);
+
+            // Получаем текущие значения ползунков
+            const minYear = parseInt(yearSliderMin.value);
+            const maxYear = parseInt(yearSliderMax.value);
+            console.log('[updateYearValueWithoutStorage] Текущие значения ползунков:', minYear, '-', maxYear);
+
+            // Проверяем, были ли изменены ползунки пользователем
+            const isUserModifiedMin = savedMinYear !== null;
+            const isUserModifiedMax = savedMaxYear !== null;
+
+            // Если пользователь не изменял ползунки, то устанавливаем их на полный диапазон
+            if (!isUserModifiedMin) {
+                // Если пользователь не изменял минимальный год, устанавливаем его на минимальный год из всех игр
+                if (minYear !== minGameYear) {
+                    console.log('[updateYearValueWithoutStorage] Автоматически обновляем минимальный год с', minYear, 'на', minGameYear);
+                    yearSliderMin.value = minGameYear;
+                }
+            }
+
+            if (!isUserModifiedMax) {
+                // Если пользователь не изменял максимальный год, устанавливаем его на максимальный год из всех игр
+                if (maxYear !== maxGameYear) {
+                    console.log('[updateYearValueWithoutStorage] Автоматически обновляем максимальный год с', maxYear, 'на', maxGameYear);
+                    yearSliderMax.value = maxGameYear;
+                }
+            }
+
+            // Обновляем текст с учетом новых значений
+            const updatedMinYear = parseInt(yearSliderMin.value);
+            const updatedMaxYear = parseInt(yearSliderMax.value);
+            yearValue.textContent = updatedMinYear === updatedMaxYear ? `${updatedMinYear}` : `${updatedMinYear} - ${updatedMaxYear}`;
 
             // Обновляем полосу прогресса
             updateSliderTrack();
