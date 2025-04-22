@@ -2856,22 +2856,13 @@
                         console.log(`Файл ${fileNumber} загружен, игр в файле: ${fileGames.length}`);
                     }
 
-                    // Если есть список ID игр для этого файла, ищем только эти игры
-                    if (fileMap[fileNumber].length > 0) {
-                        const gameIds = fileMap[fileNumber];
-                        console.log(`Файл ${fileNumber}: ищем ${gameIds.length} игр по ID`);
-                        const matches = fileGames.filter(game => gameIds.includes(game.id));
-                        console.log(`Файл ${fileNumber}: найдено ${matches.length} игр по ID`);
-                        matchedGames.push(...matches);
-                    } else {
-                        // Иначе ищем все игры, которые соответствуют поисковому запросу
-                        console.log(`Файл ${fileNumber}: ищем игры по названию "${gameName}"`);
-                        const matches = fileGames.filter(game =>
-                            game.name && game.name.toLowerCase().includes(gameName.toLowerCase())
-                        );
-                        console.log(`Файл ${fileNumber}: найдено ${matches.length} игр по названию`);
-                        matchedGames.push(...matches);
-                    }
+                    // Всегда ищем игры по названию, так как ID могут не совпадать
+                    console.log(`Файл ${fileNumber}: ищем игры по названию "${gameName}"`);
+                    const matches = fileGames.filter(game =>
+                        game.name && game.name.toLowerCase().includes(gameName.toLowerCase())
+                    );
+                    console.log(`Файл ${fileNumber}: найдено ${matches.length} игр по названию`);
+                    matchedGames.push(...matches);
 
                     // Ограничиваем количество результатов
                     if (matchedGames.length >= 100) {
