@@ -2374,9 +2374,6 @@
                 // Принудительно запускаем переформатирование при первой загрузке после обновления
                 const forceFirstReformat = titleFormatVersion !== currentFormatVersion;
 
-                // Если переформатирование не требуется, но мы хотим его выполнить
-                // Пустой блок, так как логи удалены
-
                 if (needsReformatting || forceReformat || forceFirstReformat) {
                     // Выполняем переформатирование асинхронно
                     setTimeout(() => {
@@ -2761,54 +2758,9 @@
             // Показываем сообщение о загрузке
             showLoadingMessage();
             try {
-                // Загружаем индекс
-                const indexResponse = await fetch('./data/index.json');
-                if (!indexResponse.ok) {
-                    throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                }
-                const index = await indexResponse.json();
-
-                // Ищем игры во всех файлах
-                let matchedGames = [];
-                for (let i = 1; i <= index.total_files; i++) {
-                    let fileGames;
-
-                    // Используем предварительно загруженные файлы, если они есть
-                    if (gameFiles[i]) {
-                        fileGames = gameFiles[i];
-                    } else {
-                        // Если файл не загружен, загружаем его
-                        const response = await fetch(`./data/games_${i}.json`);
-                        if (!response.ok) {
-                            throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                        }
-                        fileGames = await response.json();
-                        gameFiles[i] = fileGames;
-                    }
-
-                    // Фильтруем игры по названию
-                    const matches = fileGames.filter(game =>
-                        game.name && game.name.toLowerCase().includes(gameName.toLowerCase())
-                    );
-
-                    // Добавляем релевантность к каждой игре
-                    matches.forEach(game => {
-                        game.relevance = calculateRelevance(game.name, gameName);
-                    });
-
-                    matchedGames = matchedGames.concat(matches);
-
-                    // Ограничиваем количество результатов
-                    if (matchedGames.length >= 100) {
-                        break;
-                    }
-                }
-
-                // Сортируем по релевантности
-                matchedGames.sort((a, b) => b.relevance - a.relevance);
-
-                // Ограничиваем до 100 результатов
-                matchedGames = matchedGames.slice(0, 100);
+                // Используем функцию searchGamesWithIndex для поиска игр
+                // Она автоматически использует предварительно загруженный индекс
+                const matchedGames = await searchGamesWithIndex(gameName);
 
                 // Отображаем результаты
                 displaySearchResults(matchedGames);
