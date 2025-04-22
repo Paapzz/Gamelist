@@ -2776,92 +2776,13 @@
             try {
                 // Используем функцию searchGamesWithIndex для поиска игр
                 // Она автоматически использует предварительно загруженный индекс
-                const indexMatchedGames = await searchGamesWithIndex(gameName);
+                const matchedGames = await searchGamesWithIndex(gameName);
+                console.log('Найдено в индексе:', matchedGames.length, 'игр');
 
-                console.log('Найдено в индексе:', indexMatchedGames.length, 'игр');
-                // Загружаем полную информацию об играх из файлов
-                console.log('Начинаем загрузку полной информации об играх');
-                const matchedGames = [];
+                // Используем только индекс для поиска, без загрузки дополнительных файлов
 
-                // Загружаем индекс для получения информации о количестве файлов
-                let index;
-                if (gameIndex !== null) {
-                    index = gameIndex;
-                } else {
-                    const indexResponse = await fetch('data/index.json');
-                    if (!indexResponse.ok) {
-                        throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                    }
-                    index = await indexResponse.json();
-                    gameIndex = index;
-                }
-
-                // Создаем маппинг игр по файлам
-                const fileMap = {};
-                indexMatchedGames.forEach(game => {
-                    if (game.file_number) {
-                        if (!fileMap[game.file_number]) {
-                            fileMap[game.file_number] = [];
-                        }
-                        fileMap[game.file_number].push(game.id);
-                    }
-                });
-
-                // Если в индексе нет информации о файлах, проверяем все файлы
-                if (Object.keys(fileMap).length === 0) {
-                    // Проверяем все файлы
-                    for (let i = 1; i <= index.total_files; i++) {
-                        fileMap[i] = [];
-                    }
-                }
-
-                console.log('Файлы для загрузки:', Object.keys(fileMap).length);
-                // Загружаем файлы и ищем в них игры
-                for (const fileNumber in fileMap) {
-                    console.log(`Обрабатываем файл ${fileNumber}`);
-                    let fileGames;
-
-                    // Используем предварительно загруженные файлы, если они есть
-                    if (gameFiles[fileNumber]) {
-                        console.log(`Файл ${fileNumber} уже загружен, используем из кэша`);
-                        fileGames = gameFiles[fileNumber];
-                    } else {
-                        // Если файл не загружен, загружаем его
-                        console.log(`Загружаем файл ${fileNumber}`);
-                        const response = await fetch(`./data/games_${fileNumber}.json`);
-                        if (!response.ok) {
-                            throw new Error(`Ошибка загрузки файла games_${fileNumber}.json: ${response.status} ${response.statusText}`);
-                        }
-                        fileGames = await response.json();
-                        gameFiles[fileNumber] = fileGames;
-                        console.log(`Файл ${fileNumber} загружен, игр в файле: ${fileGames.length}`);
-                    }
-
-                    // Если есть список ID игр для этого файла, ищем только эти игры
-                    if (fileMap[fileNumber].length > 0) {
-                        const gameIds = fileMap[fileNumber];
-                        console.log(`Файл ${fileNumber}: ищем ${gameIds.length} игр по ID`);
-                        const matches = fileGames.filter(game => gameIds.includes(game.id));
-                        console.log(`Файл ${fileNumber}: найдено ${matches.length} игр по ID`);
-                        matchedGames.push(...matches);
-                    } else {
-                        // Иначе ищем все игры, которые соответствуют поисковому запросу
-                        console.log(`Файл ${fileNumber}: ищем игры по названию "${gameName}"`);
-                        const matches = fileGames.filter(game =>
-                            game.name && game.name.toLowerCase().includes(gameName.toLowerCase())
-                        );
-                        console.log(`Файл ${fileNumber}: найдено ${matches.length} игр по названию`);
-                        matchedGames.push(...matches);
-                    }
-
-                    // Ограничиваем количество результатов
-                    if (matchedGames.length >= 100) {
-                        break;
-                    }
-                }
-
-                console.log(`Всего найдено ${matchedGames.length} игр`);
                 // Добавляем релевантность к каждой игре
+
                 console.log('Добавляем релевантность к играм');
                 matchedGames.forEach(game => {
                     game.relevance = calculateRelevance(game.name, gameName);
