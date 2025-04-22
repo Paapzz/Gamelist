@@ -5371,20 +5371,47 @@
                     handleImportCompletion('Успешно добавлено!');
                 }
 
-                // Восстанавливаем значения фильтров после добавления игр
-                if (savedYearFilterMin !== null && savedYearFilterMax !== null) {
+                // Проверяем, были ли обновлены ползунки годов
+                const years = [...new Set(games.filter(g => g.year !== null).map(g => g.year))].sort((a, b) => a - b);
+                const minGameYear = Math.min(...years);
+                const maxGameYear = Math.max(...years);
+
+                // Проверяем, есть ли значения в localStorage
+                const savedMinYear = localStorage.getItem('minYear');
+                const savedMaxYear = localStorage.getItem('maxYear');
+
+                // Если значения не сохранены в localStorage, значит пользователь не изменял их
+                const isMinAtFullRange = !savedMinYear || parseInt(savedMinYear) <= minGameYear;
+                const isMaxAtFullRange = !savedMaxYear || parseInt(savedMaxYear) >= maxGameYear;
+
+                // Если пользователь не изменял ползунки, не восстанавливаем значения
+                if (isMinAtFullRange && isMaxAtFullRange) {
+                    console.log('[importFromIGDB] Пользователь не изменял ползунки, не восстанавливаем значения');
                     // Обновляем фильтры с учетом новых игр
                     populateFilters();
-
-                    // Восстанавливаем сохраненные значения фильтров
-                    yearSliderMin.value = savedYearFilterMin;
-                    yearSliderMax.value = savedYearFilterMax;
 
                     // Обновляем отображение значений фильтров
                     updateYearValue();
 
                     // Применяем фильтры
                     applyFilters();
+                } else {
+                    // Восстанавливаем значения фильтров после добавления игр
+                    if (savedYearFilterMin !== null && savedYearFilterMax !== null) {
+                        console.log('[importFromIGDB] Пользователь изменял ползунки, восстанавливаем значения');
+                        // Обновляем фильтры с учетом новых игр
+                        populateFilters();
+
+                        // Восстанавливаем сохраненные значения фильтров
+                        yearSliderMin.value = savedYearFilterMin;
+                        yearSliderMax.value = savedYearFilterMax;
+
+                        // Обновляем отображение значений фильтров
+                        updateYearValue();
+
+                        // Применяем фильтры
+                        applyFilters();
+                    }
                 }
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
@@ -5422,6 +5449,8 @@
         function addNewGameWithDelay(game) {
             return new Promise(resolve => {
                 setTimeout(() => {
+                    console.log('[addNewGameWithDelay] Добавляем игру:', game.name, 'с годом:', game.year);
+
                     // Добавляем игру без обновления фильтров
                     games.push(game);
 
