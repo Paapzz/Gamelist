@@ -2959,6 +2959,9 @@
                 const currentMinYear = yearSliderMin.value;
                 const currentMaxYear = yearSliderMax.value;
 
+                // Проверяем, нужно ли обновить ползунки годов
+                updateYearSlidersIfNeeded(newGame);
+
                 addNewGame(newGame);
 
                 // Восстанавливаем значения фильтра годов
@@ -4549,6 +4552,9 @@
 
                 // Добавляем ячейку в сетку с учетом сортировки по году
                 insertCellInOrder(cell);
+
+                // Проверяем, нужно ли обновить ползунки годов
+                updateYearSlidersIfNeeded(newGame);
             }
 
             saveGames();
@@ -4584,6 +4590,44 @@
 
             applyFilters();
             updateGridSize();
+        }
+
+        // Функция для обновления ползунков годов, если год игры выходит за пределы текущего диапазона
+        function updateYearSlidersIfNeeded(game) {
+            // Если у игры нет года, ничего не делаем
+            if (!game.year) return;
+
+            // Получаем текущие значения ползунков
+            const currentMinYear = parseInt(yearSliderMin.value);
+            const currentMaxYear = parseInt(yearSliderMax.value);
+
+            // Получаем минимальный и максимальный годы из всех игр
+            const years = [...new Set(games.filter(g => g.year !== null).map(g => g.year))].sort((a, b) => a - b);
+            const minGameYear = Math.min(...years);
+            const maxGameYear = Math.max(...years);
+
+            // Проверяем, установлены ли ползунки на полный диапазон
+            const isMinAtFullRange = currentMinYear <= minGameYear;
+            const isMaxAtFullRange = currentMaxYear >= maxGameYear;
+
+            let slidersUpdated = false;
+
+            // Если год игры меньше текущего минимального года и ползунок на минимуме
+            if (game.year < currentMinYear && isMinAtFullRange) {
+                yearSliderMin.value = game.year;
+                slidersUpdated = true;
+            }
+
+            // Если год игры больше текущего максимального года и ползунок на максимуме
+            if (game.year > currentMaxYear && isMaxAtFullRange) {
+                yearSliderMax.value = game.year;
+                slidersUpdated = true;
+            }
+
+            // Если ползунки были обновлены, обновляем отображение
+            if (slidersUpdated) {
+                updateYearValue();
+            }
         }
 
         document.getElementById('addGameForm').addEventListener('submit', function(e) {
@@ -5227,6 +5271,8 @@
                         inProgress: false
                     };
                     if (!isDuplicateGame(newGame)) {
+                        // Проверяем, нужно ли обновить ползунки годов
+                        updateYearSlidersIfNeeded(newGame);
                         await addNewGameWithDelay(newGame);
                         addedGames++;
                     }
