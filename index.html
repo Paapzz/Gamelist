@@ -2074,8 +2074,9 @@
         async function searchGamesWithIndex(gameName) {
             const index = await loadSearchIndex();
             if (!index) {
-                // Если индекс не загружен, используем старый метод поиска
-                return searchGamesWithoutIndex(gameName);
+                // Если индекс не загружен, возвращаем пустой массив
+                console.warn('Поисковый индекс не загружен. Поиск невозможен.');
+                return [];
             }
 
             const lowerQuery = gameName.toLowerCase();
@@ -2108,62 +2109,6 @@
             matchedGames.sort((a, b) => b.relevance - a.relevance);
 
             // Ограничение результатов
-            return matchedGames.slice(0, 100);
-        }
-
-        // Резервный метод поиска без использования индекса
-        async function searchGamesWithoutIndex(gameName) {
-            console.log('Поиск без использования индекса');
-
-            // Используем предварительно загруженный индекс, если он есть
-            let index;
-            if (gameIndex !== null) {
-                index = gameIndex;
-            } else {
-                // Если индекс не загружен, загружаем его
-                const indexResponse = await fetch('data/index.json');
-                if (!indexResponse.ok) {
-                    throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                }
-                index = await indexResponse.json();
-                gameIndex = index;
-            }
-
-            let matchedGames = [];
-            for (let i = 1; i <= index.total_files; i++) {
-                let fileGames;
-
-                // Используем предварительно загруженные файлы, если они есть
-                if (gameFiles[i]) {
-                    fileGames = gameFiles[i];
-                } else {
-                    // Если файл не загружен, загружаем его
-                    const response = await fetch(`data/games_${i}.json`);
-                    if (!response.ok) {
-                        throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
-                    }
-                    fileGames = await response.json();
-                    gameFiles[i] = fileGames;
-                }
-
-                const matches = fileGames.filter(game =>
-                    game.name.toLowerCase().includes(gameName.toLowerCase())
-                );
-
-                // Добавляем релевантность к каждой игре
-                matches.forEach(game => {
-                    game.relevance = calculateRelevance(game.name, gameName);
-                });
-
-                matchedGames = matchedGames.concat(matches);
-                if (matchedGames.length >= 100) {
-                    break;
-                }
-            }
-
-            // Сортируем игры по релевантности
-            matchedGames.sort((a, b) => b.relevance - a.relevance);
-
             return matchedGames.slice(0, 100);
         }
 
@@ -2782,7 +2727,7 @@
                 // Используем функцию searchGamesWithIndex для поиска игр
                 // Она автоматически использует предварительно загруженный индекс
                 const indexMatchedGames = await searchGamesWithIndex(gameName);
-                console.log('Найдено в индексе:', indexMatchedGames.length, 'игр');
+
 
                 // Загружаем полную информацию об играх из файлов
 
@@ -2810,12 +2755,14 @@
                     }
                 });
 
-                // Если в индексе нет информации о файлах, проверяем все файлы
+                // Если в индексе нет информации о файлах, возвращаем пустой результат
                 if (Object.keys(fileMap).length === 0) {
-                    // Проверяем все файлы
-                    for (let i = 1; i <= index.total_files; i++) {
-                        fileMap[i] = [];
-                    }
+                    // Не проверяем все файлы, только те, что указаны в индексе
+                    console.warn('В индексе нет информации о файлах для запрошенных игр.');
+                    // Отображаем результаты только из индекса
+                    displaySearchResults(indexMatchedGames);
+                    hideLoadingMessage();
+                    return;
                 }
 
                 // Загружаем файлы и ищем в них игры
@@ -2841,9 +2788,6 @@
                     if (fileMap[fileNumber].length > 0) {
                         // Ищем игры по ID из индекса
                         const gameIds = fileMap[fileNumber];
-                        console.log(`Файл ${fileNumber}: ищем ${gameIds.length} игр по ID`);
-
-
                         // Ищем игры по ID с учетом возможных различий в типах данных
                         const idMatches = fileGames.filter(game => {
                             return gameIds.some(id => {
@@ -2853,28 +2797,13 @@
                             });
                         });
 
-                        console.log(`Файл ${fileNumber}: найдено ${idMatches.length} игр по ID`);
+
 
                         // Если нашли игры по ID, добавляем их
                         if (idMatches.length > 0) {
                             matchedGames.push(...idMatches);
-                        } else {
-                            // Если не нашли по ID, ищем по названию
-                            console.log(`Файл ${fileNumber}: не нашли игры по ID, ищем по названию "${gameName}"`);
-                            const nameMatches = fileGames.filter(game =>
-                                game.name && game.name.toLowerCase().includes(gameName.toLowerCase())
-                            );
-                            console.log(`Файл ${fileNumber}: найдено ${nameMatches.length} игр по названию`);
-                            matchedGames.push(...nameMatches);
                         }
-                    } else {
-                        // Если нет ID для этого файла, ищем по названию
-                        console.log(`Файл ${fileNumber}: ищем игры по названию "${gameName}"`);
-                        const matches = fileGames.filter(game =>
-                            game.name && game.name.toLowerCase().includes(gameName.toLowerCase())
-                        );
-                        console.log(`Файл ${fileNumber}: найдено ${matches.length} игр по названию`);
-                        matchedGames.push(...matches);
+                        // Не ищем по названию, если не нашли по ID
                     }
 
                     // Ограничиваем количество результатов
