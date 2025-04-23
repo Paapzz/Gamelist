@@ -3541,13 +3541,31 @@
         let currentSearchTerm = '';
 
         function handleSearch() {
-            currentSearchTerm = searchInput.value.trim();
+            const searchTerm = searchInput.value.trim();
+
+            // Если поле поиска пустое, вызываем clearSearch для полного сброса
+            if (searchTerm === '') {
+                clearSearch();
+                return;
+            }
+
+            currentSearchTerm = searchTerm;
             applyFilters();
         }
 
         function clearSearch() {
             searchInput.value = '';
             currentSearchTerm = '';
+
+            // Удаляем класс search-match-in-progress у всех элементов
+            document.querySelectorAll('.search-match-in-progress').forEach(el => {
+                el.classList.remove('search-match-in-progress');
+            });
+
+            // Полностью обновляем ряд "в процессе", чтобы восстановить исходный порядок
+            updateInProgressRow();
+
+            // Применяем фильтры после обновления ряда
             applyFilters();
             updateCounter();
         }
@@ -3830,6 +3848,7 @@
 
             // Reset styles/visibility first
             document.querySelectorAll('.cell').forEach(cell => {
+                // Удаляем класс search-match-in-progress перед применением фильтров
                 cell.classList.remove('search-match-in-progress');
                 // Decide initial visibility based on filters ONLY (not search yet)
                 const gameId = cell.getAttribute('data-game-id');
@@ -4279,10 +4298,21 @@
         });
 
         searchInput.addEventListener('input', handleSearch);
+
+        // Обработчик события blur для очистки поиска при пустом поле
         searchInput.addEventListener('blur', () => {
             if (searchInput.value.trim() === '') {
-                currentSearchTerm = '';
-                applyFilters();
+                // Вызываем clearSearch для полного сброса поиска и восстановления порядка игр
+                clearSearch();
+            }
+        });
+
+        // Обработчик нажатия клавиши Escape для очистки поиска
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                clearSearch();
+                // Снимаем фокус с поля ввода
+                searchInput.blur();
             }
         });
         clearSearchButton.addEventListener('click', clearSearch);
