@@ -67,10 +67,8 @@ def get_weighted_rating(game):
 
     if avg_rating >= 80 and total_count >= 500:
         special_adjustment += 2
-
-    if avg_rating >= 95 and total_count < 10:
-        special_adjustment -= 5
-
+    if avg_rating >= 95 and total_count < 30:
+        special_adjustment -= 2
     return base_rating + count_factor + rating_bonus - review_penalty - very_low_ratings_penalty + special_adjustment
 
 def main():
@@ -122,8 +120,7 @@ def main():
             f"id{game['id']}",
             f"name{game['name']}",
             f"date{game.get('first_release_date', 0)}",
-            f"file{i // GAMES_PER_FILE + 1}",
-            f"year{time.strftime('%Y', time.gmtime(game.get('first_release_date', 0))) if game.get('first_release_date', 0) else '0'}",
+            f"file{i // GAMES_PER_FILE + 1}"
         ]
         for i, game in enumerate(all_sorted)
     ]
@@ -141,9 +138,7 @@ def main():
             "0": "id",
             "1": "name",
             "2": "date",
-            "3": "file",
-            "4": "year",
-            "5": "rating"
+            "3": "file"
         },
         "games_per_file": GAMES_PER_FILE
     }
