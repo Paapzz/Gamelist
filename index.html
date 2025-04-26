@@ -2134,7 +2134,7 @@
             }
         }
 
-        // Функция для поиска игр с использованием индекса
+        // Функция для поиска игр с использованием оптимизированного индекса
         async function searchGamesWithIndex(gameName, searchIndex) {
             if (!searchIndex || !Array.isArray(searchIndex)) {
                 console.warn('Поисковый индекс не загружен или имеет неверный формат. Поиск невозможен.');
@@ -2144,18 +2144,62 @@
             console.log(`Поиск по запросу "${gameName}" в индексе из ${searchIndex.length} игр`);
             const lowerQuery = gameName.toLowerCase();
 
+            // Функция для извлечения значения из строки формата "keyValue"
+            function extractValue(str, prefix) {
+                if (!str || typeof str !== 'string') return '';
+                if (str.startsWith(prefix)) {
+                    return str.substring(prefix.length);
+                }
+                return '';
+            }
+
+            // Функция для преобразования массива в объект
+            function arrayToObject(arr) {
+                if (!arr || !Array.isArray(arr)) return {};
+
+                const obj = {};
+                for (const item of arr) {
+                    if (typeof item === 'string') {
+                        if (item.startsWith('id')) obj.id = extractValue(item, 'id');
+                        else if (item.startsWith('name')) obj.name = extractValue(item, 'name');
+                        else if (item.startsWith('date')) {
+                            const dateValue = extractValue(item, 'date');
+                            obj.first_release_date = dateValue !== '0' ? parseInt(dateValue) : null;
+                        }
+                        else if (item.startsWith('file')) obj.file_number = parseInt(extractValue(item, 'file'));
+                    }
+                }
+                return obj;
+            }
+
             const matchedGames = searchIndex.filter(game => {
-                if (!game || !game.name) return false;
-                const gameName = game.name.toLowerCase();
-                return gameName.includes(lowerQuery);
+                if (!game || !Array.isArray(game)) return false;
+
+                // Ищем элемент, начинающийся с "name"
+                const nameItem = game.find(item => typeof item === 'string' && item.startsWith('name'));
+                if (!nameItem) return false;
+
+                const gameName = extractValue(nameItem, 'name').toLowerCase();
+
+                // Разбиваем поисковый запрос на слова
+                const queryWords = lowerQuery.split(/\s+/).filter(word => word.length > 0);
+
+                // Если запрос пустой, возвращаем false
+                if (queryWords.length === 0) return false;
+
+                // Проверяем, содержит ли название игры все слова из запроса
+                return queryWords.every(word => gameName.includes(word));
             });
 
             console.log(`Найдено ${matchedGames.length} совпадений`);
 
+            // Преобразуем массивы в объекты для дальнейшей обработки
+            const gameObjects = matchedGames.map(arrayToObject);
+
             // Удаляем дубликаты
             const uniqueIds = new Set();
             const uniqueGames = [];
-            for (const game of matchedGames) {
+            for (const game of gameObjects) {
                 if (!uniqueIds.has(game.id)) {
                     uniqueIds.add(game.id);
                     uniqueGames.push(game);
@@ -2812,7 +2856,7 @@
             }
         }
 
-        // Функция для отображения результатов поиска из индекса
+        // Функция для отображения результатов поиска из оптимизированного индекса
         function displaySearchResultsFromIndex(indexGames) {
             searchResults.innerHTML = '';
             if (indexGames.length === 0) {
@@ -2831,11 +2875,17 @@
                 // Используем только информацию из индекса
                 const gameName = game.name || 'Неизвестная игра';
 
+                // Если есть дата выпуска, преобразуем ее в год
+                let releaseYear = '';
+                if (game.first_release_date) {
+                    const date = new Date(game.first_release_date * 1000);
+                    releaseYear = date.getFullYear();
+                }
+
                 // Проверяем, есть ли уже такая игра в списке
                 const newGame = {
                     name: formatGameTitle(gameName),
-                    // Год может отсутствовать в индексе
-                    year: null
+                    year: releaseYear || null
                 };
                 const isDuplicate = isDuplicateGame(newGame);
 
@@ -2843,9 +2893,13 @@
                 const buttonClass = isDuplicate ? 'add-game-button disabled' : 'add-game-button';
                 const buttonText = isDuplicate ? 'Уже есть' : 'Добавить';
 
+                // Добавляем год выпуска, если он есть
+                const yearDisplay = releaseYear ? `<span class="game-year">(${releaseYear})</span>` : '';
+
                 resultElement.innerHTML = `
                     <div class="game-info">
                         <span class="game-name">${gameName}</span>
+                        ${yearDisplay}
                     </div>
                     <button type="button" class="${buttonClass}">${buttonText}</button>
                 `;
@@ -2998,7 +3052,8 @@
             }
 
             const fileNumber = indexGame.file_number;
-            console.log(`Загружаем информацию об игре с ID ${indexGame.id} из файла ${fileNumber}`);
+            const gameId = indexGame.id;
+            console.log(`Загружаем информацию об игре с ID ${gameId} из файла ${fileNumber}`);
 
             try {
                 // Загружаем файл, если он еще не загружен
@@ -3014,16 +3069,16 @@
                 }
 
                 // Находим игру в файле
-                const fullGame = gameFiles[fileNumber].find(g => g && (g.id == indexGame.id || String(g.id) === String(indexGame.id)));
+                const fullGame = gameFiles[fileNumber].find(g => g && (g.id == gameId || String(g.id) === String(gameId)));
                 if (!fullGame) {
-                    console.error(`Игра с ID ${indexGame.id} не найдена в файле games_${fileNumber}.json`);
+                    console.error(`Игра с ID ${gameId} не найдена в файле games_${fileNumber}.json`);
                     return null;
                 }
 
-                console.log(`Игра с ID ${indexGame.id} успешно загружена: ${fullGame.name}`);
+                console.log(`Игра с ID ${gameId} успешно загружена: ${fullGame.name}`);
                 return fullGame;
             } catch (error) {
-                console.error(`Ошибка при загрузке информации об игре с ID ${indexGame.id}:`, error);
+                console.error(`Ошибка при загрузке информации об игре с ID ${gameId}:`, error);
                 return null;
             }
         }
@@ -3296,28 +3351,78 @@
             const gameNameLower = gameName.toLowerCase();
             const searchTermLower = searchTerm.toLowerCase();
 
+            // Разбиваем поисковый запрос на слова
+            const queryWords = searchTermLower.split(/\s+/).filter(word => word.length > 0);
+
             let relevance = 0;
 
-            // Если название игры точно совпадает с поисковым запросом
-            if (gameNameLower === searchTermLower) {
-                relevance += 1000;
+            // Если поисковый запрос состоит из одного слова
+            if (queryWords.length === 1) {
+                // Если название игры точно совпадает с поисковым запросом
+                if (gameNameLower === searchTermLower) {
+                    relevance += 1000;
+                }
+                // Если название игры начинается с поискового запроса
+                else if (gameNameLower.startsWith(searchTermLower)) {
+                    relevance += 500;
+                }
+                // Если поисковый запрос находится в начале слова в названии игры
+                else if (gameNameLower.split(' ').some(word => word.startsWith(searchTermLower))) {
+                    relevance += 200;
+                }
+                // Если поисковый запрос просто содержится в названии
+                else if (gameNameLower.includes(searchTermLower)) {
+                    relevance += 100;
+                }
             }
-            // Если название игры начинается с поискового запроса
-            else if (gameNameLower.startsWith(searchTermLower)) {
-                relevance += 500;
-            }
-            // Если поисковый запрос находится в начале слова в названии игры
-            else if (gameNameLower.split(' ').some(word => word.startsWith(searchTermLower))) {
-                relevance += 200;
-            }
-            // Если поисковый запрос просто содержится в названии
+            // Если поисковый запрос состоит из нескольких слов
             else {
-                relevance += 100;
+                // Если название игры точно совпадает с поисковым запросом
+                if (gameNameLower === searchTermLower) {
+                    relevance += 1000;
+                }
+                // Если название игры содержит все слова из запроса в том же порядке
+                else if (gameNameLower.includes(searchTermLower)) {
+                    relevance += 800;
+                }
+                // Проверяем, сколько слов из запроса содержится в названии игры
+                else {
+                    let matchedWords = 0;
+                    let matchedAtStart = 0;
+
+                    // Разбиваем название игры на слова
+                    const gameWords = gameNameLower.split(/\s+/);
+
+                    // Проверяем каждое слово из запроса
+                    for (const queryWord of queryWords) {
+                        // Если слово содержится в названии игры
+                        if (gameNameLower.includes(queryWord)) {
+                            matchedWords++;
+
+                            // Если слово находится в начале слова в названии игры
+                            if (gameWords.some(word => word.startsWith(queryWord))) {
+                                matchedAtStart++;
+                            }
+                        }
+                    }
+
+                    // Добавляем релевантность в зависимости от количества совпадений
+                    relevance += (matchedWords / queryWords.length) * 500;
+                    relevance += (matchedAtStart / queryWords.length) * 300;
+                }
             }
 
             // Дополнительный бонус за короткие названия
             const lengthDifference = Math.abs(gameNameLower.length - searchTermLower.length);
-            relevance -= lengthDifference * 2;
+            relevance -= lengthDifference;
+
+            // Бонус за точное совпадение слов
+            const gameWords = gameNameLower.split(/\s+/);
+            for (const queryWord of queryWords) {
+                if (gameWords.includes(queryWord)) {
+                    relevance += 50;
+                }
+            }
 
             return relevance;
         }
@@ -3709,6 +3814,30 @@
 
         function searchGames() {
             const searchTerm = searchInput.value.toLowerCase().trim();
+
+            // Если поисковый запрос пустой, просто применяем фильтры
+            if (searchTerm === '') {
+                document.querySelectorAll('.cell').forEach(cell => {
+                    const gameId = cell.getAttribute('data-game-id');
+                    const game = games.find(g => g.id.toString() === gameId);
+                    const isInProgressRow = cell.parentElement.id === 'inProgressRow';
+
+                    // Для игр "в процессе" не применяем фильтры
+                    if (isInProgressRow) {
+                        cell.style.display = '';
+                    } else if (game && shouldShowGame(game)) {
+                        cell.style.display = '';
+                    } else {
+                        cell.style.display = 'none';
+                    }
+                });
+                updateInProgressRow();
+                return;
+            }
+
+            // Разбиваем поисковый запрос на слова
+            const queryWords = searchTerm.split(/\s+/).filter(word => word.length > 0);
+
             document.querySelectorAll('.cell').forEach(cell => {
                 const gameName = cell.title.toLowerCase();
                 const gameId = cell.getAttribute('data-game-id');
@@ -3717,16 +3846,19 @@
                 // Проверяем, находится ли ячейка в зоне "In Progress"
                 const isInProgressRow = cell.parentElement.id === 'inProgressRow';
 
+                // Проверяем, содержит ли название игры все слова из запроса
+                const matchesSearch = queryWords.every(word => gameName.includes(word));
+
                 // Если ячейка в зоне "In Progress", применяем только поиск, без фильтров
                 if (isInProgressRow) {
-                    if (searchTerm === '' || gameName.includes(searchTerm)) {
+                    if (matchesSearch) {
                         cell.style.display = '';
                     } else {
                         cell.style.display = 'none';
                     }
                 } else {
                     // Для обычных игр применяем и фильтры, и поиск
-                    if (game && shouldShowGame(game) && (searchTerm === '' || gameName.includes(searchTerm))) {
+                    if (game && shouldShowGame(game) && matchesSearch) {
                         cell.style.display = '';
                     } else {
                         cell.style.display = 'none';
