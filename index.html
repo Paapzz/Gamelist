@@ -2723,115 +2723,46 @@
 
             // Показываем сообщение о загрузке
             showLoadingMessage();
+    
             try {
                 // Используем функцию searchGamesWithIndex для поиска игр
-                // Она автоматически использует предварительно загруженный индекс
                 const indexMatchedGames = await searchGamesWithIndex(gameName);
-
-
-                // Загружаем полную информацию об играх из файлов
-
-                // Загружаем индекс для получения информации о количестве файлов
-                let index;
-                if (gameIndex !== null) {
-                    index = gameIndex;
-                } else {
-                    const indexResponse = await fetch('data/index.json');
-                    if (!indexResponse.ok) {
-                        throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
-                    }
-                    index = await indexResponse.json();
-                    gameIndex = index;
-                }
-
-                // Создаем маппинг игр по файлам
-                const fileMap = {};
-                indexMatchedGames.forEach(game => {
-                    if (game.file_number) {
-                        if (!fileMap[game.file_number]) {
-                            fileMap[game.file_number] = [];
-                        }
-                        fileMap[game.file_number].push(game.id);
-                    }
-                });
-
-                // Если в индексе нет информации о файлах, возвращаем пустой результат
-                if (Object.keys(fileMap).length === 0) {
-                    // Не проверяем все файлы, только те, что указаны в индексе
-                    console.warn('В индексе нет информации о файлах для запрошенных игр.');
-                    // Отображаем результаты только из индекса
-                    displaySearchResults(indexMatchedGames);
+        
+                if (indexMatchedGames.length === 0) {
+                    // Если ничего не найдено
+                    searchResults.innerHTML = '<p class="no-games-found">Игры не найдены.</p>';
                     hideLoadingMessage();
                     return;
                 }
 
-                // Загружаем файлы и ищем в них игры
+                console.log(`Найдено ${indexMatchedGames.length} игр в индексе, загружаем детали...`);
+        
+                // Загружаем полные данные только для найденных игр (до 100)
                 const matchedGames = [];
-                for (const fileNumber in fileMap) {
-                    let fileGames;
-
-                    // Используем предварительно загруженные файлы, если они есть
-                    if (gameFiles[fileNumber]) {
-                                fileGames = gameFiles[fileNumber];
-                    } else {
-                        // Если файл не загружен, загружаем его
-                        console.log(`Загружаем файл ${fileNumber}`);
-                        const response = await fetch(`./data/games_${fileNumber}.json`);
-                        if (!response.ok) {
-                            throw new Error(`Ошибка загрузки файла games_${fileNumber}.json: ${response.status} ${response.statusText}`);
+                const limitedMatches = indexMatchedGames.slice(0, 100);
+        
+                for (const indexEntry of limitedMatches) {
+                    if (indexEntry && indexEntry.id) {
+                        const fullGame = await getGameById(indexEntry.id);
+                        if (fullGame) {
+                            // Сохраняем релевантность из индекса для сортировки
+                            fullGame.relevance = indexEntry.relevance;
+                            matchedGames.push(fullGame);
                         }
-                        fileGames = await response.json();
-                        gameFiles[fileNumber] = fileGames;
-                    }
-
-                    // Проверяем, есть ли ID игр для этого файла
-                    if (fileMap[fileNumber].length > 0) {
-                        // Ищем игры по ID из индекса
-                        const gameIds = fileMap[fileNumber];
-                        // Ищем игры по ID с учетом возможных различий в типах данных
-                        const idMatches = fileGames.filter(game => {
-                            return gameIds.some(id => {
-                                // Проверяем разными способами
-                                return game.id == id || // Нестрогое сравнение для разных типов
-                                       String(game.id) === String(id); // Сравнение строковых представлений
-                            });
-                        });
-
-
-
-                        // Если нашли игры по ID, добавляем их
-                        if (idMatches.length > 0) {
-                            matchedGames.push(...idMatches);
-                        }
-                        // Не ищем по названию, если не нашли по ID
-                    }
-
-                    // Ограничиваем количество результатов
-                    if (matchedGames.length >= 100) {
-                        break;
                     }
                 }
 
-                // Добавляем релевантность к каждой игре
-                matchedGames.forEach(game => {
-                    game.relevance = calculateRelevance(game.name, gameName);
-                });
-
-                // Сортируем по релевантности
-                matchedGames.sort((a, b) => b.relevance - a.relevance);
-
-                // Ограничиваем до 100 результатов
-                const finalResults = matchedGames.slice(0, 100);
-
-                // Отображаем результаты
-                displaySearchResults(finalResults);
-
+                console.log(`Загружено ${matchedGames.length} игр с полной информацией`);
+        
+                // Отображаем результаты (отсортированные по релевантности)
+                displaySearchResults(matchedGames);
+        
                 // Скрываем сообщение о загрузке
                 hideLoadingMessage();
             } catch (error) {
                 console.error('Ошибка при поиске игры:', error);
                 searchResults.innerHTML = '<p class="search-error">Ошибка при поиске игры. Пожалуйста, попробуйте еще раз.</p>';
-
+        
                 // Показываем сообщение об ошибке
                 hideLoadingMessage();
                 handleImportCompletion(`Ошибка: ${error.message}`);
