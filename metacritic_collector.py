@@ -82,6 +82,14 @@ def get_metacritic_data(game_name, platform=None):
     Returns:
         dict: Данные о рейтинге игры или None в случае ошибки
     """
+    if not isinstance(game_name, str):
+        logging.error(f"Название игры должно быть строкой, получено: {type(game_name)}")
+        return None
+
+    if platform is not None and not isinstance(platform, str):
+        logging.error(f"Платформа должна быть строкой, получено: {type(platform)}")
+        return None
+
     url = "http://www.metacritic.com/game/"
 
     if platform:
@@ -181,6 +189,12 @@ def update_metacritic_data():
         game_id = str(game.get('id'))
         game_name = game.get('name')
 
+        if not isinstance(game_name, str):
+            logging.warning(f"Пропускаем игру с ID {game_id}: название игры не является строкой ({type(game_name)})")
+            processed_games += 1
+            error_games += 1
+            continue
+
         if game_id in metacritic_data['games']:
             last_updated = metacritic_data['games'][game_id].get('timestamp', '')
             if last_updated:
@@ -203,12 +217,23 @@ def update_metacritic_data():
         logging.info(f"Получаем данные Metacritic для игры: {game_name} (ID: {game_id})")
 
         platforms = game.get('platforms', [])
+        if not isinstance(platforms, list):
+            logging.warning(f"Поле platforms для игры {game_name} (ID: {game_id}) не является списком: {type(platforms)}. Используем пустой список.")
+            platforms = []
+
         metacritic_result = None
 
         if platforms:
             priority_platforms = ["PC", "PlayStation 4", "PlayStation 5", "Xbox One", "Xbox Series X", "Nintendo Switch"]
 
-            sorted_platforms = sorted(platforms, key=lambda p:
+            valid_platforms = []
+            for p in platforms:
+                if isinstance(p, str):
+                    valid_platforms.append(p)
+                else:
+                    logging.warning(f"Пропускаем платформу неверного типа: {type(p)} для игры {game_name}")
+
+            sorted_platforms = sorted(valid_platforms, key=lambda p:
                                      priority_platforms.index(p) if p in priority_platforms else len(priority_platforms))
 
             for platform in sorted_platforms:
