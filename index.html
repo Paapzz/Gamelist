@@ -1437,6 +1437,22 @@
             animation: messageFadeOut 0.5s ease-out forwards;
         }
 
+        /* Стили для анимированного индикатора загрузки */
+        .button-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         #addGameForm {
             display: flex;
             flex-direction: column;
@@ -3014,16 +3030,24 @@
 
         // Функция для добавления игры из индекса
         async function addGameFromIndex(indexGame, event) {
-            // Показываем сообщение о загрузке
-            showLoadingMessage();
+            // Получаем кнопку, на которую нажали
+            const button = event.target;
+            const originalButtonText = button.textContent;
+
+            // Заменяем текст кнопки на спиннер
+            button.innerHTML = '<span class="button-spinner"></span>Загрузка...';
+            button.disabled = true;
 
             try {
                 // Загружаем полную информацию об игре
                 const fullGame = await loadFullGameInfo(indexGame);
 
                 if (!fullGame) {
+                    // Восстанавливаем оригинальный текст кнопки
+                    button.innerHTML = originalButtonText;
+                    button.disabled = false;
+
                     showMessage('Не удалось загрузить информацию об игре. Попробуйте еще раз.', 'warning');
-                    hideLoadingMessage();
                     return;
                 }
 
@@ -3069,14 +3093,44 @@
                     applyFilters();
 
                     saveGames();
-                    showMessage('Игра успешно добавлена!', 'success');
-                }
 
-                hideLoadingMessage();
+                    // Меняем кнопку на "Уже есть"
+                    button.innerHTML = 'Уже есть';
+                    button.classList.add('disabled');
+
+                    // Показываем сообщение об успешном добавлении
+                    showMessage('Игра успешно добавлена!', 'success');
+
+                    // Удаляем старый обработчик
+                    button.removeEventListener('click', arguments.callee);
+
+                    // Добавляем новый обработчик для кнопки "Уже есть"
+                    button.addEventListener('click', () => {
+                        showMessage('Эта игра уже есть в вашем списке.', 'info');
+                    });
+                } else {
+                    // Если игра уже есть в списке, меняем кнопку на "Уже есть"
+                    button.innerHTML = 'Уже есть';
+                    button.classList.add('disabled');
+
+                    // Удаляем старый обработчик
+                    button.removeEventListener('click', arguments.callee);
+
+                    // Добавляем новый обработчик для кнопки "Уже есть"
+                    button.addEventListener('click', () => {
+                        showMessage('Эта игра уже есть в вашем списке.', 'info');
+                    });
+
+                    showMessage('Эта игра уже есть в вашем списке.', 'info');
+                }
             } catch (error) {
                 console.error('Ошибка при добавлении игры:', error);
+
+                // Восстанавливаем оригинальный текст кнопки
+                button.innerHTML = originalButtonText;
+                button.disabled = false;
+
                 showMessage('Ошибка при добавлении игры. Попробуйте еще раз.', 'warning');
-                hideLoadingMessage();
             }
         }
 
