@@ -7,7 +7,7 @@ import time
 # Разрешённые платформы (ID)
 ALLOWED_PLATFORMS = [6, 167, 169, 130, 48, 49, 41, 9, 12, 5, 37, 46, 8, 11, 20, 7, 14, 3, 162, 165]
 BATCH_SIZE = 500
-GAMES_PER_FILE = 10000
+GAMES_PER_FILE = 5000
 
 # Получение access token IGDB
 def get_access_token():
@@ -67,7 +67,7 @@ def main():
 
     all_games = []
     offset = 0
-    max_id = 400000  # Можно сделать отдельный запрос на максимум, если нужно
+    max_id = 400000
     while offset < max_id:
         print(f"Fetching games {offset} - {offset+BATCH_SIZE}")
         games = fetch_games(token, offset)
@@ -102,19 +102,19 @@ def main():
             json.dump(all_sorted[start:end], f, ensure_ascii=False)
         print(f"Saved data/games_{i+1}.json ({end-start} games)")
 
-    # Индекс для поиска
+    # Индекс для поиска в оптимизированном формате
     search_index = [
-        {
-            "id": str(game["id"]),
-            "name": game["name"],
-            "first_release_date": game.get("first_release_date"),
-            "file_number": i // GAMES_PER_FILE + 1
-        }
+        [
+            f"id{game['id']}",  # id в формате id104967
+            f"name{game['name']}",  # name в формате nameValheim
+            f"date{game.get('first_release_date', 0)}",  # date в формате date1663286400
+            f"file{i // GAMES_PER_FILE + 1}"  # file в формате file1
+        ]
         for i, game in enumerate(all_sorted)
     ]
     with open('data/search_index.json', 'w', encoding='utf-8') as f:
         json.dump(search_index, f, ensure_ascii=False)
-    print("Saved data/search_index.json")
+    print("Saved data/search_index.json (optimized format)")
 
     # Индекс-метаданные
     index = {
@@ -127,4 +127,4 @@ def main():
     print("Saved data/index.json")
 
 if __name__ == "__main__":
-    main() 
+    main()
