@@ -2,7 +2,7 @@ name: Update Games List
 
 on:
   schedule:
-    - cron: '0 3 * * *'  #6 утра
+    - cron: '30 1 * * *'  # 4:30 утра по Москве (UTC+3)
   workflow_dispatch:
 
 jobs:
@@ -24,136 +24,11 @@ jobs:
         pip install requests
 
     - name: Fetch and process games data
+      env:
+        IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+        IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
       run: |
-        mkdir -p data
-        python3 - <<EOF
-        import json
-        import math
-        import requests
-        import time
-        from requests.adapters import HTTPAdapter
-        from requests.packages.urllib3.util.retry import Retry
-
-        def fetch_games(offset=0, limit=500, max_retries=5):
-            url = "https://nu8ichego5ti2suda7prishel111.uhadi.workers.dev"
-            params = {"offset": offset, "limit": limit}
-
-            session = requests.Session()
-            retry = Retry(total=max_retries, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
-            adapter = HTTPAdapter(max_retries=retry)
-            session.mount('https://', adapter)
-
-            try:
-                response = session.get(url, params=params, timeout=60)
-                response.raise_for_status()
-                return response.json()
-            except requests.RequestException as e:
-                print(f"Error fetching games: {e}")
-                return None
-
-        print("Fetching games...")
-        all_games = []
-        offset = 0
-        limit = 500
-        max_games = 400000
-        max_attempts = 10
-
-        for attempt in range(max_attempts):
-            while len(all_games) < max_games:
-                print(f"Fetching batch: offset={offset}, limit={limit}")
-                games = fetch_games(offset, limit)
-                if games is None:
-                    print(f"Failed to fetch batch. Retrying in 60 seconds...")
-                    time.sleep(60)
-                    continue
-                if len(games) == 0:
-                    break
-                all_games.extend(games)
-                offset += limit
-                time.sleep(2)
-
-            if len(all_games) > 0:
-                break
-
-            print(f"Attempt {attempt + 1} failed. Retrying in 5 minutes...")
-            time.sleep(300)
-
-        total_games = min(len(all_games), max_games)
-        all_games = all_games[:total_games]
-
-        print(f"Total games fetched and limited to {max_games}: {total_games}")
-
-        if total_games == 0:
-            print("No games fetched. Exiting.")
-            exit(1)
-
-        games_per_file = 10000
-        total_files = math.ceil(total_games / games_per_file)
-
-        print(f"Creating {total_files} file(s)...")
-
-        for i in range(total_files):
-            start = i * games_per_file
-            end = min((i + 1) * games_per_file, total_games)
-            with open(f'data/games_{i+1}.json', 'w') as f:
-                json.dump(all_games[start:end], f)
-            print(f"Created file data/games_{i+1}.json with {end - start} games")
-
-        index = {
-            "total_games": total_games,
-            "total_files": total_files,
-            "last_updated": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-        }
-        with open('data/index.json', 'w') as f:
-            json.dump(index, f)
-        print("Created index.json file")
-
-        print("Creating search index...")
-        search_index = []
-        processed_ids = set() 
-        skipped_count = 0
-
-        for i, game in enumerate(all_games):
-            if not isinstance(game, dict):
-                skipped_count += 1
-                if skipped_count <= 10:
-                    print(f"Skipping non-dict game at index {i}: {type(game)}")
-                continue
-
-            if "id" not in game or "name" not in game or not game["name"]:
-                skipped_count += 1
-                if skipped_count <= 10:
-                    print(f"Skipping game without required fields at index {i}")
-                continue
-
-            game_id = str(game["id"])
-            if game_id in processed_ids:
-                skipped_count += 1
-                if skipped_count <= 10:
-                    print(f"Skipping duplicate game with ID {game_id} at index {i}")
-                continue
-
-            processed_ids.add(game_id)
-            file_number = math.floor(i / games_per_file) + 1
-            search_index.append({
-                "id": game_id,
-                "name": game["name"],
-                "first_release_date": game.get("first_release_date"),
-                "file_number": file_number
-            })
-
-        if skipped_count > 10:
-            print(f"... and {skipped_count - 10} more items were skipped")
-
-        try:
-            with open('data/search_index.json', 'w') as f:
-                json.dump(search_index, f)
-            print(f"Created search index with {len(search_index)} games")
-        except Exception as e:
-            print(f"Error creating search index: {e}")
-
-        print("Data processing complete!")
-        EOF
+        python3 githubworker.py
 
     - name: Commit and push if changed
       run: |
