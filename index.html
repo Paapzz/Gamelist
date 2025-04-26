@@ -2780,60 +2780,13 @@
 
                 // Ограничиваем количество результатов до 100
                 const limitedMatches = indexMatchedGames.slice(0, 100);
-                console.log(`Получаем полную информацию для ${limitedMatches.length} игр...`);
-
-                // Группируем игры по файлам для оптимизации загрузки
-                const gamesByFile = {};
-                for (const game of limitedMatches) {
-                    if (game && game.id && game.file_number) {
-                        if (!gamesByFile[game.file_number]) {
-                            gamesByFile[game.file_number] = [];
-                        }
-                        gamesByFile[game.file_number].push({
-                            id: game.id,
-                            relevance: game.relevance || 0
-                        });
-                    }
-                }
-
-                console.log(`Игры сгруппированы по ${Object.keys(gamesByFile).length} файлам`);
-
-                // Загружаем файлы и получаем полную информацию об играх
-                const matchedGames = [];
-                for (const fileNumber in gamesByFile) {
-                    // Загружаем файл, если он еще не загружен
-                    if (!gameFiles[fileNumber]) {
-                        console.log(`Загрузка файла games_${fileNumber}.json`);
-                        try {
-                            const response = await fetch(`./data/games_${fileNumber}.json`);
-                            if (!response.ok) {
-                                console.error(`Ошибка загрузки файла games_${fileNumber}.json: ${response.status} ${response.statusText}`);
-                                continue;
-                            }
-                            gameFiles[fileNumber] = await response.json();
-                            console.log(`Файл games_${fileNumber}.json успешно загружен`);
-                        } catch (error) {
-                            console.error(`Ошибка при загрузке файла games_${fileNumber}.json:`, error);
-                            continue;
-                        }
-                    }
-
-                    // Находим все игры из этого файла
-                    const gamesInFile = gamesByFile[fileNumber];
-                    for (const gameInfo of gamesInFile) {
-                        const fullGame = gameFiles[fileNumber].find(g => g && (g.id == gameInfo.id || String(g.id) === String(gameInfo.id)));
-                        if (fullGame) {
-                            fullGame.relevance = gameInfo.relevance;
-                            matchedGames.push(fullGame);
-                        }
-                    }
-                }
+                console.log(`Отображаем ${limitedMatches.length} результатов из индекса`);
 
                 // Сортируем игры по релевантности
-                matchedGames.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
+                limitedMatches.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
 
-                console.log(`Получена полная информация для ${matchedGames.length} игр. Отображаем результаты...`);
-                displaySearchResults(matchedGames);
+                // Отображаем результаты поиска из индекса
+                displaySearchResultsFromIndex(limitedMatches);
                 hideLoadingMessage();
             } catch (error) {
                 console.error('Ошибка при поиске игры:', error);
@@ -2843,6 +2796,87 @@
             }
         }
 
+        // Функция для отображения результатов поиска из индекса
+        function displaySearchResultsFromIndex(indexGames) {
+            searchResults.innerHTML = '';
+            if (indexGames.length === 0) {
+                searchResults.innerHTML = '<p class="no-games-found">Игры не найдены.</p>';
+                return;
+            }
+
+            const uniqueGames = indexGames.filter((game, index, self) =>
+                index === self.findIndex((t) => t.id === game.id)
+            );
+
+            uniqueGames.forEach(game => {
+                const resultElement = document.createElement('div');
+                resultElement.className = 'search-result';
+
+                // Используем только информацию из индекса
+                const gameName = game.name || 'Неизвестная игра';
+
+                // Проверяем, есть ли уже такая игра в списке
+                const newGame = {
+                    name: formatGameTitle(gameName),
+                    // Год может отсутствовать в индексе
+                    year: null
+                };
+                const isDuplicate = isDuplicateGame(newGame);
+
+                // Создаем разные кнопки в зависимости от того, есть ли игра в списке
+                const buttonClass = isDuplicate ? 'add-game-button disabled' : 'add-game-button';
+                const buttonText = isDuplicate ? 'Уже есть' : 'Добавить';
+
+                resultElement.innerHTML = `
+                    <div class="game-info">
+                        <span class="game-name">${gameName}</span>
+                    </div>
+                    <button type="button" class="${buttonClass}">${buttonText}</button>
+                `;
+
+                // Добавляем обработчик события для всех кнопок
+                const button = resultElement.querySelector('.add-game-button');
+
+                if (!isDuplicate) {
+                    // Если игра еще не добавлена, добавляем обработчик для добавления
+                    button.addEventListener('click', (event) => {
+                        // Передаем информацию из индекса в функцию добавления
+                        addGameFromIndex(game, event);
+
+                        // После добавления игры меняем кнопку на "Уже есть"
+                        button.textContent = 'Уже есть';
+                        button.classList.add('disabled');
+
+                        // Удаляем старый обработчик
+                        button.removeEventListener('click', arguments.callee);
+
+                        // Добавляем новый обработчик для кнопки "Уже есть"
+                        button.addEventListener('click', () => {
+                            showMessage('Эта игра уже есть в вашем списке.', 'info');
+                        });
+                    });
+                } else {
+                    // Если игра уже добавлена, добавляем обработчик для показа сообщения
+                    button.addEventListener('click', () => {
+                        showMessage('Эта игра уже есть в вашем списке.', 'info');
+                    });
+                }
+
+                // Добавляем анимацию плавного появления
+                resultElement.style.opacity = '0';
+                resultElement.style.transform = 'translateY(10px)';
+                searchResults.appendChild(resultElement);
+
+                // Запускаем анимацию с небольшой задержкой для каждого элемента
+                setTimeout(() => {
+                    resultElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    resultElement.style.opacity = '1';
+                    resultElement.style.transform = 'translateY(0)';
+                }, 50 * uniqueGames.indexOf(game)); // Задержка зависит от порядкового номера элемента
+            });
+        }
+
+        // Оставляем старую функцию для обратной совместимости
         function displaySearchResults(games) {
             searchResults.innerHTML = '';
             if (games.length === 0) {
@@ -2916,7 +2950,6 @@
                     resultElement.style.transform = 'translateY(0)';
                 }, 50 * uniqueGames.indexOf(game)); // Задержка зависит от порядкового номера элемента
             });
-            // Удалено, так как кнопка "Очистить" была удалена
         }
 
         // Обработчик кнопки поиска перенесен в блок инициализации
@@ -2941,8 +2974,114 @@
             });
         }
 
-        function addGameFromSearch(game, event) {
+        // Функция для загрузки полной информации об игре из файла по данным из индекса
+        async function loadFullGameInfo(indexGame) {
+            if (!indexGame || !indexGame.id || !indexGame.file_number) {
+                console.error('Недостаточно информации для загрузки игры из индекса:', indexGame);
+                return null;
+            }
 
+            const fileNumber = indexGame.file_number;
+            console.log(`Загружаем информацию об игре с ID ${indexGame.id} из файла ${fileNumber}`);
+
+            try {
+                // Загружаем файл, если он еще не загружен
+                if (!gameFiles[fileNumber]) {
+                    console.log(`Загрузка файла games_${fileNumber}.json`);
+                    const response = await fetch(`./data/games_${fileNumber}.json`);
+                    if (!response.ok) {
+                        console.error(`Ошибка загрузки файла games_${fileNumber}.json: ${response.status} ${response.statusText}`);
+                        return null;
+                    }
+                    gameFiles[fileNumber] = await response.json();
+                    console.log(`Файл games_${fileNumber}.json успешно загружен`);
+                }
+
+                // Находим игру в файле
+                const fullGame = gameFiles[fileNumber].find(g => g && (g.id == indexGame.id || String(g.id) === String(indexGame.id)));
+                if (!fullGame) {
+                    console.error(`Игра с ID ${indexGame.id} не найдена в файле games_${fileNumber}.json`);
+                    return null;
+                }
+
+                console.log(`Игра с ID ${indexGame.id} успешно загружена: ${fullGame.name}`);
+                return fullGame;
+            } catch (error) {
+                console.error(`Ошибка при загрузке информации об игре с ID ${indexGame.id}:`, error);
+                return null;
+            }
+        }
+
+        // Функция для добавления игры из индекса
+        async function addGameFromIndex(indexGame, event) {
+            // Показываем сообщение о загрузке
+            showLoadingMessage();
+
+            try {
+                // Загружаем полную информацию об игре
+                const fullGame = await loadFullGameInfo(indexGame);
+
+                if (!fullGame) {
+                    showMessage('Не удалось загрузить информацию об игре. Попробуйте еще раз.', 'warning');
+                    hideLoadingMessage();
+                    return;
+                }
+
+                // Применяем форматирование для римских цифр в названии
+                const formattedName = formatGameTitle(fullGame.name);
+
+                const newGame = {
+                    id: Date.now(),
+                    name: formattedName,
+                    year: fullGame.first_release_date ? new Date(fullGame.first_release_date * 1000).getFullYear() : null,
+                    genres: fullGame.genres ? fullGame.genres.map(g => g.name) : [],
+                    platforms: fullGame.platforms ? fullGame.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
+                    imageUrl: fullGame.cover ? convertImageUrl(fullGame.cover.url) : (fullGame.image_url || fullGame.imageUrl || DEFAULT_GAME_IMAGE),
+                    isCustom: true,
+                    importedFromApi: true,
+                    completed: false,
+                    inProgress: false
+                };
+
+                if (!isDuplicateGame(newGame)) {
+                    // Сохраняем текущие значения фильтра годов перед добавлением игры
+                    const currentMinYear = yearSliderMin.value;
+                    const currentMaxYear = yearSliderMax.value;
+
+                    addNewGame(newGame);
+
+                    // Восстанавливаем значения фильтра годов
+                    yearSliderMin.value = currentMinYear;
+                    yearSliderMax.value = currentMaxYear;
+
+                    // Используем специальную функцию, которая не изменяет значения в localStorage
+                    updateYearValueWithoutStorage();
+
+                    // Восстанавливаем значения в localStorage
+                    if (localStorage.getItem('minYear') !== currentMinYear && currentMinYear) {
+                        localStorage.setItem('minYear', currentMinYear);
+                    }
+                    if (localStorage.getItem('maxYear') !== currentMaxYear && currentMaxYear) {
+                        localStorage.setItem('maxYear', currentMaxYear);
+                    }
+
+                    // Применяем фильтры с восстановленными значениями
+                    applyFilters();
+
+                    saveGames();
+                    showMessage('Игра успешно добавлена!', 'success');
+                }
+
+                hideLoadingMessage();
+            } catch (error) {
+                console.error('Ошибка при добавлении игры:', error);
+                showMessage('Ошибка при добавлении игры. Попробуйте еще раз.', 'warning');
+                hideLoadingMessage();
+            }
+        }
+
+        // Оставляем старую функцию для обратной совместимости
+        function addGameFromSearch(game, event) {
             // Применяем форматирование для римских цифр в названии
             const formattedName = formatGameTitle(game.name);
 
