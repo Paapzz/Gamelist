@@ -2085,7 +2085,6 @@
 
         // Функция для поиска игр с использованием индекса
         async function searchGamesWithIndex(gameName) {
-            if (!index) return [];
             if (!index) {
                 console.warn('Поисковый индекс не загружен. Поиск невозможен.');
                 return [];
