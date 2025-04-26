@@ -2,19 +2,19 @@ name: Update Metacritic Ratings
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # 5 утра по МСК (2 UTC)
-  workflow_dispatch:  # Позволяет запускать workflow вручную
+    - cron: '0 2 * * *'  # 5 утра
+  workflow_dispatch:
 
 jobs:
   update-metacritic:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         token: ${{ secrets.PAT }}
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: '3.x'
 
@@ -34,7 +34,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload logs as artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: metacritic-logs
         path: |
