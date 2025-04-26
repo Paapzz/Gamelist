@@ -2778,20 +2778,59 @@
                     return;
                 }
 
-                const matchedGames = [];
                 // Ограничиваем количество результатов до 100
                 const limitedMatches = indexMatchedGames.slice(0, 100);
                 console.log(`Получаем полную информацию для ${limitedMatches.length} игр...`);
 
-                for (const indexEntry of limitedMatches) {
-                    if (indexEntry && indexEntry.id) {
-                        const fullGame = await getGameById(indexEntry.id, searchIdx);
+                // Группируем игры по файлам для оптимизации загрузки
+                const gamesByFile = {};
+                for (const game of limitedMatches) {
+                    if (game && game.id && game.file_number) {
+                        if (!gamesByFile[game.file_number]) {
+                            gamesByFile[game.file_number] = [];
+                        }
+                        gamesByFile[game.file_number].push({
+                            id: game.id,
+                            relevance: game.relevance || 0
+                        });
+                    }
+                }
+
+                console.log(`Игры сгруппированы по ${Object.keys(gamesByFile).length} файлам`);
+
+                // Загружаем файлы и получаем полную информацию об играх
+                const matchedGames = [];
+                for (const fileNumber in gamesByFile) {
+                    // Загружаем файл, если он еще не загружен
+                    if (!gameFiles[fileNumber]) {
+                        console.log(`Загрузка файла games_${fileNumber}.json`);
+                        try {
+                            const response = await fetch(`./data/games_${fileNumber}.json`);
+                            if (!response.ok) {
+                                console.error(`Ошибка загрузки файла games_${fileNumber}.json: ${response.status} ${response.statusText}`);
+                                continue;
+                            }
+                            gameFiles[fileNumber] = await response.json();
+                            console.log(`Файл games_${fileNumber}.json успешно загружен`);
+                        } catch (error) {
+                            console.error(`Ошибка при загрузке файла games_${fileNumber}.json:`, error);
+                            continue;
+                        }
+                    }
+
+                    // Находим все игры из этого файла
+                    const gamesInFile = gamesByFile[fileNumber];
+                    for (const gameInfo of gamesInFile) {
+                        const fullGame = gameFiles[fileNumber].find(g => g && (g.id == gameInfo.id || String(g.id) === String(gameInfo.id)));
                         if (fullGame) {
-                            fullGame.relevance = indexEntry.relevance || 0;
+                            fullGame.relevance = gameInfo.relevance;
                             matchedGames.push(fullGame);
                         }
                     }
                 }
+
+                // Сортируем игры по релевантности
+                matchedGames.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
 
                 console.log(`Получена полная информация для ${matchedGames.length} игр. Отображаем результаты...`);
                 displaySearchResults(matchedGames);
