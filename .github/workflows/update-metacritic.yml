@@ -28,10 +28,28 @@ jobs:
         python metacritic_collector.py
       continue-on-error: true
 
+    - name: Display metacritic_collector.log if exists
+      run: |
+        if [ -f metacritic_collector.log ]; then
+          echo "=== metacritic_collector.log ==="
+          cat metacritic_collector.log
+        else
+          echo "metacritic_collector.log not found"
+        fi
+
     - name: Update games with Metacritic data
       run: |
         python update_games_with_metacritic.py
       continue-on-error: true
+
+    - name: Display update_games_with_metacritic.log if exists
+      run: |
+        if [ -f update_games_with_metacritic.log ]; then
+          echo "=== update_games_with_metacritic.log ==="
+          cat update_games_with_metacritic.log
+        else
+          echo "update_games_with_metacritic.log not found"
+        fi
 
     - name: Upload logs as artifacts
       uses: actions/upload-artifact@v4
