@@ -66,9 +66,9 @@ def get_weighted_rating(game):
     special_adjustment = 0
 
     if avg_rating >= 80 and total_count >= 500:
-        special_adjustment += 2
+        special_adjustment += 5
     if avg_rating >= 95 and total_count < 30:
-        special_adjustment -= 2
+        special_adjustment -= 5
     return base_rating + count_factor + rating_bonus - review_penalty - very_low_ratings_penalty + special_adjustment
 
 def main():
