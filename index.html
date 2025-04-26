@@ -2087,14 +2087,11 @@
         async function searchGamesWithIndex(gameName) {
             if (!index) return [];
             if (!index) {
-                // Если индекс не загружен, возвращаем пустой массив
                 console.warn('Поисковый индекс не загружен. Поиск невозможен.');
                 return [];
             }
-
             const lowerQuery = gameName.toLowerCase();
 
-            // Добавляем более гибкий поиск
             const matchedGames = index.filter(game => {
                 if (!game.name) return false;
                 const gameName = game.name.toLowerCase();
