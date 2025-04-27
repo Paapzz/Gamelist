@@ -290,6 +290,28 @@ def get_metacritic_data(game_name, platform=None):
                         logging.info(f"Страница существует, но заголовок не найден через селекторы: {url}")
                         # Создаем фиктивный элемент для продолжения
                         game_title_elem = True
+
+                        # Пробуем найти оценки в заголовке страницы
+                        # Например, "Thief II: The Metal Age Reviews - Metacritic"
+                        # Ищем оценки в тексте страницы
+                        page_text = soup.text
+
+                        # Ищем Metascore и User Score в тексте страницы
+                        metascore_match = re.search(r'Metascore.*?(\d{2,3}).*?Based on \d+ Critic Reviews', page_text, re.DOTALL)
+                        if metascore_match:
+                            try:
+                                metascore = int(metascore_match.group(1))
+                                logging.info(f"Найден Metascore в заголовке страницы: {metascore}")
+                            except ValueError:
+                                pass
+
+                        userscore_match = re.search(r'User Score.*?(\d+\.\d+).*?Based on \d+ User Ratings', page_text, re.DOTALL)
+                        if userscore_match:
+                            try:
+                                userscore = float(userscore_match.group(1))
+                                logging.info(f"Найден User Score в заголовке страницы: {userscore}")
+                            except ValueError:
+                                pass
                     else:
                         logging.warning(f"Страница не содержит информацию об игре: {url}")
                         return None
@@ -297,6 +319,85 @@ def get_metacritic_data(game_name, platform=None):
                 # Пробуем разные селекторы для metascore (новейший дизайн 2025 года)
                 metascore = None
 
+                # Прямой поиск оценок в тексте страницы
+                # Это самый надежный метод для новейшего дизайна Metacritic 2025 года
+                html_text = str(soup)
+
+                # Ищем Metascore
+                metascore_patterns = [
+                    r'Metascore\s+Generally\s+Favorable.*?Based\s+on\s+\d+\s+Critic\s+Reviews.*?(\d+)',
+                    r'Metascore\s+Universal\s+Acclaim.*?Based\s+on\s+\d+\s+Critic\s+Reviews.*?(\d+)',
+                    r'Metascore\s+Mixed.*?Based\s+on\s+\d+\s+Critic\s+Reviews.*?(\d+)',
+                    r'Metascore\s+Generally\s+Unfavorable.*?Based\s+on\s+\d+\s+Critic\s+Reviews.*?(\d+)',
+                    r'Metascore.*?Based\s+on\s+\d+\s+Critic\s+Reviews.*?(\d+)'
+                ]
+
+                for pattern in metascore_patterns:
+                    match = re.search(pattern, html_text, re.DOTALL | re.IGNORECASE)
+                    if match:
+                        try:
+                            metascore = int(match.group(1))
+                            logging.info(f"Найден Metascore в тексте страницы: {metascore}")
+                            break
+                        except ValueError:
+                            pass
+
+                # Ищем User Score
+                userscore_patterns = [
+                    r'User\s+Score\s+Generally\s+Favorable.*?Based\s+on\s+\d+\s+User\s+Ratings.*?(\d+\.\d+)',
+                    r'User\s+Score\s+Universal\s+Acclaim.*?Based\s+on\s+\d+\s+User\s+Ratings.*?(\d+\.\d+)',
+                    r'User\s+Score\s+Mixed.*?Based\s+on\s+\d+\s+User\s+Ratings.*?(\d+\.\d+)',
+                    r'User\s+Score\s+Generally\s+Unfavorable.*?Based\s+on\s+\d+\s+User\s+Ratings.*?(\d+\.\d+)',
+                    r'User\s+Score.*?Based\s+on\s+\d+\s+User\s+Ratings.*?(\d+\.\d+)'
+                ]
+
+                for pattern in userscore_patterns:
+                    match = re.search(pattern, html_text, re.DOTALL | re.IGNORECASE)
+                    if match:
+                        try:
+                            userscore = float(match.group(1))
+                            logging.info(f"Найден User Score в тексте страницы: {userscore}")
+                            break
+                        except ValueError:
+                            pass
+
+                # Если не нашли оценки через прямой поиск, пробуем найти их в структуре страницы
+                if metascore is None or userscore is None:
+                    # Ищем блоки с оценками
+                    score_blocks = soup.select('div[class*="metascore"], div[class*="userscore"], div[class*="score"], div[class*="Score"]')
+
+                    for block in score_blocks:
+                        block_text = block.text
+
+                        # Ищем Metascore
+                        if metascore is None and 'Metascore' in block_text:
+                            # Ищем числа от 0 до 100
+                            metascore_matches = re.findall(r'\b(\d{2,3})\b', block_text)
+                            for match in metascore_matches:
+                                try:
+                                    score = int(match)
+                                    if 60 <= score <= 100 and not (match.startswith('19') or match.startswith('20')):
+                                        metascore = score
+                                        logging.info(f"Найден Metascore в блоке: {metascore}")
+                                        break
+                                except ValueError:
+                                    continue
+
+                        # Ищем User Score
+                        if userscore is None and 'User Score' in block_text:
+                            # Ищем десятичные числа от 0 до 10
+                            userscore_matches = re.findall(r'\b(\d+\.\d+)\b', block_text)
+                            for match in userscore_matches:
+                                try:
+                                    score = float(match)
+                                    if 6.0 <= score <= 10.0:
+                                        userscore = score
+                                        logging.info(f"Найден User Score в блоке: {userscore}")
+                                        break
+                                except ValueError:
+                                    continue
+
+                # Если не нашли оценки рядом с заголовком, продолжаем поиск
                 # Новейший дизайн 2025 года
                 metascore_text = None
 
@@ -442,16 +543,78 @@ def get_metacritic_data(game_name, platform=None):
                         if userscore is not None:
                             break
 
-                # Если не нашли оценки через селекторы и регулярные выражения,
-                # пробуем найти их напрямую в HTML-коде страницы
+                # Ищем блоки с категориями оценок
+                if metascore is None or userscore is None:
+                    # Ищем блоки с категориями оценок
+                    category_blocks = soup.select('div.c-productScoreInfo, div.c-productHero_scoreInfo, div[class*="score"], div[class*="Score"]')
+
+                    for block in category_blocks:
+                        block_text = block.text
+
+                        # Ищем Metascore
+                        if metascore is None and ('Metascore' in block_text or 'Critics' in block_text):
+                            # Ищем числа от 0 до 100
+                            metascore_matches = re.findall(r'\b(\d{2,3})\b', block_text)
+                            for match in metascore_matches:
+                                try:
+                                    score = int(match)
+                                    if 60 <= score <= 100 and not (match.startswith('19') or match.startswith('20')):
+                                        metascore = score
+                                        logging.info(f"Найден Metascore в блоке категорий: {metascore}")
+                                        break
+                                except ValueError:
+                                    continue
+
+                        # Ищем User Score
+                        if userscore is None and ('User Score' in block_text or 'User' in block_text and 'Rating' in block_text):
+                            # Ищем десятичные числа от 0 до 10
+                            userscore_matches = re.findall(r'\b(\d+\.\d+)\b', block_text)
+                            for match in userscore_matches:
+                                try:
+                                    score = float(match)
+                                    if 6.0 <= score <= 10.0:
+                                        userscore = score
+                                        logging.info(f"Найден User Score в блоке категорий: {userscore}")
+                                        break
+                                except ValueError:
+                                    continue
+
+                # Если не нашли оценки через предыдущие методы,
+                # пробуем найти их в HTML-коде страницы
                 if metascore is None:
-                    # Ищем Metascore в HTML-коде с более точными шаблонами
+                    # Ищем конкретные HTML-структуры, которые содержат оценки
+                    # Например, ищем элементы с классами, содержащими "metascore" и числовое значение
+                    metascore_elements = soup.select('[class*="metascore"]')
+                    for elem in metascore_elements:
+                        # Проверяем, содержит ли элемент число
+                        elem_text = elem.text.strip()
+                        if re.match(r'^\d+$', elem_text) and 60 <= int(elem_text) <= 100:
+                            metascore = int(elem_text)
+                            logging.info(f"Найден Metascore в HTML-элементе: {metascore}")
+                            break
+
+                if userscore is None:
+                    # Ищем конкретные HTML-структуры, которые содержат оценки пользователей
+                    userscore_elements = soup.select('[class*="userscore"]')
+                    for elem in userscore_elements:
+                        # Проверяем, содержит ли элемент десятичное число
+                        elem_text = elem.text.strip()
+                        if re.match(r'^\d+\.\d+$', elem_text) and 6.0 <= float(elem_text) <= 10.0:
+                            userscore = float(elem_text)
+                            logging.info(f"Найден User Score в HTML-элементе: {userscore}")
+                            break
+
+                # Если все еще не нашли оценки, пробуем найти их в HTML-коде с более точными шаблонами
+                if metascore is None:
                     html_metascore_patterns = [
-                        r'Metascore\s+Generally\s+Favorable.*?(\d+)',
-                        r'Metascore\s+Universal\s+Acclaim.*?(\d+)',
-                        r'Metascore\s+Mixed.*?(\d+)',
-                        r'Metascore\s+Generally\s+Unfavorable.*?(\d+)',
-                        r'Metascore\s+Overwhelming\s+Dislike.*?(\d+)',
+                        # Очень специфичные шаблоны для Metacritic 2025
+                        r'Metascore.*?(\d+).*?Based on \d+ Critic Reviews',
+                        r'Metascore.*?Generally Favorable.*?(\d+)',
+                        r'Metascore.*?Universal Acclaim.*?(\d+)',
+                        r'Metascore.*?Mixed.*?(\d+)',
+                        r'Metascore.*?Generally Unfavorable.*?(\d+)',
+                        r'Metascore.*?Overwhelming Dislike.*?(\d+)',
+                        # Более общие шаблоны
                         r'Metascore.*?Based\s+on\s+\d+\s+Critic\s+Reviews.*?(\d+)',
                         r'Metascore.*?Based\s+on.*?(\d+)',
                         r'Metascore.*?(\d+)'
@@ -531,6 +694,46 @@ def get_metacritic_data(game_name, platform=None):
                                     continue
                         if userscore is not None:
                             break
+
+                # Ищем оценки в блоках с обзорами критиков и пользователей
+                if metascore is None or userscore is None:
+                    # Ищем блоки с обзорами
+                    review_blocks = soup.select('div.c-reviewsSection, div[class*="review"], div[class*="Review"], section[class*="review"], section[class*="Review"]')
+
+                    for block in review_blocks:
+                        block_text = block.text
+
+                        # Ищем заголовки разделов с обзорами
+                        critic_headers = ['Critic Reviews', 'Critics', 'Critic', 'Professional Reviews']
+                        user_headers = ['User Reviews', 'Users', 'User', 'Player Reviews']
+
+                        # Ищем Metascore
+                        if metascore is None and any(header in block_text for header in critic_headers):
+                            # Ищем числа от 0 до 100
+                            metascore_matches = re.findall(r'\b(\d{2,3})\b', block_text)
+                            for match in metascore_matches:
+                                try:
+                                    score = int(match)
+                                    if 60 <= score <= 100 and not (match.startswith('19') or match.startswith('20')):
+                                        metascore = score
+                                        logging.info(f"Найден Metascore в блоке обзоров: {metascore}")
+                                        break
+                                except ValueError:
+                                    continue
+
+                        # Ищем User Score
+                        if userscore is None and any(header in block_text for header in user_headers):
+                            # Ищем десятичные числа от 0 до 10
+                            userscore_matches = re.findall(r'\b(\d+\.\d+)\b', block_text)
+                            for match in userscore_matches:
+                                try:
+                                    score = float(match)
+                                    if 6.0 <= score <= 10.0:
+                                        userscore = score
+                                        logging.info(f"Найден User Score в блоке обзоров: {userscore}")
+                                        break
+                                except ValueError:
+                                    continue
 
                 # Последняя попытка - поиск в тексте страницы с использованием более гибких регулярных выражений
                 if metascore is None:
