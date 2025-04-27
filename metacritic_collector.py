@@ -10,6 +10,9 @@ import logging
 import sys
 from bs4 import BeautifulSoup
 
+# Глобальный кэш для хранения результатов поиска
+search_cache = {}
+
 GAMES_PER_FILE = 5000
 METACRITIC_DATA_FILE = 'meta_data/metacritic_ratings.json'
 REQUEST_DELAY = 2.0
@@ -89,6 +92,17 @@ def get_metacritic_data(game_name, platform=None):
     if platform is not None and not isinstance(platform, str):
         logging.error(f"Платформа должна быть строкой, получено: {type(platform)}")
         return None
+
+    # Используем глобальный кэш для хранения результатов поиска
+    global search_cache
+
+    # Создаем ключ для кэша
+    cache_key = f"{game_name}_{platform}" if platform else game_name
+
+    # Проверяем, есть ли результат в кэше
+    if cache_key in search_cache:
+        logging.info(f"Используем кэшированный результат для игры {game_name}")
+        return search_cache[cache_key]
 
     url = "http://www.metacritic.com/game/"
 
@@ -212,8 +226,7 @@ def get_metacritic_data(game_name, platform=None):
         # Особые случаи с дефисами
         "marvels-spiderman": "marvels-spider-man",
         "marvels-spiderman-2": "marvels-spider-man-2",
-        "your-turn-to-die-death-game-by-majority": "your-turn-to-die",
-        "your-turn-to-die": "Your Turn To Die -Death Game By Majority-", 
+        "your-turn-to-die": "Your Turn To Die -Death Game By Majority-",
 
         # Особые случаи с сокращениями
         "nier-replicant-ver122474487139": "nier-replicant",
@@ -371,6 +384,8 @@ def get_metacritic_data(game_name, platform=None):
         if result:
             if variant_desc != "основной вариант":
                 result["note"] = f"Найдено по варианту: {variant_desc}"
+            # Сохраняем результат в кэш
+            search_cache[cache_key] = result
             return result
 
     # Для игр на PS5/Xbox Series X, пробуем найти их на PS4/Xbox One
@@ -394,100 +409,16 @@ def get_metacritic_data(game_name, platform=None):
             if result:
                 # Отмечаем, что это оценка для предыдущего поколения
                 result["note"] = f"Оценка для {prev_gen_platform}"
+                # Сохраняем результат в кэш
+                search_cache[cache_key] = result
                 return result
 
-    # Для DLC и расширений, пробуем найти базовую игру
-    dlc_indicators = ["dlc", "expansion", "addon", "add-on", "shadow of", "part ii", "part 2"]
-    if any(indicator in original_name.lower() for indicator in dlc_indicators):
-        # Попробуем найти базовую игру, удалив все после первого двоеточия или тире
-        base_name = re.split(r'[:\-]', original_name)[0].strip()
-        base_name = base_name.lower()
-        base_name = re.sub(r'[^a-z0-9\s\-]', '', base_name)
-        base_name = re.sub(r'\s+', '-', base_name)
+    # Все дополнительные проверки уже включены в функцию generate_name_variants
+    # и обрабатываются в цикле выше, поэтому здесь они не нужны
 
-        if platform:
-            platform_url = platform_map.get(platform, "pc")
-            alt_url = f"http://www.metacritic.com/game/{platform_url}/{base_name}"
-        else:
-            alt_url = f"http://www.metacritic.com/game/pc/{base_name}"
-
-        logging.info(f"Пробуем найти базовую игру для DLC: {alt_url}")
-
-        # Добавляем небольшую задержку перед повторным запросом
-        time.sleep(1)
-
-        result = try_fetch_metacritic(alt_url, base_name)
-        if result:
-            # Отмечаем, что это оценка базовой игры
-            result["note"] = f"Оценка для базовой игры '{base_name}'"
-            return result
-
-    # Попробуем использовать только первые 2-3 слова названия
-    words = original_name.split()
-    if len(words) > 2:
-        short_name = " ".join(words[:2])
-        short_name = short_name.lower()
-        short_name = re.sub(r'[^a-z0-9\s\-]', '', short_name)
-        short_name = re.sub(r'\s+', '-', short_name)
-
-        if platform:
-            platform_url = platform_map.get(platform, "pc")
-            alt_url = f"http://www.metacritic.com/game/{platform_url}/{short_name}"
-        else:
-            alt_url = f"http://www.metacritic.com/game/pc/{short_name}"
-
-        logging.info(f"Пробуем сокращенное название (первые 2 слова): {alt_url}")
-
-        # Добавляем небольшую задержку перед повторным запросом
-        time.sleep(1)
-
-        result = try_fetch_metacritic(alt_url, short_name)
-        if result:
-            result["note"] = f"Найдено по сокращенному названию '{short_name}'"
-            return result
-
-    # Для японских игр и визуальных новелл, попробуем удалить все после первого тире
-    if "-" in game_name:
-        jp_name = game_name.split("-")[0].strip()
-
-        if platform:
-            platform_url = platform_map.get(platform, "pc")
-            alt_url = f"http://www.metacritic.com/game/{platform_url}/{jp_name}"
-        else:
-            alt_url = f"http://www.metacritic.com/game/pc/{jp_name}"
-
-        logging.info(f"Пробуем название до первого тире: {alt_url}")
-
-        # Добавляем небольшую задержку перед повторным запросом
-        time.sleep(1)
-
-        result = try_fetch_metacritic(alt_url, jp_name)
-        if result:
-            result["note"] = f"Найдено по части названия до тире '{jp_name}'"
-            return result
-
-    # Для очень длинных названий, попробуем использовать только первое слово
-    if len(original_name.split()) > 1:
-        first_word = original_name.split()[0].lower()
-        first_word = re.sub(r'[^a-z0-9\-]', '', first_word)
-
-        if platform:
-            platform_url = platform_map.get(platform, "pc")
-            alt_url = f"http://www.metacritic.com/game/{platform_url}/{first_word}"
-        else:
-            alt_url = f"http://www.metacritic.com/game/pc/{first_word}"
-
-        logging.info(f"Пробуем только первое слово: {alt_url}")
-
-        # Добавляем небольшую задержку перед повторным запросом
-        time.sleep(1)
-
-        result = try_fetch_metacritic(alt_url, first_word)
-        if result:
-            result["note"] = f"Найдено по первому слову '{first_word}'"
-            return result
-
-    # Если все попытки не удались, возвращаем None
+    # Если все попытки не удались, сохраняем отрицательный результат в кэш
+    # Это позволит избежать повторных запросов для игр, которые не найдены на Metacritic
+    search_cache[cache_key] = None
     return None
 
 def update_metacritic_data():
@@ -516,8 +447,24 @@ def update_metacritic_data():
             continue
 
         if game_id in metacritic_data['games']:
-            last_updated = metacritic_data['games'][game_id].get('timestamp', '')
-            if last_updated:
+            game_data = metacritic_data['games'][game_id]
+            last_updated = game_data.get('timestamp', '')
+
+            # Если у игры есть примечание "Не найдено на Metacritic", проверяем, прошло ли достаточно времени
+            if game_data.get('note') == "Не найдено на Metacritic" and last_updated:
+                try:
+                    last_updated_date = datetime.fromisoformat(last_updated)
+                    days_since_update = (datetime.now() - last_updated_date).days
+                    # Для игр, которые не были найдены, проверяем реже (раз в 90 дней)
+                    if days_since_update < 90:
+                        skipped_games += 1
+                        processed_games += 1
+                        logging.debug(f"Пропускаем игру {game_name} (ID: {game_id}), неудачный поиск {days_since_update} дней назад")
+                        continue
+                except Exception as e:
+                    logging.warning(f"Не удалось распарсить дату обновления для игры {game_name}: {e}")
+            # Для обычных игр с данными проверяем каждые 30 дней
+            elif last_updated and game_data.get('metascore') is not None:
                 try:
                     last_updated_date = datetime.fromisoformat(last_updated)
                     days_since_update = (datetime.now() - last_updated_date).days
@@ -675,8 +622,19 @@ def update_metacritic_data():
         if metacritic_result:
             metacritic_data['games'][game_id] = metacritic_result
             updated_games += 1
+            logging.info(f"Данные Metacritic для игры {game_name} успешно обновлены")
         else:
             error_games += 1
+            # Добавляем запись о неудачном поиске, чтобы не искать эту игру снова в ближайшее время
+            metacritic_data['games'][game_id] = {
+                "name": game_name,
+                "metascore": None,
+                "userscore": None,
+                "url": None,
+                "timestamp": datetime.now().isoformat(),
+                "note": "Не найдено на Metacritic"
+            }
+            logging.info(f"Добавлена запись о неудачном поиске для игры {game_name}")
 
         processed_games += 1
 
