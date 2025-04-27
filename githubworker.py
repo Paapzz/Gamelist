@@ -50,11 +50,74 @@ def is_main_game(game):
 def get_average_rating(game):
     agg = game.get('aggregated_rating')
     rat = game.get('rating')
+
+    if agg is not None:
+        agg = round(agg)
+    if rat is not None:
+        rat = round(rat)
+
     if agg and rat:
         return (agg + rat) / 2
     return agg or rat or 0
 
-def get_weighted_rating(game):
+def load_metacritic_data():
+    """Загружает данные Metacritic из файла."""
+    metacritic_file = 'meta_data/metacritic_ratings.json'
+    if os.path.exists(metacritic_file):
+        try:
+            with open(metacritic_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Ошибка при загрузке данных Metacritic: {e}")
+            return {"games": {}, "last_updated": "", "total_games": 0}
+    else:
+        print(f"Файл с данными Metacritic не найден: {metacritic_file}")
+        return {"games": {}, "last_updated": "", "total_games": 0}
+
+def get_metacritic_score(game, metacritic_data):
+    """Получает оценку Metacritic для игры."""
+    game_id = str(game.get('id'))
+    if game_id in metacritic_data['games']:
+        mc_data = metacritic_data['games'][game_id]
+        metascore = mc_data.get('metascore')
+        userscore = mc_data.get('userscore')
+
+        if metascore is not None or userscore is not None:
+            if metascore is not None and userscore is not None:
+                return round(metascore * 0.3 + (userscore * 10) * 0.7)
+            elif metascore is not None:
+                return metascore
+            else:
+                return round(userscore * 10)
+    return None
+
+def get_weighted_rating(game, metacritic_data=None):
+    metacritic_score = None
+    if metacritic_data:
+        metacritic_score = get_metacritic_score(game, metacritic_data)
+
+    if metacritic_score is not None:
+        avg_rating = get_average_rating(game)
+        if avg_rating > 0:
+            combined_rating = round(metacritic_score * 0.7 + avg_rating * 0.3)
+        else:
+            combined_rating = metacritic_score
+
+        total_count = game.get('total_rating_count', 0) or game.get('rating_count', 0) or 0
+        count_factor = math.log10(total_count + 1) * 25
+        review_penalty = 60 / (math.sqrt(total_count) + 1)
+        rating_bonus = (combined_rating - 60) * 0.4 if combined_rating > 80 else 0
+        very_low_ratings_penalty = 15 - total_count if total_count < 10 else 0
+
+        special_adjustment = 0
+        if combined_rating >= 80 and total_count >= 500:
+            special_adjustment += 5
+        if combined_rating >= 90 and total_count < 35:
+            special_adjustment -= 5
+        metacritic_bonus = 10
+
+        return combined_rating + count_factor + rating_bonus - review_penalty - very_low_ratings_penalty + special_adjustment + metacritic_bonus
+
     avg_rating = get_average_rating(game)
     total_count = game.get('total_rating_count', 0) or game.get('rating_count', 0) or 0
     base_rating = avg_rating
@@ -64,16 +127,25 @@ def get_weighted_rating(game):
     very_low_ratings_penalty = 15 - total_count if total_count < 10 else 0
 
     special_adjustment = 0
-
     if avg_rating >= 80 and total_count >= 500:
-        special_adjustment += 2
+        special_adjustment += 5
     if avg_rating >= 95 and total_count < 30:
         special_adjustment -= 5
+
     return base_rating + count_factor + rating_bonus - review_penalty - very_low_ratings_penalty + special_adjustment
 
 def main():
     token = get_access_token()
     print("Access token received.")
+
+    print("Checking for Metacritic data...")
+    metacritic_data = load_metacritic_data()
+    has_metacritic = bool(metacritic_data and metacritic_data.get('games'))
+
+    if has_metacritic:
+        print(f"Found Metacritic data with {metacritic_data.get('total_games', 0)} games.")
+    else:
+        print("No Metacritic data found. Will use only IGDB ratings.")
 
     all_games = []
     offset = 0
@@ -85,6 +157,13 @@ def main():
             break
         for game in games:
             if allowed_platforms(game):
+                if 'rating' in game and game['rating'] is not None:
+                    game['rating'] = round(game['rating'])
+                if 'aggregated_rating' in game and game['aggregated_rating'] is not None:
+                    game['aggregated_rating'] = round(game['aggregated_rating'])
+                if 'total_rating' in game and game['total_rating'] is not None:
+                    game['total_rating'] = round(game['total_rating'])
+
                 all_games.append(game)
         offset += BATCH_SIZE
         time.sleep(0.4)
@@ -94,19 +173,33 @@ def main():
     main_games = [g for g in all_games if is_main_game(g)]
     other_games = [g for g in all_games if not is_main_game(g)]
 
-    main_games.sort(key=lambda g: (
-        -get_weighted_rating(g),
-        g.get('status', 0)
-    ))
+    if has_metacritic:
+        print("Sorting games using Metacritic ratings...")
+        main_games.sort(key=lambda g: (
+            -get_weighted_rating(g, metacritic_data),
+            g.get('status', 0)
+        ))
 
-    other_games.sort(key=lambda g: (
-        -get_weighted_rating(g),
-        g.get('status', 0)
-    ))
+        other_games.sort(key=lambda g: (
+            -get_weighted_rating(g, metacritic_data),
+            g.get('status', 0)
+        ))
+    else:
+        print("Sorting games using only IGDB ratings...")
+        main_games.sort(key=lambda g: (
+            -get_weighted_rating(g),
+            g.get('status', 0)
+        ))
+
+        other_games.sort(key=lambda g: (
+            -get_weighted_rating(g),
+            g.get('status', 0)
+        ))
 
     all_sorted = main_games + other_games
 
     os.makedirs('data', exist_ok=True)
+    os.makedirs('meta_data', exist_ok=True)
     total_files = math.ceil(len(all_sorted) / GAMES_PER_FILE)
     for i in range(total_files):
         start = i * GAMES_PER_FILE
