@@ -2,14 +2,8 @@ name: Update Metacritic Ratings
 
 on:
   schedule:
-    - cron: '0 */2 * * *'  # Каждые 2 часа
+    - cron: '0 */5 * * *'  # Каждые 5 часов
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Update Metacritic Ratings"]
-    types:
-      - completed
-    branches:
-      - main
 
 jobs:
   update-metacritic:
