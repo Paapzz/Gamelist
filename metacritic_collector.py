@@ -829,7 +829,8 @@ def get_metacritic_data(game_name, platform=None):
             first_word = re.sub(r'[^a-z0-9\-]', '', first_word)
             variants.append((first_word, "только первое слово"))
 
-            dlc_indicators = ["dlc", "expansion", "addon", "add-on", "shadow of", "part ii", "part 2"]
+        # Определяем индикаторы DLC вне условия
+        dlc_indicators = ["dlc", "expansion", "addon", "add-on", "shadow of", "part ii", "part 2"]
         if any(indicator in original.lower() for indicator in dlc_indicators):
             base_name = re.split(r'[:\-]', original)[0].strip()
             base_name = base_name.lower()
