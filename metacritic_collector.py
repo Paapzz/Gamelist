@@ -279,82 +279,187 @@ def get_metacritic_data(game_name, platform=None):
                 soup = BeautifulSoup(response.text, 'html.parser')
 
                 # Проверяем, что страница действительно содержит информацию об игре
-                # Metacritic обновил свой сайт, поэтому селекторы могли измениться
-                game_title_elem = soup.select_one('div.c-productHero_title h1, h1.c-productHero_title, div.product_title h1')
+                # Metacritic обновил свой сайт в 2025 году, поэтому используем новые селекторы
+                game_title_elem = soup.select_one('div.c-productHero_title h1, h1.c-productHero_title, div.product_title h1, h1')
+
+                # Если не нашли заголовок через селекторы, проверяем наличие названия игры в заголовке страницы
                 if not game_title_elem:
-                    logging.warning(f"Страница не содержит информацию об игре: {url}")
-                    return None
+                    page_title = soup.title.text if soup.title else ""
+                    if game_name.lower() in page_title.lower() and "metacritic" in page_title.lower():
+                        # Страница существует, но заголовок не найден через селекторы
+                        logging.info(f"Страница существует, но заголовок не найден через селекторы: {url}")
+                        # Создаем фиктивный элемент для продолжения
+                        game_title_elem = True
+                    else:
+                        logging.warning(f"Страница не содержит информацию об игре: {url}")
+                        return None
 
-                # Пробуем разные селекторы для metascore (новый и старый дизайн)
+                # Пробуем разные селекторы для metascore (новейший дизайн 2025 года)
                 metascore = None
-                metascore_selectors = [
-                    # Новый дизайн
-                    'div.c-productScoreInfo span.c-metascore, div.c-productScoreInfo div.c-metascore',
-                    'span.c-metascore, div.c-metascore',
-                    # Старый дизайн
-                    'div.metascore_w.game span',
-                    'div.metascore_w span',
-                    'div.metascore_w.xlarge span',
-                    'div.metascore_w.large span'
+
+                # Новейший дизайн 2025 года
+                metascore_text = None
+
+                # Ищем Metascore в тексте страницы
+                metascore_patterns = [
+                    r'Metascore\s+(\d+)',
+                    r'Metascore.*?(\d+)',
+                    r'Metascore.*?Based on \d+ Critic Reviews.*?(\d+)'
                 ]
 
-                for selector in metascore_selectors:
-                    metascore_elems = soup.select(selector)
-                    for metascore_elem in metascore_elems:
-                        text = metascore_elem.text.strip()
-                        if text and text != 'tbd':
-                            try:
-                                metascore = int(text)
-                                break
-                            except ValueError:
-                                continue
-                    if metascore is not None:
+                for pattern in metascore_patterns:
+                    match = re.search(pattern, soup.text)
+                    if match:
+                        metascore_text = match.group(1)
                         break
 
-                # Пробуем разные селекторы для userscore (новый и старый дизайн)
+                if metascore_text:
+                    try:
+                        # Проверяем, содержит ли текст десятичную точку
+                        if '.' in metascore_text:
+                            # Конвертируем из десятичного формата (например, 8.9) в целочисленный из 100 (89)
+                            metascore = int(float(metascore_text) * 10)
+                        else:
+                            metascore = int(metascore_text)
+                    except ValueError:
+                        pass
+
+                # Если не нашли через текст, пробуем через селекторы
+                if metascore is None:
+                    metascore_selectors = [
+                        # Новейший дизайн 2025
+                        'div[class*="metascore"]',
+                        'span[class*="metascore"]',
+                        'div.c-productHero_metascore',
+                        'span.c-productHero_metascore',
+                        # Новый дизайн
+                        'div.c-productScoreInfo span.c-metascore, div.c-productScoreInfo div.c-metascore',
+                        'span.c-metascore, div.c-metascore',
+                        # Старый дизайн
+                        'div.metascore_w.game span',
+                        'div.metascore_w span',
+                        'div.metascore_w.xlarge span',
+                        'div.metascore_w.large span'
+                    ]
+
+                    for selector in metascore_selectors:
+                        metascore_elems = soup.select(selector)
+                        for metascore_elem in metascore_elems:
+                            text = metascore_elem.text.strip()
+                            if text and text != 'tbd':
+                                try:
+                                    # Проверяем, содержит ли текст десятичную точку
+                                    if '.' in text:
+                                        # Удаляем все нецифровые символы, кроме точки
+                                        text = re.sub(r'[^\d\.]', '', text)
+                                        if text:
+                                            # Конвертируем из десятичного формата (например, 8.9) в целочисленный из 100 (89)
+                                            metascore = int(float(text) * 10)
+                                            break
+                                    else:
+                                        # Удаляем все нецифровые символы
+                                        text = re.sub(r'[^\d]', '', text)
+                                        if text:
+                                            metascore = int(text)
+                                            break
+                                except ValueError:
+                                    continue
+                        if metascore is not None:
+                            break
+
+                # Пробуем разные селекторы для userscore (новейший дизайн 2025 года)
                 userscore = None
-                userscore_selectors = [
-                    # Новый дизайн
-                    'div.c-productScoreInfo span.c-userscore, div.c-productScoreInfo div.c-userscore',
-                    'span.c-userscore, div.c-userscore',
-                    # Старый дизайн
-                    'div.metascore_w.user.large.game',
-                    'div.metascore_w.user',
-                    'div.userscore_wrap div.metascore_w'
+
+                # Ищем User Score в тексте страницы
+                userscore_patterns = [
+                    r'User Score\s+(\d+\.\d+)',
+                    r'User Score.*?(\d+\.\d+)',
+                    r'User Score.*?Based on \d+ User Ratings.*?(\d+\.\d+)'
                 ]
 
-                for selector in userscore_selectors:
-                    userscore_elems = soup.select(selector)
-                    for userscore_elem in userscore_elems:
-                        text = userscore_elem.text.strip()
-                        if text and text != 'tbd':
-                            try:
-                                userscore = float(text)
-                                break
-                            except ValueError:
-                                continue
-                    if userscore is not None:
-                        break
+                for pattern in userscore_patterns:
+                    match = re.search(pattern, soup.text)
+                    if match:
+                        userscore_text = match.group(1)
+                        try:
+                            userscore = float(userscore_text)
+                            break
+                        except ValueError:
+                            pass
+
+                # Если не нашли через текст, пробуем через селекторы
+                if userscore is None:
+                    userscore_selectors = [
+                        # Новейший дизайн 2025
+                        'div[class*="userscore"]',
+                        'span[class*="userscore"]',
+                        'div.c-productHero_userscore',
+                        'span.c-productHero_userscore',
+                        # Новый дизайн
+                        'div.c-productScoreInfo span.c-userscore, div.c-productScoreInfo div.c-userscore',
+                        'span.c-userscore, div.c-userscore',
+                        # Старый дизайн
+                        'div.metascore_w.user.large.game',
+                        'div.metascore_w.user',
+                        'div.userscore_wrap div.metascore_w'
+                    ]
+
+                    for selector in userscore_selectors:
+                        userscore_elems = soup.select(selector)
+                        for userscore_elem in userscore_elems:
+                            text = userscore_elem.text.strip()
+                            if text and text != 'tbd':
+                                try:
+                                    # Удаляем все нецифровые символы, кроме точки
+                                    text = re.sub(r'[^\d\.]', '', text)
+                                    if text:
+                                        userscore = float(text)
+                                        break
+                                except ValueError:
+                                    continue
+                        if userscore is not None:
+                            break
 
                 # Проверяем, что хотя бы одна оценка найдена
                 if metascore is None and userscore is None:
                     # Проверяем, является ли игра предстоящей (без оценок)
-                    # Пробуем разные селекторы для даты релиза (новый и старый дизайн)
+                    # Пробуем разные селекторы для даты релиза (новейший дизайн 2025 года)
                     release_date = None
-                    release_date_selectors = [
-                        # Новый дизайн
-                        'div.c-gameDetails_ReleaseDate, div.c-gameDetails_releaseDate',
-                        'span.c-gameDetails_ReleaseDate, span.c-gameDetails_releaseDate',
-                        # Старый дизайн
-                        'li.summary_detail.release_data div.data',
-                        'div.release_data'
+
+                    # Ищем дату релиза в тексте страницы
+                    release_date_patterns = [
+                        r'Released On:\s*([A-Za-z0-9,\s]+)',
+                        r'Release Date:\s*([A-Za-z0-9,\s]+)',
+                        r'Release:\s*([A-Za-z0-9,\s]+)'
                     ]
 
-                    for selector in release_date_selectors:
-                        release_date_elem = soup.select_one(selector)
-                        if release_date_elem:
-                            release_date = release_date_elem.text.strip()
+                    for pattern in release_date_patterns:
+                        match = re.search(pattern, soup.text)
+                        if match:
+                            release_date = match.group(1).strip()
                             break
+
+                    # Если не нашли через текст, пробуем через селекторы
+                    if not release_date:
+                        release_date_selectors = [
+                            # Новейший дизайн 2025
+                            'div[class*="releaseDate"]',
+                            'span[class*="releaseDate"]',
+                            'div.c-gameDetails_releaseDate',
+                            'span.c-gameDetails_releaseDate',
+                            # Новый дизайн
+                            'div.c-gameDetails_ReleaseDate, div.c-gameDetails_releaseDate',
+                            'span.c-gameDetails_ReleaseDate, span.c-gameDetails_releaseDate',
+                            # Старый дизайн
+                            'li.summary_detail.release_data div.data',
+                            'div.release_data'
+                        ]
+
+                        for selector in release_date_selectors:
+                            release_date_elem = soup.select_one(selector)
+                            if release_date_elem:
+                                release_date = release_date_elem.text.strip()
+                                break
 
                     if release_date:
                         # Если дата релиза в будущем или содержит "TBA" (To Be Announced)
@@ -383,6 +488,15 @@ def get_metacritic_data(game_name, platform=None):
                         "note": "Страница существует, но оценки не найдены"
                     }
                     return result
+
+                # Проверяем, что оценки находятся в правильном диапазоне
+                if metascore is not None:
+                    # Если оценка меньше 10, возможно, это десятичный формат (например, 8.9 вместо 89)
+                    if metascore < 10:
+                        metascore = metascore * 10
+                    # Если оценка больше 100, возможно, это ошибка парсинга
+                    elif metascore > 100:
+                        metascore = 100
 
                 result = {
                     "name": original_name,
@@ -788,7 +902,20 @@ def update_metacritic_data():
 
                 if metacritic_result:
                     # Платформа теперь всегда добавляется в результат в функции try_fetch_metacritic
-                    logging.info(f"Найдены данные Metacritic для игры {game_name} на платформе {metacritic_result.get('platform', highest_priority_platform)}")
+                    platform_info = metacritic_result.get('platform', highest_priority_platform)
+                    metascore = metacritic_result.get('metascore')
+                    userscore = metacritic_result.get('userscore')
+
+                    # Формируем сообщение с информацией об оценках
+                    scores_info = []
+                    if metascore is not None:
+                        scores_info.append(f"Metascore: {metascore}")
+                    if userscore is not None:
+                        scores_info.append(f"Userscore: {userscore}")
+
+                    scores_text = ", ".join(scores_info) if scores_info else "без оценок"
+
+                    logging.info(f"Найдены данные Metacritic для игры {game_name} на платформе {platform_info} ({scores_text})")
                     if 'note' in metacritic_result:
                         logging.info(f"Примечание: {metacritic_result['note']}")
                 else:
