@@ -3241,12 +3241,42 @@
         // Обработчик кнопки поиска перенесен в блок инициализации
 
         function updateInProgressRow() {
+            // Сохраняем текущие изображения в кэше
+            const cachedImages = {};
+            inProgressRow.querySelectorAll('.cell img.loaded').forEach(img => {
+                if (img.src) {
+                    const cell = img.closest('.cell');
+                    if (cell && cell.dataset.gameId) {
+                        cachedImages[cell.dataset.gameId] = img.src;
+                    }
+                }
+            });
+
             inProgressRow.innerHTML = '';
             const inProgressGames = games.filter(game => game.inProgress);
+
+            // Создаем фрагмент для более эффективного добавления элементов в DOM
+            const fragment = document.createDocumentFragment();
+
             inProgressGames.forEach(game => {
                 const cell = createCell(game);
-                inProgressRow.appendChild(cell);
+
+                // Восстанавливаем изображение из кэша, если оно было загружено ранее
+                if (cachedImages[game.id]) {
+                    const img = cell.querySelector('img');
+                    if (img) {
+                        img.src = cachedImages[game.id];
+                        img.classList.add('loaded');
+                        // Устанавливаем opacity напрямую для предотвращения мерцания
+                        img.style.opacity = '1';
+                    }
+                }
+
+                fragment.appendChild(cell);
             });
+
+            // Добавляем фрагмент в DOM (это более эффективно, чем добавлять по одной ячейке)
+            inProgressRow.appendChild(fragment);
 
             if (inProgressRow.children.length > 0) {
                 inProgressRow.style.display = 'flex';
@@ -4491,7 +4521,16 @@
         }
 
         function applyFilters(forceIdSort = false) {
-
+            // Сохраняем текущие изображения в кэше
+            const cachedImages = {};
+            document.querySelectorAll('.cell img.loaded').forEach(img => {
+                if (img.src) {
+                    const cell = img.closest('.cell');
+                    if (cell && cell.dataset.gameId) {
+                        cachedImages[cell.dataset.gameId] = img.src;
+                    }
+                }
+            });
 
             const searchTerm = currentSearchTerm.toLowerCase();
             let visibleGames = 0;
@@ -4538,13 +4577,27 @@
                     return a.game.id - b.game.id;
                 });
 
-                // Очищаем сетку
-                grid.innerHTML = '';
+                // Создаем фрагмент для более эффективного добавления элементов в DOM
+                const gridFragment = document.createDocumentFragment();
 
-                // Добавляем ячейки в новом порядке
+                // Добавляем ячейки в новом порядке во фрагмент
                 gridGames.forEach(item => {
-                    grid.appendChild(item.cell);
+                    // Восстанавливаем изображение из кэша, если оно было загружено ранее
+                    if (cachedImages[item.game.id]) {
+                        const img = item.cell.querySelector('img');
+                        if (img) {
+                            img.src = cachedImages[item.game.id];
+                            img.classList.add('loaded');
+                            // Устанавливаем opacity напрямую для предотвращения мерцания
+                            img.style.opacity = '1';
+                        }
+                    }
+                    gridFragment.appendChild(item.cell);
                 });
+
+                // Очищаем сетку и добавляем фрагмент
+                grid.innerHTML = '';
+                grid.appendChild(gridFragment);
             }
 
             // Reset styles/visibility first
@@ -4601,6 +4654,17 @@
 
                 // Move the first match to the beginning and apply style
                 if (firstInProgressMatchElement) {
+                    // Восстанавливаем изображение из кэша, если оно было загружено ранее
+                    const gameId = firstInProgressMatchElement.getAttribute('data-game-id');
+                    if (cachedImages[gameId]) {
+                        const img = firstInProgressMatchElement.querySelector('img');
+                        if (img) {
+                            img.src = cachedImages[gameId];
+                            img.classList.add('loaded');
+                            // Устанавливаем opacity напрямую для предотвращения мерцания
+                            img.style.opacity = '1';
+                        }
+                    }
                     inProgressRow.insertBefore(firstInProgressMatchElement, inProgressRow.firstChild);
                     firstInProgressMatchElement.classList.add('search-match-in-progress');
                 }
@@ -4628,6 +4692,7 @@
 
             // DO NOT call updateInProgressRow() here.
             updateSaturation(); // This seems fine to call.
+            updateCounter(); // Обновляем счетчик видимых игр
         }
 
         function toggleCompletedFilter() {
