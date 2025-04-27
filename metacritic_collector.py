@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 GAMES_PER_FILE = 5000
 METACRITIC_DATA_FILE = 'meta_data/metacritic_ratings.json'
 REQUEST_DELAY = 2
-MAX_REQUESTS_PER_RUN = 5000
+MAX_REQUESTS_PER_RUN = 4000
 LOG_FILE = 'metacritic_collector.log'
 
 logging.basicConfig(
