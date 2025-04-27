@@ -406,10 +406,6 @@
             overflow: hidden;
             border-radius: 10%;
             margin: 0;
-            will-change: width, height; /* Оптимизация для GPU */
-        }
-        .cell.size-transition {
-            transition: width 0.3s ease, height 0.3s ease; /* Плавное изменение размеров */
         }
         .cell {
             position: relative;
@@ -420,10 +416,9 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: filter 0.3s, transform 0.2s ease, opacity 0.3s ease-in; /* Более плавный переход */
+            transition: filter 0.3s, transform 0.2s ease, opacity 0.25s ease-in; /* Ускорили появление */
             border-radius: 10%;
             opacity: 0; /* Начинаем с прозрачного изображения */
-            will-change: opacity, transform; /* Оптимизация для GPU */
         }
 
         .cell img.loaded {
@@ -3817,18 +3812,14 @@
             grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${size}px, 1fr))`;
             localStorage.setItem('gridSize', size);
 
-            // Используем requestAnimationFrame для более плавного обновления размеров
-            requestAnimationFrame(() => {
-                updateAllCellSizes();
+            updateAllCellSizes();
 
-                // Вызываем updateInProgressRow() только если ползунок не в движении
-                if (!sizeSliderMoving) {
-                    updateInProgressRow();
-                }
-            });
+            // Вызываем updateInProgressRow() только если ползунок не в движении
+            if (!sizeSliderMoving) {
+                updateInProgressRow();
+            }
 
-            // Убираем принудительный reflow
-            // void grid.offsetHeight;
+            void grid.offsetHeight;
             // Убираем вызов applyFilters() отсюда, так как он теперь в обработчике события change
         }
 
@@ -4064,27 +4055,14 @@
 
         function updateAllCellSizes() {
             const size = sizeSlider.value;
-            // Используем более эффективный метод обновления стилей
-            // Сначала собираем все ячейки
-            const cells = document.querySelectorAll('.cell');
-
-            // Затем обновляем их размеры в одном цикле requestAnimationFrame
-            requestAnimationFrame(() => {
-                cells.forEach(cell => {
-                    const isInProgress = cell.classList.contains('in-progress');
-                    updateCellSize(cell, isInProgress);
-                });
+            document.querySelectorAll('.cell').forEach(cell => {
+                const isInProgress = cell.classList.contains('in-progress');
+                updateCellSize(cell, isInProgress);
             });
         }
 
         function updateCellSize(cell, isInProgress) {
             const size = sizeSlider.value;
-
-            // Добавляем класс для анимации изменения размера
-            if (!cell.classList.contains('size-transition')) {
-                cell.classList.add('size-transition');
-            }
-
             if (isInProgress) {
                 cell.style.width = `${size * 1.2}px`;
                 cell.style.height = `${size * 1.2 * 1.33}px`;
@@ -4092,11 +4070,6 @@
                 cell.style.width = `${size}px`;
                 cell.style.height = `${size * 1.33}px`;
             }
-
-            // Удаляем класс анимации через некоторое время
-            setTimeout(() => {
-                cell.classList.remove('size-transition');
-            }, 300); // Время должно соответствовать длительности transition в CSS
 
             // Удален код для .abbreviation-placeholder
         }
