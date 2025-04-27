@@ -391,12 +391,15 @@
         #grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            grid-auto-rows: min-content; /* Строки только нужной высоты */
             gap: 5px;
             padding: 40px 10px 50px;
             overflow-x: hidden;
             width: 100%;
             box-sizing: border-box;
             min-height: 100vh; /* Обеспечиваем минимальную высоту для скроллинга */
+            justify-items: start; /* Выравнивание элементов по левому краю */
+            justify-content: start; /* Выравнивание содержимого по левому краю */
         }
         .cell {
             position: relative;
@@ -3278,11 +3281,10 @@
             // Добавляем фрагмент в DOM (это более эффективно, чем добавлять по одной ячейке)
             inProgressRow.appendChild(fragment);
 
-            if (inProgressRow.children.length > 0) {
-                inProgressRow.style.display = 'flex';
-            } else {
-                inProgressRow.style.display = 'none';
-            }
+            // Устанавливаем свойства для inProgressRow
+            inProgressRow.style.display = inProgressRow.children.length > 0 ? 'flex' : 'none';
+            inProgressRow.style.justifyContent = 'flex-start';
+            inProgressRow.style.alignItems = 'flex-start';
 
             const size = sizeSlider.value;
             inProgressRow.querySelectorAll('.cell').forEach(cell => {
@@ -3838,7 +3840,12 @@
         function updateGridSize() {
             const size = sizeSlider.value;
             document.documentElement.style.setProperty('--cell-size', `${size}px`);
+
+            // Устанавливаем свойства сетки для плотного расположения ячеек
             grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${size}px, 1fr))`;
+            grid.style.gridAutoRows = 'min-content';
+            grid.style.justifyItems = 'start';
+            grid.style.justifyContent = 'start';
 
             // Сохраняем размер в localStorage только если ползунок не в движении
             if (!sizeSliderMoving) {
