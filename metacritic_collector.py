@@ -33,13 +33,17 @@ def load_metacritic_data():
     if os.path.exists(METACRITIC_DATA_FILE):
         try:
             with open(METACRITIC_DATA_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                # Проверяем наличие поля last_processed_index
+                if 'last_processed_index' not in data:
+                    data['last_processed_index'] = 0
+                return data
         except Exception as e:
             logging.error(f"Ошибка при загрузке данных Metacritic: {e}")
-            return {"games": {}, "last_updated": "", "total_games": 0}
+            return {"games": {}, "last_updated": "", "total_games": 0, "last_processed_index": 0}
     else:
         logging.info(f"Файл с данными Metacritic не найден: {METACRITIC_DATA_FILE}. Создаем новый.")
-        return {"games": {}, "last_updated": "", "total_games": 0}
+        return {"games": {}, "last_updated": "", "total_games": 0, "last_processed_index": 0}
 
 def save_metacritic_data(data):
     """Сохраняет данные Metacritic в файл."""
@@ -538,9 +542,20 @@ def update_metacritic_data():
     error_games = 0
     requests_count = 0
 
-    logging.info(f"Начинаем обновление данных Metacritic для {total_games} игр...")
+    # Получаем индекс последней обработанной игры
+    last_processed_index = metacritic_data.get('last_processed_index', 0)
 
-    for game in all_games:
+    # Проверяем, нужно ли продолжить с определенного места
+    if last_processed_index > 0 and last_processed_index < total_games:
+        logging.info(f"Продолжаем обновление данных Metacritic с индекса {last_processed_index} (всего игр: {total_games})")
+    else:
+        last_processed_index = 0
+        logging.info(f"Начинаем обновление данных Metacritic для {total_games} игр...")
+
+    # Сортируем игры по ID для обеспечения стабильного порядка
+    all_games.sort(key=lambda g: g.get('id', 0))
+
+    for i, game in enumerate(all_games[last_processed_index:], start=last_processed_index):
         game_id = str(game.get('id'))
         game_name = game.get('name')
 
@@ -789,6 +804,8 @@ def update_metacritic_data():
         if processed_games % 10 == 0:
             metacritic_data['last_updated'] = datetime.now().isoformat()
             metacritic_data['total_games'] = len(metacritic_data['games'])
+            # Сохраняем индекс текущей игры
+            metacritic_data['last_processed_index'] = i
             save_metacritic_data(metacritic_data)
 
             # Подсчитываем статистику по собранным данным
@@ -831,6 +848,15 @@ def update_metacritic_data():
 
     metacritic_data['last_updated'] = datetime.now().isoformat()
     metacritic_data['total_games'] = len(metacritic_data['games'])
+
+    # Если обработаны все игры, сбрасываем индекс
+    if processed_games >= total_games or requests_count >= MAX_REQUESTS_PER_RUN:
+        metacritic_data['last_processed_index'] = 0
+        logging.info("Обработка завершена или достигнут лимит запросов. Сбрасываем индекс для следующего запуска.")
+    else:
+        # Иначе сохраняем текущий индекс для продолжения в следующий раз
+        metacritic_data['last_processed_index'] = last_processed_index + processed_games
+        logging.info(f"Сохраняем индекс {metacritic_data['last_processed_index']} для продолжения в следующий раз.")
 
     save_metacritic_data(metacritic_data)
 
