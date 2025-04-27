@@ -1928,7 +1928,7 @@
         <div id="inProgressRow"></div>
         <div id="grid"></div>
     <div id="sizeSliderContainer">
-        <input type="range" id="sizeSlider" min="25" max="250" value="50" step="1">
+        <input type="range" id="sizeSlider" min="20" max="250" value="70" step="1">
     </div>
     <div class="preview" id="preview">
         <div class="preview-content">
@@ -2832,23 +2832,45 @@
                 };
 
                 img.onerror = function() {
-                    // Если не удалось загрузить изображение, используем изображение-заглушку
-                    this.src = DEFAULT_GAME_IMAGE;
-                    console.log(`Не удалось загрузить изображение, используем заглушку`);
+                    // Проверяем, сколько раз уже пытались загрузить это изображение
+                    const retryCount = img.dataset.retryCount ? parseInt(img.dataset.retryCount) : 0;
 
-                    // Добавляем небольшую задержку перед добавлением класса loaded для плавного появления
-                    setTimeout(() => {
-                        img.classList.add('loaded');
-                    }, 10); // Очень короткая задержка для плавного появления
+                    // Если количество попыток меньше 3, пробуем загрузить снова
+                    if (retryCount < 3) {
+                        // Увеличиваем счетчик попыток
+                        img.dataset.retryCount = retryCount + 1;
 
-                    activeImageLoads--;
+                        // Генерируем случайную задержку от 3 до 6 секунд
+                        const retryDelay = Math.floor(Math.random() * 3000) + 3000;
 
-                    // Добавляем URL в множество загруженных изображений с префиксом "error:"
-                    // чтобы отличать от успешно загруженных
-                    loadedImages.add("error:" + url);
+                        console.log(`Не удалось загрузить изображение (попытка ${retryCount + 1}/3), повторная попытка через ${retryDelay/1000} сек: ${url}`);
 
-                    // Продолжаем обработку очереди
-                    setTimeout(processImageQueue, 100);
+                        // Устанавливаем таймер для повторной попытки
+                        setTimeout(() => {
+                            // Сбрасываем src, чтобы браузер попытался загрузить изображение заново
+                            img.src = url + '?retry=' + (retryCount + 1);
+                        }, retryDelay);
+
+                        // Не уменьшаем счетчик активных загрузок, так как мы еще не закончили с этим изображением
+                    } else {
+                        // Если все попытки исчерпаны, используем изображение-заглушку
+                        this.src = DEFAULT_GAME_IMAGE;
+                        console.log(`Не удалось загрузить изображение после 3 попыток, используем заглушку: ${url}`);
+
+                        // Добавляем небольшую задержку перед добавлением класса loaded для плавного появления
+                        setTimeout(() => {
+                            img.classList.add('loaded');
+                        }, 10); // Очень короткая задержка для плавного появления
+
+                        activeImageLoads--;
+
+                        // Добавляем URL в множество загруженных изображений с префиксом "error:"
+                        // чтобы отличать от успешно загруженных
+                        loadedImages.add("error:" + url);
+
+                        // Продолжаем обработку очереди
+                        setTimeout(processImageQueue, 100);
+                    }
                 };
 
                 // Начинаем загрузку изображения
@@ -3743,6 +3765,38 @@
                     img.style.height = `${height}px`;
 
                     updatePreviewPosition();
+                };
+
+                // Добавляем обработчик ошибок с повторными попытками
+                img.onerror = function() {
+                    // Проверяем, сколько раз уже пытались загрузить это изображение
+                    const retryCount = img.dataset.retryCount ? parseInt(img.dataset.retryCount) : 0;
+
+                    // Если количество попыток меньше 3, пробуем загрузить снова
+                    if (retryCount < 3) {
+                        // Увеличиваем счетчик попыток
+                        img.dataset.retryCount = retryCount + 1;
+
+                        // Генерируем случайную задержку от 3 до 6 секунд
+                        const retryDelay = Math.floor(Math.random() * 3000) + 3000;
+
+                        console.log(`Не удалось загрузить изображение превью (попытка ${retryCount + 1}/3), повторная попытка через ${retryDelay/1000} сек: ${game.imageUrl}`);
+
+                        // Устанавливаем таймер для повторной попытки
+                        setTimeout(() => {
+                            // Сбрасываем src, чтобы браузер попытался загрузить изображение заново
+                            img.src = game.imageUrl + '?retry=' + (retryCount + 1);
+                        }, retryDelay);
+                    } else {
+                        // Если все попытки исчерпаны, используем изображение-заглушку
+                        this.src = DEFAULT_GAME_IMAGE;
+                        console.log(`Не удалось загрузить изображение превью после 3 попыток, используем заглушку: ${game.imageUrl}`);
+
+                        // Устанавливаем фиксированные размеры для изображения-заглушки
+                        img.style.width = '200px';
+                        img.style.height = '300px';
+                        updatePreviewPosition();
+                    }
                 };
             } else {
                 // Устанавливаем фиксированные размеры для изображения-заглушки
@@ -5134,8 +5188,13 @@
         const savedSize = localStorage.getItem('gridSize');
         if (savedSize) {
             sizeSlider.value = savedSize;
-            updateGridSize();
+        } else {
+            // Если нет сохраненного значения, устанавливаем 25%
+            sizeSlider.value = 25;
+            // Сохраняем значение в localStorage
+            localStorage.setItem('gridSize', 25);
         }
+        updateGridSize();
 
         togglePreviewBtn.classList.toggle('disabled', !previewEnabled);
 
