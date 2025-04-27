@@ -416,14 +416,17 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: filter 0.3s, transform 0.2s ease, opacity 0.3s ease;
+            transition: filter 0.3s, transform 0.2s ease, opacity 0.25s ease-in; /* Ускорили появление */
             border-radius: 10%;
             opacity: 0; /* Начинаем с прозрачного изображения */
         }
 
-        .cell img.loaded, .in-progress img {
-            opacity: 1; /* Когда изображение загружено или для игр "в процессе", делаем его видимым */
+        .cell img.loaded {
+            opacity: 1; /* Когда изображение загружено, делаем его видимым */
         }
+
+        /* Удаляем принудительную установку opacity для изображений в зоне "в процессе",
+           чтобы не мешать логике плавного появления изображений */
         .cell.completed {
             filter: brightness(85%) !important;
         }
@@ -1830,7 +1833,6 @@
         }
         .in-progress img {
             filter: saturate(100%) !important;
-            opacity: 1 !important; /* Всегда показываем изображения для игр "в процессе" */
         }
         .loading-overlay {
             position: fixed;
@@ -2701,8 +2703,10 @@
         function queueImageLoad(img, url) {
             // Проверяем, было ли это изображение уже загружено
             if (loadedImages.has(url)) {
-                // Если изображение уже было загружено, просто устанавливаем класс loaded
-                img.classList.add('loaded');
+                // Если изображение уже было загружено, устанавливаем класс loaded с небольшой задержкой
+                setTimeout(() => {
+                    img.classList.add('loaded');
+                }, 10); // Очень короткая задержка для плавного появления
                 return;
             }
 
@@ -2808,7 +2812,12 @@
             if (cachedImage) {
                 // Если изображение есть в кэше, используем его
                 img.src = cachedImage;
-                img.classList.add('loaded');
+
+                // Добавляем небольшую задержку перед добавлением класса loaded для плавного появления
+                setTimeout(() => {
+                    img.classList.add('loaded');
+                }, 10); // Очень короткая задержка для плавного появления
+
                 activeImageLoads--;
 
                 // Продолжаем обработку очереди
@@ -2816,7 +2825,11 @@
             } else {
                 // Устанавливаем обработчики событий для загрузки изображения
                 img.onload = function() {
-                    img.classList.add('loaded');
+                    // Добавляем небольшую задержку перед добавлением класса loaded для плавного появления
+                    setTimeout(() => {
+                        img.classList.add('loaded');
+                    }, 10); // Очень короткая задержка для плавного появления
+
                     activeImageLoads--;
 
                     // Добавляем URL в множество загруженных изображений
@@ -2833,7 +2846,12 @@
                     // Если не удалось загрузить изображение, используем изображение-заглушку
                     this.src = DEFAULT_GAME_IMAGE;
                     console.log(`Не удалось загрузить изображение, используем заглушку`);
-                    img.classList.add('loaded');
+
+                    // Добавляем небольшую задержку перед добавлением класса loaded для плавного появления
+                    setTimeout(() => {
+                        img.classList.add('loaded');
+                    }, 10); // Очень короткая задержка для плавного появления
+
                     activeImageLoads--;
 
                     // Добавляем URL в множество загруженных изображений с префиксом "error:"
@@ -5405,8 +5423,19 @@
                 imageUrl = DEFAULT_GAME_IMAGE;
             }
 
-            // Добавляем изображение в очередь загрузки вместо прямой установки src
-            queueImageLoad(img, imageUrl);
+            // Проверяем, есть ли изображение в кэше
+            const cachedImage = loadImageFromCache(imageUrl);
+            if (cachedImage) {
+                // Если изображение есть в кэше, используем его напрямую
+                img.src = cachedImage;
+                // Добавляем небольшую задержку перед добавлением класса loaded для плавного появления
+                setTimeout(() => {
+                    img.classList.add('loaded');
+                }, 10);
+            } else {
+                // Если изображения нет в кэше, добавляем его в очередь загрузки
+                queueImageLoad(img, imageUrl);
+            }
 
             cell.appendChild(img);
             cell.title = game.name;
