@@ -1928,7 +1928,7 @@
         <div id="inProgressRow"></div>
         <div id="grid"></div>
     <div id="sizeSliderContainer">
-        <input type="range" id="sizeSlider" min="20" max="250" value="70" step="1">
+        <input type="range" id="sizeSlider" min="20" max="250" value="90" step="1">
     </div>
     <div class="preview" id="preview">
         <div class="preview-content">
@@ -5294,9 +5294,9 @@
             sizeSlider.value = savedSize;
         } else {
             // Если нет сохраненного значения, устанавливаем 25%
-            sizeSlider.value = 25;
+            sizeSlider.value = 75;
             // Сохраняем значение в localStorage
-            localStorage.setItem('gridSize', 25);
+            localStorage.setItem('gridSize', 75);
         }
         updateGridSize();
 
