@@ -411,26 +411,9 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: filter 0.3s, transform 0.2s ease, opacity 0.3s ease;
+            transition: filter 0.3s, transform 0.2s ease;
             border-radius: 10%;
-            opacity: 0;
-        }
-        .cell img.loaded {
             opacity: 1;
-        }
-        .cell .placeholder {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #444;
-            border-radius: 10%;
-            z-index: 1;
-            transition: opacity 0.3s ease;
-        }
-        .cell img.loaded + .placeholder {
-            opacity: 0;
         }
         .cell.completed {
             filter: brightness(85%) !important;
@@ -2694,67 +2677,25 @@
             return [...gamesArray].sort((a, b) => a.id - b.id);
         }
 
-        // Глобальные переменные для виртуализации
-        let visibleGames = []; // Массив видимых игр
-        let lastScrollPosition = 0; // Последняя позиция скролла
-
-        // Функция для определения видимости элемента
-        function isElementInViewport(el) {
-            const rect = el.getBoundingClientRect();
-            return (
-                rect.top >= -200 &&
-                rect.left >= -200 &&
-                rect.bottom <= (window.innerHeight + 200) &&
-                rect.right <= (window.innerWidth + 200)
-            );
-        }
-
-        // Функция для обновления видимости ячеек при скролле
+        // Упрощенная функция для обновления видимости ячеек
         function updateVisibleCells() {
-            // Получаем все ячейки с отложенной загрузкой изображений
-            const cells = Array.from(document.querySelectorAll('.cell'));
-            const visibleCells = [];
-
-            // Сначала определяем видимые ячейки
-            cells.forEach(cell => {
-                if (isElementInViewport(cell)) {
-                    visibleCells.push(cell);
-                }
-            });
-
-            // Обрабатываем видимые ячейки пакетами для уменьшения нагрузки на DOM
-            if (visibleCells.length > 0) {
-                processCellsBatch(visibleCells, 0);
-            }
-        }
-
-        // Функция для пакетной обработки ячеек
-        function processCellsBatch(cells, startIndex) {
-            const batchSize = 10; // Размер пакета
-            const endIndex = Math.min(startIndex + batchSize, cells.length);
-
-            // Обрабатываем текущий пакет
-            for (let i = startIndex; i < endIndex; i++) {
-                const cell = cells[i];
-                const img = cell.querySelector('img[data-src]');
-                if (img) {
-                    img.src = img.dataset.src;
-                    img.removeAttribute('data-src');
+            // Просто добавляем класс loaded ко всем изображениям
+            document.querySelectorAll('.cell img').forEach(img => {
+                if (!img.classList.contains('loaded')) {
                     img.classList.add('loaded');
                 }
-            }
-
-            // Если остались необработанные ячейки, планируем обработку следующего пакета
-            if (endIndex < cells.length) {
-                setTimeout(() => {
-                    processCellsBatch(cells, endIndex);
-                }, 10);
-            }
+            });
         }
 
         function renderGames(forceIdSort = false) {
+            // Очищаем контейнеры перед добавлением новых ячеек
             grid.innerHTML = '';
             inProgressRow.innerHTML = '';
+
+            // Создаем фрагменты для более эффективного добавления элементов в DOM
+            const gridFragment = document.createDocumentFragment();
+            const inProgressFragment = document.createDocumentFragment();
+
             let renderedCells = 0;
 
             // Проверяем, активен ли фильтр по годам
@@ -2789,18 +2730,22 @@
                 sortedGames = [...games].sort((a, b) => a.id - b.id);
             }
 
+            // Создаем все ячейки и добавляем их во фрагменты
             sortedGames.forEach(game => {
                 const cell = createCell(game);
                 if (game.inProgress) {
-                    inProgressRow.appendChild(cell);
+                    inProgressFragment.appendChild(cell);
                 } else {
-                    grid.appendChild(cell);
+                    gridFragment.appendChild(cell);
                 }
                 renderedCells++;
             });
+
+            // Добавляем фрагменты в DOM (это более эффективно, чем добавлять по одной ячейке)
+            grid.appendChild(gridFragment);
+            inProgressRow.appendChild(inProgressFragment);
+
             updateInProgressRow();
-            // Запускаем ленивую загрузку изображений
-            setTimeout(updateVisibleCells, 100);
             // applyFilters(); // <-- Убираем этот вызов
         }
 
@@ -4336,9 +4281,6 @@
 
             // DO NOT call updateInProgressRow() here.
             updateSaturation(); // This seems fine to call.
-
-            // Обновляем видимые ячейки для ленивой загрузки изображений
-            setTimeout(updateVisibleCells, 50);
         }
 
         function toggleCompletedFilter() {
@@ -4512,17 +4454,26 @@
             grid.innerHTML = '';
             inProgressRow.innerHTML = '';
 
+            // Создаем фрагменты для более эффективного добавления элементов в DOM
+            const gridFragment = document.createDocumentFragment();
+            const inProgressFragment = document.createDocumentFragment();
+
             // Сортируем игры по ID
             const sortedGames = [...games].sort((a, b) => a.id - b.id);
 
+            // Создаем все ячейки и добавляем их во фрагменты
             sortedGames.forEach(game => {
                 const cell = createCell(game);
                 if (game.inProgress) {
-                    inProgressRow.appendChild(cell);
+                    inProgressFragment.appendChild(cell);
                 } else {
-                    grid.appendChild(cell);
+                    gridFragment.appendChild(cell);
                 }
             });
+
+            // Добавляем фрагменты в DOM (это более эффективно, чем добавлять по одной ячейке)
+            grid.appendChild(gridFragment);
+            inProgressRow.appendChild(inProgressFragment);
 
             updateInProgressRow();
 
@@ -5113,12 +5064,7 @@
                 cell.classList.add('custom-game');
             }
 
-            // Создаем плейсхолдер для изображения
-            const placeholder = document.createElement('div');
-            placeholder.className = 'placeholder';
-            cell.appendChild(placeholder);
-
-            // Создаем элемент изображения с ленивой загрузкой
+            // Создаем элемент изображения
             const img = document.createElement('img');
             img.alt = game.name;
             const currentSaturation = saturationSlider.value;
@@ -5134,13 +5080,8 @@
                 imageUrl = DEFAULT_GAME_IMAGE;
             }
 
-            // Используем data-src для ленивой загрузки
-            img.dataset.src = imageUrl;
-
-            // Добавляем обработчик события загрузки изображения
-            img.onload = () => {
-                img.classList.add('loaded');
-            };
+            // Сразу устанавливаем src для изображения
+            img.src = imageUrl;
 
             cell.appendChild(img);
             cell.title = game.name;
@@ -5239,6 +5180,23 @@
                 cell.title = game.name;
                 cell.dataset.gameName = game.name; // Сохраняем название игры в атрибуте data-game-name
                 cell.dataset.gameYear = game.year || 'N/A'; // Сохраняем год игры в атрибуте data-game-year
+
+                // Обновляем данные игры в атрибуте
+                let imageUrl;
+                if (game.imageUrl) {
+                    imageUrl = game.imageUrl;
+                } else if (game.image_url) {
+                    imageUrl = game.image_url;
+                } else {
+                    imageUrl = DEFAULT_GAME_IMAGE;
+                }
+
+                cell.dataset.gameObject = JSON.stringify({
+                    id: game.id,
+                    name: game.name,
+                    year: game.year,
+                    imageUrl: imageUrl
+                });
 
                 // Обновляем изображение
                 const currentSaturation = saturationSlider.value;
@@ -6072,30 +6030,8 @@
                 resetFilters();
             });
 
-            // Добавляем обработчик события скролла для обновления видимых ячеек
-            window.addEventListener('scroll', function() {
-                // Используем throttle для оптимизации производительности
-                if (!window.scrollThrottleTimeout) {
-                    window.scrollThrottleTimeout = setTimeout(function() {
-                        updateVisibleCells();
-                        window.scrollThrottleTimeout = null;
-                    }, 100);
-                }
-            });
-
-            // Добавляем обработчик события изменения размера окна
-            window.addEventListener('resize', function() {
-                // Используем throttle для оптимизации производительности
-                if (!window.resizeThrottleTimeout) {
-                    window.resizeThrottleTimeout = setTimeout(function() {
-                        updateVisibleCells();
-                        window.resizeThrottleTimeout = null;
-                    }, 100);
-                }
-            });
-
-            // Запускаем первоначальное обновление видимых ячеек
-            setTimeout(updateVisibleCells, 500);
+            // Запускаем обновление видимости изображений сразу после загрузки страницы
+            setTimeout(updateVisibleCells, 100);
         });
     </script>
 </body>
