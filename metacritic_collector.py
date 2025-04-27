@@ -445,14 +445,19 @@ def get_metacritic_data(game_name, platform=None):
                 # Если не нашли оценки через селекторы и регулярные выражения,
                 # пробуем найти их напрямую в HTML-коде страницы
                 if metascore is None:
-                    # Ищем Metascore в HTML-коде
+                    # Ищем Metascore в HTML-коде с более точными шаблонами
                     html_metascore_patterns = [
-                        r'Metascore.*?(\d+)',
-                        r'metascore.*?(\d+)',
-                        r'critic.*?(\d+)',
-                        r'critic score.*?(\d+)'
+                        r'Metascore\s+Generally\s+Favorable.*?(\d+)',
+                        r'Metascore\s+Universal\s+Acclaim.*?(\d+)',
+                        r'Metascore\s+Mixed.*?(\d+)',
+                        r'Metascore\s+Generally\s+Unfavorable.*?(\d+)',
+                        r'Metascore\s+Overwhelming\s+Dislike.*?(\d+)',
+                        r'Metascore.*?Based\s+on\s+\d+\s+Critic\s+Reviews.*?(\d+)',
+                        r'Metascore.*?Based\s+on.*?(\d+)',
+                        r'Metascore.*?(\d+)'
                     ]
 
+                    # Сначала ищем с более точными шаблонами
                     for pattern in html_metascore_patterns:
                         matches = re.findall(pattern, str(soup), re.IGNORECASE)
                         if matches:
@@ -460,23 +465,43 @@ def get_metacritic_data(game_name, platform=None):
                                 try:
                                     score = int(match)
                                     if 0 <= score <= 100:
-                                        metascore = score
-                                        logging.info(f"Найден Metascore в HTML-коде: {metascore}")
-                                        break
+                                        # Проверяем, что это не процент или другое число
+                                        # Ищем контекст вокруг числа
+                                        context_pattern = r'[^>]*' + re.escape(match) + r'[^<]*'
+                                        context_matches = re.findall(context_pattern, str(soup))
+
+                                        # Проверяем, что контекст связан с Metascore
+                                        is_valid = False
+                                        for context in context_matches:
+                                            if ('metascore' in context.lower() or
+                                                'critic' in context.lower() or
+                                                'review' in context.lower()):
+                                                is_valid = True
+                                                break
+
+                                        if is_valid:
+                                            metascore = score
+                                            logging.info(f"Найден Metascore в HTML-коде: {metascore}")
+                                            break
                                 except ValueError:
                                     continue
                         if metascore is not None:
                             break
 
                 if userscore is None:
-                    # Ищем User Score в HTML-коде
+                    # Ищем User Score в HTML-коде с более точными шаблонами
                     html_userscore_patterns = [
-                        r'User Score.*?(\d+\.\d+)',
-                        r'userscore.*?(\d+\.\d+)',
-                        r'user.*?(\d+\.\d+)',
-                        r'user score.*?(\d+\.\d+)'
+                        r'User\s+Score\s+Generally\s+Favorable.*?(\d+\.\d+)',
+                        r'User\s+Score\s+Universal\s+Acclaim.*?(\d+\.\d+)',
+                        r'User\s+Score\s+Mixed.*?(\d+\.\d+)',
+                        r'User\s+Score\s+Generally\s+Unfavorable.*?(\d+\.\d+)',
+                        r'User\s+Score\s+Overwhelming\s+Dislike.*?(\d+\.\d+)',
+                        r'User\s+Score.*?Based\s+on\s+\d+\s+User\s+Ratings.*?(\d+\.\d+)',
+                        r'User\s+Score.*?Based\s+on.*?(\d+\.\d+)',
+                        r'User\s+Score.*?(\d+\.\d+)'
                     ]
 
+                    # Сначала ищем с более точными шаблонами
                     for pattern in html_userscore_patterns:
                         matches = re.findall(pattern, str(soup), re.IGNORECASE)
                         if matches:
@@ -484,9 +509,24 @@ def get_metacritic_data(game_name, platform=None):
                                 try:
                                     score = float(match)
                                     if 0 <= score <= 10:
-                                        userscore = score
-                                        logging.info(f"Найден User Score в HTML-коде: {userscore}")
-                                        break
+                                        # Проверяем, что это не процент или другое число
+                                        # Ищем контекст вокруг числа
+                                        context_pattern = r'[^>]*' + re.escape(match) + r'[^<]*'
+                                        context_matches = re.findall(context_pattern, str(soup))
+
+                                        # Проверяем, что контекст связан с User Score
+                                        is_valid = False
+                                        for context in context_matches:
+                                            if ('userscore' in context.lower() or
+                                                'user score' in context.lower() or
+                                                'user' in context.lower() and 'rating' in context.lower()):
+                                                is_valid = True
+                                                break
+
+                                        if is_valid:
+                                            userscore = score
+                                            logging.info(f"Найден User Score в HTML-коде: {userscore}")
+                                            break
                                 except ValueError:
                                     continue
                         if userscore is not None:
@@ -498,21 +538,48 @@ def get_metacritic_data(game_name, platform=None):
                     text = soup.text
 
                     # Ищем числа рядом с "Metascore", "Critic", "Critics", "Reviews"
-                    metascore_keywords = ["Metascore", "Critic", "Critics", "Reviews"]
+                    metascore_keywords = [
+                        "Metascore Generally Favorable",
+                        "Metascore Universal Acclaim",
+                        "Metascore Mixed",
+                        "Metascore Generally Unfavorable",
+                        "Metascore Based on",
+                        "Based on Critic Reviews",
+                        "Metascore"
+                    ]
+
+                    # Сортируем ключевые слова по длине (от самых длинных к самым коротким)
+                    # Это позволяет сначала искать более специфичные контексты
+                    metascore_keywords.sort(key=len, reverse=True)
+
                     for keyword in metascore_keywords:
                         # Ищем в окрестности 100 символов от ключевого слова
                         keyword_pos = text.find(keyword)
                         if keyword_pos != -1:
-                            context = text[max(0, keyword_pos - 50):min(len(text), keyword_pos + 150)]
+                            # Берем больше контекста после ключевого слова, так как оценка обычно идет после
+                            context = text[max(0, keyword_pos - 20):min(len(text), keyword_pos + 200)]
+
                             # Ищем числа от 0 до 100
-                            number_matches = re.findall(r'\b(\d{1,3})\b', context)
+                            # Используем более точный шаблон для поиска чисел
+                            # Ищем числа, которые стоят отдельно или в начале строки
+                            number_matches = re.findall(r'(?:^|\s)(\d{1,3})(?:\s|$)', context)
+
+                            # Сортируем найденные числа по близости к ключевому слову
+                            # (предполагаем, что оценка находится ближе к ключевому слову)
+                            number_matches.sort(key=lambda x: abs(context.find(x) - context.find(keyword)))
+
                             for match in number_matches:
                                 try:
                                     score = int(match)
-                                    if 70 <= score <= 100:  # Вероятно, это Metascore
-                                        metascore = score
-                                        logging.info(f"Найден вероятный Metascore в тексте: {metascore}")
-                                        break
+                                    # Более строгая проверка диапазона для Metascore
+                                    # Большинство игр имеют оценки от 60 до 95
+                                    if 60 <= score <= 100:
+                                        # Дополнительная проверка: убедимся, что это не год и не количество обзоров
+                                        # Годы обычно начинаются с 19 или 20
+                                        if not (match.startswith('19') or match.startswith('20')):
+                                            metascore = score
+                                            logging.info(f"Найден вероятный Metascore в тексте: {metascore} (контекст: {keyword})")
+                                            break
                                 except ValueError:
                                     continue
                         if metascore is not None:
@@ -523,20 +590,43 @@ def get_metacritic_data(game_name, platform=None):
                     text = soup.text
 
                     # Ищем числа рядом с "User Score", "User", "Users", "Ratings"
-                    userscore_keywords = ["User Score", "User", "Users", "Ratings"]
+                    userscore_keywords = [
+                        "User Score Generally Favorable",
+                        "User Score Universal Acclaim",
+                        "User Score Mixed",
+                        "User Score Generally Unfavorable",
+                        "User Score Based on",
+                        "Based on User Ratings",
+                        "User Score"
+                    ]
+
+                    # Сортируем ключевые слова по длине (от самых длинных к самым коротким)
+                    # Это позволяет сначала искать более специфичные контексты
+                    userscore_keywords.sort(key=len, reverse=True)
+
                     for keyword in userscore_keywords:
-                        # Ищем в окрестности 100 символов от ключевого слова
+                        # Ищем в окрестности 200 символов от ключевого слова
                         keyword_pos = text.find(keyword)
                         if keyword_pos != -1:
-                            context = text[max(0, keyword_pos - 50):min(len(text), keyword_pos + 150)]
+                            # Берем больше контекста после ключевого слова, так как оценка обычно идет после
+                            context = text[max(0, keyword_pos - 20):min(len(text), keyword_pos + 200)]
+
                             # Ищем десятичные числа от 0 до 10
-                            number_matches = re.findall(r'\b(\d+\.\d+)\b', context)
+                            # Используем более точный шаблон для поиска десятичных чисел
+                            number_matches = re.findall(r'(?:^|\s)(\d+\.\d+)(?:\s|$)', context)
+
+                            # Сортируем найденные числа по близости к ключевому слову
+                            # (предполагаем, что оценка находится ближе к ключевому слову)
+                            number_matches.sort(key=lambda x: abs(context.find(x) - context.find(keyword)))
+
                             for match in number_matches:
                                 try:
                                     score = float(match)
-                                    if 7.0 <= score <= 10.0:  # Вероятно, это User Score
+                                    # Более строгая проверка диапазона для User Score
+                                    # Большинство игр имеют оценки от 6.0 до 9.5
+                                    if 6.0 <= score <= 10.0:
                                         userscore = score
-                                        logging.info(f"Найден вероятный User Score в тексте: {userscore}")
+                                        logging.info(f"Найден вероятный User Score в тексте: {userscore} (контекст: {keyword})")
                                         break
                                 except ValueError:
                                     continue
