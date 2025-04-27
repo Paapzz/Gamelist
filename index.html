@@ -406,10 +406,7 @@
             overflow: hidden;
             border-radius: 10%;
             margin: 0;
-        }
-        .cell {
-            position: relative;
-            background-color: #444; /* Цвет фона для плейсхолдера */
+            background-color: transparent; /* Прозрачный фон */
         }
 
         .cell img {
@@ -477,8 +474,10 @@
         } */
 
         /* New class for scaling */
+        .cell.scaling-out {
+            background-color: transparent !important; /* Принудительно делаем фон прозрачным при наведении */
+        }
         .cell.scaling-out img,
-
         .cell.completed.scaling-out::before,
         .cell.completed.scaling-out::after {
              transform: scale(0.90);
@@ -3810,8 +3809,13 @@
             const size = sizeSlider.value;
             document.documentElement.style.setProperty('--cell-size', `${size}px`);
             grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${size}px, 1fr))`;
-            localStorage.setItem('gridSize', size);
 
+            // Сохраняем размер в localStorage только если ползунок не в движении
+            if (!sizeSliderMoving) {
+                localStorage.setItem('gridSize', size);
+            }
+
+            // Обновляем размеры ячеек без перезагрузки изображений
             updateAllCellSizes();
 
             // Вызываем updateInProgressRow() только если ползунок не в движении
@@ -4071,7 +4075,12 @@
                 cell.style.height = `${size * 1.33}px`;
             }
 
-            // Удален код для .abbreviation-placeholder
+            // Сохраняем класс loaded для изображений при изменении размера
+            const img = cell.querySelector('img');
+            if (img && img.classList.contains('loaded')) {
+                // Убедимся, что изображение остается видимым при изменении размера
+                img.style.opacity = '1';
+            }
         }
 
         function togglePreview() {
@@ -4749,6 +4758,17 @@
         }
 
         function resetFilters() {
+            // Сохраняем текущие изображения в кэше
+            const cachedImages = {};
+            document.querySelectorAll('.cell img.loaded').forEach(img => {
+                if (img.src) {
+                    const cell = img.closest('.cell');
+                    if (cell && cell.dataset.gameId) {
+                        cachedImages[cell.dataset.gameId] = img.src;
+                    }
+                }
+            });
+
             // Очищаем очередь загрузки изображений
             clearImageQueue();
 
@@ -4805,6 +4825,18 @@
             // Создаем все ячейки и добавляем их во фрагменты
             sortedGames.forEach(game => {
                 const cell = createCell(game);
+
+                // Восстанавливаем изображение из кэша, если оно было загружено ранее
+                if (cachedImages[game.id]) {
+                    const img = cell.querySelector('img');
+                    if (img) {
+                        img.src = cachedImages[game.id];
+                        img.classList.add('loaded');
+                        // Устанавливаем opacity напрямую для предотвращения мерцания
+                        img.style.opacity = '1';
+                    }
+                }
+
                 if (game.inProgress) {
                     inProgressFragment.appendChild(cell);
                 } else {
