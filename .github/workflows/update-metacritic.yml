@@ -66,6 +66,6 @@ jobs:
       run: |
         git config --global user.email "github-actions@github.com"
         git config --global user.name "GitHub Actions"
-        git add data/metacritic_ratings.json
+        git add meta_data/metacritic_ratings.json
         git add data/games_*.json
         git diff --quiet && git diff --staged --quiet || (git commit -m "Update Metacritic ratings" && git push)
