@@ -1916,7 +1916,6 @@
         </div>
         <div id="counterContainer">
             <div id="counter">Пройдено: 0 из 0</div>
-            <div id="loadingIndicator" style="display: none; margin-left: 10px; font-size: 14px; color: #aaa;">Загрузка изображений: 0 осталось</div>
         </div>
         <div id="rightGroup">
             <button id="randomButton">Random</button>
@@ -2695,7 +2694,7 @@
         // Глобальные переменные для управления загрузкой изображений
         let imageLoadQueue = [];
         let activeImageLoads = 0;
-        const MAX_CONCURRENT_LOADS = 10; // Максимальное количество одновременных загрузок
+        const MAX_CONCURRENT_LOADS = 8; // Максимальное количество одновременных загрузок
         const IMAGE_CACHE_PREFIX = 'img_cache_'; // Префикс для ключей кэша изображений
         const MAX_CACHE_SIZE = 50 * 1024 * 1024; // Максимальный размер кэша (50 МБ)
         let currentCacheSize = 0; // Текущий размер кэша
@@ -2758,22 +2757,13 @@
             updateLoadingIndicator();
         }
 
-        // Функция для обновления индикатора загрузки
+        // Функция для обновления индикатора загрузки (отключена)
         function updateLoadingIndicator() {
-            const loadingIndicator = document.getElementById('loadingIndicator');
-            if (imageLoadQueue.length > 0) {
-                loadingIndicator.style.display = 'inline-block';
-                loadingIndicator.textContent = `Загрузка изображений: ${imageLoadQueue.length} осталось`;
-            } else {
-                loadingIndicator.style.display = 'none';
-            }
+            // Индикатор загрузки отключен
         }
 
         // Функция для обработки очереди загрузки изображений
         function processImageQueue() {
-            // Обновляем индикатор загрузки
-            updateLoadingIndicator();
-
             // Если очередь пуста или достигнут лимит одновременных загрузок, выходим
             if (imageLoadQueue.length === 0 || activeImageLoads >= MAX_CONCURRENT_LOADS) {
                 return;
@@ -2804,9 +2794,6 @@
             // Берем следующее изображение из очереди
             const { img, url } = imageLoadQueue.shift();
             activeImageLoads++;
-
-            // Обновляем индикатор загрузки после изменения очереди
-            updateLoadingIndicator();
 
             // Проверяем, есть ли изображение в кэше
             const cachedImage = loadImageFromCache(url);
