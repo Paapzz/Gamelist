@@ -947,7 +947,8 @@ def update_metacritic_data(reset_index=False):
         last_processed_index = 0
         logging.info(f"Начинаем обновление данных Metacritic для {total_games} игр...")
 
-    all_games.sort(key=lambda g: g.get('id', 0))
+    # all_games.sort(key=lambda g: g.get('id', 0))
+    # Обрабатываем игры в том порядке, в котором они находятся в файлах
 
     for i, game in enumerate(all_games[last_processed_index:], start=last_processed_index):
         game_id = str(game.get('id'))
