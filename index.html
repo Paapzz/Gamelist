@@ -421,8 +421,8 @@
             opacity: 0; /* Начинаем с прозрачного изображения */
         }
 
-        .cell img.loaded {
-            opacity: 1; /* Когда изображение загружено, делаем его видимым */
+        .cell img.loaded, .in-progress img {
+            opacity: 1; /* Когда изображение загружено или для игр "в процессе", делаем его видимым */
         }
         .cell.completed {
             filter: brightness(85%) !important;
@@ -1830,6 +1830,7 @@
         }
         .in-progress img {
             filter: saturate(100%) !important;
+            opacity: 1 !important; /* Всегда показываем изображения для игр "в процессе" */
         }
         .loading-overlay {
             position: fixed;
@@ -1911,7 +1912,7 @@
         </div>
         <div id="counterContainer">
             <div id="counter">Пройдено: 0 из 0</div>
-            <div id="loadingIndicator" style="display: none; margin-left: 10px; font-size: 14px; color: #aaa;"></div>
+            <div id="loadingIndicator" style="display: none; margin-left: 10px; font-size: 14px; color: #aaa;">Загрузка изображений: 0 осталось</div>
         </div>
         <div id="rightGroup">
             <button id="randomButton">Random</button>
@@ -2690,7 +2691,7 @@
         // Глобальные переменные для управления загрузкой изображений
         let imageLoadQueue = [];
         let activeImageLoads = 0;
-        const MAX_CONCURRENT_LOADS = 8; // Максимальное количество одновременных загрузок
+        const MAX_CONCURRENT_LOADS = 12; // Максимальное количество одновременных загрузок
         const IMAGE_CACHE_PREFIX = 'img_cache_'; // Префикс для ключей кэша изображений
         const MAX_CACHE_SIZE = 50 * 1024 * 1024; // Максимальный размер кэша (50 МБ)
         let currentCacheSize = 0; // Текущий размер кэша
@@ -2717,8 +2718,17 @@
                 // Добавляем изображение в очередь с информацией о позиции
                 imageLoadQueue.push({ img, url, position });
 
-                // Сортируем очередь по позиции (сверху вниз, слева направо)
+                // Сортируем очередь, приоритизируя зону "в процессе", затем сверху вниз, слева направо
                 imageLoadQueue.sort((a, b) => {
+                    // Проверяем, находится ли изображение в зоне "в процессе"
+                    const aInProgress = a.img.closest('.in-progress') !== null;
+                    const bInProgress = b.img.closest('.in-progress') !== null;
+
+                    // Если одно изображение в зоне "в процессе", а другое нет, приоритизируем "в процессе"
+                    if (aInProgress && !bInProgress) return -1;
+                    if (!aInProgress && bInProgress) return 1;
+
+                    // Если оба изображения в одной зоне, сортируем по позиции
                     // Если разница по вертикали больше высоты ячейки, сортируем по вертикали
                     if (Math.abs(a.position.top - b.position.top) > 100) {
                         return a.position.top - b.position.top;
@@ -2765,6 +2775,15 @@
 
             // Перед обработкой пересортируем очередь, чтобы учесть возможные изменения в позициях
             imageLoadQueue.sort((a, b) => {
+                // Проверяем, находится ли изображение в зоне "в процессе"
+                const aInProgress = a.img && a.img.closest('.in-progress') !== null;
+                const bInProgress = b.img && b.img.closest('.in-progress') !== null;
+
+                // Если одно изображение в зоне "в процессе", а другое нет, приоритизируем "в процессе"
+                if (aInProgress && !bInProgress) return -1;
+                if (!aInProgress && bInProgress) return 1;
+
+                // Если оба изображения в одной зоне и есть позиции, сортируем по позиции
                 if (a.position && b.position) {
                     // Если разница по вертикали больше высоты ячейки, сортируем по вертикали
                     if (Math.abs(a.position.top - b.position.top) > 100) {
