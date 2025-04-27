@@ -886,9 +886,14 @@ def get_metacritic_data(game_name, platform=None):
     search_cache[cache_key] = None
     return None
 
-def update_metacritic_data():
+def update_metacritic_data(reset_index=False):
     """Обновляет данные Metacritic для игр."""
     metacritic_data = load_metacritic_data()
+
+    # Если указан флаг reset_index, сбрасываем индекс
+    if reset_index:
+        metacritic_data['last_processed_index'] = 0
+        logging.info("Сбрасываем индекс последней обработанной игры на 0 (начинаем сначала)")
 
     if metacritic_data['games']:
         games_with_metascore = 0
@@ -1387,12 +1392,29 @@ def update_metacritic_data():
 
 def main():
     """Основная функция скрипта."""
+    # Проверяем аргументы командной строки
+    if len(sys.argv) > 1 and sys.argv[1] == "--reset":
+        # Удаляем файл с данными Metacritic, если он существует
+        if os.path.exists(METACRITIC_DATA_FILE):
+            try:
+                os.remove(METACRITIC_DATA_FILE)
+                logging.info(f"Файл {METACRITIC_DATA_FILE} успешно удален. Данные будут собраны заново.")
+            except Exception as e:
+                logging.error(f"Не удалось удалить файл {METACRITIC_DATA_FILE}: {e}")
+                sys.exit(1)
+        else:
+            logging.info(f"Файл {METACRITIC_DATA_FILE} не существует. Данные будут собраны заново.")
+
     logging.info("Начинаем сбор данных с Metacritic...")
     try:
-        update_metacritic_data()
+        # Если был указан флаг --reset, передаем его в функцию update_metacritic_data
+        reset_index = len(sys.argv) > 1 and sys.argv[1] == "--reset"
+        update_metacritic_data(reset_index=reset_index)
         logging.info("Сбор данных с Metacritic завершен успешно.")
     except Exception as e:
         logging.error(f"Произошла ошибка при сборе данных с Metacritic: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
 if __name__ == "__main__":
