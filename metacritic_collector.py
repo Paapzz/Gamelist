@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 
 GAMES_PER_FILE = 5000
 METACRITIC_DATA_FILE = 'meta_data/metacritic_ratings.json'
-REQUEST_DELAY = 2
+REQUEST_DELAY = 2.0
 MAX_REQUESTS_PER_RUN = 4000
 LOG_FILE = 'metacritic_collector.log'
 
@@ -171,7 +171,7 @@ def get_metacritic_data(game_name, platform=None):
 
     url += game_name
 
-    delay = REQUEST_DELAY + random.uniform(1.0, 2.5)
+    delay = REQUEST_DELAY + random.uniform(0.0, 2.0)  # Случайная задержка от 2 до 4 секунд
     time.sleep(delay)
 
     headers = {
