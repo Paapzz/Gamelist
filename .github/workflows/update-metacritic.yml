@@ -26,7 +26,7 @@ jobs:
     - name: Collect Metacritic data (manual run with reset)
       if: github.event_name == 'workflow_dispatch'
       run: |
-        python metacritic_collector.py --reset
+        python metacritic_collector.py
       continue-on-error: true
 
     - name: Collect Metacritic data (scheduled run)
