@@ -10,10 +10,10 @@ import logging
 import sys
 from bs4 import BeautifulSoup
 
-GAMES_PER_FILE = 5000
+GAMES_PER_FILE = 500
 METACRITIC_DATA_FILE = 'meta_data/metacritic_ratings.json'
 REQUEST_DELAY = 2
-MAX_REQUESTS_PER_RUN = 5000
+MAX_REQUESTS_PER_RUN = 500
 LOG_FILE = 'metacritic_collector.log'
 
 logging.basicConfig(
@@ -94,30 +94,71 @@ def get_metacritic_data(game_name, platform=None):
 
     if platform:
         platform_map = {
+            # PC
             "PC": "pc",
+            "Windows": "pc",
+            "Win": "pc",
+
+            # PlayStation
             "PlayStation 5": "playstation-5",
+            "PS5": "playstation-5",
             "PlayStation 4": "playstation-4",
+            "PS4": "playstation-4",
             "PlayStation 3": "playstation-3",
+            "PS3": "playstation-3",
             "PlayStation 2": "playstation-2",
+            "PS2": "playstation-2",
             "PlayStation": "playstation",
+            "PS1": "playstation",
+            "PSX": "playstation",
+
+            # Xbox
             "Xbox Series X": "xbox-series-x",
+            "Xbox Series S": "xbox-series-x",
+            "XSX": "xbox-series-x",
             "Xbox One": "xbox-one",
+            "XONE": "xbox-one",
             "Xbox 360": "xbox-360",
+            "X360": "xbox-360",
             "Xbox": "xbox",
+
+            # Nintendo
             "Nintendo Switch": "switch",
+            "Switch": "switch",
+            "NSW": "switch",
             "Wii U": "wii-u",
             "Wii": "wii",
             "Nintendo 3DS": "3ds",
+            "3DS": "3ds",
             "Nintendo DS": "ds",
+            "NDS": "ds",
             "GameCube": "gamecube",
+            "GC": "gamecube",
             "Nintendo 64": "nintendo-64",
+            "N64": "nintendo-64",
+
+            # Handhelds
             "Game Boy Advance": "game-boy-advance",
-            "iOS": "ios",
-            "Android": "android",
+            "GBA": "game-boy-advance",
             "PlayStation Vita": "playstation-vita",
+            "PS Vita": "playstation-vita",
+            "PSV": "playstation-vita",
             "PSP": "psp",
+
+            # Mobile
+            "iOS": "ios",
+            "iPhone": "ios",
+            "iPad": "ios",
+            "Android": "android",
+
+            # Other
             "Dreamcast": "dreamcast",
-            "Stadia": "stadia"
+            "DC": "dreamcast",
+            "Stadia": "stadia",
+            "Linux": "pc",
+            "Mac": "mac",
+            "macOS": "mac",
+            "Apple Macintosh": "mac"
         }
         platform_url = platform_map.get(platform, "pc")
         url += f"{platform_url}/"
@@ -224,25 +265,146 @@ def update_metacritic_data():
         metacritic_result = None
 
         if platforms:
-            priority_platforms = ["PC", "PlayStation 4", "PlayStation 5", "Xbox One", "Xbox Series X", "Nintendo Switch"]
+            priority_platform_groups = [
+                ["PC", "Windows", "Win"],
+                ["Nintendo Switch 2", "Switch 2", "NSW2"],
+                ["PlayStation 5", "PS5"],
+                ["Xbox Series X", "Xbox Series S", "XSX", "XSS"],
+                ["PlayStation 4", "PS4"],
+                ["Xbox One", "XONE"],
+                ["Nintendo Switch", "Switch", "NSW"],
+                ["PlayStation 3", "PS3"],
+                ["Xbox 360", "X360"],
+                ["Wii U"],
+                ["PlayStation 2", "playstation-2", "PS2"],
+                ["Wii"],
+                ["PlayStation", "playstation", "PS1", "PSX"],
+                ["Xbox", "xbox"],
+                ["Nintendo 3DS", "3ds", "Game Boy Advance", "game-boy-advance", "GBA", "game-boy-advance", "PlayStation Vita", "playstation-vita", "PS Vita", "playstation-vita", "PSV", "playstation-vita", "PSP", "psp"],
+                ["Nintendo DS", "ds", "NDS", "ds", "GameCube", "gamecube", "GC", "gamecube", "Nintendo 64", "nintendo-64", "N64", "nintendo-64"],
+                ["iOS", "iPhone", "iPad"],
+                ["Android",  "dreamcast", "dreamcast", "stadia", "mac", "Linux"]
+            ]
 
+            # Преобразуем группы платформ в плоский список для удобства поиска
+            priority_platforms = []
+            for group in priority_platform_groups:
+                priority_platforms.extend(group)
+
+            # Обрабатываем платформы, извлекая названия из словарей если нужно
             valid_platforms = []
             for p in platforms:
                 if isinstance(p, str):
                     valid_platforms.append(p)
+                elif isinstance(p, dict):
+                    # Если платформа - словарь, пробуем найти название
+                    if 'name' in p and isinstance(p['name'], str):
+                        valid_platforms.append(p['name'])
+                    elif 'abbreviation' in p and isinstance(p['abbreviation'], str):
+                        # Преобразуем аббревиатуры в полные названия
+                        abbr_map = {
+                            'PC': 'PC',
+                            'PS4': 'PlayStation 4',
+                            'PS5': 'PlayStation 5',
+                            'XONE': 'Xbox One',
+                            'XSX': 'Xbox Series X',
+                            'NSW': 'Nintendo Switch'
+                        }
+                        abbr = p['abbreviation']
+                        if abbr in abbr_map:
+                            valid_platforms.append(abbr_map[abbr])
+                        else:
+                            valid_platforms.append(abbr)
+                    elif 'slug' in p and isinstance(p['slug'], str):
+                        # Преобразуем slug в названия платформ
+                        slug_map = {
+                            'pc': 'PC',
+                            'win': 'PC',
+                            'windows': 'PC',
+                            'ps4': 'PlayStation 4',
+                            'playstation4': 'PlayStation 4',
+                            'ps5': 'PlayStation 5',
+                            'playstation5': 'PlayStation 5',
+                            'xboxone': 'Xbox One',
+                            'xbox-one': 'Xbox One',
+                            'xboxseriesx': 'Xbox Series X',
+                            'xbox-series-x': 'Xbox Series X',
+                            'switch': 'Nintendo Switch',
+                            'nintendo-switch': 'Nintendo Switch'
+                        }
+                        slug = p['slug'].lower()
+                        if slug in slug_map:
+                            valid_platforms.append(slug_map[slug])
+                        else:
+                            # Преобразуем slug в читаемый формат
+                            platform_name = slug.replace('-', ' ').title()
+                            valid_platforms.append(platform_name)
+                    elif 'id' in p and isinstance(p['id'], int):
+                        # Преобразуем ID платформ в названия
+                        platform_id_map = {
+                            6: 'PC',
+                            48: 'PlayStation 4',
+                            167: 'PlayStation 5',
+                            49: 'Xbox One',
+                            169: 'Xbox Series X',
+                            130: 'Nintendo Switch'
+                        }
+                        platform_id = p['id']
+                        if platform_id in platform_id_map:
+                            valid_platforms.append(platform_id_map[platform_id])
+                        else:
+                            logging.debug(f"Неизвестный ID платформы: {platform_id} для игры {game_name}")
+                    else:
+                        logging.warning(f"Словарь платформы не содержит известных полей: {p.keys()} для игры {game_name}")
                 else:
                     logging.warning(f"Пропускаем платформу неверного типа: {type(p)} для игры {game_name}")
 
-            sorted_platforms = sorted(valid_platforms, key=lambda p:
-                                     priority_platforms.index(p) if p in priority_platforms else len(priority_platforms))
+            # Сортируем платформы по приоритету
+            sorted_platforms = []
 
-            for platform in sorted_platforms:
-                metacritic_result = get_metacritic_data(game_name, platform)
+            # Проходим по группам платформ в порядке приоритета
+            for platform_group in priority_platform_groups:
+                # Проверяем, есть ли в valid_platforms хотя бы одна платформа из текущей группы
+                for platform in platform_group:
+                    if platform in valid_platforms:
+                        # Добавляем первую найденную платформу из группы и прекращаем поиск
+                        sorted_platforms.append(platform)
+                        break
+
+                # Если мы уже нашли платформу с высоким приоритетом, прекращаем поиск
+                if sorted_platforms:
+                    break
+
+            # Если не нашли ни одной платформы из приоритетных групп, добавляем первую доступную
+            if not sorted_platforms and valid_platforms:
+                sorted_platforms.append(valid_platforms[0])
+
+            # Если нет платформ, добавляем PC как платформу по умолчанию
+            if not sorted_platforms:
+                sorted_platforms.append("PC")
+
+            # Проверяем только платформу с наивысшим приоритетом
+            if sorted_platforms:
+                highest_priority_platform = sorted_platforms[0]
+
+                # Определяем, к какой группе приоритета относится выбранная платформа
+                priority_group = 0
+                for i, group in enumerate(priority_platform_groups):
+                    if highest_priority_platform in group:
+                        priority_group = i + 1  # +1 для удобства чтения (группы с 1, а не с 0)
+                        break
+
+                logging.info(f"Проверяем только платформу с наивысшим приоритетом: {highest_priority_platform} (группа приоритета: {priority_group}) для игры {game_name}")
+                logging.debug(f"Доступные платформы для игры {game_name}: {valid_platforms}")
+
+                metacritic_result = get_metacritic_data(game_name, highest_priority_platform)
                 requests_count += 1
 
                 if metacritic_result:
-                    metacritic_result['platform'] = platform
-                    break
+                    metacritic_result['platform'] = highest_priority_platform
+                    logging.info(f"Найдены данные Metacritic для игры {game_name} на платформе {highest_priority_platform}")
+                else:
+                    logging.warning(f"Не удалось найти данные Metacritic для игры {game_name} на платформе {highest_priority_platform}")
 
         if not metacritic_result:
             metacritic_result = get_metacritic_data(game_name)
