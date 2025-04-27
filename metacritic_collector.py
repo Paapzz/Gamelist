@@ -165,9 +165,59 @@ def get_metacritic_data(game_name, platform=None):
     else:
         url += "pc/"
 
+    # Предварительная обработка названия игры
+    original_name = game_name
     game_name = game_name.lower()
-    game_name = re.sub(r'[^a-z0-9\s]', '', game_name)
+
+    # Специальная обработка для известных префиксов
+    prefixes_to_handle = {
+        "marvel's": "marvels",
+        "tom clancy's": "tom-clancys",
+        "sid meier's": "sid-meiers"
+    }
+
+    for prefix, replacement in prefixes_to_handle.items():
+        if game_name.startswith(prefix):
+            game_name = game_name.replace(prefix, replacement)
+            break
+
+    # Обработка специальных символов
+    game_name = game_name.replace("ō", "o").replace("ū", "u").replace("ā", "a")
+    game_name = game_name.replace("é", "e").replace("è", "e").replace("ê", "e")
+    game_name = game_name.replace("ü", "u").replace("ö", "o").replace("ä", "a")
+
+    # Удаление специальных символов, но сохранение дефисов
+    game_name = re.sub(r'[^a-z0-9\s\-]', '', game_name)
+
+    # Замена пробелов на дефисы
     game_name = re.sub(r'\s+', '-', game_name)
+
+    # Удаление лишних дефисов
+    game_name = re.sub(r'-+', '-', game_name)
+
+    # Удаление дефисов в начале и конце
+    game_name = game_name.strip('-')
+
+    # Специальная обработка для известных игр с проблемами в URL
+    special_cases = {
+        "marvels-spiderman-2": "marvels-spider-man-2",
+        "marvels-spiderman": "marvels-spider-man",
+        "okami-hd": "okami-hd",
+        "metal-gear-solid-v-the-phantom-pain": "metal-gear-solid-v",
+        "the-witcher-3-wild-hunt": "the-witcher-3",
+        "the-elder-scrolls-v-skyrim": "the-elder-scrolls-v",
+        "grand-theft-auto-v": "grand-theft-auto-v",
+        "red-dead-redemption-2": "red-dead-redemption-ii",
+        "the-last-of-us-part-ii": "the-last-of-us-part-ii",
+        "the-last-of-us-part-2": "the-last-of-us-part-ii",
+        "god-of-war-ragnarok": "god-of-war-ragnaroek",
+        "elden-ring-shadow-of-the-erdtree": "elden-ring"
+    }
+
+    if game_name in special_cases:
+        game_name = special_cases[game_name]
+
+    logging.debug(f"Преобразовано название игры: '{original_name}' -> '{game_name}'")
 
     url += game_name
 
@@ -183,33 +233,140 @@ def get_metacritic_data(game_name, platform=None):
         'Cache-Control': 'max-age=0'
     }
 
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
+    def try_fetch_metacritic(url, game_name):
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
 
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
 
-            metascore_elem = soup.select_one('div.metascore_w.game span')
-            metascore = int(metascore_elem.text) if metascore_elem else None
+                metascore_elem = soup.select_one('div.metascore_w.game span')
+                metascore = int(metascore_elem.text) if metascore_elem else None
 
-            userscore_elem = soup.select_one('div.metascore_w.user.large.game')
-            userscore = float(userscore_elem.text) if userscore_elem else None
+                userscore_elem = soup.select_one('div.metascore_w.user.large.game')
+                userscore = float(userscore_elem.text) if userscore_elem else None
 
-            result = {
-                "name": game_name.replace('-', ' ').title(),
-                "metascore": metascore,
-                "userscore": userscore,
-                "url": url,
-                "timestamp": datetime.now().isoformat()
-            }
+                result = {
+                    "name": original_name,
+                    "metascore": metascore,
+                    "userscore": userscore,
+                    "url": url,
+                    "timestamp": datetime.now().isoformat()
+                }
 
-            return result
-        else:
-            logging.warning(f"Ошибка при запросе к Metacritic: {response.status_code} для игры {game_name}")
+                return result
+            else:
+                logging.warning(f"Ошибка при запросе к Metacritic: {response.status_code} для игры {game_name}")
+                return None
+        except Exception as e:
+            logging.error(f"Ошибка при получении данных с Metacritic для игры {game_name}: {e}")
             return None
-    except Exception as e:
-        logging.error(f"Ошибка при получении данных с Metacritic для игры {game_name}: {e}")
-        return None
+
+    # Пробуем основной вариант URL
+    result = try_fetch_metacritic(url, game_name)
+    if result:
+        return result
+
+    # Если основной вариант не сработал, пробуем альтернативные варианты
+    # Для игр с "Spider-Man" в названии
+    if "spider" in original_name.lower() or "spiderman" in original_name.lower():
+        # Пробуем разные варианты написания
+        variants = [
+            "spider-man",
+            "spiderman"
+        ]
+
+        for variant in variants:
+            alt_game_name = game_name
+            if "spider-man" in alt_game_name:
+                alt_game_name = alt_game_name.replace("spider-man", variant)
+            elif "spiderman" in alt_game_name:
+                alt_game_name = alt_game_name.replace("spiderman", variant)
+
+            if alt_game_name != game_name:
+                alt_url = url.replace(game_name, alt_game_name)
+                logging.info(f"Пробуем альтернативный URL: {alt_url}")
+
+                # Добавляем небольшую задержку перед повторным запросом
+                time.sleep(1)
+
+                result = try_fetch_metacritic(alt_url, alt_game_name)
+                if result:
+                    return result
+
+    # Для игр с двоеточием в названии, пробуем без части после двоеточия
+    if ":" in original_name:
+        base_name = original_name.split(":")[0].strip()
+        base_name = base_name.lower()
+        base_name = re.sub(r'[^a-z0-9\s\-]', '', base_name)
+        base_name = re.sub(r'\s+', '-', base_name)
+
+        if platform:
+            platform_url = platform_map.get(platform, "pc")
+            alt_url = f"http://www.metacritic.com/game/{platform_url}/{base_name}"
+        else:
+            alt_url = f"http://www.metacritic.com/game/pc/{base_name}"
+
+        logging.info(f"Пробуем URL без части после двоеточия: {alt_url}")
+
+        # Добавляем небольшую задержку перед повторным запросом
+        time.sleep(1)
+
+        result = try_fetch_metacritic(alt_url, base_name)
+        if result:
+            return result
+
+    # Для игр на PS5/Xbox Series X, пробуем найти их на PS4/Xbox One
+    if platform in ["PlayStation 5", "PS5", "Xbox Series X", "Xbox Series S", "XSX", "XSS"]:
+        prev_gen_platform = None
+        if platform in ["PlayStation 5", "PS5"]:
+            prev_gen_platform = "PlayStation 4"
+        elif platform in ["Xbox Series X", "Xbox Series S", "XSX", "XSS"]:
+            prev_gen_platform = "Xbox One"
+
+        if prev_gen_platform:
+            platform_url = platform_map.get(prev_gen_platform, "pc")
+            alt_url = f"http://www.metacritic.com/game/{platform_url}/{game_name}"
+
+            logging.info(f"Пробуем найти игру на предыдущем поколении консолей ({prev_gen_platform}): {alt_url}")
+
+            # Добавляем небольшую задержку перед повторным запросом
+            time.sleep(1)
+
+            result = try_fetch_metacritic(alt_url, game_name)
+            if result:
+                # Отмечаем, что это оценка для предыдущего поколения
+                result["note"] = f"Оценка для {prev_gen_platform}"
+                return result
+
+    # Для DLC и расширений, пробуем найти базовую игру
+    dlc_indicators = ["dlc", "expansion", "addon", "add-on", "shadow of", "part ii", "part 2"]
+    if any(indicator in original_name.lower() for indicator in dlc_indicators):
+        # Попробуем найти базовую игру, удалив все после первого двоеточия или тире
+        base_name = re.split(r'[:\-]', original_name)[0].strip()
+        base_name = base_name.lower()
+        base_name = re.sub(r'[^a-z0-9\s\-]', '', base_name)
+        base_name = re.sub(r'\s+', '-', base_name)
+
+        if platform:
+            platform_url = platform_map.get(platform, "pc")
+            alt_url = f"http://www.metacritic.com/game/{platform_url}/{base_name}"
+        else:
+            alt_url = f"http://www.metacritic.com/game/pc/{base_name}"
+
+        logging.info(f"Пробуем найти базовую игру для DLC: {alt_url}")
+
+        # Добавляем небольшую задержку перед повторным запросом
+        time.sleep(1)
+
+        result = try_fetch_metacritic(alt_url, base_name)
+        if result:
+            # Отмечаем, что это оценка базовой игры
+            result["note"] = f"Оценка для базовой игры '{base_name}'"
+            return result
+
+    # Если все попытки не удались, возвращаем None
+    return None
 
 def update_metacritic_data():
     """Обновляет данные Metacritic для игр."""
@@ -381,8 +538,11 @@ def update_metacritic_data():
                 requests_count += 1
 
                 if metacritic_result:
-                    metacritic_result['platform'] = highest_priority_platform
-                    logging.info(f"Найдены данные Metacritic для игры {game_name} на платформе {highest_priority_platform}")
+                    if 'platform' not in metacritic_result:
+                        metacritic_result['platform'] = highest_priority_platform
+                    logging.info(f"Найдены данные Metacritic для игры {game_name} на платформе {metacritic_result.get('platform', highest_priority_platform)}")
+                    if 'note' in metacritic_result:
+                        logging.info(f"Примечание: {metacritic_result['note']}")
                 else:
                     logging.warning(f"Не удалось найти данные Metacritic для игры {game_name} на платформе {highest_priority_platform}")
 
