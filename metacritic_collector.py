@@ -10,10 +10,10 @@ import logging
 import sys
 from bs4 import BeautifulSoup
 
-GAMES_PER_FILE = 500
+GAMES_PER_FILE = 5000
 METACRITIC_DATA_FILE = 'meta_data/metacritic_ratings.json'
 REQUEST_DELAY = 2
-MAX_REQUESTS_PER_RUN = 500
+MAX_REQUESTS_PER_RUN = 1000
 LOG_FILE = 'metacritic_collector.log'
 
 logging.basicConfig(
@@ -171,7 +171,7 @@ def get_metacritic_data(game_name, platform=None):
 
     url += game_name
 
-    delay = REQUEST_DELAY + random.uniform(1.0, 3.5)
+    delay = REQUEST_DELAY + random.uniform(1.0, 2.5)
     time.sleep(delay)
 
     headers = {
@@ -286,22 +286,17 @@ def update_metacritic_data():
                 ["Android",  "dreamcast", "dreamcast", "stadia", "mac", "Linux"]
             ]
 
-            # Преобразуем группы платформ в плоский список для удобства поиска
             priority_platforms = []
             for group in priority_platform_groups:
                 priority_platforms.extend(group)
-
-            # Обрабатываем платформы, извлекая названия из словарей если нужно
             valid_platforms = []
             for p in platforms:
                 if isinstance(p, str):
                     valid_platforms.append(p)
                 elif isinstance(p, dict):
-                    # Если платформа - словарь, пробуем найти название
                     if 'name' in p and isinstance(p['name'], str):
                         valid_platforms.append(p['name'])
                     elif 'abbreviation' in p and isinstance(p['abbreviation'], str):
-                        # Преобразуем аббревиатуры в полные названия
                         abbr_map = {
                             'PC': 'PC',
                             'PS4': 'PlayStation 4',
@@ -316,7 +311,6 @@ def update_metacritic_data():
                         else:
                             valid_platforms.append(abbr)
                     elif 'slug' in p and isinstance(p['slug'], str):
-                        # Преобразуем slug в названия платформ
                         slug_map = {
                             'pc': 'PC',
                             'win': 'PC',
@@ -336,11 +330,9 @@ def update_metacritic_data():
                         if slug in slug_map:
                             valid_platforms.append(slug_map[slug])
                         else:
-                            # Преобразуем slug в читаемый формат
                             platform_name = slug.replace('-', ' ').title()
                             valid_platforms.append(platform_name)
                     elif 'id' in p and isinstance(p['id'], int):
-                        # Преобразуем ID платформ в названия
                         platform_id_map = {
                             6: 'PC',
                             48: 'PlayStation 4',
@@ -359,39 +351,27 @@ def update_metacritic_data():
                 else:
                     logging.warning(f"Пропускаем платформу неверного типа: {type(p)} для игры {game_name}")
 
-            # Сортируем платформы по приоритету
             sorted_platforms = []
 
-            # Проходим по группам платформ в порядке приоритета
             for platform_group in priority_platform_groups:
-                # Проверяем, есть ли в valid_platforms хотя бы одна платформа из текущей группы
                 for platform in platform_group:
                     if platform in valid_platforms:
-                        # Добавляем первую найденную платформу из группы и прекращаем поиск
                         sorted_platforms.append(platform)
                         break
-
-                # Если мы уже нашли платформу с высоким приоритетом, прекращаем поиск
                 if sorted_platforms:
                     break
 
-            # Если не нашли ни одной платформы из приоритетных групп, добавляем первую доступную
             if not sorted_platforms and valid_platforms:
                 sorted_platforms.append(valid_platforms[0])
-
-            # Если нет платформ, добавляем PC как платформу по умолчанию
             if not sorted_platforms:
                 sorted_platforms.append("PC")
-
-            # Проверяем только платформу с наивысшим приоритетом
             if sorted_platforms:
                 highest_priority_platform = sorted_platforms[0]
 
-                # Определяем, к какой группе приоритета относится выбранная платформа
                 priority_group = 0
                 for i, group in enumerate(priority_platform_groups):
                     if highest_priority_platform in group:
-                        priority_group = i + 1  # +1 для удобства чтения (группы с 1, а не с 0)
+                        priority_group = i + 1
                         break
 
                 logging.info(f"Проверяем только платформу с наивысшим приоритетом: {highest_priority_platform} (группа приоритета: {priority_group}) для игры {game_name}")
