@@ -296,20 +296,24 @@ def get_metacritic_data(game_name, platform=None):
                         # Ищем оценки в тексте страницы
                         page_text = soup.text
 
-                        # Ищем Metascore и User Score в тексте страницы
-                        metascore_match = re.search(r'Metascore.*?(\d{2,3}).*?Based on \d+ Critic Reviews', page_text, re.DOTALL)
+                        # Ищем Metascore и User Score в тексте страницы с очень точными шаблонами
+                        metascore_match = re.search(r'Metascore\s+(\d{1,2}|100)\s', page_text)
                         if metascore_match:
                             try:
                                 metascore = int(metascore_match.group(1))
-                                logging.info(f"Найден Metascore в заголовке страницы: {metascore}")
+                                # Проверяем, что оценка находится в правильном диапазоне
+                                if 0 <= metascore <= 100:
+                                    logging.info(f"Найден Metascore в заголовке страницы: {metascore}")
                             except ValueError:
                                 pass
 
-                        userscore_match = re.search(r'User Score.*?(\d+\.\d+).*?Based on \d+ User Ratings', page_text, re.DOTALL)
+                        userscore_match = re.search(r'User\s+Score\s+(\d\.\d)\s', page_text)
                         if userscore_match:
                             try:
                                 userscore = float(userscore_match.group(1))
-                                logging.info(f"Найден User Score в заголовке страницы: {userscore}")
+                                # Проверяем, что оценка находится в правильном диапазоне
+                                if 0.0 <= userscore <= 10.0:
+                                    logging.info(f"Найден User Score в заголовке страницы: {userscore}")
                             except ValueError:
                                 pass
                     else:
@@ -323,13 +327,15 @@ def get_metacritic_data(game_name, platform=None):
                 # Это самый надежный метод для новейшего дизайна Metacritic 2025 года
                 html_text = str(soup)
 
-                # Ищем Metascore
+                # Ищем Metascore с очень точными шаблонами
                 metascore_patterns = [
-                    r'Metascore\s+Generally\s+Favorable.*?Based\s+on\s+\d+\s+Critic\s+Reviews.*?(\d+)',
-                    r'Metascore\s+Universal\s+Acclaim.*?Based\s+on\s+\d+\s+Critic\s+Reviews.*?(\d+)',
-                    r'Metascore\s+Mixed.*?Based\s+on\s+\d+\s+Critic\s+Reviews.*?(\d+)',
-                    r'Metascore\s+Generally\s+Unfavorable.*?Based\s+on\s+\d+\s+Critic\s+Reviews.*?(\d+)',
-                    r'Metascore.*?Based\s+on\s+\d+\s+Critic\s+Reviews.*?(\d+)'
+                    # Ищем точное совпадение формата "Metascore X" где X - число от 0 до 100
+                    r'Metascore\s+(\d{1,2}|100)\s',
+                    r'Metascore\s+Generally\s+Favorable\s+\[Based\s+on\s+\d+\s+Critic\s+Reviews\]\s+(\d{1,2}|100)',
+                    r'Metascore\s+Universal\s+Acclaim\s+\[Based\s+on\s+\d+\s+Critic\s+Reviews\]\s+(\d{1,2}|100)',
+                    r'Metascore\s+Mixed\s+\[Based\s+on\s+\d+\s+Critic\s+Reviews\]\s+(\d{1,2}|100)',
+                    r'Metascore\s+Generally\s+Unfavorable\s+\[Based\s+on\s+\d+\s+Critic\s+Reviews\]\s+(\d{1,2}|100)',
+                    r'Metascore\s+Overwhelming\s+Dislike\s+\[Based\s+on\s+\d+\s+Critic\s+Reviews\]\s+(\d{1,2}|100)'
                 ]
 
                 for pattern in metascore_patterns:
@@ -342,13 +348,15 @@ def get_metacritic_data(game_name, platform=None):
                         except ValueError:
                             pass
 
-                # Ищем User Score
+                # Ищем User Score с очень точными шаблонами
                 userscore_patterns = [
-                    r'User\s+Score\s+Generally\s+Favorable.*?Based\s+on\s+\d+\s+User\s+Ratings.*?(\d+\.\d+)',
-                    r'User\s+Score\s+Universal\s+Acclaim.*?Based\s+on\s+\d+\s+User\s+Ratings.*?(\d+\.\d+)',
-                    r'User\s+Score\s+Mixed.*?Based\s+on\s+\d+\s+User\s+Ratings.*?(\d+\.\d+)',
-                    r'User\s+Score\s+Generally\s+Unfavorable.*?Based\s+on\s+\d+\s+User\s+Ratings.*?(\d+\.\d+)',
-                    r'User\s+Score.*?Based\s+on\s+\d+\s+User\s+Ratings.*?(\d+\.\d+)'
+                    # Ищем точное совпадение формата "User Score X.X" где X.X - число от 0.0 до 10.0
+                    r'User\s+Score\s+(\d\.\d)\s',
+                    r'User\s+Score\s+Generally\s+Favorable\s+\[Based\s+on\s+\d+\s+User\s+Ratings\]\s+(\d\.\d)',
+                    r'User\s+Score\s+Universal\s+Acclaim\s+\[Based\s+on\s+\d+\s+User\s+Ratings\]\s+(\d\.\d)',
+                    r'User\s+Score\s+Mixed\s+\[Based\s+on\s+\d+\s+User\s+Ratings\]\s+(\d\.\d)',
+                    r'User\s+Score\s+Generally\s+Unfavorable\s+\[Based\s+on\s+\d+\s+User\s+Ratings\]\s+(\d\.\d)',
+                    r'User\s+Score\s+Overwhelming\s+Dislike\s+\[Based\s+on\s+\d+\s+User\s+Ratings\]\s+(\d\.\d)'
                 ]
 
                 for pattern in userscore_patterns:
@@ -363,34 +371,36 @@ def get_metacritic_data(game_name, platform=None):
 
                 # Если не нашли оценки через прямой поиск, пробуем найти их в структуре страницы
                 if metascore is None or userscore is None:
-                    # Ищем блоки с оценками
-                    score_blocks = soup.select('div[class*="metascore"], div[class*="userscore"], div[class*="score"], div[class*="Score"]')
+                    # Ищем блоки с оценками с более точными селекторами
+                    metascore_blocks = soup.select('div[class*="metascore"], span[class*="metascore"], div.c-metascore, span.c-metascore')
+                    userscore_blocks = soup.select('div[class*="userscore"], span[class*="userscore"], div.c-userscore, span.c-userscore')
 
-                    for block in score_blocks:
-                        block_text = block.text
+                    # Ищем Metascore
+                    if metascore is None:
+                        for block in metascore_blocks:
+                            block_text = block.text.strip()
 
-                        # Ищем Metascore
-                        if metascore is None and 'Metascore' in block_text:
-                            # Ищем числа от 0 до 100
-                            metascore_matches = re.findall(r'\b(\d{2,3})\b', block_text)
-                            for match in metascore_matches:
+                            # Проверяем, что текст содержит только число
+                            if re.match(r'^\d{1,2}$|^100$', block_text):
                                 try:
-                                    score = int(match)
-                                    if 60 <= score <= 100 and not (match.startswith('19') or match.startswith('20')):
+                                    score = int(block_text)
+                                    if 0 <= score <= 100:
                                         metascore = score
                                         logging.info(f"Найден Metascore в блоке: {metascore}")
                                         break
                                 except ValueError:
                                     continue
 
-                        # Ищем User Score
-                        if userscore is None and 'User Score' in block_text:
-                            # Ищем десятичные числа от 0 до 10
-                            userscore_matches = re.findall(r'\b(\d+\.\d+)\b', block_text)
-                            for match in userscore_matches:
+                    # Ищем User Score
+                    if userscore is None:
+                        for block in userscore_blocks:
+                            block_text = block.text.strip()
+
+                            # Проверяем, что текст содержит только десятичное число
+                            if re.match(r'^\d\.\d$', block_text):
                                 try:
-                                    score = float(match)
-                                    if 6.0 <= score <= 10.0:
+                                    score = float(block_text)
+                                    if 0.0 <= score <= 10.0:
                                         userscore = score
                                         logging.info(f"Найден User Score в блоке: {userscore}")
                                         break
@@ -910,9 +920,10 @@ def get_metacritic_data(game_name, platform=None):
                     # Если оценка меньше 10, возможно, это десятичный формат (например, 8.9 вместо 89)
                     if metascore < 10:
                         metascore = metascore * 10
-                    # Если оценка больше 100, возможно, это ошибка парсинга
+                    # Если оценка больше 100, это ошибка парсинга - игнорируем такую оценку
                     elif metascore > 100:
-                        metascore = 100
+                        logging.warning(f"Найден некорректный Metascore: {metascore}. Игнорируем.")
+                        metascore = None
 
                 result = {
                     "name": original_name,
