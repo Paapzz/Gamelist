@@ -185,6 +185,11 @@ def get_metacritic_data(game_name, platform=None):
     game_name = game_name.replace("ō", "o").replace("ū", "u").replace("ā", "a")
     game_name = game_name.replace("é", "e").replace("è", "e").replace("ê", "e")
     game_name = game_name.replace("ü", "u").replace("ö", "o").replace("ä", "a")
+    game_name = game_name.replace("ñ", "n").replace("ç", "c").replace("ß", "ss")
+    game_name = game_name.replace("í", "i").replace("ì", "i").replace("î", "i")
+    game_name = game_name.replace("ó", "o").replace("ò", "o").replace("ô", "o")
+    game_name = game_name.replace("ú", "u").replace("ù", "u").replace("û", "u")
+    game_name = game_name.replace("ý", "y").replace("ÿ", "y")
 
     # Удаление специальных символов, но сохранение дефисов
     game_name = re.sub(r'[^a-z0-9\s\-]', '', game_name)
@@ -198,21 +203,37 @@ def get_metacritic_data(game_name, platform=None):
     # Удаление дефисов в начале и конце
     game_name = game_name.strip('-')
 
-    # Специальная обработка для известных игр с проблемами в URL
+    # Только самые критические специальные случаи
     special_cases = {
-        "marvels-spiderman-2": "marvels-spider-man-2",
-        "marvels-spiderman": "marvels-spider-man",
-        "okami-hd": "okami-hd",
-        "metal-gear-solid-v-the-phantom-pain": "metal-gear-solid-v",
-        "the-witcher-3-wild-hunt": "the-witcher-3",
-        "the-elder-scrolls-v-skyrim": "the-elder-scrolls-v",
-        "grand-theft-auto-v": "grand-theft-auto-v",
+        # Римские цифры
+        "hades-2": "hades-ii",
         "red-dead-redemption-2": "red-dead-redemption-ii",
-        "the-last-of-us-part-ii": "the-last-of-us-part-ii",
-        "the-last-of-us-part-2": "the-last-of-us-part-ii",
-        "god-of-war-ragnarok": "god-of-war-ragnaroek",
-        "elden-ring-shadow-of-the-erdtree": "elden-ring"
+
+        # Особые случаи с дефисами
+        "marvels-spiderman": "marvels-spider-man",
+        "marvels-spiderman-2": "marvels-spider-man-2",
+        "your-turn-to-die-death-game-by-majority": "your-turn-to-die",
+        "your-turn-to-die": "Your Turn To Die -Death Game By Majority-", 
+
+        # Особые случаи с сокращениями
+        "nier-replicant-ver122474487139": "nier-replicant",
+        "dragon-quest-xi-s-echoes-of-an-elusive-age-definitive-edition": "dragon-quest-xi-s"
     }
+
+    # Автоматическая обработка длинных названий
+    if len(game_name.split('-')) > 4:  # Если название содержит более 4 частей
+        # Для известных серий игр, оставляем только первые 3-4 части
+        known_series = ["the-witcher", "the-elder-scrolls", "metal-gear-solid",
+                        "final-fantasy", "assassins-creed", "star-wars", "call-of-duty"]
+
+        for series in known_series:
+            if game_name.startswith(series):
+                parts = game_name.split('-')
+                series_parts = series.split('-')
+                # Оставляем части серии + 1-2 части названия
+                game_name = '-'.join(parts[:len(series_parts) + 2])
+                logging.debug(f"Сокращено длинное название серии: {game_name}")
+                break
 
     if game_name in special_cases:
         game_name = special_cases[game_name]
@@ -262,58 +283,94 @@ def get_metacritic_data(game_name, platform=None):
             logging.error(f"Ошибка при получении данных с Metacritic для игры {game_name}: {e}")
             return None
 
-    # Пробуем основной вариант URL
-    result = try_fetch_metacritic(url, game_name)
-    if result:
-        return result
+    # Функция для генерации альтернативных вариантов названия
+    def generate_name_variants(name, original):
+        variants = []
 
-    # Если основной вариант не сработал, пробуем альтернативные варианты
-    # Для игр с "Spider-Man" в названии
-    if "spider" in original_name.lower() or "spiderman" in original_name.lower():
-        # Пробуем разные варианты написания
-        variants = [
-            "spider-man",
-            "spiderman"
-        ]
+        # Основной вариант
+        variants.append((name, "основной вариант"))
 
-        for variant in variants:
-            alt_game_name = game_name
-            if "spider-man" in alt_game_name:
-                alt_game_name = alt_game_name.replace("spider-man", variant)
-            elif "spiderman" in alt_game_name:
-                alt_game_name = alt_game_name.replace("spiderman", variant)
+        # Для игр с двоеточием в названии, пробуем без части после двоеточия
+        if ":" in original:
+            base_name = original.split(":")[0].strip()
+            base_name = base_name.lower()
+            base_name = re.sub(r'[^a-z0-9\s\-]', '', base_name)
+            base_name = re.sub(r'\s+', '-', base_name)
+            variants.append((base_name, "без части после двоеточия"))
 
-            if alt_game_name != game_name:
-                alt_url = url.replace(game_name, alt_game_name)
-                logging.info(f"Пробуем альтернативный URL: {alt_url}")
+        # Для длинных названий, пробуем первые 2-3 слова
+        words = original.split()
+        if len(words) > 2:
+            short_name = " ".join(words[:2])
+            short_name = short_name.lower()
+            short_name = re.sub(r'[^a-z0-9\s\-]', '', short_name)
+            short_name = re.sub(r'\s+', '-', short_name)
+            variants.append((short_name, "первые 2 слова"))
 
-                # Добавляем небольшую задержку перед повторным запросом
-                time.sleep(1)
+            if len(words) > 3:
+                short_name = " ".join(words[:3])
+                short_name = short_name.lower()
+                short_name = re.sub(r'[^a-z0-9\s\-]', '', short_name)
+                short_name = re.sub(r'\s+', '-', short_name)
+                variants.append((short_name, "первые 3 слова"))
 
-                result = try_fetch_metacritic(alt_url, alt_game_name)
-                if result:
-                    return result
+        # Для названий с тире, пробуем часть до первого тире
+        if "-" in name:
+            jp_name = name.split("-")[0].strip()
+            variants.append((jp_name, "до первого тире"))
 
-    # Для игр с двоеточием в названии, пробуем без части после двоеточия
-    if ":" in original_name:
-        base_name = original_name.split(":")[0].strip()
-        base_name = base_name.lower()
-        base_name = re.sub(r'[^a-z0-9\s\-]', '', base_name)
-        base_name = re.sub(r'\s+', '-', base_name)
+        # Для очень длинных названий, пробуем только первое слово
+        if len(words) > 1:
+            first_word = words[0].lower()
+            first_word = re.sub(r'[^a-z0-9\-]', '', first_word)
+            variants.append((first_word, "только первое слово"))
 
+        # Для игр с "Spider-Man" в названии
+        if "spider" in original.lower() or "spiderman" in original.lower():
+            if "spider-man" in name:
+                variants.append((name.replace("spider-man", "spiderman"), "замена spider-man на spiderman"))
+            elif "spiderman" in name:
+                variants.append((name.replace("spiderman", "spider-man"), "замена spiderman на spider-man"))
+
+        # Для DLC и расширений
+        dlc_indicators = ["dlc", "expansion", "addon", "add-on", "shadow of", "part ii", "part 2"]
+        if any(indicator in original.lower() for indicator in dlc_indicators):
+            base_name = re.split(r'[:\-]', original)[0].strip()
+            base_name = base_name.lower()
+            base_name = re.sub(r'[^a-z0-9\s\-]', '', base_name)
+            base_name = re.sub(r'\s+', '-', base_name)
+            variants.append((base_name, "базовая игра для DLC"))
+
+        # Удаляем дубликаты, сохраняя порядок
+        unique_variants = []
+        seen = set()
+        for variant, desc in variants:
+            if variant not in seen and variant:
+                seen.add(variant)
+                unique_variants.append((variant, desc))
+
+        return unique_variants
+
+    # Пробуем все варианты названий
+    variants = generate_name_variants(game_name, original_name)
+
+    for variant_name, variant_desc in variants:
         if platform:
             platform_url = platform_map.get(platform, "pc")
-            alt_url = f"http://www.metacritic.com/game/{platform_url}/{base_name}"
+            variant_url = f"http://www.metacritic.com/game/{platform_url}/{variant_name}"
         else:
-            alt_url = f"http://www.metacritic.com/game/pc/{base_name}"
+            variant_url = f"http://www.metacritic.com/game/pc/{variant_name}"
 
-        logging.info(f"Пробуем URL без части после двоеточия: {alt_url}")
+        logging.info(f"Пробуем вариант '{variant_desc}': {variant_url}")
 
-        # Добавляем небольшую задержку перед повторным запросом
-        time.sleep(1)
+        # Добавляем небольшую задержку между запросами
+        if variant_name != game_name:  # Не добавляем задержку для первого запроса
+            time.sleep(1)
 
-        result = try_fetch_metacritic(alt_url, base_name)
+        result = try_fetch_metacritic(variant_url, variant_name)
         if result:
+            if variant_desc != "основной вариант":
+                result["note"] = f"Найдено по варианту: {variant_desc}"
             return result
 
     # Для игр на PS5/Xbox Series X, пробуем найти их на PS4/Xbox One
@@ -363,6 +420,71 @@ def get_metacritic_data(game_name, platform=None):
         if result:
             # Отмечаем, что это оценка базовой игры
             result["note"] = f"Оценка для базовой игры '{base_name}'"
+            return result
+
+    # Попробуем использовать только первые 2-3 слова названия
+    words = original_name.split()
+    if len(words) > 2:
+        short_name = " ".join(words[:2])
+        short_name = short_name.lower()
+        short_name = re.sub(r'[^a-z0-9\s\-]', '', short_name)
+        short_name = re.sub(r'\s+', '-', short_name)
+
+        if platform:
+            platform_url = platform_map.get(platform, "pc")
+            alt_url = f"http://www.metacritic.com/game/{platform_url}/{short_name}"
+        else:
+            alt_url = f"http://www.metacritic.com/game/pc/{short_name}"
+
+        logging.info(f"Пробуем сокращенное название (первые 2 слова): {alt_url}")
+
+        # Добавляем небольшую задержку перед повторным запросом
+        time.sleep(1)
+
+        result = try_fetch_metacritic(alt_url, short_name)
+        if result:
+            result["note"] = f"Найдено по сокращенному названию '{short_name}'"
+            return result
+
+    # Для японских игр и визуальных новелл, попробуем удалить все после первого тире
+    if "-" in game_name:
+        jp_name = game_name.split("-")[0].strip()
+
+        if platform:
+            platform_url = platform_map.get(platform, "pc")
+            alt_url = f"http://www.metacritic.com/game/{platform_url}/{jp_name}"
+        else:
+            alt_url = f"http://www.metacritic.com/game/pc/{jp_name}"
+
+        logging.info(f"Пробуем название до первого тире: {alt_url}")
+
+        # Добавляем небольшую задержку перед повторным запросом
+        time.sleep(1)
+
+        result = try_fetch_metacritic(alt_url, jp_name)
+        if result:
+            result["note"] = f"Найдено по части названия до тире '{jp_name}'"
+            return result
+
+    # Для очень длинных названий, попробуем использовать только первое слово
+    if len(original_name.split()) > 1:
+        first_word = original_name.split()[0].lower()
+        first_word = re.sub(r'[^a-z0-9\-]', '', first_word)
+
+        if platform:
+            platform_url = platform_map.get(platform, "pc")
+            alt_url = f"http://www.metacritic.com/game/{platform_url}/{first_word}"
+        else:
+            alt_url = f"http://www.metacritic.com/game/pc/{first_word}"
+
+        logging.info(f"Пробуем только первое слово: {alt_url}")
+
+        # Добавляем небольшую задержку перед повторным запросом
+        time.sleep(1)
+
+        result = try_fetch_metacritic(alt_url, first_word)
+        if result:
+            result["note"] = f"Найдено по первому слову '{first_word}'"
             return result
 
     # Если все попытки не удались, возвращаем None
