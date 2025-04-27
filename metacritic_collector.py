@@ -108,80 +108,80 @@ def get_metacritic_data(game_name, platform=None):
         logging.info(f"Используем кэшированный результат для игры {game_name}")
         return search_cache[cache_key]
 
-    url = "http://www.metacritic.com/game/"
+    # Metacritic изменил формат URL - теперь они не содержат платформу
+    url = "https://www.metacritic.com/game/"
 
+    # Сохраняем информацию о платформе для логирования, но не используем в URL
+    platform_name = platform
     if platform:
         platform_map = {
             # PC
-            "PC": "pc",
-            "Windows": "pc",
-            "Win": "pc",
+            "PC": "PC",
+            "Windows": "PC",
+            "Win": "PC",
 
             # PlayStation
-            "PlayStation 5": "playstation-5",
-            "PS5": "playstation-5",
-            "PlayStation 4": "playstation-4",
-            "PS4": "playstation-4",
-            "PlayStation 3": "playstation-3",
-            "PS3": "playstation-3",
-            "PlayStation 2": "playstation-2",
-            "PS2": "playstation-2",
-            "PlayStation": "playstation",
-            "PS1": "playstation",
-            "PSX": "playstation",
+            "PlayStation 5": "PlayStation 5",
+            "PS5": "PlayStation 5",
+            "PlayStation 4": "PlayStation 4",
+            "PS4": "PlayStation 4",
+            "PlayStation 3": "PlayStation 3",
+            "PS3": "PlayStation 3",
+            "PlayStation 2": "PlayStation 2",
+            "PS2": "PlayStation 2",
+            "PlayStation": "PlayStation",
+            "PS1": "PlayStation",
+            "PSX": "PlayStation",
 
             # Xbox
-            "Xbox Series X": "xbox-series-x",
-            "Xbox Series S": "xbox-series-x",
-            "XSX": "xbox-series-x",
-            "Xbox One": "xbox-one",
-            "XONE": "xbox-one",
-            "Xbox 360": "xbox-360",
-            "X360": "xbox-360",
-            "Xbox": "xbox",
+            "Xbox Series X": "Xbox Series X",
+            "Xbox Series S": "Xbox Series X",
+            "XSX": "Xbox Series X",
+            "Xbox One": "Xbox One",
+            "XONE": "Xbox One",
+            "Xbox 360": "Xbox 360",
+            "X360": "Xbox 360",
+            "Xbox": "Xbox",
 
             # Nintendo
-            "Nintendo Switch": "switch",
-            "Switch": "switch",
-            "NSW": "switch",
-            "Wii U": "wii-u",
-            "Wii": "wii",
-            "Nintendo 3DS": "3ds",
-            "3DS": "3ds",
-            "Nintendo DS": "ds",
-            "NDS": "ds",
-            "GameCube": "gamecube",
-            "GC": "gamecube",
-            "Nintendo 64": "nintendo-64",
-            "N64": "nintendo-64",
+            "Nintendo Switch": "Nintendo Switch",
+            "Switch": "Nintendo Switch",
+            "NSW": "Nintendo Switch",
+            "Wii U": "Wii U",
+            "Wii": "Wii",
+            "Nintendo 3DS": "Nintendo 3DS",
+            "3DS": "Nintendo 3DS",
+            "Nintendo DS": "Nintendo DS",
+            "NDS": "Nintendo DS",
+            "GameCube": "GameCube",
+            "GC": "GameCube",
+            "Nintendo 64": "Nintendo 64",
+            "N64": "Nintendo 64",
 
             # Handhelds
-            "Game Boy Advance": "game-boy-advance",
-            "GBA": "game-boy-advance",
-            "PlayStation Vita": "playstation-vita",
-            "PS Vita": "playstation-vita",
-            "PSV": "playstation-vita",
-            "PSP": "psp",
+            "Game Boy Advance": "Game Boy Advance",
+            "GBA": "Game Boy Advance",
+            "PlayStation Vita": "PlayStation Vita",
+            "PS Vita": "PlayStation Vita",
+            "PSV": "PlayStation Vita",
+            "PSP": "PSP",
 
             # Mobile
-            "iOS": "ios",
-            "iPhone": "ios",
-            "iPad": "ios",
-            "Android": "android",
+            "iOS": "iOS",
+            "iPhone": "iOS",
+            "iPad": "iOS",
+            "Android": "Android",
 
             # Other
-            "Dreamcast": "dreamcast",
-            "DC": "dreamcast",
-            "Stadia": "stadia",
-            "Linux": "pc",
-            "Mac": "mac",
-            "macOS": "mac",
-            "Apple Macintosh": "mac"
+            "Dreamcast": "Dreamcast",
+            "DC": "Dreamcast",
+            "Stadia": "Stadia",
+            "Linux": "PC",
+            "Mac": "Mac",
+            "macOS": "Mac",
+            "Apple Macintosh": "Mac"
         }
-        platform_url = platform_map.get(platform, "pc")
-        url += f"{platform_url}/"
-    else:
-        url += "pc/"
+        platform_name = platform_map.get(platform, platform)
 
     # Предварительная обработка названия игры
     original_name = game_name
@@ -271,7 +271,7 @@ def get_metacritic_data(game_name, platform=None):
         'Cache-Control': 'max-age=0'
     }
 
-    def try_fetch_metacritic(url, game_name):
+    def try_fetch_metacritic(url, game_name, platform_name=None):
         try:
             response = requests.get(url, headers=headers, timeout=10)
 
@@ -279,14 +279,19 @@ def get_metacritic_data(game_name, platform=None):
                 soup = BeautifulSoup(response.text, 'html.parser')
 
                 # Проверяем, что страница действительно содержит информацию об игре
-                game_title_elem = soup.select_one('div.product_title h1')
+                # Metacritic обновил свой сайт, поэтому селекторы могли измениться
+                game_title_elem = soup.select_one('div.c-productHero_title h1, h1.c-productHero_title, div.product_title h1')
                 if not game_title_elem:
                     logging.warning(f"Страница не содержит информацию об игре: {url}")
                     return None
 
-                # Пробуем разные селекторы для metascore
+                # Пробуем разные селекторы для metascore (новый и старый дизайн)
                 metascore = None
                 metascore_selectors = [
+                    # Новый дизайн
+                    'div.c-productScoreInfo span.c-metascore, div.c-productScoreInfo div.c-metascore',
+                    'span.c-metascore, div.c-metascore',
+                    # Старый дизайн
                     'div.metascore_w.game span',
                     'div.metascore_w span',
                     'div.metascore_w.xlarge span',
@@ -294,39 +299,66 @@ def get_metacritic_data(game_name, platform=None):
                 ]
 
                 for selector in metascore_selectors:
-                    metascore_elem = soup.select_one(selector)
-                    if metascore_elem and metascore_elem.text.strip() and metascore_elem.text.strip() != 'tbd':
-                        try:
-                            metascore = int(metascore_elem.text.strip())
-                            break
-                        except ValueError:
-                            continue
+                    metascore_elems = soup.select(selector)
+                    for metascore_elem in metascore_elems:
+                        text = metascore_elem.text.strip()
+                        if text and text != 'tbd':
+                            try:
+                                metascore = int(text)
+                                break
+                            except ValueError:
+                                continue
+                    if metascore is not None:
+                        break
 
-                # Пробуем разные селекторы для userscore
+                # Пробуем разные селекторы для userscore (новый и старый дизайн)
                 userscore = None
                 userscore_selectors = [
+                    # Новый дизайн
+                    'div.c-productScoreInfo span.c-userscore, div.c-productScoreInfo div.c-userscore',
+                    'span.c-userscore, div.c-userscore',
+                    # Старый дизайн
                     'div.metascore_w.user.large.game',
                     'div.metascore_w.user',
                     'div.userscore_wrap div.metascore_w'
                 ]
 
                 for selector in userscore_selectors:
-                    userscore_elem = soup.select_one(selector)
-                    if userscore_elem and userscore_elem.text.strip() and userscore_elem.text.strip() != 'tbd':
-                        try:
-                            userscore = float(userscore_elem.text.strip())
-                            break
-                        except ValueError:
-                            continue
+                    userscore_elems = soup.select(selector)
+                    for userscore_elem in userscore_elems:
+                        text = userscore_elem.text.strip()
+                        if text and text != 'tbd':
+                            try:
+                                userscore = float(text)
+                                break
+                            except ValueError:
+                                continue
+                    if userscore is not None:
+                        break
 
                 # Проверяем, что хотя бы одна оценка найдена
                 if metascore is None and userscore is None:
                     # Проверяем, является ли игра предстоящей (без оценок)
-                    release_date_elem = soup.select_one('li.summary_detail.release_data div.data')
-                    if release_date_elem:
-                        release_date = release_date_elem.text.strip()
+                    # Пробуем разные селекторы для даты релиза (новый и старый дизайн)
+                    release_date = None
+                    release_date_selectors = [
+                        # Новый дизайн
+                        'div.c-gameDetails_ReleaseDate, div.c-gameDetails_releaseDate',
+                        'span.c-gameDetails_ReleaseDate, span.c-gameDetails_releaseDate',
+                        # Старый дизайн
+                        'li.summary_detail.release_data div.data',
+                        'div.release_data'
+                    ]
+
+                    for selector in release_date_selectors:
+                        release_date_elem = soup.select_one(selector)
+                        if release_date_elem:
+                            release_date = release_date_elem.text.strip()
+                            break
+
+                    if release_date:
                         # Если дата релиза в будущем или содержит "TBA" (To Be Announced)
-                        if "TBA" in release_date or "Coming" in release_date or "TBC" in release_date:
+                        if "TBA" in release_date or "Coming" in release_date or "TBC" in release_date or "Announced" in release_date:
                             logging.info(f"Игра {game_name} еще не вышла: {release_date}")
                             result = {
                                 "name": original_name,
@@ -334,6 +366,7 @@ def get_metacritic_data(game_name, platform=None):
                                 "userscore": None,
                                 "url": url,
                                 "timestamp": datetime.now().isoformat(),
+                                "platform": platform_name,
                                 "note": f"Игра еще не вышла: {release_date}"
                             }
                             return result
@@ -346,6 +379,7 @@ def get_metacritic_data(game_name, platform=None):
                         "userscore": None,
                         "url": url,
                         "timestamp": datetime.now().isoformat(),
+                        "platform": platform_name,
                         "note": "Страница существует, но оценки не найдены"
                     }
                     return result
@@ -355,7 +389,8 @@ def get_metacritic_data(game_name, platform=None):
                     "metascore": metascore,
                     "userscore": userscore,
                     "url": url,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
+                    "platform": platform_name
                 }
 
                 return result
@@ -438,11 +473,8 @@ def get_metacritic_data(game_name, platform=None):
     variants = generate_name_variants(game_name, original_name)
 
     for variant_name, variant_desc in variants:
-        if platform:
-            platform_url = platform_map.get(platform, "pc")
-            variant_url = f"http://www.metacritic.com/game/{platform_url}/{variant_name}"
-        else:
-            variant_url = f"http://www.metacritic.com/game/pc/{variant_name}"
+        # Новый формат URL без платформы
+        variant_url = f"https://www.metacritic.com/game/{variant_name}/"
 
         logging.info(f"Пробуем вариант '{variant_desc}': {variant_url}")
 
@@ -450,7 +482,7 @@ def get_metacritic_data(game_name, platform=None):
         if variant_name != game_name:  # Не добавляем задержку для первого запроса
             time.sleep(1)
 
-        result = try_fetch_metacritic(variant_url, variant_name)
+        result = try_fetch_metacritic(variant_url, variant_name, platform_name)
         if result:
             if variant_desc != "основной вариант":
                 result["note"] = f"Найдено по варианту: {variant_desc}"
@@ -467,15 +499,15 @@ def get_metacritic_data(game_name, platform=None):
             prev_gen_platform = "Xbox One"
 
         if prev_gen_platform:
-            platform_url = platform_map.get(prev_gen_platform, "pc")
-            alt_url = f"http://www.metacritic.com/game/{platform_url}/{game_name}"
+            # Новый формат URL без платформы
+            alt_url = f"https://www.metacritic.com/game/{game_name}/"
 
             logging.info(f"Пробуем найти игру на предыдущем поколении консолей ({prev_gen_platform}): {alt_url}")
 
             # Добавляем небольшую задержку перед повторным запросом
             time.sleep(1)
 
-            result = try_fetch_metacritic(alt_url, game_name)
+            result = try_fetch_metacritic(alt_url, game_name, prev_gen_platform)
             if result:
                 # Отмечаем, что это оценка для предыдущего поколения
                 result["note"] = f"Оценка для {prev_gen_platform}"
@@ -755,8 +787,7 @@ def update_metacritic_data():
                 requests_count += 1
 
                 if metacritic_result:
-                    if 'platform' not in metacritic_result:
-                        metacritic_result['platform'] = highest_priority_platform
+                    # Платформа теперь всегда добавляется в результат в функции try_fetch_metacritic
                     logging.info(f"Найдены данные Metacritic для игры {game_name} на платформе {metacritic_result.get('platform', highest_priority_platform)}")
                     if 'note' in metacritic_result:
                         logging.info(f"Примечание: {metacritic_result['note']}")
