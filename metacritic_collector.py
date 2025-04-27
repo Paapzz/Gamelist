@@ -304,7 +304,13 @@ def get_metacritic_data(game_name, platform=None):
                 metascore_patterns = [
                     r'Metascore\s+(\d+)',
                     r'Metascore.*?(\d+)',
-                    r'Metascore.*?Based on \d+ Critic Reviews.*?(\d+)'
+                    r'Metascore.*?Based on \d+ Critic Reviews.*?(\d+)',
+                    r'Metascore\s+Generally Favorable.*?(\d+)',
+                    r'Metascore\s+Universal Acclaim.*?(\d+)',
+                    r'Metascore\s+Mixed.*?(\d+)',
+                    r'Metascore\s+Generally Unfavorable.*?(\d+)',
+                    r'Metascore\s+Overwhelming Dislike.*?(\d+)',
+                    r'Metascore.*?Based on.*?(\d+)'
                 ]
 
                 for pattern in metascore_patterns:
@@ -332,6 +338,11 @@ def get_metacritic_data(game_name, platform=None):
                         'span[class*="metascore"]',
                         'div.c-productHero_metascore',
                         'span.c-productHero_metascore',
+                        # Специфичные селекторы для новейшего дизайна 2025
+                        'div.c-productHero_metascoreContainer',
+                        'span.c-productHero_metascoreContainer',
+                        'div.c-productHero_metascoreNumber',
+                        'span.c-productHero_metascoreNumber',
                         # Новый дизайн
                         'div.c-productScoreInfo span.c-metascore, div.c-productScoreInfo div.c-metascore',
                         'span.c-metascore, div.c-metascore',
@@ -374,7 +385,13 @@ def get_metacritic_data(game_name, platform=None):
                 userscore_patterns = [
                     r'User Score\s+(\d+\.\d+)',
                     r'User Score.*?(\d+\.\d+)',
-                    r'User Score.*?Based on \d+ User Ratings.*?(\d+\.\d+)'
+                    r'User Score.*?Based on \d+ User Ratings.*?(\d+\.\d+)',
+                    r'User Score\s+Generally Favorable.*?(\d+\.\d+)',
+                    r'User Score\s+Universal Acclaim.*?(\d+\.\d+)',
+                    r'User Score\s+Mixed.*?(\d+\.\d+)',
+                    r'User Score\s+Generally Unfavorable.*?(\d+\.\d+)',
+                    r'User Score\s+Overwhelming Dislike.*?(\d+\.\d+)',
+                    r'User Score.*?Based on.*?(\d+\.\d+)'
                 ]
 
                 for pattern in userscore_patterns:
@@ -395,6 +412,11 @@ def get_metacritic_data(game_name, platform=None):
                         'span[class*="userscore"]',
                         'div.c-productHero_userscore',
                         'span.c-productHero_userscore',
+                        # Специфичные селекторы для новейшего дизайна 2025
+                        'div.c-productHero_userscoreContainer',
+                        'span.c-productHero_userscoreContainer',
+                        'div.c-productHero_userscoreNumber',
+                        'span.c-productHero_userscoreNumber',
                         # Новый дизайн
                         'div.c-productScoreInfo span.c-userscore, div.c-productScoreInfo div.c-userscore',
                         'span.c-userscore, div.c-userscore',
@@ -414,6 +436,107 @@ def get_metacritic_data(game_name, platform=None):
                                     text = re.sub(r'[^\d\.]', '', text)
                                     if text:
                                         userscore = float(text)
+                                        break
+                                except ValueError:
+                                    continue
+                        if userscore is not None:
+                            break
+
+                # Если не нашли оценки через селекторы и регулярные выражения,
+                # пробуем найти их напрямую в HTML-коде страницы
+                if metascore is None:
+                    # Ищем Metascore в HTML-коде
+                    html_metascore_patterns = [
+                        r'Metascore.*?(\d+)',
+                        r'metascore.*?(\d+)',
+                        r'critic.*?(\d+)',
+                        r'critic score.*?(\d+)'
+                    ]
+
+                    for pattern in html_metascore_patterns:
+                        matches = re.findall(pattern, str(soup), re.IGNORECASE)
+                        if matches:
+                            for match in matches:
+                                try:
+                                    score = int(match)
+                                    if 0 <= score <= 100:
+                                        metascore = score
+                                        logging.info(f"Найден Metascore в HTML-коде: {metascore}")
+                                        break
+                                except ValueError:
+                                    continue
+                        if metascore is not None:
+                            break
+
+                if userscore is None:
+                    # Ищем User Score в HTML-коде
+                    html_userscore_patterns = [
+                        r'User Score.*?(\d+\.\d+)',
+                        r'userscore.*?(\d+\.\d+)',
+                        r'user.*?(\d+\.\d+)',
+                        r'user score.*?(\d+\.\d+)'
+                    ]
+
+                    for pattern in html_userscore_patterns:
+                        matches = re.findall(pattern, str(soup), re.IGNORECASE)
+                        if matches:
+                            for match in matches:
+                                try:
+                                    score = float(match)
+                                    if 0 <= score <= 10:
+                                        userscore = score
+                                        logging.info(f"Найден User Score в HTML-коде: {userscore}")
+                                        break
+                                except ValueError:
+                                    continue
+                        if userscore is not None:
+                            break
+
+                # Последняя попытка - поиск в тексте страницы с использованием более гибких регулярных выражений
+                if metascore is None:
+                    # Ищем любые числа от 0 до 100 рядом с ключевыми словами
+                    text = soup.text
+
+                    # Ищем числа рядом с "Metascore", "Critic", "Critics", "Reviews"
+                    metascore_keywords = ["Metascore", "Critic", "Critics", "Reviews"]
+                    for keyword in metascore_keywords:
+                        # Ищем в окрестности 100 символов от ключевого слова
+                        keyword_pos = text.find(keyword)
+                        if keyword_pos != -1:
+                            context = text[max(0, keyword_pos - 50):min(len(text), keyword_pos + 150)]
+                            # Ищем числа от 0 до 100
+                            number_matches = re.findall(r'\b(\d{1,3})\b', context)
+                            for match in number_matches:
+                                try:
+                                    score = int(match)
+                                    if 70 <= score <= 100:  # Вероятно, это Metascore
+                                        metascore = score
+                                        logging.info(f"Найден вероятный Metascore в тексте: {metascore}")
+                                        break
+                                except ValueError:
+                                    continue
+                        if metascore is not None:
+                            break
+
+                if userscore is None:
+                    # Ищем десятичные числа от 0 до 10 рядом с ключевыми словами
+                    text = soup.text
+
+                    # Ищем числа рядом с "User Score", "User", "Users", "Ratings"
+                    userscore_keywords = ["User Score", "User", "Users", "Ratings"]
+                    for keyword in userscore_keywords:
+                        # Ищем в окрестности 100 символов от ключевого слова
+                        keyword_pos = text.find(keyword)
+                        if keyword_pos != -1:
+                            context = text[max(0, keyword_pos - 50):min(len(text), keyword_pos + 150)]
+                            # Ищем десятичные числа от 0 до 10
+                            number_matches = re.findall(r'\b(\d+\.\d+)\b', context)
+                            for match in number_matches:
+                                try:
+                                    score = float(match)
+                                    if 7.0 <= score <= 10.0:  # Вероятно, это User Score
+                                        userscore = score
+                                        logging.info(f"Найден вероятный User Score в тексте: {userscore}")
                                         break
                                 except ValueError:
                                     continue
