@@ -274,11 +274,77 @@ def get_metacritic_data(game_name, platform=None):
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')
 
-                metascore_elem = soup.select_one('div.metascore_w.game span')
-                metascore = int(metascore_elem.text) if metascore_elem else None
+                # Проверяем, что страница действительно содержит информацию об игре
+                game_title_elem = soup.select_one('div.product_title h1')
+                if not game_title_elem:
+                    logging.warning(f"Страница не содержит информацию об игре: {url}")
+                    return None
 
-                userscore_elem = soup.select_one('div.metascore_w.user.large.game')
-                userscore = float(userscore_elem.text) if userscore_elem else None
+                # Пробуем разные селекторы для metascore
+                metascore = None
+                metascore_selectors = [
+                    'div.metascore_w.game span',
+                    'div.metascore_w span',
+                    'div.metascore_w.xlarge span',
+                    'div.metascore_w.large span'
+                ]
+
+                for selector in metascore_selectors:
+                    metascore_elem = soup.select_one(selector)
+                    if metascore_elem and metascore_elem.text.strip() and metascore_elem.text.strip() != 'tbd':
+                        try:
+                            metascore = int(metascore_elem.text.strip())
+                            break
+                        except ValueError:
+                            continue
+
+                # Пробуем разные селекторы для userscore
+                userscore = None
+                userscore_selectors = [
+                    'div.metascore_w.user.large.game',
+                    'div.metascore_w.user',
+                    'div.userscore_wrap div.metascore_w'
+                ]
+
+                for selector in userscore_selectors:
+                    userscore_elem = soup.select_one(selector)
+                    if userscore_elem and userscore_elem.text.strip() and userscore_elem.text.strip() != 'tbd':
+                        try:
+                            userscore = float(userscore_elem.text.strip())
+                            break
+                        except ValueError:
+                            continue
+
+                # Проверяем, что хотя бы одна оценка найдена
+                if metascore is None and userscore is None:
+                    # Проверяем, является ли игра предстоящей (без оценок)
+                    release_date_elem = soup.select_one('li.summary_detail.release_data div.data')
+                    if release_date_elem:
+                        release_date = release_date_elem.text.strip()
+                        # Если дата релиза в будущем или содержит "TBA" (To Be Announced)
+                        if "TBA" in release_date or "Coming" in release_date or "TBC" in release_date:
+                            logging.info(f"Игра {game_name} еще не вышла: {release_date}")
+                            result = {
+                                "name": original_name,
+                                "metascore": None,
+                                "userscore": None,
+                                "url": url,
+                                "timestamp": datetime.now().isoformat(),
+                                "note": f"Игра еще не вышла: {release_date}"
+                            }
+                            return result
+
+                    logging.warning(f"Не удалось найти оценки для игры {game_name} на странице {url}")
+                    # Возвращаем результат с пустыми оценками, но с пометкой
+                    result = {
+                        "name": original_name,
+                        "metascore": None,
+                        "userscore": None,
+                        "url": url,
+                        "timestamp": datetime.now().isoformat(),
+                        "note": "Страница существует, но оценки не найдены"
+                    }
+                    return result
 
                 result = {
                     "name": original_name,
@@ -425,6 +491,44 @@ def update_metacritic_data():
     """Обновляет данные Metacritic для игр."""
     metacritic_data = load_metacritic_data()
 
+    # Выводим статистику текущей базы данных
+    if metacritic_data['games']:
+        games_with_metascore = 0
+        games_with_userscore = 0
+        games_with_both_scores = 0
+        games_not_released = 0
+        games_no_scores = 0
+        games_not_found = 0
+
+        for game_data in metacritic_data['games'].values():
+            has_metascore = game_data.get('metascore') is not None
+            has_userscore = game_data.get('userscore') is not None
+            note = game_data.get('note', '')
+
+            if has_metascore:
+                games_with_metascore += 1
+            if has_userscore:
+                games_with_userscore += 1
+            if has_metascore and has_userscore:
+                games_with_both_scores += 1
+
+            if "Игра еще не вышла" in note:
+                games_not_released += 1
+            elif note == "Страница существует, но оценки не найдены":
+                games_no_scores += 1
+            elif note == "Не найдено на Metacritic":
+                games_not_found += 1
+
+        logging.info(f"Текущая статистика базы данных Metacritic:")
+        logging.info(f"  - Всего игр в базе: {len(metacritic_data['games'])}")
+        logging.info(f"  - Игр с оценкой критиков: {games_with_metascore}")
+        logging.info(f"  - Игр с оценкой пользователей: {games_with_userscore}")
+        logging.info(f"  - Игр с обеими оценками: {games_with_both_scores}")
+        logging.info(f"  - Игр, которые еще не вышли: {games_not_released}")
+        logging.info(f"  - Игр без оценок: {games_no_scores}")
+        logging.info(f"  - Игр, не найденных на Metacritic: {games_not_found}")
+        logging.info(f"")
+
     all_games = load_all_games()
 
     total_games = len(all_games)
@@ -450,12 +554,14 @@ def update_metacritic_data():
             game_data = metacritic_data['games'][game_id]
             last_updated = game_data.get('timestamp', '')
 
-            # Если у игры есть примечание "Не найдено на Metacritic", проверяем, прошло ли достаточно времени
-            if game_data.get('note') == "Не найдено на Metacritic" and last_updated:
+            # Проверяем примечание к игре
+            note = game_data.get('note', '')
+
+            # Если у игры есть примечание "Не найдено на Metacritic", проверяем реже (раз в 90 дней)
+            if note == "Не найдено на Metacritic" and last_updated:
                 try:
                     last_updated_date = datetime.fromisoformat(last_updated)
                     days_since_update = (datetime.now() - last_updated_date).days
-                    # Для игр, которые не были найдены, проверяем реже (раз в 90 дней)
                     if days_since_update < 90:
                         skipped_games += 1
                         processed_games += 1
@@ -463,8 +569,35 @@ def update_metacritic_data():
                         continue
                 except Exception as e:
                     logging.warning(f"Не удалось распарсить дату обновления для игры {game_name}: {e}")
+
+            # Если у игры есть примечание "Игра еще не вышла", проверяем раз в 30 дней
+            elif "Игра еще не вышла" in note and last_updated:
+                try:
+                    last_updated_date = datetime.fromisoformat(last_updated)
+                    days_since_update = (datetime.now() - last_updated_date).days
+                    if days_since_update < 30:
+                        skipped_games += 1
+                        processed_games += 1
+                        logging.debug(f"Пропускаем игру {game_name} (ID: {game_id}), {note}, проверено {days_since_update} дней назад")
+                        continue
+                except Exception as e:
+                    logging.warning(f"Не удалось распарсить дату обновления для игры {game_name}: {e}")
+
+            # Если у игры есть примечание "Страница существует, но оценки не найдены", проверяем раз в 60 дней
+            elif note == "Страница существует, но оценки не найдены" and last_updated:
+                try:
+                    last_updated_date = datetime.fromisoformat(last_updated)
+                    days_since_update = (datetime.now() - last_updated_date).days
+                    if days_since_update < 60:
+                        skipped_games += 1
+                        processed_games += 1
+                        logging.debug(f"Пропускаем игру {game_name} (ID: {game_id}), страница без оценок, проверено {days_since_update} дней назад")
+                        continue
+                except Exception as e:
+                    logging.warning(f"Не удалось распарсить дату обновления для игры {game_name}: {e}")
+
             # Для обычных игр с данными проверяем каждые 30 дней
-            elif last_updated and game_data.get('metascore') is not None:
+            elif last_updated and (game_data.get('metascore') is not None or game_data.get('userscore') is not None):
                 try:
                     last_updated_date = datetime.fromisoformat(last_updated)
                     days_since_update = (datetime.now() - last_updated_date).days
@@ -620,9 +753,24 @@ def update_metacritic_data():
             requests_count += 1
 
         if metacritic_result:
+            # Проверяем, есть ли у результата примечание о том, что страница существует, но оценок нет
+            has_note = 'note' in metacritic_result
+            has_scores = metacritic_result.get('metascore') is not None or metacritic_result.get('userscore') is not None
+
             metacritic_data['games'][game_id] = metacritic_result
-            updated_games += 1
-            logging.info(f"Данные Metacritic для игры {game_name} успешно обновлены")
+
+            # Если есть оценки или есть примечание (игра еще не вышла, страница без оценок и т.д.),
+            # считаем это успешным обновлением
+            if has_scores or has_note:
+                updated_games += 1
+                if has_scores:
+                    logging.info(f"Данные Metacritic для игры {game_name} успешно обновлены")
+                else:
+                    logging.info(f"Данные Metacritic для игры {game_name} обновлены: {metacritic_result.get('note')}")
+            else:
+                # Если нет ни оценок, ни примечания, считаем это ошибкой
+                error_games += 1
+                logging.warning(f"Получены пустые данные для игры {game_name}")
         else:
             error_games += 1
             # Добавляем запись о неудачном поиске, чтобы не искать эту игру снова в ближайшее время
@@ -642,19 +790,93 @@ def update_metacritic_data():
             metacritic_data['last_updated'] = datetime.now().isoformat()
             metacritic_data['total_games'] = len(metacritic_data['games'])
             save_metacritic_data(metacritic_data)
+
+            # Подсчитываем статистику по собранным данным
+            games_with_metascore = 0
+            games_with_userscore = 0
+            games_with_both_scores = 0
+            games_not_released = 0
+            games_no_scores = 0
+            games_not_found = 0
+
+            for game_data in metacritic_data['games'].values():
+                has_metascore = game_data.get('metascore') is not None
+                has_userscore = game_data.get('userscore') is not None
+                note = game_data.get('note', '')
+
+                if has_metascore:
+                    games_with_metascore += 1
+                if has_userscore:
+                    games_with_userscore += 1
+                if has_metascore and has_userscore:
+                    games_with_both_scores += 1
+
+                if "Игра еще не вышла" in note:
+                    games_not_released += 1
+                elif note == "Страница существует, но оценки не найдены":
+                    games_no_scores += 1
+                elif note == "Не найдено на Metacritic":
+                    games_not_found += 1
+
+            # Выводим краткую сводку
             logging.info(f"Промежуточное сохранение: обработано {processed_games}/{total_games} игр")
+            logging.info(f"Статистика собранных данных:")
+            logging.info(f"  - Всего игр в базе: {len(metacritic_data['games'])}")
+            logging.info(f"  - Игр с оценкой критиков: {games_with_metascore}")
+            logging.info(f"  - Игр с оценкой пользователей: {games_with_userscore}")
+            logging.info(f"  - Игр с обеими оценками: {games_with_both_scores}")
+            logging.info(f"  - Игр, которые еще не вышли: {games_not_released}")
+            logging.info(f"  - Игр без оценок: {games_no_scores}")
+            logging.info(f"  - Игр, не найденных на Metacritic: {games_not_found}")
 
     metacritic_data['last_updated'] = datetime.now().isoformat()
     metacritic_data['total_games'] = len(metacritic_data['games'])
 
     save_metacritic_data(metacritic_data)
 
+    # Подсчитываем финальную статистику по собранным данным
+    games_with_metascore = 0
+    games_with_userscore = 0
+    games_with_both_scores = 0
+    games_not_released = 0
+    games_no_scores = 0
+    games_not_found = 0
+
+    for game_data in metacritic_data['games'].values():
+        has_metascore = game_data.get('metascore') is not None
+        has_userscore = game_data.get('userscore') is not None
+        note = game_data.get('note', '')
+
+        if has_metascore:
+            games_with_metascore += 1
+        if has_userscore:
+            games_with_userscore += 1
+        if has_metascore and has_userscore:
+            games_with_both_scores += 1
+
+        if "Игра еще не вышла" in note:
+            games_not_released += 1
+        elif note == "Страница существует, но оценки не найдены":
+            games_no_scores += 1
+        elif note == "Не найдено на Metacritic":
+            games_not_found += 1
+
+    # Выводим финальную сводку
     logging.info(f"Обновление данных Metacritic завершено:")
-    logging.info(f"Всего игр: {total_games}")
+    logging.info(f"Всего игр в IGDB: {total_games}")
     logging.info(f"Обработано игр: {processed_games}")
     logging.info(f"Обновлено игр: {updated_games}")
     logging.info(f"Пропущено игр: {skipped_games}")
     logging.info(f"Ошибок: {error_games}")
+    logging.info(f"")
+    logging.info(f"Статистика базы данных Metacritic:")
+    logging.info(f"  - Всего игр в базе: {len(metacritic_data['games'])}")
+    logging.info(f"  - Игр с оценкой критиков: {games_with_metascore}")
+    logging.info(f"  - Игр с оценкой пользователей: {games_with_userscore}")
+    logging.info(f"  - Игр с обеими оценками: {games_with_both_scores}")
+    logging.info(f"  - Игр, которые еще не вышли: {games_not_released}")
+    logging.info(f"  - Игр без оценок: {games_no_scores}")
+    logging.info(f"  - Игр, не найденных на Metacritic: {games_not_found}")
 
 def main():
     """Основная функция скрипта."""
