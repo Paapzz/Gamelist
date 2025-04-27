@@ -2690,13 +2690,21 @@
         // Глобальные переменные для управления загрузкой изображений
         let imageLoadQueue = [];
         let activeImageLoads = 0;
-        const MAX_CONCURRENT_LOADS = 4; // Максимальное количество одновременных загрузок
+        const MAX_CONCURRENT_LOADS = 8; // Максимальное количество одновременных загрузок
         const IMAGE_CACHE_PREFIX = 'img_cache_'; // Префикс для ключей кэша изображений
         const MAX_CACHE_SIZE = 50 * 1024 * 1024; // Максимальный размер кэша (50 МБ)
         let currentCacheSize = 0; // Текущий размер кэша
+        let loadedImages = new Set(); // Множество для отслеживания уже загруженных изображений
 
         // Функция для добавления изображения в очередь загрузки
         function queueImageLoad(img, url) {
+            // Проверяем, было ли это изображение уже загружено
+            if (loadedImages.has(url)) {
+                // Если изображение уже было загружено, просто устанавливаем класс loaded
+                img.classList.add('loaded');
+                return;
+            }
+
             // Получаем позицию ячейки на экране
             const cell = img.closest('.cell');
             if (cell) {
@@ -2792,21 +2800,11 @@
                     img.classList.add('loaded');
                     activeImageLoads--;
 
-                    // Сохраняем изображение в кэш
-                    try {
-                        // Создаем canvas для получения data URL
-                        const canvas = document.createElement('canvas');
-                        canvas.width = img.naturalWidth;
-                        canvas.height = img.naturalHeight;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0);
+                    // Добавляем URL в множество загруженных изображений
+                    loadedImages.add(url);
 
-                        // Получаем data URL и сохраняем в кэш
-                        const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // Сжимаем для экономии места
-                        saveImageToCache(url, dataUrl);
-                    } catch (e) {
-                        console.error('Ошибка при сохранении изображения в кэш:', e);
-                    }
+                    // Сохраняем URL изображения в кэш
+                    saveImageToCache(url);
 
                     // Продолжаем обработку очереди
                     setTimeout(processImageQueue, 100);
@@ -2818,6 +2816,10 @@
                     console.log(`Не удалось загрузить изображение, используем заглушку`);
                     img.classList.add('loaded');
                     activeImageLoads--;
+
+                    // Добавляем URL в множество загруженных изображений с префиксом "error:"
+                    // чтобы отличать от успешно загруженных
+                    loadedImages.add("error:" + url);
 
                     // Продолжаем обработку очереди
                     setTimeout(processImageQueue, 100);
@@ -3835,20 +3837,20 @@
             }
         }
 
-        // Функция для сохранения изображения в localStorage
-        function saveImageToCache(url, dataUrl) {
+        // Функция для сохранения URL изображения в localStorage
+        function saveImageToCache(url) {
             try {
-                // Проверяем размер изображения
-                const size = dataUrl.length * 2; // Примерный размер в байтах (2 байта на символ)
+                // Примерный размер записи в байтах
+                const size = url.length * 2; // Примерный размер в байтах (2 байта на символ)
 
                 // Если добавление этого изображения превысит лимит, очищаем часть кэша
                 if (currentCacheSize + size > MAX_CACHE_SIZE) {
                     clearOldestImagesFromCache(size);
                 }
 
-                // Сохраняем изображение в кэш
+                // Сохраняем URL изображения в кэш
                 const cacheKey = IMAGE_CACHE_PREFIX + hashUrl(url);
-                localStorage.setItem(cacheKey, dataUrl);
+                localStorage.setItem(cacheKey, url);
 
                 // Обновляем информацию о кэше
                 currentCacheSize += size;
@@ -3862,9 +3864,9 @@
                 };
                 localStorage.setItem('imageCacheMetadata', JSON.stringify(cacheMetadata));
 
-                console.log(`Изображение сохранено в кэш: ${url.substring(0, 50)}...`);
+                console.log(`URL изображения сохранен в кэш: ${url.substring(0, 50)}...`);
             } catch (e) {
-                console.error('Ошибка при сохранении изображения в кэш:', e);
+                console.error('Ошибка при сохранении URL изображения в кэш:', e);
             }
         }
 
@@ -3934,12 +3936,21 @@
                     total + metadata.size, 0
                 );
 
-                console.log(`Инициализирован кэш изображений, текущий размер: ${(currentCacheSize / 1024 / 1024).toFixed(2)} МБ`);
+                // Загружаем множество уже загруженных изображений
+                loadedImages = new Set();
+                for (const key in cacheMetadata) {
+                    if (cacheMetadata[key].url) {
+                        loadedImages.add(cacheMetadata[key].url);
+                    }
+                }
+
+                console.log(`Инициализирован кэш изображений, текущий размер: ${(currentCacheSize / 1024 / 1024).toFixed(2)} МБ, загружено ${loadedImages.size} URL`);
             } catch (e) {
                 console.error('Ошибка при инициализации кэша изображений:', e);
                 // В случае ошибки сбрасываем кэш
                 localStorage.removeItem('imageCacheMetadata');
                 currentCacheSize = 0;
+                loadedImages = new Set();
             }
         }
 
@@ -3995,6 +4006,9 @@
                 // Сбрасываем метаданные и размер кэша
                 localStorage.removeItem('imageCacheMetadata');
                 currentCacheSize = 0;
+
+                // Очищаем множество загруженных изображений
+                loadedImages.clear();
 
                 console.log('Кэш изображений полностью очищен');
             } catch (e) {
