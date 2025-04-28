@@ -505,76 +505,6 @@
             /* Убраны padding-right и margin-right */
             box-sizing: border-box; /* Оставляем для консистентности */
         }
-
-        /* Стили для индикатора загрузки */
-        .loading-indicator {
-            position: fixed;
-            bottom: 60px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.8);
-            border-radius: 20px;
-            padding: 10px 15px;
-            z-index: 1000;
-            width: 300px;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
-            transition: opacity 0.5s ease, transform 0.3s ease;
-            opacity: 0;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
-        }
-
-        .loading-progress-bar {
-            height: 6px;
-            background-color: #4CAF50;
-            border-radius: 3px;
-            width: 0%;
-            transition: width 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .loading-progress-bar::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-            animation: shimmer 1.5s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        .loading-progress-text {
-            color: white;
-            font-size: 12px;
-            text-align: center;
-            margin-top: 5px;
-            font-weight: bold;
-        }
-
-        /* Стили для скелетона ячеек */
-        .cell.skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: skeleton-loading 1.5s infinite;
-            border-radius: 5px;
-        }
-
-        @keyframes skeleton-loading {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
         #sizeSlider {
             margin: 0;
             width: 30vw; /* Возвращаем исходную ширину */
@@ -2119,199 +2049,6 @@
         window.messageTimer = null; // Таймер для сообщений
         window.animationTimer = null; // Таймер для анимаций
 
-        // Web Worker для фоновых операций
-        let worker = null;
-        let isWorkerBusy = false;
-
-        // Инициализация Web Worker
-        function initWorker() {
-            if (window.Worker) {
-                try {
-                    worker = new Worker('worker.js');
-
-                    // Обработчик сообщений от воркера
-                    worker.onmessage = function(e) {
-                        const { action, data } = e.data;
-
-                        switch (action) {
-                            case 'filter_result':
-                                handleFilterResult(data);
-                                break;
-
-                            case 'sort_result':
-                                handleSortResult(data);
-                                break;
-
-                            case 'search_result':
-                                handleSearchResult(data);
-                                break;
-
-                            case 'process_data_result':
-                                handleProcessDataResult(data);
-                                break;
-
-                            case 'error':
-                                console.error('Ошибка в Web Worker:', data);
-                                break;
-                        }
-
-                        isWorkerBusy = false;
-                    };
-
-                    worker.onerror = function(error) {
-                        console.error('Ошибка в Web Worker:', error.message);
-                        isWorkerBusy = false;
-                    };
-
-                    console.log('Web Worker успешно инициализирован');
-                } catch (error) {
-                    console.error('Не удалось инициализировать Web Worker:', error);
-                    worker = null;
-                }
-            } else {
-                console.warn('Браузер не поддерживает Web Workers');
-                worker = null;
-            }
-        }
-
-        // Обработчики результатов от Web Worker
-        function handleFilterResult(filteredGames) {
-            console.log(`Получены отфильтрованные игры от Web Worker: ${filteredGames.length} игр`);
-
-            // Обновляем отображение с отфильтрованными играми
-            renderFilteredGames(filteredGames);
-        }
-
-        function handleSortResult(sortedGames) {
-            console.log(`Получены отсортированные игры от Web Worker: ${sortedGames.length} игр`);
-
-            // Обновляем отображение с отсортированными играми
-            renderSortedGames(sortedGames);
-        }
-
-        function handleSearchResult(searchResults) {
-            console.log(`Получены результаты поиска от Web Worker: ${searchResults.length} игр`);
-
-            // Отображаем результаты поиска
-            displaySearchResults(searchResults);
-        }
-
-        function handleProcessDataResult(processedData) {
-            console.log('Получены обработанные данные от Web Worker');
-
-            // Обрабатываем результаты
-            if (processedData.compress) {
-                console.log('Данные были сжаты');
-            }
-        }
-
-        // Функция для отправки задачи в Web Worker
-        function sendTaskToWorker(action, data) {
-            if (!worker) {
-                console.warn('Web Worker не инициализирован, выполняем задачу в основном потоке');
-                return false;
-            }
-
-            if (isWorkerBusy) {
-                console.warn('Web Worker занят, задача будет выполнена в основном потоке');
-                return false;
-            }
-
-            try {
-                isWorkerBusy = true;
-                worker.postMessage({ action, data });
-                return true;
-            } catch (error) {
-                console.error('Ошибка при отправке задачи в Web Worker:', error);
-                isWorkerBusy = false;
-                return false;
-            }
-        }
-
-        // Вспомогательные функции для работы с Web Worker
-        function renderFilteredGames(filteredGames) {
-            // Временно сохраняем отфильтрованные игры
-            const filteredGameIds = new Set(filteredGames.map(game => game.id.toString()));
-
-            // Обновляем видимость ячеек
-            document.querySelectorAll('.cell').forEach(cell => {
-                const gameId = cell.dataset.gameId;
-                if (filteredGameIds.has(gameId)) {
-                    cell.style.display = '';
-                } else {
-                    cell.style.display = 'none';
-                }
-            });
-
-            // Обновляем размер сетки
-            updateGridSize();
-        }
-
-        function renderSortedGames(sortedGames) {
-            // Создаем карту для быстрого доступа к играм по ID
-            const gameMap = new Map();
-            sortedGames.forEach(game => {
-                gameMap.set(game.id.toString(), game);
-            });
-
-            // Получаем все ячейки
-            const cells = Array.from(document.querySelectorAll('.cell:not(.in-progress)'));
-
-            // Сортируем ячейки в соответствии с порядком игр
-            cells.sort((a, b) => {
-                const aIndex = sortedGames.findIndex(game => game.id.toString() === a.dataset.gameId);
-                const bIndex = sortedGames.findIndex(game => game.id.toString() === b.dataset.gameId);
-                return aIndex - bIndex;
-            });
-
-            // Очищаем сетку
-            grid.innerHTML = '';
-
-            // Добавляем ячейки в новом порядке
-            cells.forEach(cell => {
-                grid.appendChild(cell);
-            });
-        }
-
-        function displaySearchResults(searchResults) {
-            // Очищаем контейнер результатов поиска
-            const searchResultsContainer = document.getElementById('searchResults');
-            searchResultsContainer.innerHTML = '';
-
-            if (searchResults.length === 0) {
-                searchResultsContainer.innerHTML = '<p class="no-games-found">Игры не найдены.</p>';
-                return;
-            }
-
-            // Отображаем результаты поиска
-            searchResults.forEach(game => {
-                const resultElement = document.createElement('div');
-                resultElement.className = 'search-result';
-
-                // Создаем содержимое элемента результата
-                resultElement.innerHTML = `
-                    <div class="search-result-info">
-                        <div class="search-result-name">${game.name}</div>
-                        <div class="search-result-year">${game.year || 'Год неизвестен'}</div>
-                    </div>
-                    <button class="add-game-button" data-game-id="${game.id}">Добавить</button>
-                `;
-
-                searchResultsContainer.appendChild(resultElement);
-            });
-
-            // Добавляем обработчики событий для кнопок "Добавить"
-            searchResultsContainer.querySelectorAll('.add-game-button').forEach(button => {
-                button.addEventListener('click', function() {
-                    const gameId = this.dataset.gameId;
-                    const game = searchResults.find(g => g.id.toString() === gameId);
-                    if (game) {
-                        addGameFromSearch(game);
-                    }
-                });
-            });
-        }
-
         // Кэш для оптимизации производительности
         const gameCache = {
             // Кэш для минимального и максимального года
@@ -2326,9 +2063,7 @@
             timers: {
                 yearFilter: null,
                 localStorage: null,
-                imageCache: null,
-                cacheMetadata: null, // Новый таймер для отложенного сохранения метаданных кэша
-                virtualizationScroll: null // Таймер для виртуализации
+                imageCache: null
             },
             // Кэш для видимых игр
             visibleGameIds: new Set()
@@ -2436,74 +2171,6 @@
             }
         }
 
-        // Функции для сжатия и распаковки данных
-        function compressData(data) {
-            // Простая "компрессия" - удаление ненужных полей
-            if (Array.isArray(data)) {
-                return data.map(item => {
-                    // Для игр оставляем только необходимые поля
-                    if (item.id && item.name) {
-                        const { id, name, year, file_number } = item;
-                        return { id, name, year, file_number };
-                    }
-                    return item;
-                });
-            }
-            return data;
-        }
-
-        function decompressData(data) {
-            // Распаковка данных (если необходимо)
-            return data;
-        }
-
-        // Функция для загрузки JSON с поддержкой сжатия
-        async function loadJsonWithCompression(url, useCompression = false) {
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`Ошибка загрузки: ${response.status} ${response.statusText}`);
-                }
-
-                const data = await response.json();
-
-                // Если включено сжатие, отправляем данные в Web Worker для обработки
-                if (useCompression && worker) {
-                    return new Promise((resolve) => {
-                        const taskSent = sendTaskToWorker('process_data', {
-                            data,
-                            compress: true
-                        });
-
-                        if (!taskSent) {
-                            // Если не удалось отправить задачу в Web Worker, обрабатываем данные в основном потоке
-                            resolve(compressData(data));
-                        } else {
-                            // Устанавливаем обработчик для получения результата от Web Worker
-                            const originalOnMessage = worker.onmessage;
-                            worker.onmessage = function(e) {
-                                const { action, data: processedData } = e.data;
-                                if (action === 'process_data_result') {
-                                    // Восстанавливаем оригинальный обработчик
-                                    worker.onmessage = originalOnMessage;
-                                    isWorkerBusy = false;
-                                    resolve(processedData);
-                                } else {
-                                    // Передаем сообщение оригинальному обработчику
-                                    originalOnMessage(e);
-                                }
-                            };
-                        }
-                    });
-                }
-
-                return data;
-            } catch (error) {
-                console.error(`Ошибка при загрузке ${url}:`, error);
-                throw error;
-            }
-        }
-
         // Функция для загрузки поискового индекса
         async function loadSearchIndex() {
             console.log('Вызвана функция loadSearchIndex');
@@ -2522,8 +2189,11 @@
 
             try {
                 console.log('Пытаемся загрузить файл data/search_index.json');
-                // Используем новую функцию загрузки с поддержкой сжатия
-                searchIndex = await loadJsonWithCompression('data/search_index.json', true);
+                const response = await fetch('data/search_index.json');
+                if (!response.ok) {
+                    throw new Error(`Ошибка загрузки поискового индекса: ${response.status} ${response.statusText}`);
+                }
+                searchIndex = await response.json();
                 console.log(`Поисковый индекс успешно загружен (${searchIndex.length} игр)`);
                 return searchIndex;
             } catch (error) {
@@ -3086,7 +2756,7 @@
         let loadedImages = new Set(); // Множество для отслеживания уже загруженных изображений
 
         // Функция для добавления изображения в очередь загрузки
-        function queueImageLoad(img, url, priority = false) {
+        function queueImageLoad(img, url) {
             // Проверяем, было ли это изображение уже загружено
             if (loadedImages.has(url)) {
                 // Если изображение уже было загружено, устанавливаем класс loaded с небольшой задержкой
@@ -3105,15 +2775,11 @@
                     left: rect.left
                 };
 
-                // Добавляем изображение в очередь с информацией о позиции и приоритете
-                imageLoadQueue.push({ img, url, position, priority });
+                // Добавляем изображение в очередь с информацией о позиции
+                imageLoadQueue.push({ img, url, position });
 
                 // Сортируем очередь, приоритизируя зону "в процессе", затем сверху вниз, слева направо
                 imageLoadQueue.sort((a, b) => {
-                    // Сначала сортируем по приоритету
-                    if (a.priority && !b.priority) return -1;
-                    if (!a.priority && b.priority) return 1;
-
                     // Проверяем, находится ли изображение в зоне "в процессе"
                     const aInProgress = a.img.closest('.in-progress') !== null;
                     const bInProgress = b.img.closest('.in-progress') !== null;
@@ -3132,7 +2798,7 @@
                 });
             } else {
                 // Если не удалось получить ячейку, просто добавляем в конец очереди
-                imageLoadQueue.push({ img, url, priority });
+                imageLoadQueue.push({ img, url });
             }
 
             // Запускаем обработку очереди
@@ -3146,131 +2812,20 @@
             updateLoadingIndicator();
         }
 
-        // Функция для обновления индикатора загрузки
+        // Функция для обновления индикатора загрузки (отключена)
         function updateLoadingIndicator() {
-            const loadingIndicator = document.getElementById('loadingIndicator');
-
-            // Если индикатор не существует, создаем его
-            if (!loadingIndicator && imageLoadQueue.length > 0) {
-                const indicator = document.createElement('div');
-                indicator.id = 'loadingIndicator';
-                indicator.className = 'loading-indicator';
-
-                // Создаем индикатор прогресса
-                const progressBar = document.createElement('div');
-                progressBar.className = 'loading-progress-bar';
-
-                // Создаем текст с информацией о загрузке
-                const progressText = document.createElement('div');
-                progressText.className = 'loading-progress-text';
-
-                // Добавляем элементы в индикатор
-                indicator.appendChild(progressBar);
-                indicator.appendChild(progressText);
-
-                // Добавляем индикатор на страницу
-                document.body.appendChild(indicator);
-
-                // Обновляем прогресс
-                updateLoadingProgress();
-            } else if (loadingIndicator && imageLoadQueue.length === 0 && activeImageLoads === 0) {
-                // Если очередь пуста и нет активных загрузок, скрываем индикатор
-                loadingIndicator.style.opacity = '0';
-                setTimeout(() => {
-                    if (loadingIndicator.parentNode) {
-                        loadingIndicator.parentNode.removeChild(loadingIndicator);
-                    }
-                }, 500); // Задержка для плавного исчезновения
-            } else if (loadingIndicator) {
-                // Обновляем прогресс
-                updateLoadingProgress();
-            }
-        }
-
-        // Функция для обновления прогресса загрузки
-        function updateLoadingProgress() {
-            const loadingIndicator = document.getElementById('loadingIndicator');
-            if (!loadingIndicator) return;
-
-            const progressBar = loadingIndicator.querySelector('.loading-progress-bar');
-            const progressText = loadingIndicator.querySelector('.loading-progress-text');
-
-            // Вычисляем общее количество изображений в очереди и активных загрузок
-            const totalImages = imageLoadQueue.length + activeImageLoads;
-
-            // Вычисляем процент загруженных изображений
-            const loadedPercent = Math.min(100, Math.round((loadedImages.size / (loadedImages.size + totalImages)) * 100));
-
-            // Обновляем прогресс-бар
-            progressBar.style.width = `${loadedPercent}%`;
-
-            // Обновляем текст
-            progressText.textContent = `Загружено ${loadedImages.size} изображений (${loadedPercent}%)`;
-
-            // Показываем индикатор
-            loadingIndicator.style.opacity = '1';
-        }
-
-        // Функция для предзагрузки изображений в видимой области
-        function preloadVisibleImages() {
-            // Если уже идет загрузка изображений, не запускаем предзагрузку
-            if (activeImageLoads >= MAX_CONCURRENT_LOADS) {
-                return;
-            }
-
-            // Получаем все видимые ячейки, изображения которых еще не загружены
-            const visibleCells = Array.from(document.querySelectorAll('.cell:not(.hidden)'))
-                .filter(cell => {
-                    const rect = cell.getBoundingClientRect();
-                    // Проверяем, находится ли ячейка в видимой области или рядом с ней
-                    const isVisible =
-                        rect.bottom >= -200 && // Немного выше верхней границы экрана
-                        rect.top <= window.innerHeight + 200 && // Немного ниже нижней границы экрана
-                        rect.right >= 0 &&
-                        rect.left <= window.innerWidth;
-
-                    // Проверяем, загружено ли уже изображение
-                    const img = cell.querySelector('img');
-                    const isLoaded = img && img.classList.contains('loaded');
-
-                    return isVisible && !isLoaded;
-                });
-
-            // Если есть видимые ячейки с незагруженными изображениями, добавляем их в очередь
-            if (visibleCells.length > 0) {
-                visibleCells.forEach(cell => {
-                    const img = cell.querySelector('img');
-                    if (img && !img.classList.contains('loaded')) {
-                        // Получаем URL изображения
-                        let imageUrl;
-                        const gameId = cell.dataset.gameId;
-                        const gameData = JSON.parse(cell.dataset.gameObject || '{}');
-
-                        if (gameData.imageUrl) {
-                            imageUrl = gameData.imageUrl;
-                            // Добавляем изображение в очередь загрузки с высоким приоритетом
-                            queueImageLoad(img, imageUrl, true);
-                        }
-                    }
-                });
-            }
+            // Индикатор загрузки отключен
         }
 
         // Функция для обработки очереди загрузки изображений
         function processImageQueue() {
             // Если очередь пуста или достигнут лимит одновременных загрузок, выходим
             if (imageLoadQueue.length === 0 || activeImageLoads >= MAX_CONCURRENT_LOADS) {
-                // Обновляем индикатор загрузки
-                updateLoadingIndicator();
                 return;
             }
 
             // Перед обработкой пересортируем очередь, чтобы учесть возможные изменения в позициях
             imageLoadQueue.sort((a, b) => {
-                // Сначала сортируем по приоритету
-                if (a.priority && !b.priority) return -1;
-                if (!a.priority && b.priority) return 1;
-
                 // Проверяем, находится ли изображение в зоне "в процессе"
                 const aInProgress = a.img && a.img.closest('.in-progress') !== null;
                 const bInProgress = b.img && b.img.closest('.in-progress') !== null;
@@ -3308,9 +2863,6 @@
 
                 activeImageLoads--;
 
-                // Обновляем индикатор загрузки
-                updateLoadingIndicator();
-
                 // Продолжаем обработку очереди
                 setTimeout(processImageQueue, 50); // Уменьшаем задержку для кэшированных изображений
                 return;
@@ -3329,9 +2881,6 @@
                 }, 10); // Очень короткая задержка для плавного появления
 
                 activeImageLoads--;
-
-                // Обновляем индикатор загрузки
-                updateLoadingIndicator();
 
                 // Продолжаем обработку очереди
                 setTimeout(processImageQueue, 50); // Уменьшаем задержку для кэшированных изображений
@@ -3356,9 +2905,6 @@
                     if (gameId) {
                         gameCache.images[gameId] = url;
                     }
-
-                    // Обновляем индикатор загрузки
-                    updateLoadingIndicator();
 
                     // Продолжаем обработку очереди
                     setTimeout(processImageQueue, 100);
@@ -3401,9 +2947,6 @@
                         // чтобы отличать от успешно загруженных
                         loadedImages.add("error:" + url);
 
-                        // Обновляем индикатор загрузки
-                        updateLoadingIndicator();
-
                         // Продолжаем обработку очереди
                         setTimeout(processImageQueue, 100);
                     }
@@ -3424,13 +2967,6 @@
             });
         }
 
-        // Глобальные переменные для виртуализации списка
-        let virtualizedGames = [];
-        let visibleRangeStart = 0;
-        let visibleRangeEnd = 0;
-        const VIRTUALIZATION_BUFFER = 50; // Буфер для плавной прокрутки
-
-        // Функция для виртуализации списка игр
         function renderGames(forceIdSort = false) {
             // Очищаем очередь загрузки изображений
             clearImageQueue();
@@ -3442,6 +2978,8 @@
             // Создаем фрагменты для более эффективного добавления элементов в DOM
             const gridFragment = document.createDocumentFragment();
             const inProgressFragment = document.createDocumentFragment();
+
+            let renderedCells = 0;
 
             // Проверяем, активен ли фильтр по годам
             const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
@@ -3475,134 +3013,23 @@
                 sortedGames = [...games].sort((a, b) => a.id - b.id);
             }
 
-            // Разделяем игры на "в процессе" и обычные
-            const inProgressGames = sortedGames.filter(game => game.inProgress);
-            const regularGames = sortedGames.filter(game => !game.inProgress);
-
-            // Сохраняем отсортированные игры для виртуализации
-            virtualizedGames = regularGames;
-
-            // Определяем видимую область
-            calculateVisibleRange();
-
-            // Создаем ячейки только для игр "в процессе" и видимых игр
-            inProgressGames.forEach(game => {
+            // Создаем все ячейки и добавляем их во фрагменты
+            sortedGames.forEach(game => {
                 const cell = createCell(game);
-                inProgressFragment.appendChild(cell);
+                if (game.inProgress) {
+                    inProgressFragment.appendChild(cell);
+                } else {
+                    gridFragment.appendChild(cell);
+                }
+                renderedCells++;
             });
 
-            // Создаем ячейки только для видимых игр
-            const visibleGames = virtualizedGames.slice(visibleRangeStart, visibleRangeEnd);
-            visibleGames.forEach(game => {
-                const cell = createCell(game);
-                gridFragment.appendChild(cell);
-            });
-
-            // Добавляем фрагменты в DOM
+            // Добавляем фрагменты в DOM (это более эффективно, чем добавлять по одной ячейке)
             grid.appendChild(gridFragment);
             inProgressRow.appendChild(inProgressFragment);
 
             updateInProgressRow();
-
-            // Добавляем обработчик прокрутки для виртуализации
-            setupVirtualizationScrollHandler();
-        }
-
-        // Функция для расчета видимого диапазона игр
-        function calculateVisibleRange() {
-            const gridRect = grid.getBoundingClientRect();
-            const cellSize = parseInt(sizeSlider.value);
-            const cellsPerRow = Math.floor(gridRect.width / cellSize);
-
-            // Вычисляем количество видимых строк
-            const visibleRows = Math.ceil(window.innerHeight / (cellSize * 1.33)) + 2; // +2 для буфера
-
-            // Вычисляем количество видимых ячеек
-            const visibleCells = visibleRows * cellsPerRow;
-
-            // Определяем начало и конец видимого диапазона с буфером
-            const scrollTop = window.scrollY;
-            const rowHeight = cellSize * 1.33;
-            const startRow = Math.floor(scrollTop / rowHeight);
-            const startIndex = Math.max(0, startRow * cellsPerRow - VIRTUALIZATION_BUFFER);
-            const endIndex = Math.min(virtualizedGames.length, startIndex + visibleCells + VIRTUALIZATION_BUFFER * 2);
-
-            visibleRangeStart = startIndex;
-            visibleRangeEnd = endIndex;
-        }
-
-        // Функция для настройки обработчика прокрутки для виртуализации
-        function setupVirtualizationScrollHandler() {
-            // Удаляем предыдущий обработчик, если он существует
-            window.removeEventListener('scroll', handleVirtualizationScroll);
-
-            // Добавляем новый обработчик
-            window.addEventListener('scroll', handleVirtualizationScroll);
-        }
-
-        // Обработчик прокрутки для виртуализации
-        function handleVirtualizationScroll() {
-            // Используем debounce для оптимизации производительности
-            clearTimeout(gameCache.timers.virtualizationScroll);
-            gameCache.timers.virtualizationScroll = setTimeout(() => {
-                // Сохраняем предыдущий диапазон
-                const prevStart = visibleRangeStart;
-                const prevEnd = visibleRangeEnd;
-
-                // Рассчитываем новый диапазон
-                calculateVisibleRange();
-
-                // Если диапазон изменился, обновляем отображение
-                if (prevStart !== visibleRangeStart || prevEnd !== visibleRangeEnd) {
-                    updateVirtualizedDisplay();
-                }
-            }, 100); // Задержка в 100 мс
-        }
-
-        // Функция для обновления виртуализированного отображения
-        function updateVirtualizedDisplay() {
-            // Получаем все текущие ячейки
-            const currentCells = Array.from(grid.querySelectorAll('.cell'));
-
-            // Создаем карту текущих ячеек по ID игры
-            const currentCellsMap = new Map();
-            currentCells.forEach(cell => {
-                const gameId = cell.dataset.gameId;
-                if (gameId) {
-                    currentCellsMap.set(gameId, cell);
-                }
-            });
-
-            // Создаем фрагмент для новых ячеек
-            const fragment = document.createDocumentFragment();
-
-            // Получаем видимые игры
-            const visibleGames = virtualizedGames.slice(visibleRangeStart, visibleRangeEnd);
-
-            // Создаем или переиспользуем ячейки для видимых игр
-            visibleGames.forEach(game => {
-                const gameId = game.id.toString();
-
-                // Если ячейка уже существует, переиспользуем ее
-                if (currentCellsMap.has(gameId)) {
-                    const cell = currentCellsMap.get(gameId);
-                    fragment.appendChild(cell);
-                    currentCellsMap.delete(gameId);
-                } else {
-                    // Иначе создаем новую ячейку
-                    const cell = createCell(game);
-                    fragment.appendChild(cell);
-                }
-            });
-
-            // Очищаем сетку
-            grid.innerHTML = '';
-
-            // Добавляем фрагмент в сетку
-            grid.appendChild(fragment);
-
-            // Запускаем предзагрузку изображений для видимых ячеек
-            preloadVisibleImages();
+            // applyFilters(); // <-- Убираем этот вызов
         }
 
         function insertCellInOrder(cell) {
@@ -4345,8 +3772,7 @@
 
         function showPreviewOrTitle(e, game) {
             // Получаем ячейку, на которую наведен курсор
-            const cell = e.target.closest('.cell');
-            if (!cell) return;
+            const cell = e.currentTarget;
 
             // Создаем объект с информацией об игре из атрибутов data-*
             const gameInfo = {
@@ -4483,8 +3909,7 @@
 
         function updateGameInfoPosition(e, game) {
             // Получаем ячейку, на которую наведен курсор
-            const cell = e.target.closest('.cell');
-            if (!cell) return;
+            const cell = e.currentTarget;
 
             // Создаем объект с информацией об игре из атрибутов data-*
             const gameInfo = {
@@ -4646,34 +4071,11 @@
             }
         }
 
-        // Функция для загрузки изображения из localStorage с обновлением счетчика использования
+        // Функция для загрузки изображения из localStorage
         function loadImageFromCache(url) {
             try {
                 const cacheKey = IMAGE_CACHE_PREFIX + hashUrl(url);
-                const cachedUrl = localStorage.getItem(cacheKey);
-
-                if (cachedUrl) {
-                    // Обновляем счетчик использования и время последнего доступа
-                    try {
-                        const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
-                        if (cacheMetadata[cacheKey]) {
-                            // Увеличиваем счетчик использования
-                            cacheMetadata[cacheKey].usageCount = (cacheMetadata[cacheKey].usageCount || 0) + 1;
-                            // Обновляем время последнего доступа
-                            cacheMetadata[cacheKey].lastAccessed = Date.now();
-
-                            // Сохраняем обновленные метаданные с задержкой для оптимизации
-                            clearTimeout(gameCache.timers.cacheMetadata);
-                            gameCache.timers.cacheMetadata = setTimeout(() => {
-                                localStorage.setItem('imageCacheMetadata', JSON.stringify(cacheMetadata));
-                            }, 5000); // Задержка в 5 секунд
-                        }
-                    } catch (metadataError) {
-                        console.error('Ошибка при обновлении метаданных кэша:', metadataError);
-                    }
-                }
-
-                return cachedUrl;
+                return localStorage.getItem(cacheKey);
             } catch (e) {
                 console.error('Ошибка при загрузке изображения из кэша:', e);
                 return null;
@@ -4691,33 +4093,20 @@
             return Math.abs(hash).toString(16);
         }
 
-        // Функция для очистки изображений из кэша с учетом частоты использования
+        // Функция для очистки старых изображений из кэша
         function clearOldestImagesFromCache(requiredSpace) {
             try {
                 const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
 
-                // Добавляем оценку для каждого изображения на основе времени последнего использования и частоты использования
-                const entriesWithScore = Object.entries(cacheMetadata).map(([key, metadata]) => {
-                    // Базовая оценка на основе времени (чем старше, тем ниже оценка)
-                    const ageScore = (Date.now() - metadata.timestamp) / (24 * 60 * 60 * 1000); // Возраст в днях
-
-                    // Оценка на основе частоты использования (если есть)
-                    const usageCount = metadata.usageCount || 0;
-
-                    // Финальная оценка: чем выше, тем больше вероятность удаления
-                    // Формула: возраст / (1 + частота использования)
-                    const score = ageScore / (1 + usageCount);
-
-                    return { key, metadata, score };
-                });
-
-                // Сортируем по оценке (от высокой к низкой)
-                entriesWithScore.sort((a, b) => b.score - a.score);
+                // Сортируем по времени (от старых к новым)
+                const sortedEntries = Object.entries(cacheMetadata).sort((a, b) =>
+                    a[1].timestamp - b[1].timestamp
+                );
 
                 let clearedSpace = 0;
 
-                // Удаляем изображения с наивысшей оценкой (наименее используемые и старые), пока не освободим достаточно места
-                for (const { key, metadata } of entriesWithScore) {
+                // Удаляем старые изображения, пока не освободим достаточно места
+                for (const [key, metadata] of sortedEntries) {
                     localStorage.removeItem(key);
                     clearedSpace += metadata.size;
                     delete cacheMetadata[key];
@@ -5935,9 +5324,6 @@
             // Обновляем строку "в процессе" и применяем фильтры полностью после отпускания ползунка
             updateInProgressRow();
             applyFiltersComplete();
-
-            // Запускаем предзагрузку изображений в видимой области
-            preloadVisibleImages();
         });
 
         // Добавляем обработчики для случая, если мышь уходит за пределы окна
@@ -5948,21 +5334,7 @@
                 // Обновляем строку "в процессе" и применяем фильтры полностью после отпускания ползунка
                 updateInProgressRow();
                 applyFiltersComplete();
-
-                // Запускаем предзагрузку изображений в видимой области
-                preloadVisibleImages();
             }
-        });
-
-        // Добавляем обработчик события прокрутки страницы для предзагрузки изображений
-        let scrollTimeout;
-        window.addEventListener('scroll', () => {
-            // Используем debounce для оптимизации производительности
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(() => {
-                // Запускаем предзагрузку изображений в видимой области
-                preloadVisibleImages();
-            }, 200); // Задержка в 200 мс
         });
         togglePreviewBtn.addEventListener('click', togglePreview);
         inProgressButton.addEventListener('click', toggleInProgressMode);
@@ -6015,10 +5387,10 @@
         if (savedSize) {
             sizeSlider.value = savedSize;
         } else {
-            // Если нет сохраненного значения, устанавливаем 35%
-            sizeSlider.value = 35;
+            // Если нет сохраненного значения, устанавливаем 25%
+            sizeSlider.value = 25;
             // Сохраняем значение в localStorage
-            localStorage.setItem('gridSize', 35);
+            localStorage.setItem('gridSize', 25);
         }
         updateGridSize();
 
@@ -6093,9 +5465,6 @@
 
                 // Применяем фильтры полностью после возможных перерисовок, принудительно сортируя по ID
                 applyFiltersComplete(true);
-
-                // Запускаем предзагрузку изображений в видимой области
-                preloadVisibleImages();
             }, 100);
         });
 
@@ -6428,13 +5797,16 @@
             cell.dataset.gameName = game.name; // Сохраняем название игры в атрибуте data-game-name
             cell.dataset.gameYear = game.year || 'N/A'; // Сохраняем год игры в атрибуте data-game-year
 
-            // Сохраняем данные об игре для использования в делегированных обработчиках событий
+            // Используем делегирование событий вместо добавления обработчиков к каждой ячейке
             cell.dataset.gameObject = JSON.stringify({
                 id: game.id,
                 name: game.name,
                 year: game.year,
                 imageUrl: imageUrl
             });
+
+            // Добавляем только один обработчик клика
+            cell.addEventListener('click', () => toggleCell(cell, game.id));
 
             updateCellSize(cell, game.inProgress);
             return cell;
@@ -6863,9 +6235,6 @@
             importButtonsDisabled = true;
             disableImportButtons();
 
-            // Показываем скелетоны ячеек для индикации загрузки
-            createSkeletonCells(Math.min(count, 20), grid);
-
             isImporting = true;
             console.log('Начало импорта игр из IGDB');
             try {
@@ -6893,14 +6262,13 @@
                     if (gameIndex !== null) {
                         index = gameIndex;
                     } else {
-                        // Загружаем индекс с использованием сжатия
-                        index = await loadJsonWithCompression('data/index.json', true);
+                        const indexResponse = await fetch('data/index.json');
+                        if (!indexResponse.ok) {
+                            throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
+                        }
+                        index = await indexResponse.json();
                         gameIndex = index;
                     }
-
-                    // Обновляем скелетоны, чтобы показать прогресс
-                    removeSkeletonCells(grid);
-                    createSkeletonCells(Math.min(count, 40), grid);
 
                     // Загружаем все файлы последовательно
                     for (let i = 1; i <= index.total_files; i++) {
@@ -6910,8 +6278,12 @@
                         if (gameFiles[i]) {
                             fileGames = gameFiles[i];
                         } else {
-                            // Если файл не загружен, загружаем его с использованием сжатия
-                            fileGames = await loadJsonWithCompression(`data/games_${i}.json`, true);
+                            // Если файл не загружен, загружаем его
+                            const response = await fetch(`data/games_${i}.json`);
+                            if (!response.ok) {
+                                throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                            }
+                            fileGames = await response.json();
                             // Сохраняем файл для будущих запросов
                             gameFiles[i] = fileGames;
                         }
@@ -6925,16 +6297,18 @@
                     // Если поисковый индекс не загружен, используем старый метод
                     console.log('Используем стандартный метод импорта');
 
-                    // Загружаем индекс с использованием сжатия
-                    index = await loadJsonWithCompression('data/index.json', true);
-
-                    // Обновляем скелетоны, чтобы показать прогресс
-                    removeSkeletonCells(grid);
-                    createSkeletonCells(Math.min(count, 40), grid);
+                    const indexResponse = await fetch('data/index.json');
+                    if (!indexResponse.ok) {
+                        throw new Error(`Ошибка загрузки индекса: ${indexResponse.status} ${indexResponse.statusText}`);
+                    }
+                    index = await indexResponse.json();
 
                     for (let i = 1; i <= index.total_files; i++) {
-                        // Загружаем файл с использованием сжатия
-                        const fileGames = await loadJsonWithCompression(`data/games_${i}.json`, true);
+                        const response = await fetch(`data/games_${i}.json`);
+                        if (!response.ok) {
+                            throw new Error(`Ошибка загрузки файла games_${i}.json: ${response.status} ${response.statusText}`);
+                        }
+                        const fileGames = await response.json();
                         newGames = newGames.concat(fileGames.filter(game => !existingIds.includes(game.id.toString())));
                         if (newGames.length >= count) {
                             break;
@@ -6973,9 +6347,6 @@
 
                 console.log('Импорт завершен успешно');
 
-                // Удаляем скелетоны ячеек
-                removeSkeletonCells(grid);
-
                 // Проверяем, что сообщение не отображается в данный момент
                 if (!isMessageVisible) {
                     // Используем новую функцию для обработки завершения импорта
@@ -6999,9 +6370,6 @@
                 }
             } catch (error) {
                 console.error('Ошибка при импорте игр из IGDB:', error);
-
-                // Удаляем скелетоны ячеек
-                removeSkeletonCells(grid);
 
                 // Проверяем, что сообщение не отображается в данный момент
                 if (!isMessageVisible) {
@@ -7116,23 +6484,6 @@
             document.getElementById('loadingOverlay').style.display = 'none';
             // Сбрасываем флаг после скрытия сообщения
             isMessageVisible = false;
-        }
-
-        // Функция для создания скелетонов ячеек во время загрузки
-        function createSkeletonCells(count, container) {
-            for (let i = 0; i < count; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'cell skeleton';
-                cell.style.width = `${sizeSlider.value}px`;
-                cell.style.height = `${sizeSlider.value * 1.33}px`;
-                container.appendChild(cell);
-            }
-        }
-
-        // Функция для удаления скелетонов ячеек
-        function removeSkeletonCells(container) {
-            const skeletons = container.querySelectorAll('.cell.skeleton');
-            skeletons.forEach(skeleton => skeleton.remove());
         }
 
         // Функция hideLoadingMessageWithAnimation удалена, так как ее функциональность теперь встроена в handleImportCompletion
@@ -7250,21 +6601,8 @@
             }
         }
 
-        // Функция для делегирования события клика
-        function handleCellClick(e) {
-            if (e.target.closest('.cell')) {
-                const cell = e.target.closest('.cell');
-                const gameId = cell.dataset.gameId;
-                if (gameId) {
-                    toggleCell(cell, gameId);
-                }
-            }
-        }
-
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM полностью загружен');
-            // Инициализируем Web Worker
-            initWorker();
             initializeImportButton();
             loadSavedGames();
             renderGames(true); // Принудительно сортируем по ID при загрузке страницы
@@ -7277,11 +6615,9 @@
             grid.addEventListener('mouseenter', handleCellHover, true);
             grid.addEventListener('mouseleave', handleCellLeave, true);
             grid.addEventListener('mousemove', handleCellMove, true);
-            grid.addEventListener('click', handleCellClick, true);
             inProgressRow.addEventListener('mouseenter', handleCellHover, true);
             inProgressRow.addEventListener('mouseleave', handleCellLeave, true);
             inProgressRow.addEventListener('mousemove', handleCellMove, true);
-            inProgressRow.addEventListener('click', handleCellClick, true);
 
             // Восстанавливаем состояние completedFilter и hideCompletedButton перед применением фильтров
             const savedCompletedFilterActive = localStorage.getItem('completedFilterActive') === 'true';
