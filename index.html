@@ -505,6 +505,38 @@
             /* Убраны padding-right и margin-right */
             box-sizing: border-box; /* Оставляем для консистентности */
         }
+
+        /* Стили для индикатора загрузки */
+        .loading-indicator {
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            border-radius: 20px;
+            padding: 10px 15px;
+            z-index: 1000;
+            width: 300px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+            transition: opacity 0.5s ease;
+            opacity: 0;
+        }
+
+        .loading-progress-bar {
+            height: 6px;
+            background-color: #4CAF50;
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .loading-progress-text {
+            color: white;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 5px;
+            font-weight: bold;
+        }
         #sizeSlider {
             margin: 0;
             width: 30vw; /* Возвращаем исходную ширину */
@@ -2063,7 +2095,9 @@
             timers: {
                 yearFilter: null,
                 localStorage: null,
-                imageCache: null
+                imageCache: null,
+                cacheMetadata: null, // Новый таймер для отложенного сохранения метаданных кэша
+                virtualizationScroll: null // Таймер для виртуализации
             },
             // Кэш для видимых игр
             visibleGameIds: new Set()
@@ -2756,7 +2790,7 @@
         let loadedImages = new Set(); // Множество для отслеживания уже загруженных изображений
 
         // Функция для добавления изображения в очередь загрузки
-        function queueImageLoad(img, url) {
+        function queueImageLoad(img, url, priority = false) {
             // Проверяем, было ли это изображение уже загружено
             if (loadedImages.has(url)) {
                 // Если изображение уже было загружено, устанавливаем класс loaded с небольшой задержкой
@@ -2775,11 +2809,15 @@
                     left: rect.left
                 };
 
-                // Добавляем изображение в очередь с информацией о позиции
-                imageLoadQueue.push({ img, url, position });
+                // Добавляем изображение в очередь с информацией о позиции и приоритете
+                imageLoadQueue.push({ img, url, position, priority });
 
                 // Сортируем очередь, приоритизируя зону "в процессе", затем сверху вниз, слева направо
                 imageLoadQueue.sort((a, b) => {
+                    // Сначала сортируем по приоритету
+                    if (a.priority && !b.priority) return -1;
+                    if (!a.priority && b.priority) return 1;
+
                     // Проверяем, находится ли изображение в зоне "в процессе"
                     const aInProgress = a.img.closest('.in-progress') !== null;
                     const bInProgress = b.img.closest('.in-progress') !== null;
@@ -2798,7 +2836,7 @@
                 });
             } else {
                 // Если не удалось получить ячейку, просто добавляем в конец очереди
-                imageLoadQueue.push({ img, url });
+                imageLoadQueue.push({ img, url, priority });
             }
 
             // Запускаем обработку очереди
@@ -2812,20 +2850,131 @@
             updateLoadingIndicator();
         }
 
-        // Функция для обновления индикатора загрузки (отключена)
+        // Функция для обновления индикатора загрузки
         function updateLoadingIndicator() {
-            // Индикатор загрузки отключен
+            const loadingIndicator = document.getElementById('loadingIndicator');
+
+            // Если индикатор не существует, создаем его
+            if (!loadingIndicator && imageLoadQueue.length > 0) {
+                const indicator = document.createElement('div');
+                indicator.id = 'loadingIndicator';
+                indicator.className = 'loading-indicator';
+
+                // Создаем индикатор прогресса
+                const progressBar = document.createElement('div');
+                progressBar.className = 'loading-progress-bar';
+
+                // Создаем текст с информацией о загрузке
+                const progressText = document.createElement('div');
+                progressText.className = 'loading-progress-text';
+
+                // Добавляем элементы в индикатор
+                indicator.appendChild(progressBar);
+                indicator.appendChild(progressText);
+
+                // Добавляем индикатор на страницу
+                document.body.appendChild(indicator);
+
+                // Обновляем прогресс
+                updateLoadingProgress();
+            } else if (loadingIndicator && imageLoadQueue.length === 0 && activeImageLoads === 0) {
+                // Если очередь пуста и нет активных загрузок, скрываем индикатор
+                loadingIndicator.style.opacity = '0';
+                setTimeout(() => {
+                    if (loadingIndicator.parentNode) {
+                        loadingIndicator.parentNode.removeChild(loadingIndicator);
+                    }
+                }, 500); // Задержка для плавного исчезновения
+            } else if (loadingIndicator) {
+                // Обновляем прогресс
+                updateLoadingProgress();
+            }
+        }
+
+        // Функция для обновления прогресса загрузки
+        function updateLoadingProgress() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            if (!loadingIndicator) return;
+
+            const progressBar = loadingIndicator.querySelector('.loading-progress-bar');
+            const progressText = loadingIndicator.querySelector('.loading-progress-text');
+
+            // Вычисляем общее количество изображений в очереди и активных загрузок
+            const totalImages = imageLoadQueue.length + activeImageLoads;
+
+            // Вычисляем процент загруженных изображений
+            const loadedPercent = Math.min(100, Math.round((loadedImages.size / (loadedImages.size + totalImages)) * 100));
+
+            // Обновляем прогресс-бар
+            progressBar.style.width = `${loadedPercent}%`;
+
+            // Обновляем текст
+            progressText.textContent = `Загружено ${loadedImages.size} изображений (${loadedPercent}%)`;
+
+            // Показываем индикатор
+            loadingIndicator.style.opacity = '1';
+        }
+
+        // Функция для предзагрузки изображений в видимой области
+        function preloadVisibleImages() {
+            // Если уже идет загрузка изображений, не запускаем предзагрузку
+            if (activeImageLoads >= MAX_CONCURRENT_LOADS) {
+                return;
+            }
+
+            // Получаем все видимые ячейки, изображения которых еще не загружены
+            const visibleCells = Array.from(document.querySelectorAll('.cell:not(.hidden)'))
+                .filter(cell => {
+                    const rect = cell.getBoundingClientRect();
+                    // Проверяем, находится ли ячейка в видимой области или рядом с ней
+                    const isVisible =
+                        rect.bottom >= -200 && // Немного выше верхней границы экрана
+                        rect.top <= window.innerHeight + 200 && // Немного ниже нижней границы экрана
+                        rect.right >= 0 &&
+                        rect.left <= window.innerWidth;
+
+                    // Проверяем, загружено ли уже изображение
+                    const img = cell.querySelector('img');
+                    const isLoaded = img && img.classList.contains('loaded');
+
+                    return isVisible && !isLoaded;
+                });
+
+            // Если есть видимые ячейки с незагруженными изображениями, добавляем их в очередь
+            if (visibleCells.length > 0) {
+                visibleCells.forEach(cell => {
+                    const img = cell.querySelector('img');
+                    if (img && !img.classList.contains('loaded')) {
+                        // Получаем URL изображения
+                        let imageUrl;
+                        const gameId = cell.dataset.gameId;
+                        const gameData = JSON.parse(cell.dataset.gameObject || '{}');
+
+                        if (gameData.imageUrl) {
+                            imageUrl = gameData.imageUrl;
+                            // Добавляем изображение в очередь загрузки с высоким приоритетом
+                            queueImageLoad(img, imageUrl, true);
+                        }
+                    }
+                });
+            }
         }
 
         // Функция для обработки очереди загрузки изображений
         function processImageQueue() {
             // Если очередь пуста или достигнут лимит одновременных загрузок, выходим
             if (imageLoadQueue.length === 0 || activeImageLoads >= MAX_CONCURRENT_LOADS) {
+                // Обновляем индикатор загрузки
+                updateLoadingIndicator();
                 return;
             }
 
             // Перед обработкой пересортируем очередь, чтобы учесть возможные изменения в позициях
             imageLoadQueue.sort((a, b) => {
+                // Сначала сортируем по приоритету
+                if (a.priority && !b.priority) return -1;
+                if (!a.priority && b.priority) return 1;
+
                 // Проверяем, находится ли изображение в зоне "в процессе"
                 const aInProgress = a.img && a.img.closest('.in-progress') !== null;
                 const bInProgress = b.img && b.img.closest('.in-progress') !== null;
@@ -2863,6 +3012,9 @@
 
                 activeImageLoads--;
 
+                // Обновляем индикатор загрузки
+                updateLoadingIndicator();
+
                 // Продолжаем обработку очереди
                 setTimeout(processImageQueue, 50); // Уменьшаем задержку для кэшированных изображений
                 return;
@@ -2881,6 +3033,9 @@
                 }, 10); // Очень короткая задержка для плавного появления
 
                 activeImageLoads--;
+
+                // Обновляем индикатор загрузки
+                updateLoadingIndicator();
 
                 // Продолжаем обработку очереди
                 setTimeout(processImageQueue, 50); // Уменьшаем задержку для кэшированных изображений
@@ -2905,6 +3060,9 @@
                     if (gameId) {
                         gameCache.images[gameId] = url;
                     }
+
+                    // Обновляем индикатор загрузки
+                    updateLoadingIndicator();
 
                     // Продолжаем обработку очереди
                     setTimeout(processImageQueue, 100);
@@ -2947,6 +3105,9 @@
                         // чтобы отличать от успешно загруженных
                         loadedImages.add("error:" + url);
 
+                        // Обновляем индикатор загрузки
+                        updateLoadingIndicator();
+
                         // Продолжаем обработку очереди
                         setTimeout(processImageQueue, 100);
                     }
@@ -2967,6 +3128,13 @@
             });
         }
 
+        // Глобальные переменные для виртуализации списка
+        let virtualizedGames = [];
+        let visibleRangeStart = 0;
+        let visibleRangeEnd = 0;
+        const VIRTUALIZATION_BUFFER = 50; // Буфер для плавной прокрутки
+
+        // Функция для виртуализации списка игр
         function renderGames(forceIdSort = false) {
             // Очищаем очередь загрузки изображений
             clearImageQueue();
@@ -2978,8 +3146,6 @@
             // Создаем фрагменты для более эффективного добавления элементов в DOM
             const gridFragment = document.createDocumentFragment();
             const inProgressFragment = document.createDocumentFragment();
-
-            let renderedCells = 0;
 
             // Проверяем, активен ли фильтр по годам
             const years = [...new Set(games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
@@ -3013,23 +3179,134 @@
                 sortedGames = [...games].sort((a, b) => a.id - b.id);
             }
 
-            // Создаем все ячейки и добавляем их во фрагменты
-            sortedGames.forEach(game => {
+            // Разделяем игры на "в процессе" и обычные
+            const inProgressGames = sortedGames.filter(game => game.inProgress);
+            const regularGames = sortedGames.filter(game => !game.inProgress);
+
+            // Сохраняем отсортированные игры для виртуализации
+            virtualizedGames = regularGames;
+
+            // Определяем видимую область
+            calculateVisibleRange();
+
+            // Создаем ячейки только для игр "в процессе" и видимых игр
+            inProgressGames.forEach(game => {
                 const cell = createCell(game);
-                if (game.inProgress) {
-                    inProgressFragment.appendChild(cell);
-                } else {
-                    gridFragment.appendChild(cell);
-                }
-                renderedCells++;
+                inProgressFragment.appendChild(cell);
             });
 
-            // Добавляем фрагменты в DOM (это более эффективно, чем добавлять по одной ячейке)
+            // Создаем ячейки только для видимых игр
+            const visibleGames = virtualizedGames.slice(visibleRangeStart, visibleRangeEnd);
+            visibleGames.forEach(game => {
+                const cell = createCell(game);
+                gridFragment.appendChild(cell);
+            });
+
+            // Добавляем фрагменты в DOM
             grid.appendChild(gridFragment);
             inProgressRow.appendChild(inProgressFragment);
 
             updateInProgressRow();
-            // applyFilters(); // <-- Убираем этот вызов
+
+            // Добавляем обработчик прокрутки для виртуализации
+            setupVirtualizationScrollHandler();
+        }
+
+        // Функция для расчета видимого диапазона игр
+        function calculateVisibleRange() {
+            const gridRect = grid.getBoundingClientRect();
+            const cellSize = parseInt(sizeSlider.value);
+            const cellsPerRow = Math.floor(gridRect.width / cellSize);
+
+            // Вычисляем количество видимых строк
+            const visibleRows = Math.ceil(window.innerHeight / (cellSize * 1.33)) + 2; // +2 для буфера
+
+            // Вычисляем количество видимых ячеек
+            const visibleCells = visibleRows * cellsPerRow;
+
+            // Определяем начало и конец видимого диапазона с буфером
+            const scrollTop = window.scrollY;
+            const rowHeight = cellSize * 1.33;
+            const startRow = Math.floor(scrollTop / rowHeight);
+            const startIndex = Math.max(0, startRow * cellsPerRow - VIRTUALIZATION_BUFFER);
+            const endIndex = Math.min(virtualizedGames.length, startIndex + visibleCells + VIRTUALIZATION_BUFFER * 2);
+
+            visibleRangeStart = startIndex;
+            visibleRangeEnd = endIndex;
+        }
+
+        // Функция для настройки обработчика прокрутки для виртуализации
+        function setupVirtualizationScrollHandler() {
+            // Удаляем предыдущий обработчик, если он существует
+            window.removeEventListener('scroll', handleVirtualizationScroll);
+
+            // Добавляем новый обработчик
+            window.addEventListener('scroll', handleVirtualizationScroll);
+        }
+
+        // Обработчик прокрутки для виртуализации
+        function handleVirtualizationScroll() {
+            // Используем debounce для оптимизации производительности
+            clearTimeout(gameCache.timers.virtualizationScroll);
+            gameCache.timers.virtualizationScroll = setTimeout(() => {
+                // Сохраняем предыдущий диапазон
+                const prevStart = visibleRangeStart;
+                const prevEnd = visibleRangeEnd;
+
+                // Рассчитываем новый диапазон
+                calculateVisibleRange();
+
+                // Если диапазон изменился, обновляем отображение
+                if (prevStart !== visibleRangeStart || prevEnd !== visibleRangeEnd) {
+                    updateVirtualizedDisplay();
+                }
+            }, 100); // Задержка в 100 мс
+        }
+
+        // Функция для обновления виртуализированного отображения
+        function updateVirtualizedDisplay() {
+            // Получаем все текущие ячейки
+            const currentCells = Array.from(grid.querySelectorAll('.cell'));
+
+            // Создаем карту текущих ячеек по ID игры
+            const currentCellsMap = new Map();
+            currentCells.forEach(cell => {
+                const gameId = cell.dataset.gameId;
+                if (gameId) {
+                    currentCellsMap.set(gameId, cell);
+                }
+            });
+
+            // Создаем фрагмент для новых ячеек
+            const fragment = document.createDocumentFragment();
+
+            // Получаем видимые игры
+            const visibleGames = virtualizedGames.slice(visibleRangeStart, visibleRangeEnd);
+
+            // Создаем или переиспользуем ячейки для видимых игр
+            visibleGames.forEach(game => {
+                const gameId = game.id.toString();
+
+                // Если ячейка уже существует, переиспользуем ее
+                if (currentCellsMap.has(gameId)) {
+                    const cell = currentCellsMap.get(gameId);
+                    fragment.appendChild(cell);
+                    currentCellsMap.delete(gameId);
+                } else {
+                    // Иначе создаем новую ячейку
+                    const cell = createCell(game);
+                    fragment.appendChild(cell);
+                }
+            });
+
+            // Очищаем сетку
+            grid.innerHTML = '';
+
+            // Добавляем фрагмент в сетку
+            grid.appendChild(fragment);
+
+            // Запускаем предзагрузку изображений для видимых ячеек
+            preloadVisibleImages();
         }
 
         function insertCellInOrder(cell) {
@@ -3772,7 +4049,8 @@
 
         function showPreviewOrTitle(e, game) {
             // Получаем ячейку, на которую наведен курсор
-            const cell = e.currentTarget;
+            const cell = e.target.closest('.cell');
+            if (!cell) return;
 
             // Создаем объект с информацией об игре из атрибутов data-*
             const gameInfo = {
@@ -3909,7 +4187,8 @@
 
         function updateGameInfoPosition(e, game) {
             // Получаем ячейку, на которую наведен курсор
-            const cell = e.currentTarget;
+            const cell = e.target.closest('.cell');
+            if (!cell) return;
 
             // Создаем объект с информацией об игре из атрибутов data-*
             const gameInfo = {
@@ -4071,11 +4350,34 @@
             }
         }
 
-        // Функция для загрузки изображения из localStorage
+        // Функция для загрузки изображения из localStorage с обновлением счетчика использования
         function loadImageFromCache(url) {
             try {
                 const cacheKey = IMAGE_CACHE_PREFIX + hashUrl(url);
-                return localStorage.getItem(cacheKey);
+                const cachedUrl = localStorage.getItem(cacheKey);
+
+                if (cachedUrl) {
+                    // Обновляем счетчик использования и время последнего доступа
+                    try {
+                        const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
+                        if (cacheMetadata[cacheKey]) {
+                            // Увеличиваем счетчик использования
+                            cacheMetadata[cacheKey].usageCount = (cacheMetadata[cacheKey].usageCount || 0) + 1;
+                            // Обновляем время последнего доступа
+                            cacheMetadata[cacheKey].lastAccessed = Date.now();
+
+                            // Сохраняем обновленные метаданные с задержкой для оптимизации
+                            clearTimeout(gameCache.timers.cacheMetadata);
+                            gameCache.timers.cacheMetadata = setTimeout(() => {
+                                localStorage.setItem('imageCacheMetadata', JSON.stringify(cacheMetadata));
+                            }, 5000); // Задержка в 5 секунд
+                        }
+                    } catch (metadataError) {
+                        console.error('Ошибка при обновлении метаданных кэша:', metadataError);
+                    }
+                }
+
+                return cachedUrl;
             } catch (e) {
                 console.error('Ошибка при загрузке изображения из кэша:', e);
                 return null;
@@ -4093,20 +4395,33 @@
             return Math.abs(hash).toString(16);
         }
 
-        // Функция для очистки старых изображений из кэша
+        // Функция для очистки изображений из кэша с учетом частоты использования
         function clearOldestImagesFromCache(requiredSpace) {
             try {
                 const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
 
-                // Сортируем по времени (от старых к новым)
-                const sortedEntries = Object.entries(cacheMetadata).sort((a, b) =>
-                    a[1].timestamp - b[1].timestamp
-                );
+                // Добавляем оценку для каждого изображения на основе времени последнего использования и частоты использования
+                const entriesWithScore = Object.entries(cacheMetadata).map(([key, metadata]) => {
+                    // Базовая оценка на основе времени (чем старше, тем ниже оценка)
+                    const ageScore = (Date.now() - metadata.timestamp) / (24 * 60 * 60 * 1000); // Возраст в днях
+
+                    // Оценка на основе частоты использования (если есть)
+                    const usageCount = metadata.usageCount || 0;
+
+                    // Финальная оценка: чем выше, тем больше вероятность удаления
+                    // Формула: возраст / (1 + частота использования)
+                    const score = ageScore / (1 + usageCount);
+
+                    return { key, metadata, score };
+                });
+
+                // Сортируем по оценке (от высокой к низкой)
+                entriesWithScore.sort((a, b) => b.score - a.score);
 
                 let clearedSpace = 0;
 
-                // Удаляем старые изображения, пока не освободим достаточно места
-                for (const [key, metadata] of sortedEntries) {
+                // Удаляем изображения с наивысшей оценкой (наименее используемые и старые), пока не освободим достаточно места
+                for (const { key, metadata } of entriesWithScore) {
                     localStorage.removeItem(key);
                     clearedSpace += metadata.size;
                     delete cacheMetadata[key];
@@ -5324,6 +5639,9 @@
             // Обновляем строку "в процессе" и применяем фильтры полностью после отпускания ползунка
             updateInProgressRow();
             applyFiltersComplete();
+
+            // Запускаем предзагрузку изображений в видимой области
+            preloadVisibleImages();
         });
 
         // Добавляем обработчики для случая, если мышь уходит за пределы окна
@@ -5334,7 +5652,21 @@
                 // Обновляем строку "в процессе" и применяем фильтры полностью после отпускания ползунка
                 updateInProgressRow();
                 applyFiltersComplete();
+
+                // Запускаем предзагрузку изображений в видимой области
+                preloadVisibleImages();
             }
+        });
+
+        // Добавляем обработчик события прокрутки страницы для предзагрузки изображений
+        let scrollTimeout;
+        window.addEventListener('scroll', () => {
+            // Используем debounce для оптимизации производительности
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                // Запускаем предзагрузку изображений в видимой области
+                preloadVisibleImages();
+            }, 200); // Задержка в 200 мс
         });
         togglePreviewBtn.addEventListener('click', togglePreview);
         inProgressButton.addEventListener('click', toggleInProgressMode);
@@ -5465,6 +5797,9 @@
 
                 // Применяем фильтры полностью после возможных перерисовок, принудительно сортируя по ID
                 applyFiltersComplete(true);
+
+                // Запускаем предзагрузку изображений в видимой области
+                preloadVisibleImages();
             }, 100);
         });
 
@@ -5797,16 +6132,13 @@
             cell.dataset.gameName = game.name; // Сохраняем название игры в атрибуте data-game-name
             cell.dataset.gameYear = game.year || 'N/A'; // Сохраняем год игры в атрибуте data-game-year
 
-            // Используем делегирование событий вместо добавления обработчиков к каждой ячейке
+            // Сохраняем данные об игре для использования в делегированных обработчиках событий
             cell.dataset.gameObject = JSON.stringify({
                 id: game.id,
                 name: game.name,
                 year: game.year,
                 imageUrl: imageUrl
             });
-
-            // Добавляем только один обработчик клика
-            cell.addEventListener('click', () => toggleCell(cell, game.id));
 
             updateCellSize(cell, game.inProgress);
             return cell;
@@ -6601,6 +6933,17 @@
             }
         }
 
+        // Функция для делегирования события клика
+        function handleCellClick(e) {
+            if (e.target.closest('.cell')) {
+                const cell = e.target.closest('.cell');
+                const gameId = cell.dataset.gameId;
+                if (gameId) {
+                    toggleCell(cell, gameId);
+                }
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM полностью загружен');
             initializeImportButton();
@@ -6615,9 +6958,11 @@
             grid.addEventListener('mouseenter', handleCellHover, true);
             grid.addEventListener('mouseleave', handleCellLeave, true);
             grid.addEventListener('mousemove', handleCellMove, true);
+            grid.addEventListener('click', handleCellClick, true);
             inProgressRow.addEventListener('mouseenter', handleCellHover, true);
             inProgressRow.addEventListener('mouseleave', handleCellLeave, true);
             inProgressRow.addEventListener('mousemove', handleCellMove, true);
+            inProgressRow.addEventListener('click', handleCellClick, true);
 
             // Восстанавливаем состояние completedFilter и hideCompletedButton перед применением фильтров
             const savedCompletedFilterActive = localStorage.getItem('completedFilterActive') === 'true';
