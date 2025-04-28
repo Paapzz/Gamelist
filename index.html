@@ -405,25 +405,11 @@
             position: relative;
             aspect-ratio: 0.75;
             cursor: pointer;
-            transition: filter 0.3s, box-shadow 0.3s, opacity 0.3s ease;
+            transition: filter 0.3s, box-shadow 0.3s;
             overflow: hidden;
             border-radius: 10%;
             margin: 0;
             background-color: transparent; /* Прозрачный фон */
-            opacity: 0;
-            animation: fadeIn 0.3s forwards;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        /* Стили для виртуального контейнера */
-        .virtual-container {
-            width: 100%;
-            position: relative;
-            min-height: 100vh; /* Минимальная высота для скроллинга */
         }
 
         .cell img {
@@ -3454,6 +3440,7 @@
             inProgressRow.innerHTML = '';
 
             // Создаем фрагменты для более эффективного добавления элементов в DOM
+            const gridFragment = document.createDocumentFragment();
             const inProgressFragment = document.createDocumentFragment();
 
             // Проверяем, активен ли фильтр по годам
@@ -3498,60 +3485,22 @@
             // Определяем видимую область
             calculateVisibleRange();
 
-            // Создаем ячейки только для игр "в процессе"
+            // Создаем ячейки только для игр "в процессе" и видимых игр
             inProgressGames.forEach(game => {
                 const cell = createCell(game);
                 inProgressFragment.appendChild(cell);
             });
 
-            // Добавляем фрагмент с играми "в процессе" в DOM
-            inProgressRow.appendChild(inProgressFragment);
-
-            // Создаем контейнер для виртуализации
-            const virtualContainer = document.createElement('div');
-            virtualContainer.className = 'virtual-container';
-            virtualContainer.style.position = 'relative';
-
-            // Получаем размеры ячейки и сетки
-            const cellSize = parseInt(sizeSlider.value);
-            const gridRect = grid.getBoundingClientRect();
-            const cellsPerRow = Math.floor(gridRect.width / cellSize);
-
-            // Вычисляем общее количество строк для всех игр
-            const totalRows = Math.ceil(virtualizedGames.length / cellsPerRow);
-
-            // Вычисляем высоту всей сетки
-            const totalGridHeight = totalRows * (cellSize * 1.33);
-
-            // Устанавливаем высоту контейнера
-            virtualContainer.style.height = `${totalGridHeight}px`;
-
-            // Добавляем контейнер в сетку
-            grid.appendChild(virtualContainer);
-
-            // Получаем видимые игры
+            // Создаем ячейки только для видимых игр
             const visibleGames = virtualizedGames.slice(visibleRangeStart, visibleRangeEnd);
-
-            // Вычисляем начальную строку для позиционирования
-            const startRow = Math.floor(visibleRangeStart / cellsPerRow);
-
-            // Создаем ячейки для видимых игр с абсолютным позиционированием
-            visibleGames.forEach((game, index) => {
+            visibleGames.forEach(game => {
                 const cell = createCell(game);
-
-                // Вычисляем позицию ячейки
-                const relativeIndex = index + visibleRangeStart;
-                const row = Math.floor(relativeIndex / cellsPerRow);
-                const col = relativeIndex % cellsPerRow;
-
-                // Устанавливаем абсолютное позиционирование
-                cell.style.position = 'absolute';
-                cell.style.left = `${col * cellSize}px`;
-                cell.style.top = `${(row - startRow) * (cellSize * 1.33)}px`;
-
-                // Добавляем ячейку в контейнер
-                virtualContainer.appendChild(cell);
+                gridFragment.appendChild(cell);
             });
+
+            // Добавляем фрагменты в DOM
+            grid.appendChild(gridFragment);
+            inProgressRow.appendChild(inProgressFragment);
 
             updateInProgressRow();
 
@@ -3566,34 +3515,20 @@
             const cellsPerRow = Math.floor(gridRect.width / cellSize);
 
             // Вычисляем количество видимых строк
-            const visibleRows = Math.ceil(window.innerHeight / (cellSize * 1.33)) + 4; // +4 для большего буфера
+            const visibleRows = Math.ceil(window.innerHeight / (cellSize * 1.33)) + 2; // +2 для буфера
 
             // Вычисляем количество видимых ячеек
             const visibleCells = visibleRows * cellsPerRow;
 
             // Определяем начало и конец видимого диапазона с буфером
             const scrollTop = window.scrollY;
-            const gridTop = gridRect.top + window.scrollY;
             const rowHeight = cellSize * 1.33;
-
-            // Вычисляем, сколько строк прокручено относительно начала сетки
-            const scrolledRows = Math.max(0, Math.floor((scrollTop - gridTop) / rowHeight));
-
-            // Вычисляем начальный индекс с учетом буфера
-            const startIndex = Math.max(0, scrolledRows * cellsPerRow - VIRTUALIZATION_BUFFER);
-
-            // Вычисляем конечный индекс с учетом буфера
-            const endIndex = Math.min(
-                virtualizedGames.length,
-                startIndex + visibleCells + VIRTUALIZATION_BUFFER * 2
-            );
+            const startRow = Math.floor(scrollTop / rowHeight);
+            const startIndex = Math.max(0, startRow * cellsPerRow - VIRTUALIZATION_BUFFER);
+            const endIndex = Math.min(virtualizedGames.length, startIndex + visibleCells + VIRTUALIZATION_BUFFER * 2);
 
             visibleRangeStart = startIndex;
             visibleRangeEnd = endIndex;
-
-            // Добавляем отладочную информацию
-            console.log(`Видимый диапазон: ${visibleRangeStart} - ${visibleRangeEnd} (всего ${virtualizedGames.length} игр)`);
-            console.log(`Прокрутка: ${scrollTop}px, Строк: ${scrolledRows}, Видимых строк: ${visibleRows}`);
         }
 
         // Функция для настройки обработчика прокрутки для виртуализации
@@ -3607,16 +3542,9 @@
 
         // Обработчик прокрутки для виртуализации
         function handleVirtualizationScroll() {
-            // Используем throttle вместо debounce для более плавной прокрутки
-            if (gameCache.timers.virtualizationScroll) {
-                return; // Если таймер уже установлен, выходим
-            }
-
-            // Устанавливаем таймер для ограничения частоты обновлений
+            // Используем debounce для оптимизации производительности
+            clearTimeout(gameCache.timers.virtualizationScroll);
             gameCache.timers.virtualizationScroll = setTimeout(() => {
-                // Сбрасываем таймер
-                gameCache.timers.virtualizationScroll = null;
-
                 // Сохраняем предыдущий диапазон
                 const prevStart = visibleRangeStart;
                 const prevEnd = visibleRangeEnd;
@@ -3624,12 +3552,11 @@
                 // Рассчитываем новый диапазон
                 calculateVisibleRange();
 
-                // Если диапазон изменился значительно, обновляем отображение
-                // Используем порог в 10 элементов, чтобы избежать частых обновлений при небольших изменениях
-                if (Math.abs(prevStart - visibleRangeStart) > 10 || Math.abs(prevEnd - visibleRangeEnd) > 10) {
+                // Если диапазон изменился, обновляем отображение
+                if (prevStart !== visibleRangeStart || prevEnd !== visibleRangeEnd) {
                     updateVirtualizedDisplay();
                 }
-            }, 50); // Уменьшаем задержку для более отзывчивого интерфейса
+            }, 100); // Задержка в 100 мс
         }
 
         // Функция для обновления виртуализированного отображения
@@ -3649,65 +3576,30 @@
             // Создаем фрагмент для новых ячеек
             const fragment = document.createDocumentFragment();
 
-            // Получаем размеры ячейки и сетки
-            const cellSize = parseInt(sizeSlider.value);
-            const gridRect = grid.getBoundingClientRect();
-            const cellsPerRow = Math.floor(gridRect.width / cellSize);
-
-            // Вычисляем общее количество строк для всех игр
-            const totalRows = Math.ceil(virtualizedGames.length / cellsPerRow);
-
-            // Вычисляем высоту всей сетки
-            const totalGridHeight = totalRows * (cellSize * 1.33);
-
-            // Создаем или обновляем контейнер для виртуализации, если его еще нет
-            let virtualContainer = grid.querySelector('.virtual-container');
-            if (!virtualContainer) {
-                virtualContainer = document.createElement('div');
-                virtualContainer.className = 'virtual-container';
-                virtualContainer.style.position = 'relative';
-                grid.appendChild(virtualContainer);
-            }
-
-            // Устанавливаем высоту контейнера
-            virtualContainer.style.height = `${totalGridHeight}px`;
-
-            // Очищаем контейнер
-            virtualContainer.innerHTML = '';
-
             // Получаем видимые игры
             const visibleGames = virtualizedGames.slice(visibleRangeStart, visibleRangeEnd);
 
-            // Вычисляем начальную строку для позиционирования
-            const startRow = Math.floor(visibleRangeStart / cellsPerRow);
-
             // Создаем или переиспользуем ячейки для видимых игр
-            visibleGames.forEach((game, index) => {
+            visibleGames.forEach(game => {
                 const gameId = game.id.toString();
-                let cell;
 
                 // Если ячейка уже существует, переиспользуем ее
                 if (currentCellsMap.has(gameId)) {
-                    cell = currentCellsMap.get(gameId);
+                    const cell = currentCellsMap.get(gameId);
+                    fragment.appendChild(cell);
                     currentCellsMap.delete(gameId);
                 } else {
                     // Иначе создаем новую ячейку
-                    cell = createCell(game);
+                    const cell = createCell(game);
+                    fragment.appendChild(cell);
                 }
-
-                // Вычисляем позицию ячейки
-                const relativeIndex = index + visibleRangeStart;
-                const row = Math.floor(relativeIndex / cellsPerRow);
-                const col = relativeIndex % cellsPerRow;
-
-                // Устанавливаем абсолютное позиционирование
-                cell.style.position = 'absolute';
-                cell.style.left = `${col * cellSize}px`;
-                cell.style.top = `${(row - startRow) * (cellSize * 1.33)}px`;
-
-                // Добавляем ячейку в контейнер
-                virtualContainer.appendChild(cell);
             });
+
+            // Очищаем сетку
+            grid.innerHTML = '';
+
+            // Добавляем фрагмент в сетку
+            grid.appendChild(fragment);
 
             // Запускаем предзагрузку изображений для видимых ячеек
             preloadVisibleImages();
