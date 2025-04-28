@@ -400,6 +400,23 @@
             min-height: 100vh; /* Обеспечиваем минимальную высоту для скроллинга */
             justify-items: start; /* Выравнивание элементов по левому краю */
             justify-content: start; /* Выравнивание содержимого по левому краю */
+            position: relative; /* Для абсолютного позиционирования ячеек при виртуализации */
+        }
+
+        /* Стили для виртуализации с фиксированной высотой */
+        .virtualized-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .virtualized-placeholder {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .virtualized-cell {
+            position: absolute;
+            transition: transform 0.2s ease;
         }
         .cell {
             position: relative;
@@ -3430,7 +3447,7 @@
         let visibleRangeEnd = 0;
         const VIRTUALIZATION_BUFFER = 50; // Буфер для плавной прокрутки
 
-        // Функция для виртуализации списка игр
+        // Функция для виртуализации списка игр с фиксированной высотой
         function renderGames(forceIdSort = false) {
             // Очищаем очередь загрузки изображений
             clearImageQueue();
@@ -3485,22 +3502,34 @@
             // Определяем видимую область
             calculateVisibleRange();
 
-            // Создаем ячейки только для игр "в процессе" и видимых игр
+            // Получаем информацию о размерах
+            const { cellSize, cellsPerRow, rowHeight } = gameCache.virtualization;
+
+            // Вычисляем общее количество строк для всех игр
+            const totalRows = Math.ceil(virtualizedGames.length / cellsPerRow);
+
+            // Устанавливаем высоту контейнера для сохранения скроллбара
+            const containerHeight = totalRows * rowHeight;
+
+            // Создаем контейнер для плейсхолдеров
+            const placeholderContainer = document.createElement('div');
+            placeholderContainer.id = 'virtualized-placeholder-container';
+            placeholderContainer.className = 'virtualized-container';
+            placeholderContainer.style.height = `${containerHeight}px`;
+            gridFragment.appendChild(placeholderContainer);
+
+            // Создаем ячейки только для игр "в процессе"
             inProgressGames.forEach(game => {
                 const cell = createCell(game);
                 inProgressFragment.appendChild(cell);
             });
 
-            // Создаем ячейки только для видимых игр
-            const visibleGames = virtualizedGames.slice(visibleRangeStart, visibleRangeEnd);
-            visibleGames.forEach(game => {
-                const cell = createCell(game);
-                gridFragment.appendChild(cell);
-            });
-
             // Добавляем фрагменты в DOM
             grid.appendChild(gridFragment);
             inProgressRow.appendChild(inProgressFragment);
+
+            // Обновляем виртуализированное отображение
+            updateVirtualizedDisplay();
 
             updateInProgressRow();
 
@@ -3529,6 +3558,13 @@
 
             visibleRangeStart = startIndex;
             visibleRangeEnd = endIndex;
+
+            // Сохраняем информацию о размерах для позиционирования
+            gameCache.virtualization = {
+                cellSize,
+                cellsPerRow,
+                rowHeight
+            };
         }
 
         // Функция для настройки обработчика прокрутки для виртуализации
@@ -3559,10 +3595,31 @@
             }, 100); // Задержка в 100 мс
         }
 
-        // Функция для обновления виртуализированного отображения
+        // Функция для обновления виртуализированного отображения с фиксированной высотой
         function updateVirtualizedDisplay() {
+            // Получаем информацию о размерах
+            const { cellSize, cellsPerRow, rowHeight } = gameCache.virtualization;
+
+            // Вычисляем общее количество строк для всех игр
+            const totalRows = Math.ceil(virtualizedGames.length / cellsPerRow);
+
+            // Устанавливаем высоту контейнера для сохранения скроллбара
+            const containerHeight = totalRows * rowHeight;
+
+            // Если контейнер для плейсхолдеров не существует, создаем его
+            let placeholderContainer = document.getElementById('virtualized-placeholder-container');
+            if (!placeholderContainer) {
+                placeholderContainer = document.createElement('div');
+                placeholderContainer.id = 'virtualized-placeholder-container';
+                placeholderContainer.className = 'virtualized-container';
+                placeholderContainer.style.height = `${containerHeight}px`;
+                grid.appendChild(placeholderContainer);
+            } else {
+                placeholderContainer.style.height = `${containerHeight}px`;
+            }
+
             // Получаем все текущие ячейки
-            const currentCells = Array.from(grid.querySelectorAll('.cell'));
+            const currentCells = Array.from(grid.querySelectorAll('.cell:not(.in-progress)'));
 
             // Создаем карту текущих ячеек по ID игры
             const currentCellsMap = new Map();
@@ -3573,33 +3630,50 @@
                 }
             });
 
-            // Создаем фрагмент для новых ячеек
-            const fragment = document.createDocumentFragment();
-
             // Получаем видимые игры
             const visibleGames = virtualizedGames.slice(visibleRangeStart, visibleRangeEnd);
 
-            // Создаем или переиспользуем ячейки для видимых игр
-            visibleGames.forEach(game => {
-                const gameId = game.id.toString();
+            // Создаем Set для отслеживания видимых игр
+            const visibleGameIds = new Set(visibleGames.map(game => game.id.toString()));
 
-                // Если ячейка уже существует, переиспользуем ее
-                if (currentCellsMap.has(gameId)) {
-                    const cell = currentCellsMap.get(gameId);
-                    fragment.appendChild(cell);
-                    currentCellsMap.delete(gameId);
-                } else {
-                    // Иначе создаем новую ячейку
-                    const cell = createCell(game);
-                    fragment.appendChild(cell);
+            // Скрываем ячейки, которые больше не видны
+            currentCells.forEach(cell => {
+                const gameId = cell.dataset.gameId;
+                if (!visibleGameIds.has(gameId)) {
+                    cell.style.display = 'none';
                 }
             });
 
-            // Очищаем сетку
-            grid.innerHTML = '';
+            // Создаем или переиспользуем ячейки для видимых игр
+            visibleGames.forEach((game, index) => {
+                const gameId = game.id.toString();
+                const gameIndex = virtualizedGames.findIndex(g => g.id.toString() === gameId);
 
-            // Добавляем фрагмент в сетку
-            grid.appendChild(fragment);
+                // Вычисляем позицию ячейки
+                const row = Math.floor(gameIndex / cellsPerRow);
+                const col = gameIndex % cellsPerRow;
+                const left = col * (cellSize + 5); // 5px - это gap из CSS
+                const top = row * rowHeight;
+
+                let cell;
+
+                // Если ячейка уже существует, переиспользуем ее
+                if (currentCellsMap.has(gameId)) {
+                    cell = currentCellsMap.get(gameId);
+                    currentCellsMap.delete(gameId);
+                } else {
+                    // Иначе создаем новую ячейку
+                    cell = createCell(game);
+                    grid.appendChild(cell);
+                }
+
+                // Устанавливаем позицию и стили для ячейки
+                cell.classList.add('virtualized-cell');
+                cell.style.position = 'absolute';
+                cell.style.left = `${left}px`;
+                cell.style.top = `${top}px`;
+                cell.style.display = 'block';
+            });
 
             // Запускаем предзагрузку изображений для видимых ячеек
             preloadVisibleImages();
@@ -5325,10 +5399,24 @@
                 }
             });
 
+            // Обновляем список виртуализированных игр
+            const filteredGames = games.filter(game =>
+                gameCache.visibleGameIds.has(game.id.toString()) && !game.inProgress
+            );
+
+            // Обновляем массив виртуализированных игр
+            virtualizedGames = filteredGames;
+
+            // Пересчитываем видимый диапазон
+            calculateVisibleRange();
+
+            // Обновляем виртуализированное отображение
+            updateVirtualizedDisplay();
+
             return gameCache.visibleGameIds;
         }
 
-        // Функция для применения фильтров к DOM
+        // Функция для применения фильтров к DOM с использованием виртуализации
         function applyFiltersToDOM(forceIdSort = false) {
             // Сохраняем текущие изображения в кэше, если они еще не сохранены
             document.querySelectorAll('.cell img.loaded').forEach(img => {
@@ -5357,147 +5445,76 @@
             // Фильтр считается активным, если пользователь изменил ползунки
             const isYearFilterActive = minVal > gameCache.years.min || maxVal < gameCache.years.max;
 
-            // Если фильтр по годам активен и не указан параметр forceIdSort, пересортируем игры в сетке
-            if (isYearFilterActive && !forceIdSort) {
-                // Собираем все игры, которые не в режиме "in progress"
-                const gridCells = Array.from(grid.children);
-                const gridGames = [];
-
-                // Сохраняем связь между игрой и ячейкой
-                gridCells.forEach(cell => {
-                    const gameId = cell.getAttribute('data-game-id');
-                    const game = games.find(g => g.id.toString() === gameId);
-                    if (game) {
-                        gridGames.push({ game, cell });
-                    }
-                });
-
-                // Сортируем игры: сначала по наличию года (игры без года в конец), затем по ID
-                gridGames.sort((a, b) => {
-                    // Если у одной игры есть год, а у другой нет, игра без года идет в конец
-                    if (a.game.year === null && b.game.year !== null) {
-                        return 1;
-                    }
-                    if (a.game.year !== null && b.game.year === null) {
-                        return -1;
-                    }
-                    // Если у обеих игр есть год или у обеих нет, сортируем по ID
-                    return a.game.id - b.game.id;
-                });
-
-                // Создаем фрагмент для более эффективного добавления элементов в DOM
-                const gridFragment = document.createDocumentFragment();
-
-                // Добавляем ячейки в новом порядке во фрагмент
-                gridGames.forEach(item => {
-                    // Восстанавливаем изображение из глобального кэша, если оно было загружено ранее
-                    const gameId = item.game.id.toString();
-                    if (gameCache.images[gameId]) {
-                        const img = item.cell.querySelector('img');
-                        if (img) {
-                            img.src = gameCache.images[gameId];
-                            img.classList.add('loaded');
-                            // Устанавливаем opacity напрямую для предотвращения мерцания
-                            img.style.opacity = '1';
-                        }
-                    }
-                    gridFragment.appendChild(item.cell);
-                });
-
-                // Очищаем сетку и добавляем фрагмент
-                grid.innerHTML = '';
-                grid.appendChild(gridFragment);
-            }
-
-            // Reset styles/visibility first
-            document.querySelectorAll('.cell').forEach(cell => {
+            // Обрабатываем игры "в процессе"
+            document.querySelectorAll('#inProgressRow .cell').forEach(cell => {
                 // Удаляем класс search-match-in-progress перед применением фильтров
                 cell.classList.remove('search-match-in-progress');
-                // Decide initial visibility based on filters ONLY (not search yet)
+
                 const gameId = cell.getAttribute('data-game-id');
                 const game = games.find(g => g.id.toString() === gameId);
 
-                // Проверяем, находится ли ячейка в зоне "In Progress"
-                const isInProgressRow = cell.parentElement.id === 'inProgressRow';
+                // Если есть поисковый запрос, проверяем соответствие
+                if (searchTerm !== '') {
+                    const matchesSearch = game.name.toLowerCase().includes(searchTerm);
 
-                // Если ячейка в зоне "In Progress", показываем ее всегда, независимо от фильтров
-                if (isInProgressRow) {
-                    cell.style.display = ''; // Всегда показываем игры в зоне "In Progress"
-                } else if (game && shouldShowGame(game)) {
-                    cell.style.display = ''; // Показываем обычные игры, если они проходят фильтры
+                    if (matchesSearch) {
+                        cell.style.display = ''; // Показываем, если соответствует поиску
+                        if (!firstInProgressMatchElement) {
+                            firstInProgressMatchElement = cell; // Found the first one
+                        }
+                    } else {
+                        cell.style.display = 'none'; // Скрываем, если не соответствует поиску
+                    }
                 } else {
-                    cell.style.display = 'none'; // Скрываем игры, которые не проходят фильтры
-                    if(game) hiddenGames.push(game); // Отслеживаем скрытые игры
+                    cell.style.display = ''; // Всегда показываем игры в зоне "In Progress", если нет поиска
                 }
             });
 
-            // Now handle search term specifically
-            if (searchTerm !== '') {
-                document.querySelectorAll('#inProgressRow .cell').forEach(cell => {
-                    const gameId = cell.getAttribute('data-game-id');
-                    const game = games.find(g => g.id.toString() === gameId);
-                    const matchesSearch = game.name.toLowerCase().includes(searchTerm);
+            // Обновляем список виртуализированных игр на основе фильтров и поиска
+            const filteredGames = games.filter(game => {
+                // Игры "в процессе" обрабатываются отдельно
+                if (game.inProgress) return false;
 
-                    if (cell.style.display !== 'none') { // Only consider cells currently visible based on filters
-                        if (matchesSearch) {
-                            if (!firstInProgressMatchElement) {
-                                firstInProgressMatchElement = cell; // Found the first one
-                            }
-                        } else {
-                            cell.style.display = 'none'; // Hide if doesn't match search
-                        }
-                    }
-                });
+                // Проверяем соответствие фильтрам
+                const passesFilters = shouldShowGame(game);
 
-                // Handle non-inProgress cells for search
-                 document.querySelectorAll('#grid .cell').forEach(cell => {
-                     if (cell.style.display !== 'none') { // Only consider cells currently visible based on filters
-                        const gameId = cell.getAttribute('data-game-id');
-                        const game = games.find(g => g.id.toString() === gameId);
-                        const matchesSearch = game.name.toLowerCase().includes(searchTerm);
-                        if (!matchesSearch) {
-                            cell.style.display = 'none'; // Hide if doesn't match search
-                        }
-                     }
-                 });
-
-                // Move the first match to the beginning and apply style
-                if (firstInProgressMatchElement) {
-                    // Восстанавливаем изображение из глобального кэша, если оно было загружено ранее
-                    const gameId = firstInProgressMatchElement.getAttribute('data-game-id');
-                    if (gameCache.images[gameId]) {
-                        const img = firstInProgressMatchElement.querySelector('img');
-                        if (img) {
-                            img.src = gameCache.images[gameId];
-                            img.classList.add('loaded');
-                            // Устанавливаем opacity напрямую для предотвращения мерцания
-                            img.style.opacity = '1';
-                        }
-                    }
-                    inProgressRow.insertBefore(firstInProgressMatchElement, inProgressRow.firstChild);
-                    firstInProgressMatchElement.classList.add('search-match-in-progress');
+                // Если есть поисковый запрос, проверяем соответствие
+                if (searchTerm !== '' && passesFilters) {
+                    return game.name.toLowerCase().includes(searchTerm);
                 }
 
-            } else {
-                 // If search is cleared, ensure all filter-passing cells are visible
-                 document.querySelectorAll('.cell').forEach(cell => {
-                    const gameId = cell.getAttribute('data-game-id');
-                    const game = games.find(g => g.id.toString() === gameId);
+                return passesFilters;
+            });
 
-                    // Проверяем, находится ли ячейка в зоне "In Progress"
-                    const isInProgressRow = cell.parentElement.id === 'inProgressRow';
+            // Обновляем массив виртуализированных игр
+            virtualizedGames = filteredGames;
 
-                    // Если ячейка в зоне "In Progress", показываем ее всегда
-                    if (isInProgressRow) {
-                        cell.style.display = ''; // Всегда показываем игры в зоне "In Progress"
-                    } else if (game && shouldShowGame(game)) {
-                        cell.style.display = ''; // Показываем обычные игры, если они проходят фильтры
+            // Пересчитываем видимый диапазон
+            calculateVisibleRange();
+
+            // Обновляем виртуализированное отображение
+            updateVirtualizedDisplay();
+
+            // Move the first match to the beginning and apply style
+            if (firstInProgressMatchElement) {
+                // Восстанавливаем изображение из глобального кэша, если оно было загружено ранее
+                const gameId = firstInProgressMatchElement.getAttribute('data-game-id');
+                if (gameCache.images[gameId]) {
+                    const img = firstInProgressMatchElement.querySelector('img');
+                    if (img) {
+                        img.src = gameCache.images[gameId];
+                        img.classList.add('loaded');
+                        // Устанавливаем opacity напрямую для предотвращения мерцания
+                        img.style.opacity = '1';
                     }
-                 });
+                }
+                inProgressRow.insertBefore(firstInProgressMatchElement, inProgressRow.firstChild);
+                firstInProgressMatchElement.classList.add('search-match-in-progress');
             }
 
             // Count visible games AFTER applying search filter
-            visibleGames = Array.from(document.querySelectorAll('.cell')).filter(cell => cell.style.display !== 'none').length;
+            visibleGames = virtualizedGames.length +
+                Array.from(document.querySelectorAll('#inProgressRow .cell')).filter(cell => cell.style.display !== 'none').length;
 
             // DO NOT call updateInProgressRow() here.
             updateSaturation(); // This seems fine to call.
