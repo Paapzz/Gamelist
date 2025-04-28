@@ -960,7 +960,14 @@ def update_metacritic_data(reset_index=False):
             error_games += 1
             continue
 
-        if game_id in metacritic_data['games']:
+        # Определяем, завершен ли полный цикл сбора данных
+        is_first_run = not metacritic_data.get('full_cycle_complete', False)
+
+        # Если это первый запуск, пропускаем проверку на старые/не старые игры
+        if is_first_run and processed_games == 0 and game_id in metacritic_data['games']:
+            logging.info(f"Полный цикл сбора данных еще не завершен. Пропускаем проверку на старые/не старые игры.")
+
+        if game_id in metacritic_data['games'] and not is_first_run:
             game_data = metacritic_data['games'][game_id]
             last_updated = game_data.get('timestamp', '')
             note = game_data.get('note', '')
@@ -1020,7 +1027,7 @@ def update_metacritic_data(reset_index=False):
                 except Exception as e:
                     logging.warning(f"Не удалось распарсить дату обновления для игры {game_name}: {e}")
 
-            elif note == "Не найдено на Metacritic" and last_updated:
+            elif note == "Не найдено на Metacritic" and last_updated and not is_first_run:
                 try:
                     last_updated_date = datetime.fromisoformat(last_updated)
                     days_since_update = (datetime.now() - last_updated_date).days
@@ -1066,7 +1073,7 @@ def update_metacritic_data(reset_index=False):
                 except Exception as e:
                     logging.warning(f"Не удалось распарсить дату обновления для игры {game_name}: {e}")
 
-            elif "Игра еще не вышла" in note and last_updated:
+            elif "Игра еще не вышла" in note and last_updated and not is_first_run:
                 try:
                     last_updated_date = datetime.fromisoformat(last_updated)
                     days_since_update = (datetime.now() - last_updated_date).days
@@ -1078,7 +1085,7 @@ def update_metacritic_data(reset_index=False):
                 except Exception as e:
                     logging.warning(f"Не удалось распарсить дату обновления для игры {game_name}: {e}")
 
-            elif note == "Страница существует, но оценки не найдены" and last_updated:
+            elif note == "Страница существует, но оценки не найдены" and last_updated and not is_first_run:
                 try:
                     last_updated_date = datetime.fromisoformat(last_updated)
                     days_since_update = (datetime.now() - last_updated_date).days
@@ -1333,6 +1340,17 @@ def update_metacritic_data(reset_index=False):
 
     metacritic_data['last_updated'] = datetime.now().isoformat()
     metacritic_data['total_games'] = len(metacritic_data['games'])
+
+    # Проверяем, завершен ли полный цикл сбора данных
+    if last_processed_index + processed_games >= total_games:
+        logging.info(f"Завершен полный цикл сбора данных. Можно начинать проверку на старые/не старые игры.")
+        # Добавляем флаг, что завершен полный цикл сбора данных
+        metacritic_data['full_cycle_complete'] = True
+    elif not metacritic_data.get('full_cycle_complete', False):
+        logging.info(f"Полный цикл сбора данных еще не завершен: обработано {last_processed_index + processed_games}/{total_games} игр. Продолжаем сбор данных.")
+        # Не меняем флаг, если он уже установлен в True
+        if 'full_cycle_complete' not in metacritic_data:
+            metacritic_data['full_cycle_complete'] = False
 
     if processed_games >= total_games or requests_count >= MAX_REQUESTS_PER_RUN:
         metacritic_data['last_processed_index'] = 0
