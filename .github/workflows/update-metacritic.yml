@@ -2,7 +2,7 @@ name: Update Metacritic Ratings
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Каждые 6 часов 
+    - cron: '0 */6 * * *'  # Каждые 6 часов
   workflow_dispatch:
 
 jobs:
