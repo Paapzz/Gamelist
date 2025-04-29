@@ -134,6 +134,38 @@ def get_weighted_rating(game, metacritic_data=None):
 
     return base_rating + count_factor + rating_bonus - review_penalty - very_low_ratings_penalty + special_adjustment
 
+def create_all_games_file(total_files):
+    """
+    Создает единый файл all_games.json, объединяя все файлы games_*.json
+
+    Args:
+        total_files (int): Общее количество файлов с играми
+    """
+    print(f"Starting to combine {total_files} files into all_games.json")
+    all_games = []
+
+    # Загружаем игры из всех файлов по порядку
+    for i in range(1, total_files + 1):
+        file_path = f'data/games_{i}.json'
+        print(f"Processing file {i}/{total_files}: {file_path}")
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                games = json.load(f)
+                print(f"Loaded {len(games)} games from {file_path}")
+                all_games.extend(games)
+        except Exception as e:
+            print(f"Error loading file {file_path}: {e}")
+
+    # Сохраняем все игры в один файл
+    all_games_path = 'data/all_games.json'
+    print(f"Saving {len(all_games)} games to {all_games_path}")
+
+    with open(all_games_path, 'w', encoding='utf-8') as f:
+        json.dump(all_games, f, ensure_ascii=False)
+
+    print(f"Successfully created {all_games_path} with {len(all_games)} games")
+
 def main():
     token = get_access_token()
     print("Access token received.")
@@ -233,11 +265,16 @@ def main():
             "2": "date",
             "3": "file"
         },
-        "games_per_file": GAMES_PER_FILE
+        "games_per_file": GAMES_PER_FILE,
+        "all_games_file": "all_games.json"
     }
     with open('data/index.json', 'w', encoding='utf-8') as f:
         json.dump(index, f, ensure_ascii=False)
     print("Saved data/index.json")
+
+    # Создаем единый файл со всеми играми
+    print("Creating consolidated file with all games...")
+    create_all_games_file(total_files)
 
 if __name__ == "__main__":
     main()
