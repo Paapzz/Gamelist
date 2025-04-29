@@ -3744,7 +3744,7 @@
         // Глобальные переменные для управления загрузкой изображений
         let imageLoadQueue = [];
         let activeImageLoads = 0;
-        const MAX_CONCURRENT_LOADS = 50; // Максимальное количество одновременных загрузок
+        const MAX_CONCURRENT_LOADS = 25; // Максимальное количество одновременных загрузок
         const IMAGE_CACHE_PREFIX = 'img_cache_'; // Префикс для ключей кэша изображений
         const MAX_CACHE_SIZE = 50 * 1024 * 1024; // Максимальный размер кэша (50 МБ)
         let currentCacheSize = 0; // Текущий размер кэша
