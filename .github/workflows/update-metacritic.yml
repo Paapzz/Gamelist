@@ -1,8 +1,8 @@
-name: Update Metacritic Ratings (Fixed)
+name: Update Metacritic Ratings
 
 on:
   schedule:
-    - cron: '0 */5 * * *'  # Каждые 6 часов
+    - cron: '0 3 * * *'  # Каждые день в 6 утра
   workflow_dispatch:
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
     - name: Collect Metacritic data (manual run with reset)
       if: github.event_name == 'workflow_dispatch'
       run: |
-        python metacritic_collector.py --reset
+        python metacritic_collector.py
       continue-on-error: true
 
     - name: Collect Metacritic data (scheduled run)
@@ -73,43 +73,7 @@ jobs:
       run: |
         git config --global user.email "github-actions@github.com"
         git config --global user.name "GitHub Actions"
-        
-        # Сначала сохраняем наши изменения во временные файлы
-        mkdir -p /tmp/metacritic_backup
-        if [ -f meta_data/metacritic_ratings.json ]; then
-          cp meta_data/metacritic_ratings.json /tmp/metacritic_backup/
-        fi
-        if ls data/games_*.json &>/dev/null; then
-          cp data/games_*.json /tmp/metacritic_backup/ 2>/dev/null || true
-        fi
-        
-        # Сбрасываем все локальные изменения
-        git reset --hard
-        
-        # Получаем последние изменения с удаленного репозитория
-        git pull origin main
-        
-        # Восстанавливаем наши изменения
-        if [ -f /tmp/metacritic_backup/metacritic_ratings.json ]; then
-          mkdir -p meta_data
-          cp /tmp/metacritic_backup/metacritic_ratings.json meta_data/
-        fi
-        if ls /tmp/metacritic_backup/games_*.json &>/dev/null; then
-          mkdir -p data
-          cp /tmp/metacritic_backup/games_*.json data/ 2>/dev/null || true
-        fi
-        
-        # Добавляем файлы в индекс
-        git add meta_data/metacritic_ratings.json 2>/dev/null || true
-        git add data/games_*.json 2>/dev/null || true
-        
-        # Проверяем, есть ли изменения, и если есть, коммитим и пушим
-        if ! git diff --quiet || ! git diff --staged --quiet; then
-          git commit -m "Update Metacritic ratings"
-          git push || {
-            echo "Не удалось выполнить push, пробуем еще раз с force"
-            git push --force
-          }
-        else
-          echo "Нет изменений для коммита"
-        fi
+        git add meta_data/metacritic_ratings.json
+        git add data/games_*.json
+        git pull --rebase origin main
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Update Metacritic ratings" && git push)
