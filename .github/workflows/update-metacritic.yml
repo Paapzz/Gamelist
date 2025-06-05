@@ -2,7 +2,8 @@ name: Update Metacritic Ratings
 
 on:
   schedule:
-    - cron: '0 3 * * *'  # Каждые день в 6 утра
+   #- cron: '0 3 * * *'   Каждые день в 6 утра
+    - cron: '40 5 * * *'  # 05:40 UTC, через 30 минут после окончания Update Games List
   workflow_dispatch:
 
 jobs:
@@ -75,5 +76,9 @@ jobs:
         git config --global user.name "GitHub Actions"
         git add meta_data/metacritic_ratings.json
         git add data/games_*.json
-        git pull --rebase origin main
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Update Metacritic ratings" && git push)
+        git commit -m "Update Metacritic ratings" || true
+        for i in 1 2 3; do
+          git pull --rebase origin main || break
+          git push && break
+          sleep 5
+        done
