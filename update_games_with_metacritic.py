@@ -5,7 +5,7 @@ import logging
 import sys
 
 # Константы
-METACRITIC_DATA_FILE = 'data/metacritic_ratings.json'  # Файл с данными Metacritic
+METACRITIC_DATA_FILE = 'meta_data/metacritic_ratings.json'  # Файл с данными Metacritic
 LOG_FILE = 'update_games_with_metacritic.log'  # Файл для логирования
 
 # Настройка логирования
@@ -90,10 +90,18 @@ def update_games_with_metacritic():
 
             # Если были обновления, сохраняем файл
             if updated:
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    json.dump(games, f, ensure_ascii=False)
-                logging.info(f"Файл {file_path} обновлен. Обновлено игр: {file_updated_games}")
-                updated_games += file_updated_games
+                new_content = json.dumps(games, ensure_ascii=False)
+                old_content = None
+                if os.path.exists(file_path):
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        old_content = f.read()
+                if old_content != new_content:
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        f.write(new_content)
+                    logging.info(f"Файл {file_path} обновлен. Обновлено игр: {file_updated_games}")
+                    updated_games += file_updated_games
+                else:
+                    logging.info(f"В файле {file_path} нет изменений (контент совпадает).")
             else:
                 logging.info(f"В файле {file_path} нет изменений.")
 
