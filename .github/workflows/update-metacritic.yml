@@ -80,5 +80,5 @@ jobs:
         for i in 1 2 3; do
           git pull --rebase origin main || break
           git push && break
-          sleep 5
+          sleep 10
         done
