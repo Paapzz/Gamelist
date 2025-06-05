@@ -47,9 +47,17 @@ def save_metacritic_data(data):
     """Сохраняет данные Metacritic в файл."""
     os.makedirs(os.path.dirname(METACRITIC_DATA_FILE), exist_ok=True)
     try:
-        with open(METACRITIC_DATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        logging.info(f"Данные Metacritic сохранены в {METACRITIC_DATA_FILE}")
+        new_content = json.dumps(data, ensure_ascii=False, indent=2)
+        old_content = None
+        if os.path.exists(METACRITIC_DATA_FILE):
+            with open(METACRITIC_DATA_FILE, 'r', encoding='utf-8') as f:
+                old_content = f.read()
+        if old_content != new_content:
+            with open(METACRITIC_DATA_FILE, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+            logging.info(f"Данные Metacritic сохранены в {METACRITIC_DATA_FILE}")
+        else:
+            logging.info(f"Нет изменений для {METACRITIC_DATA_FILE}, запись пропущена.")
     except Exception as e:
         logging.error(f"Ошибка при сохранении данных Metacritic: {e}")
 
@@ -1001,7 +1009,7 @@ def update_metacritic_data(reset_index=False):
                                 logging.debug(f"Пропускаем игру {game_name} (ID: {game_id}), данные обновлены {days_since_update} дней назад")
                                 continue
                             else:
-                                game_data['first_updated'] = datetime.now().isoformat()
+                                game_data['first_updated'] = last_updated
                         else:
                             game_data['first_updated'] = last_updated
                             game_data['no_more_updates'] = True
