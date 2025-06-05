@@ -161,10 +161,17 @@ def create_all_games_file(total_files):
     all_games_path = 'data/all_games.json'
     print(f"Saving {len(all_games)} games to {all_games_path}")
 
-    with open(all_games_path, 'w', encoding='utf-8') as f:
-        json.dump(all_games, f, ensure_ascii=False)
-
-    print(f"Successfully created {all_games_path} with {len(all_games)} games")
+    new_all_games = json.dumps(all_games, ensure_ascii=False)
+    old_all_games = None
+    if os.path.exists(all_games_path):
+        with open(all_games_path, 'r', encoding='utf-8') as f:
+            old_all_games = f.read()
+    if old_all_games != new_all_games:
+        with open(all_games_path, 'w', encoding='utf-8') as f:
+            f.write(new_all_games)
+        print(f"Successfully created {all_games_path} with {len(all_games)} games")
+    else:
+        print(f"No changes for {all_games_path}, skipping write.")
 
 def main():
     token = get_access_token()
@@ -236,9 +243,18 @@ def main():
     for i in range(total_files):
         start = i * GAMES_PER_FILE
         end = min((i + 1) * GAMES_PER_FILE, len(all_sorted))
-        with open(f'data/games_{i+1}.json', 'w', encoding='utf-8') as f:
-            json.dump(all_sorted[start:end], f, ensure_ascii=False)
-        print(f"Saved data/games_{i+1}.json ({end-start} games)")
+        file_path = f'data/games_{i+1}.json'
+        new_content = json.dumps(all_sorted[start:end], ensure_ascii=False)
+        old_content = None
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                old_content = f.read()
+        if old_content != new_content:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+            print(f"Saved {file_path} ({end-start} games)")
+        else:
+            print(f"No changes for {file_path}, skipping write.")
 
     search_index = [
         [
@@ -249,9 +265,18 @@ def main():
         ]
         for i, game in enumerate(all_sorted)
     ]
-    with open('data/search_index.json', 'w', encoding='utf-8') as f:
-        json.dump(search_index, f, ensure_ascii=False)
-    print("Saved data/search_index.json (optimized format)")
+    search_index_path = 'data/search_index.json'
+    new_search_index = json.dumps(search_index, ensure_ascii=False)
+    old_search_index = None
+    if os.path.exists(search_index_path):
+        with open(search_index_path, 'r', encoding='utf-8') as f:
+            old_search_index = f.read()
+    if old_search_index != new_search_index:
+        with open(search_index_path, 'w', encoding='utf-8') as f:
+            f.write(new_search_index)
+        print("Saved data/search_index.json (optimized format)")
+    else:
+        print("No changes for data/search_index.json, skipping write.")
 
     index = {
         "total_games": len(all_sorted),
@@ -268,9 +293,18 @@ def main():
         "games_per_file": GAMES_PER_FILE,
         "all_games_file": "all_games.json"
     }
-    with open('data/index.json', 'w', encoding='utf-8') as f:
-        json.dump(index, f, ensure_ascii=False)
-    print("Saved data/index.json")
+    index_path = 'data/index.json'
+    new_index = json.dumps(index, ensure_ascii=False)
+    old_index = None
+    if os.path.exists(index_path):
+        with open(index_path, 'r', encoding='utf-8') as f:
+            old_index = f.read()
+    if old_index != new_index:
+        with open(index_path, 'w', encoding='utf-8') as f:
+            f.write(new_index)
+        print("Saved data/index.json")
+    else:
+        print("No changes for data/index.json, skipping write.")
 
     # Создаем единый файл со всеми играми
     print("Creating consolidated file with all games...")
