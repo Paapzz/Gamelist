@@ -8,10 +8,10 @@ on:
 jobs:
   update-games:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - uses: actions/checkout@v2
-      with:
-        token: ${{ secrets.PAT }}
 
     - name: Set up Python
       uses: actions/setup-python@v2
