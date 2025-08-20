@@ -40,10 +40,17 @@ def allowed_platforms(game):
         return False
     return any(pid in ALLOWED_PLATFORMS for pid in [p['id'] if isinstance(p, dict) else p for p in game['platforms']])
 
+def get_enum_id(field):
+    if isinstance(field, dict):
+        return field.get('id')
+    return field
+
 def is_main_game(game):
+    cat_id = get_enum_id(game.get('category'))
+    status_id = get_enum_id(game.get('status'))
     return (
-        game.get('category') == 0 and
-        game.get('status') in (0, 4) and
+        cat_id == 0 and
+        status_id in (0, 4) and
         (game.get('rating_count', 0) >= 12 or game.get('total_rating_count', 0) >= 12)
     )
 
@@ -61,7 +68,6 @@ def get_average_rating(game):
     return agg or rat or 0
 
 def load_metacritic_data():
-    """Загружает данные Metacritic из файла."""
     metacritic_file = 'meta_data/metacritic_ratings.json'
     if os.path.exists(metacritic_file):
         try:
@@ -75,7 +81,6 @@ def load_metacritic_data():
         return {"games": {}, "last_updated": "", "total_games": 0}
 
 def get_metacritic_score(game, metacritic_data):
-    """Получает оценку Metacritic для игры."""
     game_id = str(game.get('id'))
     if game_id in metacritic_data['games']:
         mc_data = metacritic_data['games'][game_id]
@@ -135,16 +140,9 @@ def get_weighted_rating(game, metacritic_data=None):
     return base_rating + count_factor + rating_bonus - review_penalty - very_low_ratings_penalty + special_adjustment
 
 def create_all_games_file(total_files):
-    """
-    Создает единый файл all_games.json, объединяя все файлы games_*.json
-
-    Args:
-        total_files (int): Общее количество файлов с играми
-    """
     print(f"Starting to combine {total_files} files into all_games.json")
     all_games = []
 
-    # Загружаем игры из всех файлов по порядку
     for i in range(1, total_files + 1):
         file_path = f'data/games_{i}.json'
         print(f"Processing file {i}/{total_files}: {file_path}")
@@ -157,7 +155,6 @@ def create_all_games_file(total_files):
         except Exception as e:
             print(f"Error loading file {file_path}: {e}")
 
-    # Сохраняем все игры в один файл
     all_games_path = 'data/all_games.json'
     print(f"Saving {len(all_games)} games to {all_games_path}")
 
@@ -216,23 +213,23 @@ def main():
         print("Sorting games using Metacritic ratings...")
         main_games.sort(key=lambda g: (
             -get_weighted_rating(g, metacritic_data),
-            g.get('status', 0)
+            get_enum_id(g.get('status', 0))
         ))
 
         other_games.sort(key=lambda g: (
             -get_weighted_rating(g, metacritic_data),
-            g.get('status', 0)
+            get_enum_id(g.get('status', 0))
         ))
     else:
         print("Sorting games using only IGDB ratings...")
         main_games.sort(key=lambda g: (
             -get_weighted_rating(g),
-            g.get('status', 0)
+            get_enum_id(g.get('status', 0))
         ))
 
         other_games.sort(key=lambda g: (
             -get_weighted_rating(g),
-            g.get('status', 0)
+            get_enum_id(g.get('status', 0))
         ))
 
     all_sorted = main_games + other_games
@@ -306,7 +303,6 @@ def main():
     else:
         print("No changes for data/index.json, skipping write.")
 
-    # Создаем единый файл со всеми играми
     print("Creating consolidated file with all games...")
     create_all_games_file(total_files)
 
