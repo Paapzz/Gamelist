@@ -3449,20 +3449,23 @@
             return result;
         }
 
-        state.games = gamesList.map(game => ({
-            id: game.number,
-            name: formatGameTitle(game.title),
-            imageUrl: game.image_url,
-            year: game.year,
-            genres: game.genres,
-            platforms: game.platforms,
-            completed: false,
-            inProgress: false,
-            isCustom: false
-        }));
-        games = state.games; // Для обратной совместимости
-
         function loadSavedGames() {
+            // Инициализируем игры из исходного списка, если они еще не инициализированы
+            if (!state.games || state.games.length === 0) {
+                state.games = gamesList.map(game => ({
+                    id: game.number,
+                    name: formatGameTitle(game.title),
+                    imageUrl: game.image_url,
+                    year: game.year,
+                    genres: game.genres,
+                    platforms: game.platforms,
+                    completed: false,
+                    inProgress: false,
+                    isCustom: false
+                }));
+                games = state.games; // Для обратной совместимости
+            }
+            
             const savedGames = localStorage.getItem('games');
             const romanNumeralsFormatted = localStorage.getItem('romanNumeralsFormatted');
             // Добавляем новый флаг для отслеживания обновления форматирования названий
