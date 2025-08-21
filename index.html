@@ -6482,89 +6482,7 @@
             }, 3000);
         }
 
-        completedFilter.addEventListener('click', toggleCompletedFilter);
-        randomButton.addEventListener('click', selectRandomGame);
-        saturationSlider.addEventListener('input', () => {
-            state.saturation = saturationSlider.value;
-            localStorage.setItem('saturation', state.saturation);
-            updateSaturation();
-        });
 
-        // Обработчики событий для ползунка минимального года
-        yearSliderMin.addEventListener('input', throttle(() => {
-            const minVal = parseInt(yearSliderMin.value);
-            const maxVal = parseInt(yearSliderMax.value);
-
-            // Проверяем, чтобы минимальный год не был больше максимального минус 1
-            if (minVal > maxVal - 1) {
-                yearSliderMin.value = maxVal - 1;
-            }
-
-            // Обновляем состояние
-            state.filters.yearMin = parseInt(yearSliderMin.value);
-
-            // Обновляем визуальное отображение
-            updateYearSliderVisuals();
-
-            // Применяем фильтры с debounce для производительности
-            debouncedUpdateVisibleGames();
-        }, 16));
-
-        // При отпускании ползунка применяем фильтры немедленно и сохраняем в localStorage
-        yearSliderMin.addEventListener('change', () => {
-            // Сохраняем в localStorage
-            saveYearFiltersToStorage();
-            // Очищаем кэш фильтров при изменении
-            clearFilterCache();
-        });
-
-        yearSliderMin.addEventListener('mouseover', () => {
-            document.querySelector('.min-tooltip').style.opacity = '1';
-        });
-
-        yearSliderMin.addEventListener('mouseout', () => {
-            document.querySelector('.min-tooltip').style.opacity = '0';
-        });
-
-        // Обработчики событий для ползунка максимального года
-        yearSliderMax.addEventListener('input', throttle(() => {
-            const minVal = parseInt(yearSliderMin.value);
-            const maxVal = parseInt(yearSliderMax.value);
-
-            // Проверяем, чтобы максимальный год не был меньше минимального плюс 1
-            if (maxVal < minVal + 1) {
-                yearSliderMax.value = minVal + 1;
-            }
-
-            // Обновляем состояние
-            state.filters.yearMax = parseInt(yearSliderMax.value);
-
-            // Обновляем визуальное отображение
-            updateYearSliderVisuals();
-
-            // Применяем фильтры с debounce для производительности
-            debouncedUpdateVisibleGames();
-        }, 16));
-
-        // При отпускании ползунка применяем фильтры немедленно и сохраняем в localStorage
-        yearSliderMax.addEventListener('change', () => {
-            // Сохраняем в localStorage
-            saveYearFiltersToStorage();
-            // Очищаем кэш фильтров при изменении
-            clearFilterCache();
-        });
-
-        yearSliderMax.addEventListener('mouseover', () => {
-            document.querySelector('.max-tooltip').style.opacity = '1';
-        });
-
-        yearSliderMax.addEventListener('mouseout', () => {
-            document.querySelector('.max-tooltip').style.opacity = '0';
-        });
-
-        // Инициализация подсветки трека и тултипов при загрузке
-        updateSliderTrack();
-        updateTooltips();
 
         // Добавим обработчики событий для анимации полосок после загрузки игр
         setTimeout(() => {
@@ -8018,6 +7936,92 @@
 
             completedFilter.addEventListener('click', toggleCompletedFilter);
             hideCompletedButton.addEventListener('click', toggleHideCompleted);
+
+            // Обработчики событий для ползунка насыщенности
+            saturationSlider.addEventListener('input', () => {
+                state.saturation = saturationSlider.value;
+                localStorage.setItem('saturation', state.saturation);
+                updateSaturation();
+            });
+
+            // Обработчики событий для ползунка минимального года
+            yearSliderMin.addEventListener('input', throttle(() => {
+                const minVal = parseInt(yearSliderMin.value);
+                const maxVal = parseInt(yearSliderMax.value);
+
+                // Проверяем, чтобы минимальный год не был больше максимального минус 1
+                if (minVal > maxVal - 1) {
+                    yearSliderMin.value = maxVal - 1;
+                }
+
+                // Обновляем состояние
+                state.filters.yearMin = parseInt(yearSliderMin.value);
+
+                // Обновляем визуальное отображение
+                updateYearSliderVisuals();
+
+                // Применяем фильтры с debounce для производительности
+                debouncedUpdateVisibleGames();
+            }, 16));
+
+            // При отпускании ползунка применяем фильтры немедленно и сохраняем в localStorage
+            yearSliderMin.addEventListener('change', () => {
+                // Сохраняем в localStorage
+                saveYearFiltersToStorage();
+                // Очищаем кэш фильтров при изменении
+                clearFilterCache();
+            });
+
+            yearSliderMin.addEventListener('mouseover', () => {
+                document.querySelector('.min-tooltip').style.opacity = '1';
+            });
+
+            yearSliderMin.addEventListener('mouseout', () => {
+                document.querySelector('.min-tooltip').style.opacity = '0';
+            });
+
+            // Обработчики событий для ползунка максимального года
+            yearSliderMax.addEventListener('input', throttle(() => {
+                const minVal = parseInt(yearSliderMin.value);
+                const maxVal = parseInt(yearSliderMax.value);
+
+                // Проверяем, чтобы максимальный год не был меньше минимального плюс 1
+                if (maxVal < minVal + 1) {
+                    yearSliderMax.value = minVal + 1;
+                }
+
+                // Обновляем состояние
+                state.filters.yearMax = parseInt(yearSliderMax.value);
+
+                // Обновляем визуальное отображение
+                updateYearSliderVisuals();
+
+                // Применяем фильтры с debounce для производительности
+                debouncedUpdateVisibleGames();
+            }, 16));
+
+            // При отпускании ползунка применяем фильтры немедленно и сохраняем в localStorage
+            yearSliderMax.addEventListener('change', () => {
+                // Сохраняем в localStorage
+                saveYearFiltersToStorage();
+                // Очищаем кэш фильтров при изменении
+                clearFilterCache();
+            });
+
+            yearSliderMax.addEventListener('mouseover', () => {
+                document.querySelector('.max-tooltip').style.opacity = '1';
+            });
+
+            yearSliderMax.addEventListener('mouseout', () => {
+                document.querySelector('.max-tooltip').style.opacity = '0';
+            });
+
+            // Инициализация подсветки трека и тултипов при загрузке
+            updateSliderTrack();
+            updateTooltips();
+
+            // Обработчик для кнопки случайной игры
+            randomButton.addEventListener('click', selectRandomGame);
 
             const performSearchButton = document.getElementById('performSearchButton');
             if (performSearchButton) {
