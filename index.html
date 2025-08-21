@@ -5193,7 +5193,7 @@
             updateAllCellSizes();
 
             // Сохраняем размер в localStorage только если ползунок не в движении
-            if (!sizeSliderMoving) {
+            if (typeof sizeSliderMoving === 'undefined' || !sizeSliderMoving) {
                 localStorage.setItem('gridSize', size);
                 updateInProgressRow();
             }
