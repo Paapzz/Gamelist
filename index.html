@@ -4562,6 +4562,9 @@
             });
 
             inProgressRow.innerHTML = '';
+            if (!state || !state.games) {
+                return; // Выходим, если state еще не инициализирован
+            }
             const inProgressGames = state.games.filter(game => game.inProgress);
 
             // Создаем фрагмент для более эффективного добавления элементов в DOM
@@ -5242,6 +5245,9 @@
         }
 
         function saveGamesToCache() {
+            if (!state || !state.games) {
+                return; // Выходим, если state еще не инициализирован
+            }
             localStorage.setItem('games', JSON.stringify(state.games));
         }
 
@@ -6537,33 +6543,6 @@
         }, 1000); // Даем время на загрузку игр и фильтров
 
 
-
-        const savedSize = localStorage.getItem('gridSize');
-        if (savedSize) {
-            sizeSlider.value = savedSize;
-        } else {
-            // Если нет сохраненного значения, устанавливаем 35%
-            sizeSlider.value = 35;
-            // Сохраняем значение в localStorage
-            localStorage.setItem('gridSize', 35);
-        }
-        updateGridSize();
-
-        togglePreviewBtn.classList.toggle('disabled', !previewEnabled);
-
-        populateFilters();
-        state.games.forEach(game => {
-            const cell = createCell(game);
-            if (game.inProgress) {
-                inProgressRow.appendChild(cell);
-            } else {
-                grid.appendChild(cell);
-            }
-        });
-        updateInProgressRow();
-
-        updateCounter();
-
         hideCompletedButton.classList.toggle('active', hideCompleted);
         document.querySelectorAll('.cell.completed').forEach(cell => {
             cell.classList.toggle('hidden', hideCompleted);
@@ -6572,8 +6551,6 @@
         populateFilters();
         updateVisibleGames();
         updateInProgressRow();
-
-
 
         const addGameButton = document.getElementById('addGameButton');
         const customGameListButton = document.getElementById('customGameListButton');
@@ -8085,6 +8062,20 @@
                      filtersPanel.style.display = 'none';
                 }
             });
+
+            // Инициализация размера сетки
+            const savedSize = localStorage.getItem('gridSize');
+            if (savedSize) {
+                sizeSlider.value = savedSize;
+            } else {
+                // Если нет сохраненного значения, устанавливаем 35%
+                sizeSlider.value = 35;
+                // Сохраняем значение в localStorage
+                localStorage.setItem('gridSize', 35);
+            }
+            updateGridSize();
+
+            togglePreviewBtn.classList.toggle('disabled', !previewEnabled);
 
             // Обработчик события load для финальной инициализации
             window.addEventListener('load', () => {
