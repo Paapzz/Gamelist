@@ -3449,23 +3449,20 @@
             return result;
         }
 
+        state.games = gamesList.map(game => ({
+            id: game.number,
+            name: formatGameTitle(game.title),
+            imageUrl: game.image_url,
+            year: game.year,
+            genres: game.genres,
+            platforms: game.platforms,
+            completed: false,
+            inProgress: false,
+            isCustom: false
+        }));
+        games = state.games; // Для обратной совместимости
+
         function loadSavedGames() {
-            // Инициализируем игры из исходного списка, если они еще не инициализированы
-            if (!state.games || state.games.length === 0) {
-                state.games = gamesList.map(game => ({
-                    id: game.number,
-                    name: formatGameTitle(game.title),
-                    imageUrl: game.image_url,
-                    year: game.year,
-                    genres: game.genres,
-                    platforms: game.platforms,
-                    completed: false,
-                    inProgress: false,
-                    isCustom: false
-                }));
-                games = state.games; // Для обратной совместимости
-            }
-            
             const savedGames = localStorage.getItem('games');
             const romanNumeralsFormatted = localStorage.getItem('romanNumeralsFormatted');
             // Добавляем новый флаг для отслеживания обновления форматирования названий
@@ -3639,7 +3636,7 @@
             const totalGames = state.games.length;
             const completedGames = state.games.filter(game => game.completed).length;
             counter.textContent = `Пройдено: ${completedGames} из ${totalGames}`;
-            updateProgressBar(completedGames, totalGames);
+	        updateProgressBar(completedGames, totalGames);
         }
 
         function updateProgressBar(completedGames, totalGames) {
@@ -3891,11 +3888,14 @@
                     const img = cell.querySelector('img');
                     if (img && !img.classList.contains('loaded')) {
                         // Получаем URL изображения
+                        let imageUrl;
+                        const gameId = cell.dataset.gameId;
                         const gameData = JSON.parse(cell.dataset.gameObject || '{}');
 
                         if (gameData.imageUrl) {
+                            imageUrl = gameData.imageUrl;
                             // Добавляем изображение в очередь загрузки с высоким приоритетом
-                            queueImageLoad(img, gameData.imageUrl, true);
+                            queueImageLoad(img, imageUrl, true);
                         }
                     }
                 });
@@ -4562,9 +4562,6 @@
             });
 
             inProgressRow.innerHTML = '';
-            if (!state || !state.games) {
-                return; // Выходим, если state еще не инициализирован
-            }
             const inProgressGames = state.games.filter(game => game.inProgress);
 
             // Создаем фрагмент для более эффективного добавления элементов в DOM
@@ -4597,8 +4594,7 @@
             inProgressRow.style.alignItems = 'flex-start';
 
             const size = sizeSlider.value;
-            const cells = inProgressRow.querySelectorAll('.cell');
-            cells.forEach(cell => {
+            inProgressRow.querySelectorAll('.cell').forEach(cell => {
                 updateCellSize(cell, true);
             });
         }
@@ -5192,16 +5188,21 @@
             grid.style.justifyItems = 'start';
             grid.style.justifyContent = 'start';
 
+            // Сохраняем размер в localStorage только если ползунок не в движении
+            if (!sizeSliderMoving) {
+                localStorage.setItem('gridSize', size);
+            }
+
             // Обновляем размеры ячеек без перезагрузки изображений
             updateAllCellSizes();
 
-            // Сохраняем размер в localStorage только если ползунок не в движении
-            if (typeof sizeSliderMoving === 'undefined' || !sizeSliderMoving) {
-                localStorage.setItem('gridSize', size);
+            // Вызываем updateInProgressRow() только если ползунок не в движении
+            if (!sizeSliderMoving) {
                 updateInProgressRow();
             }
 
             void grid.offsetHeight;
+            // Убираем вызов applyFilters() отсюда, так как он теперь в обработчике события change
         }
 
         function lazyLoadImages() {
@@ -5245,9 +5246,6 @@
         }
 
         function saveGamesToCache() {
-            if (!state || !state.games) {
-                return; // Выходим, если state еще не инициализирован
-            }
             localStorage.setItem('games', JSON.stringify(state.games));
         }
 
@@ -5332,8 +5330,7 @@
         // Функция для хеширования URL (простая реализация)
         function hashUrl(url) {
             let hash = 0;
-            const len = url.length;
-            for (let i = 0; i < len; i++) {
+            for (let i = 0; i < url.length; i++) {
                 const char = url.charCodeAt(i);
                 hash = ((hash << 5) - hash) + char;
                 hash = hash & hash; // Convert to 32bit integer
@@ -5400,9 +5397,7 @@
 
                 // Загружаем множество уже загруженных изображений
                 loadedImages = new Set();
-                const keys = Object.keys(cacheMetadata);
-                for (let i = 0; i < keys.length; i++) {
-                    const key = keys[i];
+                for (const key in cacheMetadata) {
                     if (cacheMetadata[key].url) {
                         loadedImages.add(cacheMetadata[key].url);
                     }
@@ -5463,9 +5458,8 @@
                 const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
 
                 // Удаляем все изображения из кэша
-                const keys = Object.keys(cacheMetadata);
-                for (let i = 0; i < keys.length; i++) {
-                    localStorage.removeItem(keys[i]);
+                for (const key in cacheMetadata) {
+                    localStorage.removeItem(key);
                 }
 
                 // Сбрасываем метаданные и размер кэша
@@ -5483,9 +5477,7 @@
 
         function updateAllCellSizes() {
             const size = sizeSlider.value;
-            const cells = document.querySelectorAll('.cell');
-            
-            cells.forEach(cell => {
+            document.querySelectorAll('.cell').forEach(cell => {
                 const isInProgress = cell.classList.contains('in-progress');
                 updateCellSize(cell, isInProgress);
             });
@@ -5525,9 +5517,6 @@
             // Обновляем UI
             inProgressButton.classList.toggle('active', inProgressMode);
 
-            // Очищаем кэш фильтров при изменении режима
-            clearFilterCache();
-
             // Обновляем видимые игры
             updateVisibleGames();
         }
@@ -5549,9 +5538,6 @@
             // Делаем кнопку "Только пройденные" неактивной, если нажата кнопка "Скрыть пройденные"
             completedFilter.classList.toggle('button-disabled', state.filters.hideCompleted);
 
-            // Очищаем кэш фильтров при изменении фильтра
-            clearFilterCache();
-
             // Обновляем видимые игры
             updateVisibleGames();
         }
@@ -5570,9 +5556,6 @@
                 document.querySelectorAll('.cell').forEach(cell => {
                     cell.classList.remove('completed', 'in-progress');
                 });
-
-                // Очищаем кэш фильтров при сбросе прогресса
-                clearFilterCache();
 
                 // Сохраняем игры в localStorage
                 saveGames();
@@ -5612,9 +5595,6 @@
             // Обновляем поисковый запрос в состоянии
             state.search = searchTerm;
 
-            // Очищаем кэш фильтров при изменении поиска
-            clearFilterCache();
-
             // Обновляем видимые игры
             updateVisibleGames();
         }
@@ -5630,9 +5610,6 @@
             document.querySelectorAll('.search-match-in-progress').forEach(el => {
                 el.classList.remove('search-match-in-progress');
             });
-
-            // Очищаем кэш фильтров при очистке поиска
-            clearFilterCache();
 
             // Обновляем видимые игры
             updateVisibleGames();
@@ -5693,7 +5670,58 @@
 
         // Функция для фильтрации и поиска игр
         function filterAndSearchGames(games, filters, searchTerm) {
-            return optimizedFilterGames(games, filters, searchTerm);
+            // Фильтруем игры
+            return games.filter(game => {
+                // Если игра "в процессе", всегда показываем ее
+                if (game.inProgress) {
+                    return true;
+                }
+
+                // Фильтр по году
+                if (game.year !== null) {
+                    if (game.year < filters.yearMin || game.year > filters.yearMax) {
+                        return false;
+                    }
+                }
+
+                // Фильтр по платформам
+                if (filters.platforms.length > 0) {
+                    if (!game.platforms || !game.platforms.some(platform => filters.platforms.includes(platform))) {
+                        return false;
+                    }
+                }
+
+                // Фильтр по жанрам
+                if (filters.genres.length > 0) {
+                    if (!game.genres || !game.genres.some(genre => filters.genres.includes(genre))) {
+                        return false;
+                    }
+                }
+
+                // Фильтр "Только пройденные"
+                if (filters.completedOnly && !game.completed) {
+                    return false;
+                }
+
+                // Фильтр "Скрыть пройденные"
+                if (filters.hideCompleted && game.completed) {
+                    return false;
+                }
+
+                // Поиск по названию
+                if (searchTerm && searchTerm !== '') {
+                    const gameName = game.name.toLowerCase();
+                    const searchTermLower = searchTerm.toLowerCase();
+
+                    // Разбиваем поисковый запрос на слова
+                    const queryWords = searchTermLower.split(/\s+/).filter(word => word.length > 0);
+
+                    // Проверяем, содержит ли название игры все слова из запроса
+                    return queryWords.every(word => gameName.includes(word));
+                }
+
+                return true;
+            });
         }
 
         // Функции для обновления состояния
@@ -5724,7 +5752,6 @@
         function updatePlatformFilter(platforms) {
             state.filters.platforms = platforms;
             localStorage.setItem('selectedPlatforms', JSON.stringify(platforms));
-            clearFilterCache();
             updateVisibleGames();
         }
 
@@ -5732,7 +5759,6 @@
         function updateGenreFilter(genres) {
             state.filters.genres = genres;
             localStorage.setItem('selectedGenres', JSON.stringify(genres));
-            clearFilterCache();
             updateVisibleGames();
         }
 
@@ -5749,7 +5775,6 @@
                 hideCompletedButton.classList.remove('button-disabled');
             }
 
-            clearFilterCache();
             updateVisibleGames();
         }
 
@@ -5764,14 +5789,12 @@
                 completedFilter.classList.remove('active');
             }
 
-            clearFilterCache();
             updateVisibleGames();
         }
 
         // Функция для обновления поискового запроса
         function updateSearch(search) {
             state.search = search;
-            clearFilterCache();
             updateVisibleGames();
         }
 
@@ -5794,14 +5817,11 @@
                 }
             });
 
-            // Фильтруем игры на основе текущего состояния с использованием кэша
-            const visibleGames = optimizedFilterGames(state.games, state.filters, state.search);
+            // Фильтруем игры на основе текущего состояния
+            const visibleGames = filterAndSearchGames(state.games, state.filters, state.search);
 
             // Обновляем DOM
-            const cells = document.querySelectorAll('.cell');
-            const visibleGamesSet = new Set(visibleGames.map(g => g.id.toString()));
-            
-            cells.forEach(cell => {
+            document.querySelectorAll('.cell').forEach(cell => {
                 const gameId = cell.getAttribute('data-game-id');
                 const game = state.games.find(g => g.id.toString() === gameId);
 
@@ -5809,7 +5829,7 @@
                 const isInProgressRow = cell.parentElement.id === 'inProgressRow';
 
                 // Если игра в списке видимых или находится в зоне "In Progress", показываем ее
-                if (visibleGamesSet.has(gameId) || (isInProgressRow && game.inProgress)) {
+                if (visibleGames.some(g => g.id.toString() === gameId) || (isInProgressRow && game.inProgress)) {
                     cell.style.display = '';
 
                     // Если это игра "в процессе" и есть поисковый запрос, проверяем совпадение
@@ -6061,9 +6081,6 @@
                 } else {
                     localStorage.setItem('maxYear', maxVal);
                 }
-
-                // Очищаем кэш фильтров при сохранении фильтров годов
-                clearFilterCache();
             }, 500); // Задержка в 500 мс
         }
 
@@ -6274,9 +6291,6 @@
                 return;
             }
 
-            // Очищаем кэш фильтров при применении фильтров
-            clearFilterCache();
-
             // В противном случае используем полную версию
             updateVisibleGames();
         }
@@ -6297,9 +6311,6 @@
 
             // Если включен фильтр "Только пройденные", отключаем "Скрыть пройденные"
             hideCompletedButton.classList.toggle('button-disabled', state.filters.completedOnly);
-
-            // Очищаем кэш фильтров при изменении фильтра
-            clearFilterCache();
 
             // Обновляем видимые игры
             updateVisibleGames();
@@ -6469,9 +6480,6 @@
             localStorage.removeItem('hideCompleted');
             localStorage.removeItem('completedFilterActive');
 
-            // Очищаем кэш фильтров при сбросе фильтров
-            clearFilterCache();
-
             // Обновляем видимые игры
             updateVisibleGames();
 
@@ -6488,7 +6496,85 @@
             }, 3000);
         }
 
+        completedFilter.addEventListener('click', toggleCompletedFilter);
+        randomButton.addEventListener('click', selectRandomGame);
+        saturationSlider.addEventListener('input', () => {
+            state.saturation = saturationSlider.value;
+            localStorage.setItem('saturation', state.saturation);
+            updateSaturation();
+        });
 
+        // Обработчики событий для ползунка минимального года
+        yearSliderMin.addEventListener('input', () => {
+            const minVal = parseInt(yearSliderMin.value);
+            const maxVal = parseInt(yearSliderMax.value);
+
+            // Проверяем, чтобы минимальный год не был больше максимального минус 1
+            if (minVal > maxVal - 1) {
+                yearSliderMin.value = maxVal - 1;
+            }
+
+            // Обновляем состояние
+            state.filters.yearMin = parseInt(yearSliderMin.value);
+
+            // Обновляем визуальное отображение
+            updateYearSliderVisuals();
+
+            // Применяем фильтры
+            updateVisibleGames();
+        });
+
+        // При отпускании ползунка применяем фильтры немедленно и сохраняем в localStorage
+        yearSliderMin.addEventListener('change', () => {
+            // Сохраняем в localStorage
+            saveYearFiltersToStorage();
+        });
+
+        yearSliderMin.addEventListener('mouseover', () => {
+            document.querySelector('.min-tooltip').style.opacity = '1';
+        });
+
+        yearSliderMin.addEventListener('mouseout', () => {
+            document.querySelector('.min-tooltip').style.opacity = '0';
+        });
+
+        // Обработчики событий для ползунка максимального года
+        yearSliderMax.addEventListener('input', () => {
+            const minVal = parseInt(yearSliderMin.value);
+            const maxVal = parseInt(yearSliderMax.value);
+
+            // Проверяем, чтобы максимальный год не был меньше минимального плюс 1
+            if (maxVal < minVal + 1) {
+                yearSliderMax.value = minVal + 1;
+            }
+
+            // Обновляем состояние
+            state.filters.yearMax = parseInt(yearSliderMax.value);
+
+            // Обновляем визуальное отображение
+            updateYearSliderVisuals();
+
+            // Применяем фильтры
+            updateVisibleGames();
+        });
+
+        // При отпускании ползунка применяем фильтры немедленно и сохраняем в localStorage
+        yearSliderMax.addEventListener('change', () => {
+            // Сохраняем в localStorage
+            saveYearFiltersToStorage();
+        });
+
+        yearSliderMax.addEventListener('mouseover', () => {
+            document.querySelector('.max-tooltip').style.opacity = '1';
+        });
+
+        yearSliderMax.addEventListener('mouseout', () => {
+            document.querySelector('.max-tooltip').style.opacity = '0';
+        });
+
+        // Инициализация подсветки трека и тултипов при загрузке
+        updateSliderTrack();
+        updateTooltips();
 
         // Добавим обработчики событий для анимации полосок после загрузки игр
         setTimeout(() => {
@@ -6542,6 +6628,150 @@
             }
         }, 1000); // Даем время на загрузку игр и фильтров
 
+        // Добавляем переменную для отслеживания состояния ползунка
+        let sizeSliderMoving = false;
+
+        // Изменяем обработчик события для ползунка отдаления/приближения
+        sizeSlider.addEventListener('mousedown', () => {
+            sizeSliderMoving = true;
+            // Сохранение состояния видимости игр в блоке "в процессе" теперь в функции applyFilters()
+        });
+
+        // Добавляем обработчик события touchstart для мобильных устройств
+        sizeSlider.addEventListener('touchstart', () => {
+            sizeSliderMoving = true;
+        });
+
+        sizeSlider.addEventListener('mouseup', () => {
+            sizeSliderMoving = false;
+            // Обновляем видимые игры
+            updateVisibleGames();
+        });
+
+        // Добавляем обработчик события touchend для мобильных устройств
+        sizeSlider.addEventListener('touchend', () => {
+            sizeSliderMoving = false;
+
+            // Обновляем строку "в процессе" и применяем фильтры полностью после отпускания ползунка
+            updateInProgressRow();
+            applyFiltersComplete();
+        });
+
+        sizeSlider.addEventListener('input', () => {
+            sizeSliderMoving = true;
+            updateGridSize();
+            // Пересортируем очередь загрузки изображений при изменении размера ячеек
+            processImageQueue();
+        });
+
+        // Добавляем обработчик события при отпускании ползунка
+        sizeSlider.addEventListener('change', () => {
+            sizeSliderMoving = false;
+
+            // Обновляем строку "в процессе" и обновляем видимые игры
+            updateInProgressRow();
+            updateVisibleGames();
+
+            // Запускаем предзагрузку изображений в видимой области
+            preloadVisibleImages();
+        });
+
+        // Добавляем обработчики для случая, если мышь уходит за пределы окна
+        document.addEventListener('mouseup', () => {
+            if (sizeSliderMoving) {
+                sizeSliderMoving = false;
+
+                // Обновляем строку "в процессе" и обновляем видимые игры
+                updateInProgressRow();
+                updateVisibleGames();
+
+                // Запускаем предзагрузку изображений в видимой области
+                preloadVisibleImages();
+            }
+        });
+
+        // Добавляем обработчик события прокрутки страницы для предзагрузки изображений
+        let scrollTimeout;
+        window.addEventListener('scroll', () => {
+            // Используем debounce для оптимизации производительности
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                // Запускаем предзагрузку изображений в видимой области
+                preloadVisibleImages();
+            }, 200); // Задержка в 200 мс
+        });
+        togglePreviewBtn.addEventListener('click', togglePreview);
+        inProgressButton.addEventListener('click', toggleInProgressMode);
+        hideCompletedButton.addEventListener('click', toggleHideCompleted);
+        resetButton.addEventListener('click', () => {
+            resetProgress();
+            hideRandomSelection();
+        });
+
+        searchInput.addEventListener('input', handleSearch);
+
+        // Обработчик события blur для очистки поиска при пустом поле
+        searchInput.addEventListener('blur', () => {
+            if (searchInput.value.trim() === '') {
+                // Вызываем clearSearch для полного сброса поиска и восстановления порядка игр
+                clearSearch();
+            }
+        });
+
+        // Обработчик нажатия клавиши Escape для очистки поиска
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                clearSearch();
+                // Снимаем фокус с поля ввода
+                searchInput.blur();
+            }
+        });
+        clearSearchButton.addEventListener('click', clearSearch);
+        filtersButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+
+            // Проверяем, открыта или закрыта панель фильтров
+            if (filtersPanel.style.display === 'none' || filtersPanel.style.display === '') {
+                // Открываем панель
+                filtersPanel.style.display = 'block';
+
+                // Устанавливаем высоту списков в зависимости от размера экрана
+                if (typeof setListsHeight === 'function') {
+                    // Даем небольшую задержку, чтобы панель успела отобразиться
+                    setTimeout(setListsHeight, 10);
+                }
+            } else {
+                // Закрываем панель
+                filtersPanel.style.display = 'none';
+            }
+        });
+        resetFiltersButton.addEventListener('click', resetFilters);
+
+        const savedSize = localStorage.getItem('gridSize');
+        if (savedSize) {
+            sizeSlider.value = savedSize;
+        } else {
+            // Если нет сохраненного значения, устанавливаем 35%
+            sizeSlider.value = 35;
+            // Сохраняем значение в localStorage
+            localStorage.setItem('gridSize', 35);
+        }
+        updateGridSize();
+
+        togglePreviewBtn.classList.toggle('disabled', !previewEnabled);
+
+        populateFilters();
+        state.games.forEach(game => {
+            const cell = createCell(game);
+            if (game.inProgress) {
+                inProgressRow.appendChild(cell);
+            } else {
+                grid.appendChild(cell);
+            }
+        });
+        updateInProgressRow();
+
+        updateCounter();
 
         hideCompletedButton.classList.toggle('active', hideCompleted);
         document.querySelectorAll('.cell.completed').forEach(cell => {
@@ -6551,6 +6781,61 @@
         populateFilters();
         updateVisibleGames();
         updateInProgressRow();
+
+        window.addEventListener('resize', () => { // Обновляем обработчик resize
+            updateInProgressRow();
+
+            // Обновляем видимые игры
+            updateVisibleGames();
+
+            // Устанавливаем высоту списков в зависимости от размера экрана
+            if (typeof setListsHeight === 'function') {
+                setListsHeight();
+            }
+        });
+        updateInProgressRow();
+
+        const resetFiltersButtonHeader = document.getElementById('resetFiltersButtonHeader');
+        resetFiltersButtonHeader.addEventListener('click', function(event) {
+            event.stopPropagation();
+            resetFilters();
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!randomSelectedContainer.contains(event.target) && event.target !== randomButton) {
+                hideRandomSelection();
+            }
+        });
+
+        // Закрытие панели фильтров при клике вне ее (и вне модального окна списка игр)
+        document.addEventListener('click', (event) => {
+            const isClickInsideFilters = filtersPanel.contains(event.target);
+            const isClickInsideCustomListModal = customGameListModal.contains(event.target);
+            const isFiltersButton = event.target === filtersButton || filtersButton.contains(event.target);
+            const isCustomListButton = event.target === customGameListButton; // Не закрывать при клике на кнопку открытия списка
+
+            if (!isClickInsideFilters && !isFiltersButton && !isClickInsideCustomListModal && !isCustomListButton) {
+                 filtersPanel.style.display = 'none';
+            }
+        });
+
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateGridSize(); // Может вызвать updateInProgressRow
+                updateInProgressRow(); // Убедимся, что ряд обновлен
+
+                // Инициализируем кэш годов
+                updateYearsCache();
+
+                // Обновляем видимые игры
+                updateVisibleGames();
+
+                // Запускаем предзагрузку изображений в видимой области
+                preloadVisibleImages();
+            }, 100);
+        });
+
+        window.dispatchEvent(new Event('resize'));
 
         const addGameButton = document.getElementById('addGameButton');
         const customGameListButton = document.getElementById('customGameListButton');
@@ -6723,9 +7008,6 @@
                 insertCellInOrder(cell);
             }
 
-            // Очищаем кэш фильтров при добавлении новой игры
-            clearFilterCache();
-            
             saveGames();
             updateCounter();
 
@@ -6948,10 +7230,6 @@
             if (gameId && confirm('Вы уверены, что хотите удалить эту игру?')) {
                 state.games = state.games.filter(g => g.id.toString() !== gameId.toString());
                 games = state.games; // Для обратной совместимости
-                
-                // Очищаем кэш фильтров при удалении игры
-                clearFilterCache();
-                
                 saveGames();
 
                 const cellToRemove = document.querySelector(`.cell[data-game-id="${gameId}"]`);
@@ -7040,8 +7318,7 @@
         function updateSaturation() {
             const saturation = state.saturation;
             document.documentElement.style.setProperty('--saturation', `${saturation}%`);
-            const images = document.querySelectorAll('.cell:not(.in-progress) img');
-            images.forEach(img => {
+            document.querySelectorAll('.cell:not(.in-progress) img').forEach(img => {
                 img.classList.add('saturated');
                 img.style.filter = `saturate(var(--saturation))`;
             });
@@ -7744,186 +8021,6 @@
             completedFilter.addEventListener('click', toggleCompletedFilter);
             hideCompletedButton.addEventListener('click', toggleHideCompleted);
 
-            // Обработчики событий для ползунка насыщенности
-            saturationSlider.addEventListener('input', () => {
-                state.saturation = saturationSlider.value;
-                localStorage.setItem('saturation', state.saturation);
-                updateSaturation();
-            });
-
-            // Обработчики событий для ползунка минимального года
-            yearSliderMin.addEventListener('input', throttle(() => {
-                const minVal = parseInt(yearSliderMin.value);
-                const maxVal = parseInt(yearSliderMax.value);
-
-                // Проверяем, чтобы минимальный год не был больше максимального минус 1
-                if (minVal > maxVal - 1) {
-                    yearSliderMin.value = maxVal - 1;
-                }
-
-                // Обновляем состояние
-                state.filters.yearMin = parseInt(yearSliderMin.value);
-
-                // Обновляем визуальное отображение
-                updateYearSliderVisuals();
-
-                // Применяем фильтры с debounce для производительности
-                debouncedUpdateVisibleGames();
-            }, 16));
-
-            // При отпускании ползунка применяем фильтры немедленно и сохраняем в localStorage
-            yearSliderMin.addEventListener('change', () => {
-                // Сохраняем в localStorage
-                saveYearFiltersToStorage();
-                // Очищаем кэш фильтров при изменении
-                clearFilterCache();
-            });
-
-            yearSliderMin.addEventListener('mouseover', () => {
-                document.querySelector('.min-tooltip').style.opacity = '1';
-            });
-
-            yearSliderMin.addEventListener('mouseout', () => {
-                document.querySelector('.min-tooltip').style.opacity = '0';
-            });
-
-            // Обработчики событий для ползунка максимального года
-            yearSliderMax.addEventListener('input', throttle(() => {
-                const minVal = parseInt(yearSliderMin.value);
-                const maxVal = parseInt(yearSliderMax.value);
-
-                // Проверяем, чтобы максимальный год не был меньше минимального плюс 1
-                if (maxVal < minVal + 1) {
-                    yearSliderMax.value = minVal + 1;
-                }
-
-                // Обновляем состояние
-                state.filters.yearMax = parseInt(yearSliderMax.value);
-
-                // Обновляем визуальное отображение
-                updateYearSliderVisuals();
-
-                // Применяем фильтры с debounce для производительности
-                debouncedUpdateVisibleGames();
-            }, 16));
-
-            // При отпускании ползунка применяем фильтры немедленно и сохраняем в localStorage
-            yearSliderMax.addEventListener('change', () => {
-                // Сохраняем в localStorage
-                saveYearFiltersToStorage();
-                // Очищаем кэш фильтров при изменении
-                clearFilterCache();
-            });
-
-            yearSliderMax.addEventListener('mouseover', () => {
-                document.querySelector('.max-tooltip').style.opacity = '1';
-            });
-
-            yearSliderMax.addEventListener('mouseout', () => {
-                document.querySelector('.max-tooltip').style.opacity = '0';
-            });
-
-            // Инициализация подсветки трека и тултипов при загрузке
-            updateSliderTrack();
-            updateTooltips();
-
-            // Обработчик для кнопки случайной игры
-            randomButton.addEventListener('click', selectRandomGame);
-
-            // Обработчики событий для ползунка размера
-            sizeSlider.addEventListener('mousedown', () => {
-                sizeSliderMoving = true;
-            });
-
-            sizeSlider.addEventListener('touchstart', () => {
-                sizeSliderMoving = true;
-            });
-
-            sizeSlider.addEventListener('mouseup', () => {
-                sizeSliderMoving = false;
-                updateVisibleGames();
-            });
-
-            sizeSlider.addEventListener('touchend', () => {
-                sizeSliderMoving = false;
-                updateInProgressRow();
-                applyFiltersComplete();
-            });
-
-            sizeSlider.addEventListener('input', throttle(() => {
-                sizeSliderMoving = true;
-                updateGridSize();
-                processImageQueue();
-            }, 16));
-
-            sizeSlider.addEventListener('change', () => {
-                sizeSliderMoving = false;
-                updateInProgressRow();
-                updateVisibleGames();
-                preloadVisibleImages();
-            });
-
-            // Обработчики для случая, если мышь уходит за пределы окна
-            document.addEventListener('mouseup', () => {
-                if (sizeSliderMoving) {
-                    sizeSliderMoving = false;
-                    updateInProgressRow();
-                    updateVisibleGames();
-                    preloadVisibleImages();
-                }
-            });
-
-            // Обработчик события прокрутки страницы для предзагрузки изображений
-            let scrollTimeout;
-            window.addEventListener('scroll', () => {
-                clearTimeout(scrollTimeout);
-                scrollTimeout = setTimeout(() => {
-                    preloadVisibleImages();
-                }, 200);
-            });
-
-            // Обработчики для кнопок
-            togglePreviewBtn.addEventListener('click', togglePreview);
-            inProgressButton.addEventListener('click', toggleInProgressMode);
-            hideCompletedButton.addEventListener('click', toggleHideCompleted);
-            resetButton.addEventListener('click', () => {
-                resetProgress();
-                hideRandomSelection();
-            });
-
-            // Обработчики для поиска
-            searchInput.addEventListener('input', handleSearch);
-
-            searchInput.addEventListener('blur', () => {
-                if (searchInput.value.trim() === '') {
-                    clearSearch();
-                }
-            });
-
-            searchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    clearSearch();
-                    searchInput.blur();
-                }
-            });
-
-            clearSearchButton.addEventListener('click', clearSearch);
-
-            // Обработчики для фильтров
-            filtersButton.addEventListener('click', (event) => {
-                event.stopPropagation();
-                if (filtersPanel.style.display === 'none' || filtersPanel.style.display === '') {
-                    filtersPanel.style.display = 'block';
-                    if (typeof setListsHeight === 'function') {
-                        setTimeout(setListsHeight, 10);
-                    }
-                } else {
-                    filtersPanel.style.display = 'none';
-                }
-            });
-
-            resetFiltersButton.addEventListener('click', resetFilters);
-
             const performSearchButton = document.getElementById('performSearchButton');
             if (performSearchButton) {
                 console.log('Найдена кнопка поиска, добавляем обработчик');
@@ -8028,69 +8125,6 @@
             // Инициализируем очистку кэша
             initializeCacheClearing();
 
-            // Обработчик изменения размера окна
-            window.addEventListener('resize', () => {
-                updateInProgressRow();
-                updateVisibleGames();
-                if (typeof setListsHeight === 'function') {
-                    setListsHeight();
-                }
-            });
-
-            // Обработчик для кнопки сброса фильтров в шапке
-            const resetFiltersButtonHeader = document.getElementById('resetFiltersButtonHeader');
-            resetFiltersButtonHeader.addEventListener('click', function(event) {
-                event.stopPropagation();
-                resetFilters();
-            });
-
-            // Закрытие случайного выбора при клике вне его
-            document.addEventListener('click', (event) => {
-                if (!randomSelectedContainer.contains(event.target) && event.target !== randomButton) {
-                    hideRandomSelection();
-                }
-            });
-
-            // Закрытие панели фильтров при клике вне ее
-            document.addEventListener('click', (event) => {
-                const isClickInsideFilters = filtersPanel.contains(event.target);
-                const isClickInsideCustomListModal = customGameListModal.contains(event.target);
-                const isFiltersButton = event.target === filtersButton || filtersButton.contains(event.target);
-                const isCustomListButton = event.target === customGameListButton;
-
-                if (!isClickInsideFilters && !isFiltersButton && !isClickInsideCustomListModal && !isCustomListButton) {
-                     filtersPanel.style.display = 'none';
-                }
-            });
-
-            // Инициализация размера сетки
-            const savedSize = localStorage.getItem('gridSize');
-            if (savedSize) {
-                sizeSlider.value = savedSize;
-            } else {
-                // Если нет сохраненного значения, устанавливаем 35%
-                sizeSlider.value = 35;
-                // Сохраняем значение в localStorage
-                localStorage.setItem('gridSize', 35);
-            }
-            updateGridSize();
-
-            togglePreviewBtn.classList.toggle('disabled', !previewEnabled);
-
-            // Обработчик события load для финальной инициализации
-            window.addEventListener('load', () => {
-                setTimeout(() => {
-                    updateGridSize();
-                    updateInProgressRow();
-                    updateYearsCache();
-                    updateVisibleGames();
-                    preloadVisibleImages();
-                }, 100);
-            });
-
-            // Запускаем событие resize для инициализации
-            window.dispatchEvent(new Event('resize'));
-
             // Инициализируем кэш изображений
             initializeImageCache();
 
@@ -8125,10 +8159,6 @@
                     }, 200);
                 }
             });
-
-            function clearFilterCache() {
-                filterCache.clear();
-            }
         });
     </script>
 </body>
