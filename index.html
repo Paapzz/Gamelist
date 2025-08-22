@@ -6671,8 +6671,8 @@
             );
         }
 
-        // Функция для рендеринга игр
-        function renderGrid(visibleGames, inProgressGames) {
+        // Функция для полного рендеринга игр (используется только при первой загрузке)
+        function fullRenderGrid(visibleGames, inProgressGames) {
             console.log(`Рендеринг ${visibleGames.length} видимых игр и ${inProgressGames.length} игр в процессе`);
 
             // Очищаем очередь загрузки изображений
@@ -6730,8 +6730,109 @@
             state.visibleGames = regularGames;
             state.inProgressGames = inProgressGames;
 
-            // Рендерим игры
-            renderGrid(regularGames, inProgressGames);
+            // Используем оптимизированный рендеринг без пересоздания DOM
+            optimizedRenderGrid(regularGames, inProgressGames);
+        }
+        
+        // Оптимизированная функция рендеринга которая не пересоздает DOM
+        function optimizedRenderGrid(visibleGames, inProgressGames) {
+            console.log(`Оптимизированный рендеринг ${visibleGames.length} видимых игр и ${inProgressGames.length} игр в процессе`);
+            console.log('Использование оптимизированного рендеринга - изображения НЕ будут перезагружены');
+
+            // Создаем множества ID для быстрого поиска
+            const visibleGameIds = new Set(visibleGames.map(game => game.id.toString()));
+            const inProgressGameIds = new Set(inProgressGames.map(game => game.id.toString()));
+            
+            let movedCells = 0;
+            let hiddenCells = 0;
+            let shownCells = 0;
+            
+            // Обновляем видимость существующих ячеек
+            document.querySelectorAll('.cell').forEach(cell => {
+                const gameId = cell.dataset.gameId;
+                
+                if (inProgressGameIds.has(gameId)) {
+                    // Игра должна быть в блоке "в процессе"
+                    if (cell.style.display === 'none') {
+                        cell.style.display = '';
+                        shownCells++;
+                    }
+                    if (cell.parentElement !== inProgressRow) {
+                        // Перемещаем ячейку в блок "в процессе" если ее там нет
+                        inProgressRow.appendChild(cell);
+                        movedCells++;
+                    }
+                } else if (visibleGameIds.has(gameId)) {
+                    // Игра должна быть в основной сетке
+                    if (cell.style.display === 'none') {
+                        cell.style.display = '';
+                        shownCells++;
+                    }
+                    if (cell.parentElement !== grid) {
+                        // Перемещаем ячейку в основную сетку если ее там нет
+                        grid.appendChild(cell);
+                        movedCells++;
+                    }
+                } else {
+                    // Игра должна быть скрыта
+                    if (cell.style.display !== 'none') {
+                        cell.style.display = 'none';
+                        hiddenCells++;
+                    }
+                }
+            });
+            
+            console.log(`Статистика оптимизированного рендеринга: показано ${shownCells}, скрыто ${hiddenCells}, перемещено ${movedCells} ячеек`);
+            
+            // Создаем недостающие ячейки только если они еще не существуют
+            const existingCells = new Set(Array.from(document.querySelectorAll('.cell')).map(cell => cell.dataset.gameId));
+            
+            let newCellsCreated = 0;
+            
+            // Добавляем недостающие ячейки для игр "в процессе"
+            inProgressGames.forEach(game => {
+                if (!existingCells.has(game.id.toString())) {
+                    const cell = createCell(game);
+                    inProgressRow.appendChild(cell);
+                    newCellsCreated++;
+                }
+            });
+            
+            // Добавляем недостающие ячейки для обычных игр
+            visibleGames.forEach(game => {
+                if (!game.inProgress && !existingCells.has(game.id.toString())) {
+                    const cell = createCell(game);
+                    grid.appendChild(cell);
+                    newCellsCreated++;
+                }
+            });
+            
+            if (newCellsCreated > 0) {
+                console.log(`Создано ${newCellsCreated} новых ячеек`);
+            }
+
+            // Обновляем размер сетки
+            updateGridSize();
+
+            // Обновляем счетчик
+            updateCounter();
+
+            // Обновляем насыщенность
+            updateSaturation();
+
+            // Запускаем загрузку изображений только для новых ячеек
+            if (newCellsCreated > 0) {
+                setTimeout(() => {
+                    // Проверяем только новые ячейки без загруженных изображений
+                    const newCells = document.querySelectorAll('.cell img:not(.loaded)');
+                    if (newCells.length > 0) {
+                        console.log(`Запуск загрузки изображений для ${newCells.length} новых ячеек`);
+                        processImageQueue();
+                    }
+                }, 50);
+            } else {
+                console.log('Новые ячейки не созданы - загрузка изображений не требуется');
+            }
         }
 
         // Функция для предварительной фильтрации игр (оставляем для обратной совместимости)
@@ -7239,26 +7340,18 @@
 
         initializeGamesData();
         populateFilters();
-        state.games.forEach(game => {
-            const cell = createCell(game);
-            if (game.inProgress) {
-                inProgressRow.appendChild(cell);
-            } else {
-                grid.appendChild(cell);
-            }
-        });
-        updateInProgressRow();
-
+        
+        // Первоначальный рендеринг с полным созданием DOM
+        const inProgressGames = state.games.filter(game => game.inProgress);
+        const regularGames = state.games.filter(game => !game.inProgress);
+        fullRenderGrid(regularGames, inProgressGames);
+        
         updateCounter();
 
         hideCompletedButton.classList.toggle('active', hideCompleted);
         document.querySelectorAll('.cell.completed').forEach(cell => {
             cell.classList.toggle('hidden', hideCompleted);
         });
-
-        populateFilters();
-        updateVisibleGames();
-        updateInProgressRow();
 
         window.addEventListener('resize', () => { // Обновляем обработчик resize
             updateInProgressRow();
