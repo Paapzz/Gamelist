@@ -3450,19 +3450,24 @@
             return result;
         }
 
-        // Initialize state.games after gamesList is defined
-        state.games = gamesList.map(game => ({
-            id: game.number,
-            name: formatGameTitle(game.title),
-            imageUrl: game.image_url,
-            year: game.year,
-            genres: game.genres,
-            platforms: game.platforms,
-            completed: false,
-            inProgress: false,
-            isCustom: false
-        }));
-        games = state.games;
+        // Initialize games data function
+        function initializeGamesData() {
+            state.games = gamesList.map(game => ({
+                id: game.number,
+                name: formatGameTitle(game.title),
+                imageUrl: game.image_url,
+                year: game.year,
+                genres: game.genres,
+                platforms: game.platforms,
+                completed: false,
+                inProgress: false,
+                isCustom: false
+            }));
+            games = state.games;
+            
+            // Load saved games after initialization
+            loadSavedGames();
+        }
 
         function loadSavedGames() {
             const savedGames = localStorage.getItem('games');
@@ -6753,6 +6758,7 @@
 
         togglePreviewBtn.classList.toggle('disabled', !previewEnabled);
 
+        initializeGamesData();
         populateFilters();
         state.games.forEach(game => {
             const cell = createCell(game);
