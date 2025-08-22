@@ -2122,6 +2122,9 @@
                 timeout = setTimeout(later, wait);
             };
         }
+        
+        // Ensure debounce is available in global scope
+        window.debounce = debounce;
 
         function throttle(func, limit) {
             let inThrottle;
@@ -2211,41 +2214,51 @@
 
                     // Обработчик сообщений от воркера
                     worker.onmessage = function(e) {
+                        if (!e.data || typeof e.data !== 'object') {
+                            console.warn('Web Worker прислал некорректные данные:', e.data);
+                            isWorkerBusy = false;
+                            return;
+                        }
+                        
                         const { action, data } = e.data;
 
                         switch (action) {
                             case 'filter_result':
-                                handleFilterResult(data);
+                                if (data) handleFilterResult(data);
                                 break;
 
                             case 'sort_result':
-                                handleSortResult(data);
+                                if (data) handleSortResult(data);
                                 break;
 
                             case 'search_result':
-                                handleSearchResult(data);
+                                if (data) handleSearchResult(data);
                                 break;
 
                             case 'process_data_result':
-                                handleProcessDataResult(data);
+                                if (data) handleProcessDataResult(data);
                                 break;
 
                             case 'error':
-                                console.error('Ошибка в Web Worker:', data);
+                                console.error('Ошибка в Web Worker:', data || 'Неизвестная ошибка');
                                 break;
+                                
+                            default:
+                                console.warn('Неизвестное действие от Web Worker:', action);
                         }
 
                         isWorkerBusy = false;
                     };
 
                     worker.onerror = function(error) {
-                        console.error('Ошибка в Web Worker:', error.message);
+                        const errorMessage = error.message || error.error?.message || 'Неизвестная ошибка Web Worker';
+                        console.error('Ошибка в Web Worker:', errorMessage);
                         isWorkerBusy = false;
                     };
 
                     console.log('Web Worker успешно инициализирован');
                 } catch (error) {
-                    console.error('Не удалось инициализировать Web Worker:', error);
+                    console.error('Не удалось инициализировать Web Worker:', error.message || error);
                     worker = null;
                 }
             } else {
@@ -2296,13 +2309,19 @@
                 console.warn('Web Worker занят, задача будет выполнена в основном потоке');
                 return false;
             }
+            
+            if (!action || typeof action !== 'string') {
+                console.error('sendTaskToWorker: некорректное действие:', action);
+                return false;
+            }
 
             try {
                 isWorkerBusy = true;
-                worker.postMessage({ action, data });
+                const payload = { action, data: data || {} };
+                worker.postMessage(payload);
                 return true;
             } catch (error) {
-                console.error('Ошибка при отправке задачи в Web Worker:', error);
+                console.error('Ошибка при отправке задачи в Web Worker:', error.message || error);
                 isWorkerBusy = false;
                 return false;
             }
@@ -2676,8 +2695,10 @@
                 console.log(`Поисковый индекс успешно загружен (${searchIndex.length} игр)`);
                 return searchIndex;
             } catch (error) {
-                console.error('Ошибка при загрузке поискового индекса:', error);
-                return null;
+                console.warn('Поисковый индекс не доступен:', error.message);
+                // Вместо ошибки возвращаем пустой массив, чтобы поиск работал без индекса
+                searchIndex = [];
+                return searchIndex;
             } finally {
                 isSearchIndexLoading = false;
                 console.log('Завершена попытка загрузки индекса, isSearchIndexLoading =', isSearchIndexLoading);
@@ -2687,7 +2708,7 @@
         // Функция для поиска игр с использованием оптимизированного индекса
         async function searchGamesWithIndex(gameName, searchIndex) {
             if (!searchIndex || !Array.isArray(searchIndex)) {
-                console.warn('Поисковый индекс не загружен или имеет неверный формат. Поиск невозможен.');
+                console.warn('Поисковый индекс недоступен. Поиск будет работать в ограниченном режиме.');
                 return [];
             }
 
@@ -4110,7 +4131,7 @@
             gameCache.timers.localStorage = setTimeout(() => {
                 try {
                     localStorage.setItem('games', JSON.stringify(state.games));
-                    showMessage('Игры сохранены', 'success');
+                    // Убираем сообщение об успешном сохранении для улучшения UX
                 } catch (e) {
                     console.error('Ошибка при сохранении игр:', e);
                     showMessage('Ошибка при сохранении игр: ' + e.message, 'error');
