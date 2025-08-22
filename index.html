@@ -505,6 +505,76 @@
             /* Убраны padding-right и margin-right */
             box-sizing: border-box; /* Оставляем для консистентности */
         }
+
+        /* Стили для индикатора загрузки */
+        .loading-indicator {
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            border-radius: 20px;
+            padding: 10px 15px;
+            z-index: 1000;
+            width: 300px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+            transition: opacity 0.5s ease, transform 0.3s ease;
+            opacity: 0;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+        }
+
+        .loading-progress-bar {
+            height: 6px;
+            background-color: #4CAF50;
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loading-progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .loading-progress-text {
+            color: white;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+
+        /* Стили для скелетона ячеек */
+        .cell.skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+            border-radius: 5px;
+        }
+
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
         #sizeSlider {
             margin: 0;
             width: 30vw; /* Возвращаем исходную ширину */
@@ -2041,6 +2111,86 @@
 
         console.log('Скрипт начал выполнение');
 
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function throttle(func, limit) {
+            let inThrottle;
+            return function() {
+                const args = arguments;
+                const context = this;
+                if (!inThrottle) {
+                    func.apply(context, args);
+                    inThrottle = true;
+                    setTimeout(() => inThrottle = false, limit);
+                }
+            }
+        }
+        
+        // Ensure throttle is available in global scope
+        window.throttle = throttle;
+
+        const filterCache = new Map();
+        const cacheKey = (minYear, maxYear) => `${minYear}-${maxYear}`;
+        
+        function getCachedFilter(minYear, maxYear) {
+            return filterCache.get(cacheKey(minYear, maxYear));
+        }
+        
+        function setCachedFilter(minYear, maxYear, result) {
+            filterCache.set(cacheKey(minYear, maxYear), result);
+        }
+        
+        function clearFilterCache() {
+            filterCache.clear();
+        }
+
+        const debouncedUpdateVisibleGames = debounce(() => {
+            updateVisibleGames();
+            saveYearFiltersToStorage();
+        }, 150);
+
+        const debouncedHandleSearch = debounce(() => {
+            const searchTerm = searchInput.value.trim();
+
+            if (searchTerm === '') {
+                clearSearch();
+                return;
+            }
+
+            state.search = searchTerm;
+            updateVisibleGames();
+        }, 300);
+
+        // Централизованное состояние приложения
+        const state = {
+            games: [], // все игры
+            filters: {
+                yearMin: null,
+                yearMax: null,
+                platforms: [],
+                genres: [],
+                completedOnly: false,
+                hideCompleted: false
+            },
+            search: '',
+            visibleGames: [], // результат фильтрации
+            inProgressGames: [], // игры в процессе
+            saturation: 100, // насыщенность
+            ui: {
+                previewEnabled: true
+            }
+        };
+
         // Глобальные переменные для хранения индексов и файлов игр
         let searchIndex = null; // Поисковый индекс для быстрого поиска
         let gameIndex = null; // Индекс с информацией о файлах игр
@@ -2048,6 +2198,268 @@
         let isSearchIndexLoading = false; // Флаг, указывающий, что поисковый индекс в процессе загрузки
         window.messageTimer = null; // Таймер для сообщений
         window.animationTimer = null; // Таймер для анимаций
+
+        // Web Worker для фоновых операций
+        let worker = null;
+        let isWorkerBusy = false;
+
+        // Инициализация Web Worker
+        function initWorker() {
+            if (window.Worker) {
+                try {
+                    worker = new Worker('worker.js');
+
+                    // Обработчик сообщений от воркера
+                    worker.onmessage = function(e) {
+                        const { action, data } = e.data;
+
+                        switch (action) {
+                            case 'filter_result':
+                                handleFilterResult(data);
+                                break;
+
+                            case 'sort_result':
+                                handleSortResult(data);
+                                break;
+
+                            case 'search_result':
+                                handleSearchResult(data);
+                                break;
+
+                            case 'process_data_result':
+                                handleProcessDataResult(data);
+                                break;
+
+                            case 'error':
+                                console.error('Ошибка в Web Worker:', data);
+                                break;
+                        }
+
+                        isWorkerBusy = false;
+                    };
+
+                    worker.onerror = function(error) {
+                        console.error('Ошибка в Web Worker:', error.message);
+                        isWorkerBusy = false;
+                    };
+
+                    console.log('Web Worker успешно инициализирован');
+                } catch (error) {
+                    console.error('Не удалось инициализировать Web Worker:', error);
+                    worker = null;
+                }
+            } else {
+                console.warn('Браузер не поддерживает Web Workers');
+                worker = null;
+            }
+        }
+
+        // Обработчики результатов от Web Worker
+        function handleFilterResult(filteredGames) {
+            console.log(`Получены отфильтрованные игры от Web Worker: ${filteredGames.length} игр`);
+
+            // Обновляем отображение с отфильтрованными играми
+            renderFilteredGames(filteredGames);
+        }
+
+        function handleSortResult(sortedGames) {
+            console.log(`Получены отсортированные игры от Web Worker: ${sortedGames.length} игр`);
+
+            // Обновляем отображение с отсортированными играми
+            renderSortedGames(sortedGames);
+        }
+
+        function handleSearchResult(searchResults) {
+            console.log(`Получены результаты поиска от Web Worker: ${searchResults.length} игр`);
+
+            // Отображаем результаты поиска
+            displaySearchResults(searchResults);
+        }
+
+        function handleProcessDataResult(processedData) {
+            console.log('Получены обработанные данные от Web Worker');
+
+            // Обрабатываем результаты
+            if (processedData.compress) {
+                console.log('Данные были сжаты');
+            }
+        }
+
+        // Функция для отправки задачи в Web Worker
+        function sendTaskToWorker(action, data) {
+            if (!worker) {
+                console.warn('Web Worker не инициализирован, выполняем задачу в основном потоке');
+                return false;
+            }
+
+            if (isWorkerBusy) {
+                console.warn('Web Worker занят, задача будет выполнена в основном потоке');
+                return false;
+            }
+
+            try {
+                isWorkerBusy = true;
+                worker.postMessage({ action, data });
+                return true;
+            } catch (error) {
+                console.error('Ошибка при отправке задачи в Web Worker:', error);
+                isWorkerBusy = false;
+                return false;
+            }
+        }
+
+        // Вспомогательные функции для работы с Web Worker
+        function renderFilteredGames(filteredGames) {
+            // Временно сохраняем отфильтрованные игры
+            const filteredGameIds = new Set(filteredGames.map(game => game.id.toString()));
+
+            // Обновляем видимость ячеек
+            document.querySelectorAll('.cell').forEach(cell => {
+                const gameId = cell.dataset.gameId;
+                if (filteredGameIds.has(gameId)) {
+                    cell.style.display = '';
+                } else {
+                    cell.style.display = 'none';
+                }
+            });
+
+            // Обновляем размер сетки
+            updateGridSize();
+        }
+
+        function renderSortedGames(sortedGames) {
+            // Создаем карту для быстрого доступа к играм по ID
+            const gameMap = new Map();
+            sortedGames.forEach(game => {
+                gameMap.set(game.id.toString(), game);
+            });
+
+            // Получаем все ячейки
+            const cells = Array.from(document.querySelectorAll('.cell:not(.in-progress)'));
+
+            // Сортируем ячейки в соответствии с порядком игр
+            cells.sort((a, b) => {
+                const aIndex = sortedGames.findIndex(game => game.id.toString() === a.dataset.gameId);
+                const bIndex = sortedGames.findIndex(game => game.id.toString() === b.dataset.gameId);
+                return aIndex - bIndex;
+            });
+
+            // Очищаем сетку
+            grid.innerHTML = '';
+
+            // Добавляем ячейки в новом порядке
+            cells.forEach(cell => {
+                grid.appendChild(cell);
+            });
+        }
+
+        function displaySearchResults(searchResults) {
+            // Очищаем контейнер результатов поиска
+            const searchResultsContainer = document.getElementById('searchResults');
+            searchResultsContainer.innerHTML = '';
+
+            if (searchResults.length === 0) {
+                searchResultsContainer.innerHTML = '<p class="no-games-found">Игры не найдены.</p>';
+                return;
+            }
+
+            // Отображаем результаты поиска
+            searchResults.forEach(game => {
+                const resultElement = document.createElement('div');
+                resultElement.className = 'search-result';
+
+                // Создаем содержимое элемента результата
+                resultElement.innerHTML = `
+                    <div class="search-result-info">
+                        <div class="search-result-name">${game.name}</div>
+                        <div class="search-result-year">${game.year || 'Год неизвестен'}</div>
+                    </div>
+                    <button class="add-game-button" data-game-id="${game.id}">Добавить</button>
+                `;
+
+                searchResultsContainer.appendChild(resultElement);
+            });
+
+            // Добавляем обработчики событий для кнопок "Добавить"
+            searchResultsContainer.querySelectorAll('.add-game-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const gameId = this.dataset.gameId;
+                    const game = searchResults.find(g => g.id.toString() === gameId);
+                    if (game) {
+                        addGameFromSearch(game);
+                    }
+                });
+            });
+        }
+
+        // Функция для фильтрации и поиска игр
+        function filterAndSearchGames(games, filters, search) {
+            // Проверяем, что кэш годов инициализирован
+            if (!gameCache.years.initialized) {
+                updateYearsCache();
+            }
+
+            // Фильтруем игры
+            return games.filter(game => {
+                // Если игра в процессе, всегда показываем
+                if (game.inProgress) {
+                    // Если есть поисковый запрос, проверяем соответствие
+                    if (search && !game.name.toLowerCase().includes(search.toLowerCase())) {
+                        return false;
+                    }
+                    return true;
+                }
+
+                // Проверяем фильтр пройденных игр
+                if (filters.hideCompleted && game.completed) {
+                    return false;
+                }
+
+                if (filters.completedOnly && !game.completed) {
+                    return false;
+                }
+
+                // Проверяем фильтр жанров
+                if (filters.genres.length > 0 && !game.genres.some(genre => filters.genres.includes(genre))) {
+                    return false;
+                }
+
+                // Проверяем фильтр платформ
+                if (filters.platforms.length > 0 && !game.platforms.some(platform => filters.platforms.includes(platform))) {
+                    return false;
+                }
+
+                // Проверяем фильтр годов
+                if (game.year === null) {
+                    // Игры без года показываем всегда, если не указано иное
+                    return true;
+                }
+
+                if (filters.yearMin !== null && game.year < filters.yearMin) {
+                    return false;
+                }
+
+                if (filters.yearMax !== null && game.year > filters.yearMax) {
+                    return false;
+                }
+
+                // Проверяем поисковый запрос
+                if (search && !game.name.toLowerCase().includes(search.toLowerCase())) {
+                    return false;
+                }
+
+                return true;
+            });
+        }
+
+        // Функция debounce для оптимизации частых вызовов
+        function debounce(fn, ms) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => fn.apply(this, args), ms);
+            };
+        }
 
         // Кэш для оптимизации производительности
         const gameCache = {
@@ -2063,7 +2475,9 @@
             timers: {
                 yearFilter: null,
                 localStorage: null,
-                imageCache: null
+                imageCache: null,
+                cacheMetadata: null, // Новый таймер для отложенного сохранения метаданных кэша
+                virtualizationScroll: null // Таймер для виртуализации
             },
             // Кэш для видимых игр
             visibleGameIds: new Set()
@@ -2171,6 +2585,74 @@
             }
         }
 
+        // Функции для сжатия и распаковки данных
+        function compressData(data) {
+            // Простая "компрессия" - удаление ненужных полей
+            if (Array.isArray(data)) {
+                return data.map(item => {
+                    // Для игр оставляем только необходимые поля
+                    if (item.id && item.name) {
+                        const { id, name, year, file_number } = item;
+                        return { id, name, year, file_number };
+                    }
+                    return item;
+                });
+            }
+            return data;
+        }
+
+        function decompressData(data) {
+            // Распаковка данных (если необходимо)
+            return data;
+        }
+
+        // Функция для загрузки JSON с поддержкой сжатия
+        async function loadJsonWithCompression(url, useCompression = false) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Ошибка загрузки: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                // Если включено сжатие, отправляем данные в Web Worker для обработки
+                if (useCompression && worker) {
+                    return new Promise((resolve) => {
+                        const taskSent = sendTaskToWorker('process_data', {
+                            data,
+                            compress: true
+                        });
+
+                        if (!taskSent) {
+                            // Если не удалось отправить задачу в Web Worker, обрабатываем данные в основном потоке
+                            resolve(compressData(data));
+                        } else {
+                            // Устанавливаем обработчик для получения результата от Web Worker
+                            const originalOnMessage = worker.onmessage;
+                            worker.onmessage = function(e) {
+                                const { action, data: processedData } = e.data;
+                                if (action === 'process_data_result') {
+                                    // Восстанавливаем оригинальный обработчик
+                                    worker.onmessage = originalOnMessage;
+                                    isWorkerBusy = false;
+                                    resolve(processedData);
+                                } else {
+                                    // Передаем сообщение оригинальному обработчику
+                                    originalOnMessage(e);
+                                }
+                            };
+                        }
+                    });
+                }
+
+                return data;
+            } catch (error) {
+                console.error(`Ошибка при загрузке ${url}:`, error);
+                throw error;
+            }
+        }
+
         // Функция для загрузки поискового индекса
         async function loadSearchIndex() {
             console.log('Вызвана функция loadSearchIndex');
@@ -2189,11 +2671,8 @@
 
             try {
                 console.log('Пытаемся загрузить файл data/search_index.json');
-                const response = await fetch('data/search_index.json');
-                if (!response.ok) {
-                    throw new Error(`Ошибка загрузки поискового индекса: ${response.status} ${response.statusText}`);
-                }
-                searchIndex = await response.json();
+                // Используем новую функцию загрузки с поддержкой сжатия
+                searchIndex = await loadJsonWithCompression('data/search_index.json', true);
                 console.log(`Поисковый индекс успешно загружен (${searchIndex.length} игр)`);
                 return searchIndex;
             } catch (error) {
