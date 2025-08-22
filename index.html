@@ -4074,139 +4074,6 @@
         let virtualizedGames = [];
         let visibleRangeStart = 0;
         let visibleRangeEnd = 0;
-
-        // Создаем Web Worker для фильтрации в фоновом потоке
-        let filterWorker = null;
-        let workerBusy = false;
-        
-        // Код Web Worker для фильтрации
-        const workerCode = `
-            // Функция для проверки, должна ли игра отображаться
-            function shouldShowGame(game, filters, searchTerm) {
-                // Если игра "в процессе", всегда показываем ее
-                if (game.inProgress) {
-                    return true;
-                }
-
-                // Фильтр по году
-                if (game.year !== null) {
-                    if (game.year < filters.yearMin || game.year > filters.yearMax) {
-                        return false;
-                    }
-                }
-
-                // Фильтр по платформам
-                if (filters.platforms && filters.platforms.length > 0) {
-                    if (!game.platforms || !game.platforms.some(platform => filters.platforms.includes(platform))) {
-                        return false;
-                    }
-                }
-
-                // Фильтр по жанрам
-                if (filters.genres && filters.genres.length > 0) {
-                    if (!game.genres || !game.genres.some(genre => filters.genres.includes(genre))) {
-                        return false;
-                    }
-                }
-
-                // Фильтр "Только пройденные"
-                if (filters.completedOnly && !game.completed) {
-                    return false;
-                }
-
-                // Фильтр "Скрыть пройденные"
-                if (filters.hideCompleted && game.completed) {
-                    return false;
-                }
-
-                // Поиск по названию
-                if (searchTerm && searchTerm !== '') {
-                    const gameName = game.name.toLowerCase();
-                    const searchTermLower = searchTerm.toLowerCase();
-                    const queryWords = searchTermLower.split(/\\s+/).filter(word => word.length > 0);
-                    return queryWords.every(word => gameName.includes(word));
-                }
-
-                return true;
-            }
-
-            // Обработчик сообщений
-            self.onmessage = function(e) {
-                const { type, data } = e.data;
-                
-                if (type === 'filter') {
-                    const { games, filters, searchTerm } = data;
-                    const startTime = performance.now();
-                    
-                    // Использование более эффективной фильтрации с предварительной оптимизацией
-                    const hasFilters = filters.platforms?.length > 0 || 
-                                     filters.genres?.length > 0 || 
-                                     filters.completedOnly || 
-                                     filters.hideCompleted ||
-                                     searchTerm;
-                    
-                    if (!hasFilters) {
-                        // Если фильтров нет, возвращаем все игры
-                        const inProgressGames = games.filter(game => game.inProgress);
-                        const regularGames = games.filter(game => !game.inProgress);
-                        
-                        self.postMessage({
-                            type: 'filterResult',
-                            data: {
-                                inProgressGames,
-                                regularGames,
-                                executionTime: performance.now() - startTime
-                            }
-                        });
-                        return;
-                    }
-                    
-                    const filteredGames = games.filter(game => shouldShowGame(game, filters, searchTerm));
-                    const inProgressGames = filteredGames.filter(game => game.inProgress);
-                    const regularGames = filteredGames.filter(game => !game.inProgress);
-                    
-                    const endTime = performance.now();
-                    
-                    self.postMessage({
-                        type: 'filterResult',
-                        data: {
-                            inProgressGames,
-                            regularGames,
-                            executionTime: endTime - startTime
-                        }
-                    });
-                }
-            };
-        `;
-
-        // Инициализация Web Worker
-        function initializeFilterWorker() {
-            try {
-                const blob = new Blob([workerCode], { type: 'application/javascript' });
-                const workerUrl = URL.createObjectURL(blob);
-                filterWorker = new Worker(workerUrl);
-                
-                filterWorker.onmessage = function(e) {
-                    const { type, data } = e.data;
-                    
-                    if (type === 'filterResult') {
-                        state.visibleGames = data.regularGames;
-                        state.inProgressGames = data.inProgressGames;
-                        renderGrid(data.regularGames, data.inProgressGames);
-                        workerBusy = false;
-                        
-                        if (data.executionTime > 16) {
-                            console.log(`Фильтрация заняла ${data.executionTime.toFixed(2)}мс`);
-                        }
-                    }
-                };
-                
-                console.log('Web Worker для фильтрации успешно инициализирован');
-            } catch (error) {
-                console.error('Не удалось создать Web Worker:', error);
-                filterWorker = null;
-            }
-        }
         const VIRTUALIZATION_BUFFER = 50; // Буфер для плавной прокрутки
 
         // Функция для виртуализации списка игр
@@ -5885,14 +5752,14 @@
         function updatePlatformFilter(platforms) {
             state.filters.platforms = platforms;
             localStorage.setItem('selectedPlatforms', JSON.stringify(platforms));
-            updateVisibleGames();
+            debouncedUpdateVisibleGames();
         }
 
         // Функция для обновления фильтра жанров
         function updateGenreFilter(genres) {
             state.filters.genres = genres;
             localStorage.setItem('selectedGenres', JSON.stringify(genres));
-            updateVisibleGames();
+            debouncedUpdateVisibleGames();
         }
 
         // Функция для обновления фильтра пройденных игр
@@ -5908,7 +5775,7 @@
                 hideCompletedButton.classList.remove('button-disabled');
             }
 
-            updateVisibleGames();
+            debouncedUpdateVisibleGames();
         }
 
         // Функция для обновления фильтра скрытия пройденных игр
@@ -5922,7 +5789,7 @@
                 completedFilter.classList.remove('active');
             }
 
-            updateVisibleGames();
+            debouncedUpdateVisibleGames();
         }
 
         // Функция для обновления поискового запроса
@@ -6638,29 +6505,25 @@
         });
 
         // Обработчики событий для ползунка минимального года
-        yearSliderMin.addEventListener('input', () => {
+        yearSliderMin.addEventListener('input', throttle(() => {
             const minVal = parseInt(yearSliderMin.value);
             const maxVal = parseInt(yearSliderMax.value);
 
-            // Проверяем, чтобы минимальный год не был больше максимального минус 1
             if (minVal > maxVal - 1) {
                 yearSliderMin.value = maxVal - 1;
             }
 
-            // Обновляем состояние
             state.filters.yearMin = parseInt(yearSliderMin.value);
 
-            // Обновляем визуальное отображение
             updateYearSliderVisuals();
 
-            // Применяем фильтры
-            updateVisibleGames();
-        });
+            debouncedUpdateVisibleGames();
+        }, 16));
 
         // При отпускании ползунка применяем фильтры немедленно и сохраняем в localStorage
         yearSliderMin.addEventListener('change', () => {
-            // Сохраняем в localStorage
             saveYearFiltersToStorage();
+            clearFilterCache();
         });
 
         yearSliderMin.addEventListener('mouseover', () => {
@@ -6672,29 +6535,25 @@
         });
 
         // Обработчики событий для ползунка максимального года
-        yearSliderMax.addEventListener('input', () => {
+        yearSliderMax.addEventListener('input', throttle(() => {
             const minVal = parseInt(yearSliderMin.value);
             const maxVal = parseInt(yearSliderMax.value);
 
-            // Проверяем, чтобы максимальный год не был меньше минимального плюс 1
             if (maxVal < minVal + 1) {
                 yearSliderMax.value = minVal + 1;
             }
 
-            // Обновляем состояние
             state.filters.yearMax = parseInt(yearSliderMax.value);
 
-            // Обновляем визуальное отображение
             updateYearSliderVisuals();
 
-            // Применяем фильтры
-            updateVisibleGames();
-        });
+            debouncedUpdateVisibleGames();
+        }, 16));
 
         // При отпускании ползунка применяем фильтры немедленно и сохраняем в localStorage
         yearSliderMax.addEventListener('change', () => {
-            // Сохраняем в localStorage
             saveYearFiltersToStorage();
+            clearFilterCache();
         });
 
         yearSliderMax.addEventListener('mouseover', () => {
@@ -6790,12 +6649,11 @@
             applyFiltersComplete();
         });
 
-        sizeSlider.addEventListener('input', () => {
+        sizeSlider.addEventListener('input', throttle(() => {
             sizeSliderMoving = true;
             updateGridSize();
-            // Пересортируем очередь загрузки изображений при изменении размера ячеек
             processImageQueue();
-        });
+        }, 16));
 
         // Добавляем обработчик события при отпускании ползунка
         sizeSlider.addEventListener('change', () => {
@@ -6841,7 +6699,7 @@
             hideRandomSelection();
         });
 
-        searchInput.addEventListener('input', handleSearch);
+        searchInput.addEventListener('input', debouncedHandleSearch);
 
         // Обработчик события blur для очистки поиска при пустом поле
         searchInput.addEventListener('blur', () => {
