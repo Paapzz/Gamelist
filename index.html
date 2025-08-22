@@ -2340,6 +2340,7 @@
         let authorCreditTimeout;
         let completedGames = 0;
         let games = [];
+        let gamesUpdated = false;
         let previewTimeout;
         let previewEnabled = localStorage.getItem('previewEnabled') !== 'false';
         let inProgressMode = false;
@@ -2349,7 +2350,7 @@
         let savedMaxYear = localStorage.getItem('maxYear');
         let selectedPlatforms = JSON.parse(localStorage.getItem('selectedPlatforms')) || [];
         let selectedGenres = JSON.parse(localStorage.getItem('selectedGenres')) || [];
-	const gamesList = [
+        const gamesList = [
         {"number":1,"title":"the-legend-of-zelda-breath-of-the-wild","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co3p2d.jpg","year":2017,"genres":["Action","Adventure","Open world","Puzzle","Role-playing (RPG)","Sandbox","Survival"],"platforms":["Nintendo Switch","Nintendo Wii U"]},
 {"number":2,"title":"the-last-of-us","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1r7f.jpg","year":2013,"genres":["Action","Adventure","Horror","Shooter","Stealth","Survival"],"platforms":["PlayStation 3","PlayStation 4"]},
 {"number":3,"title":"tetris--4","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6n9j.jpg","year":1985,"genres":["Arcade","Puzzle"],"platforms":["DOS","Electronika 60","Game Boy","Nintendo Entertainment System"]},
@@ -3449,6 +3450,7 @@
             return result;
         }
 
+        // Initialize state.games after gamesList is defined
         state.games = gamesList.map(game => ({
             id: game.number,
             name: formatGameTitle(game.title),
@@ -3460,7 +3462,7 @@
             inProgress: false,
             isCustom: false
         }));
-        games = state.games; // Для обратной совместимости
+        games = state.games;
 
         function loadSavedGames() {
             const savedGames = localStorage.getItem('games');
