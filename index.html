@@ -2181,7 +2181,7 @@
         const debouncedUpdateVisibleGames = debounce(() => {
             updateVisibleGames();
             saveYearFiltersToStorage();
-        }, 150); // Reduced to 150ms for faster response
+        }, 60); // Reduced to 60ms for very fast response
         
         // Highly optimized virtual update for slider movement with aggressive caching
         let lastVirtualUpdate = { yearMin: null, yearMax: null, count: null };
@@ -2215,6 +2215,8 @@
             // Set timer to mark slider movement as finished
             sliderMovementTimer = setTimeout(() => {
                 isSliderMoving = false;
+                // Update completed games counter when slider stops
+                updateCounter();
             }, 200);
         }, 50); // Increased throttle to 50ms for better performance
         
@@ -2276,6 +2278,11 @@
         }
         
         function updateCounterDisplay(count, isEstimate = false) {
+            // Only update during slider movement - don't interfere with completed games counter
+            if (!isSliderMoving) {
+                return; // Let updateCounter handle the display when not sliding
+            }
+            
             const counter = document.querySelector('.counter');
             if (counter) {
                 const suffix = isEstimate ? ' (~)' : '';
@@ -2309,61 +2316,63 @@
 
         // Инициализация Web Worker
         function initWorker() {
-            if (window.Worker) {
-                try {
-                    worker = new Worker('worker.js');
+            // Проверяем поддержку Web Workers
+            if (!window.Worker) {
+                console.log('Браузер не поддерживает Web Workers');
+                worker = null;
+                return;
+            }
+            
+            try {
+                worker = new Worker('worker.js');
 
-                    // Обработчик сообщений от воркера
-                    worker.onmessage = function(e) {
-                        if (!e.data || typeof e.data !== 'object') {
-                            console.warn('Web Worker прислал некорректные данные:', e.data);
-                            isWorkerBusy = false;
-                            return;
-                        }
-                        
-                        const { action, data } = e.data;
-
-                        switch (action) {
-                            case 'filter_result':
-                                if (data) handleFilterResult(data);
-                                break;
-
-                            case 'sort_result':
-                                if (data) handleSortResult(data);
-                                break;
-
-                            case 'search_result':
-                                if (data) handleSearchResult(data);
-                                break;
-
-                            case 'process_data_result':
-                                if (data) handleProcessDataResult(data);
-                                break;
-
-                            case 'error':
-                                console.error('Ошибка в Web Worker:', data || 'Неизвестная ошибка');
-                                break;
-                                
-                            default:
-                                console.warn('Неизвестное действие от Web Worker:', action);
-                        }
-
+                // Обработчик сообщений от воркера
+                worker.onmessage = function(e) {
+                    if (!e.data || typeof e.data !== 'object') {
+                        console.log('Web Worker прислал некорректные данные');
                         isWorkerBusy = false;
-                    };
+                        return;
+                    }
+                    
+                    const { action, data } = e.data;
 
-                    worker.onerror = function(error) {
-                        console.warn('Web Worker недоступен:', error.message || error);
-                        worker = null;
-                        isWorkerBusy = false;
-                    };
+                    switch (action) {
+                        case 'filter_result':
+                            if (data) handleFilterResult(data);
+                            break;
 
-                    console.log('Web Worker успешно инициализирован');
-                } catch (error) {
-                    console.warn('Web Worker недоступен, продолжаем без него:', error.message || error);
+                        case 'sort_result':
+                            if (data) handleSortResult(data);
+                            break;
+
+                        case 'search_result':
+                            if (data) handleSearchResult(data);
+                            break;
+
+                        case 'process_data_result':
+                            if (data) handleProcessDataResult(data);
+                            break;
+
+                        case 'error':
+                            console.log('Web Worker сообщил об ошибке:', data);
+                            break;
+                            
+                        default:
+                            console.log('Неизвестное действие от Web Worker:', action);
+                    }
+
+                    isWorkerBusy = false;
+                };
+
+                worker.onerror = function(error) {
+                    console.log('Web Worker недоступен, продолжаем без него');
                     worker = null;
-                }
-            } else {
-                console.warn('Браузер не поддерживает Web Workers');
+                    isWorkerBusy = false;
+                };
+
+                console.log('Web Worker успешно инициализирован');
+            } catch (error) {
+                console.log('Web Worker недоступен, продолжаем без него');
                 worker = null;
             }
         }
