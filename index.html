@@ -2206,7 +2206,6 @@
             if (lastVirtualUpdate.yearMin !== currentMin || lastVirtualUpdate.yearMax !== currentMax) {
                 // Ultra-fast rough estimate based on year range without iteration
                 const estimatedCount = ultraFastEstimateCount(currentMin, currentMax);
-                updateCounterDisplay(estimatedCount, true);
                 lastVirtualUpdate.yearMin = currentMin;
                 lastVirtualUpdate.yearMax = currentMax;
                 lastVirtualUpdate.count = estimatedCount;
@@ -2277,19 +2276,7 @@
             return Math.min(estimatedCount, state.games.length);
         }
         
-        function updateCounterDisplay(count, isEstimate = false) {
-            // Only update during slider movement - don't interfere with completed games counter
-            if (!isSliderMoving) {
-                return; // Let updateCounter handle the display when not sliding
-            }
-            
-            const counter = document.getElementById('counter');
-            if (counter) {
-                const suffix = isEstimate ? ' (~)' : '';
-                counter.textContent = `Показано игр: ${count}${suffix}`;
-            }
-        }
-        
+
         const debouncedHandleSearch = debounce(() => {
             const searchTerm = searchInput.value.trim();
 
