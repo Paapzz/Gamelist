@@ -2181,7 +2181,7 @@
         const debouncedUpdateVisibleGames = debounce(() => {
             updateVisibleGames();
             saveYearFiltersToStorage();
-        }, 60); // Reduced to 60ms for very fast response
+        }, 100); // Reduced to 100ms for very fast response
         
         // Highly optimized virtual update for slider movement with aggressive caching
         let lastVirtualUpdate = { yearMin: null, yearMax: null, count: null };
@@ -4105,6 +4105,7 @@
                 games = parsedGames; // Для обратной совместимости
                 completedGames = state.games.filter(game => game.completed).length;
                 updateInProgressRow();
+                updateCounter(); // Обновляем счетчик сразу после загрузки
 
                 // Проверяем, нужно ли выполнить переформатирование названий
                 const needsReformatting = !romanNumeralsFormatted || !titlesReformatted || titleFormatVersion !== currentFormatVersion;
@@ -4218,6 +4219,7 @@
                 // Если нет сохраненных игр, используем встроенные значения
                 // state.games уже инициализирован выше
                 updateVisibleGames();
+                updateCounter(); // Обновляем счетчик для встроенных игр
             }
         }
 
@@ -4253,10 +4255,18 @@
             const totalGames = state.games.length;
             const completedGames = state.games.filter(game => game.completed).length;
             
+            console.log('Обновление счетчика:', {
+                totalGames,
+                completedGames,
+                stateGamesLength: state.games ? state.games.length : 'undefined'
+            });
+            
             // Always update the main counter with completed games info
             const counter = document.querySelector('.counter');
             if (counter) {
                 counter.textContent = `Пройдено: ${completedGames} из ${totalGames}`;
+            } else {
+                console.error('Элемент counter не найден!');
             }
             
             // Update progress bar for completed games
@@ -8523,6 +8533,18 @@
             populateFilters();
             updateInProgressRow(); // Сначала размещаем ячейки по рядам
             initializeCacheClearing();
+
+            // Дополнительная проверка счетчика через малую задержку
+            setTimeout(() => {
+                console.log('Проверка счетчика:', {
+                    totalGames: state.games.length,
+                    completedGames: state.games.filter(game => game.completed).length,
+                    counterText: document.querySelector('.counter') ? document.querySelector('.counter').textContent : 'элемент не найден'
+                });
+                if (state.games.length > 0) {
+                    updateCounter(); // Повторно обновляем счетчик
+                }
+            }, 500);
 
             // Добавляем делегирование событий для ячеек
             grid.addEventListener('mouseenter', handleCellHover, true);
