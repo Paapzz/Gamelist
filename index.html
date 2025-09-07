@@ -2283,7 +2283,7 @@
                 return; // Let updateCounter handle the display when not sliding
             }
             
-            const counter = document.querySelector('.counter');
+            const counter = document.getElementById('counter');
             if (counter) {
                 const suffix = isEstimate ? ' (~)' : '';
                 counter.textContent = `Показано игр: ${count}${suffix}`;
@@ -4262,9 +4262,10 @@
             });
             
             // Always update the main counter with completed games info
-            const counter = document.querySelector('.counter');
+            const counter = document.getElementById('counter');
             if (counter) {
                 counter.textContent = `Пройдено: ${completedGames} из ${totalGames}`;
+                console.log('Счетчик успешно обновлен:', counter.textContent);
             } else {
                 console.error('Элемент counter не найден!');
             }
@@ -8539,7 +8540,7 @@
                 console.log('Проверка счетчика:', {
                     totalGames: state.games.length,
                     completedGames: state.games.filter(game => game.completed).length,
-                    counterText: document.querySelector('.counter') ? document.querySelector('.counter').textContent : 'элемент не найден'
+                    counterText: document.getElementById('counter') ? document.getElementById('counter').textContent : 'элемент не найден'
                 });
                 if (state.games.length > 0) {
                     updateCounter(); // Повторно обновляем счетчик
