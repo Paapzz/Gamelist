@@ -2181,7 +2181,7 @@
         const debouncedUpdateVisibleGames = debounce(() => {
             updateVisibleGames();
             saveYearFiltersToStorage();
-        }, 500); // Increased to 500ms for even better performance
+        }, 150); // Reduced to 150ms for faster response
         
         // Highly optimized virtual update for slider movement with aggressive caching
         let lastVirtualUpdate = { yearMin: null, yearMax: null, count: null };
@@ -2352,14 +2352,14 @@
                     };
 
                     worker.onerror = function(error) {
-                        const errorMessage = error.message || error.error?.message || 'Неизвестная ошибка Web Worker';
-                        console.error('Ошибка в Web Worker:', errorMessage);
+                        console.warn('Web Worker недоступен:', error.message || error);
+                        worker = null;
                         isWorkerBusy = false;
                     };
 
                     console.log('Web Worker успешно инициализирован');
                 } catch (error) {
-                    console.error('Не удалось инициализировать Web Worker:', error.message || error);
+                    console.warn('Web Worker недоступен, продолжаем без него:', error.message || error);
                     worker = null;
                 }
             } else {
@@ -2941,6 +2941,7 @@
         let authorCreditTimeout;
         let completedGames = 0;
         let games = [];
+        let gamesUpdated = false;
         let previewTimeout;
         let previewEnabled = localStorage.getItem('previewEnabled') !== 'false';
         let inProgressMode = false;
@@ -2950,7 +2951,7 @@
         let savedMaxYear = localStorage.getItem('maxYear');
         let selectedPlatforms = JSON.parse(localStorage.getItem('selectedPlatforms')) || [];
         let selectedGenres = JSON.parse(localStorage.getItem('selectedGenres')) || [];
-	const gamesList = [
+        const gamesList = [
         {"number":1,"title":"the-legend-of-zelda-breath-of-the-wild","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co3p2d.jpg","year":2017,"genres":["Action","Adventure","Open world","Puzzle","Role-playing (RPG)","Sandbox","Survival"],"platforms":["Nintendo Switch","Nintendo Wii U"]},
 {"number":2,"title":"the-last-of-us","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1r7f.jpg","year":2013,"genres":["Action","Adventure","Horror","Shooter","Stealth","Survival"],"platforms":["PlayStation 3","PlayStation 4"]},
 {"number":3,"title":"tetris--4","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6n9j.jpg","year":1985,"genres":["Arcade","Puzzle"],"platforms":["DOS","Electronika 60","Game Boy","Nintendo Entertainment System"]},
@@ -4240,29 +4241,17 @@
         }
 
         function updateCounter() {
-            // Check if this is being called during slider movement
-            if (isSliderMoving) {
-                return; // Skip update during slider movement, virtualUpdate handles it
-            }
-            
             const totalGames = state.games.length;
             const completedGames = state.games.filter(game => game.completed).length;
             
+            // Always update the main counter with completed games info
+            const counter = document.querySelector('.counter');
+            if (counter) {
+                counter.textContent = `Пройдено: ${completedGames} из ${totalGames}`;
+            }
+            
             // Update progress bar for completed games
             updateProgressBar(completedGames, totalGames);
-            
-            // The counter.textContent is now handled by updateCounterDisplay for consistency
-            // This maintains the completed games counter separately from the visible games counter
-            const progressCounter = document.querySelector('.progress-counter');
-            if (progressCounter) {
-                progressCounter.textContent = `Пройдено: ${completedGames} из ${totalGames}`;
-            } else {
-                // Fallback to updating counter if progress-counter doesn't exist
-                const counter = document.querySelector('.counter');
-                if (counter && !counter.textContent.includes('Показано игр:')) {
-                    counter.textContent = `Пройдено: ${completedGames} из ${totalGames}`;
-                }
-            }
         }
 
         function updateProgressBar(completedGames, totalGames) {
@@ -4426,45 +4415,10 @@
             updateLoadingIndicator();
         }
 
-        // Функция для обновления индикатора загрузки
+        // Функция для обновления индикатора загрузки (отключена)
         function updateLoadingIndicator() {
-            const loadingIndicator = document.getElementById('loadingIndicator');
-
-            // Если индикатор не существует, создаем его
-            if (!loadingIndicator && imageLoadQueue.length > 0) {
-                const indicator = document.createElement('div');
-                indicator.id = 'loadingIndicator';
-                indicator.className = 'loading-indicator';
-
-                // Создаем индикатор прогресса
-                const progressBar = document.createElement('div');
-                progressBar.className = 'loading-progress-bar';
-
-                // Создаем текст с информацией о загрузке
-                const progressText = document.createElement('div');
-                progressText.className = 'loading-progress-text';
-
-                // Добавляем элементы в индикатор
-                indicator.appendChild(progressBar);
-                indicator.appendChild(progressText);
-
-                // Добавляем индикатор на страницу
-                document.body.appendChild(indicator);
-
-                // Обновляем прогресс
-                updateLoadingProgress();
-            } else if (loadingIndicator && imageLoadQueue.length === 0 && activeImageLoads === 0) {
-                // Если очередь пуста и нет активных загрузок, скрываем индикатор
-                loadingIndicator.style.opacity = '0';
-                setTimeout(() => {
-                    if (loadingIndicator.parentNode) {
-                        loadingIndicator.parentNode.removeChild(loadingIndicator);
-                    }
-                }, 500); // Задержка для плавного исчезновения
-            } else if (loadingIndicator) {
-                // Обновляем прогресс
-                updateLoadingProgress();
-            }
+            // Индикатор загрузки отключен для улучшения UX
+            return;
         }
 
         // Функция для обновления прогресса загрузки
