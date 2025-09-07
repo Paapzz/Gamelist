@@ -6629,90 +6629,6 @@
             updateSaturation();
         });
 
-        // Обработчики событий для ползунка минимального года
-        yearSliderMin.addEventListener('input', throttle(() => {
-            const minVal = parseInt(yearSliderMin.value);
-            const maxVal = parseInt(yearSliderMax.value);
-
-            if (minVal > maxVal - 1) {
-                yearSliderMin.value = maxVal - 1;
-            }
-
-            state.filters.yearMin = parseInt(yearSliderMin.value);
-
-            // Use virtual update during slider movement for better performance
-            virtualUpdateDuringSliderMovement();
-            
-            // Heavy filtering only after debounce delay
-            debouncedUpdateVisibleGames();
-        }, 50));
-
-        // При отпускании ползунка применяем фильтры немедленно и сохраняем в localStorage
-        yearSliderMin.addEventListener('change', () => {
-            // Отмечаем конец движения ползунка
-            isSliderMoving = false;
-            if (sliderMovementTimer) {
-                clearTimeout(sliderMovementTimer);
-            }
-            
-            // Немедленно обновляем фильтры при отпускании
-            updateVisibleGames();
-            saveYearFiltersToStorage();
-            clearFilterCache();
-        });
-
-        yearSliderMin.addEventListener('mouseover', () => {
-            document.querySelector('.min-tooltip').style.opacity = '1';
-        });
-
-        yearSliderMin.addEventListener('mouseout', () => {
-            document.querySelector('.min-tooltip').style.opacity = '0';
-        });
-
-        // Обработчики событий для ползунка максимального года
-        yearSliderMax.addEventListener('input', throttle(() => {
-            const minVal = parseInt(yearSliderMin.value);
-            const maxVal = parseInt(yearSliderMax.value);
-
-            if (maxVal < minVal + 1) {
-                yearSliderMax.value = minVal + 1;
-            }
-
-            state.filters.yearMax = parseInt(yearSliderMax.value);
-
-            // Use virtual update during slider movement for better performance
-            virtualUpdateDuringSliderMovement();
-            
-            // Heavy filtering only after debounce delay
-            debouncedUpdateVisibleGames();
-        }, 50));
-
-        // При отпускании ползунка применяем фильтры немедленно и сохраняем в localStorage
-        yearSliderMax.addEventListener('change', () => {
-            // Отмечаем конец движения ползунка
-            isSliderMoving = false;
-            if (sliderMovementTimer) {
-                clearTimeout(sliderMovementTimer);
-            }
-            
-            // Немедленно обновляем фильтры при отпускании
-            updateVisibleGames();
-            saveYearFiltersToStorage();
-            clearFilterCache();
-        });
-
-        yearSliderMax.addEventListener('mouseover', () => {
-            document.querySelector('.max-tooltip').style.opacity = '1';
-        });
-
-        yearSliderMax.addEventListener('mouseout', () => {
-            document.querySelector('.max-tooltip').style.opacity = '0';
-        });
-
-        // Инициализация подсветки трека и тултипов при загрузке
-        updateSliderTrack();
-        updateTooltips();
-
         // Добавим обработчики событий для анимации полосок после загрузки игр
         setTimeout(() => {
             try {
@@ -6768,64 +6684,6 @@
         // Добавляем переменную для отслеживания состояния ползунка
         let sizeSliderMoving = false;
 
-        // Изменяем обработчик события для ползунка отдаления/приближения
-        sizeSlider.addEventListener('mousedown', () => {
-            sizeSliderMoving = true;
-            // Сохранение состояния видимости игр в блоке "в процессе" теперь в функции applyFilters()
-        });
-
-        // Добавляем обработчик события touchstart для мобильных устройств
-        sizeSlider.addEventListener('touchstart', () => {
-            sizeSliderMoving = true;
-        });
-
-        sizeSlider.addEventListener('mouseup', () => {
-            sizeSliderMoving = false;
-            // Обновляем видимые игры
-            updateVisibleGames();
-        });
-
-        // Добавляем обработчик события touchend для мобильных устройств
-        sizeSlider.addEventListener('touchend', () => {
-            sizeSliderMoving = false;
-
-            // Обновляем строку "в процессе" и применяем фильтры полностью после отпускания ползунка
-            updateInProgressRow();
-            applyFiltersComplete();
-        });
-
-        sizeSlider.addEventListener('input', throttle(() => {
-            sizeSliderMoving = true;
-            updateGridSize();
-            processImageQueue();
-        }, 16));
-
-        // Добавляем обработчик события при отпускании ползунка
-        sizeSlider.addEventListener('change', () => {
-            sizeSliderMoving = false;
-
-            // Обновляем строку "в процессе" и обновляем видимые игры
-            updateInProgressRow();
-            updateVisibleGames();
-
-            // Запускаем предзагрузку изображений в видимой области
-            preloadVisibleImages();
-        });
-
-        // Добавляем обработчики для случая, если мышь уходит за пределы окна
-        document.addEventListener('mouseup', () => {
-            if (sizeSliderMoving) {
-                sizeSliderMoving = false;
-
-                // Обновляем строку "в процессе" и обновляем видимые игры
-                updateInProgressRow();
-                updateVisibleGames();
-
-                // Запускаем предзагрузку изображений в видимой области
-                preloadVisibleImages();
-            }
-        });
-
         // Добавляем обработчик события прокрутки страницы для предзагрузки изображений
         let scrollTimeout;
         window.addEventListener('scroll', () => {
@@ -6843,26 +6701,6 @@
             resetProgress();
             hideRandomSelection();
         });
-
-        searchInput.addEventListener('input', debouncedHandleSearch);
-
-        // Обработчик события blur для очистки поиска при пустом поле
-        searchInput.addEventListener('blur', () => {
-            if (searchInput.value.trim() === '') {
-                // Вызываем clearSearch для полного сброса поиска и восстановления порядка игр
-                clearSearch();
-            }
-        });
-
-        // Обработчик нажатия клавиши Escape для очистки поиска
-        searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                clearSearch();
-                // Снимаем фокус с поля ввода
-                searchInput.blur();
-            }
-        });
-        clearSearchButton.addEventListener('click', clearSearch);
         filtersButton.addEventListener('click', (event) => {
             event.stopPropagation();
 
@@ -8262,6 +8100,148 @@
                 console.log('Сброс фильтров в шапке');
                 resetFilters();
             });
+            
+            // Обработчики событий для ползунков годов (внутри DOMContentLoaded для правильного порядка инициализации)
+            yearSliderMin.addEventListener('input', throttle(() => {
+                const minVal = parseInt(yearSliderMin.value);
+                const maxVal = parseInt(yearSliderMax.value);
+
+                if (minVal > maxVal - 1) {
+                    yearSliderMin.value = maxVal - 1;
+                }
+
+                state.filters.yearMin = parseInt(yearSliderMin.value);
+
+                // Use virtual update during slider movement for better performance
+                virtualUpdateDuringSliderMovement();
+                
+                // Heavy filtering only after debounce delay
+                debouncedUpdateVisibleGames();
+            }, 50));
+
+            yearSliderMin.addEventListener('change', () => {
+                // Отмечаем конец движения ползунка
+                isSliderMoving = false;
+                if (sliderMovementTimer) {
+                    clearTimeout(sliderMovementTimer);
+                }
+                
+                // Немедленно обновляем фильтры при отпускании
+                updateVisibleGames();
+                saveYearFiltersToStorage();
+                clearFilterCache();
+            });
+
+            yearSliderMin.addEventListener('mouseover', () => {
+                document.querySelector('.min-tooltip').style.opacity = '1';
+            });
+
+            yearSliderMin.addEventListener('mouseout', () => {
+                document.querySelector('.min-tooltip').style.opacity = '0';
+            });
+
+            yearSliderMax.addEventListener('input', throttle(() => {
+                const minVal = parseInt(yearSliderMin.value);
+                const maxVal = parseInt(yearSliderMax.value);
+
+                if (maxVal < minVal + 1) {
+                    yearSliderMax.value = minVal + 1;
+                }
+
+                state.filters.yearMax = parseInt(yearSliderMax.value);
+
+                // Use virtual update during slider movement for better performance
+                virtualUpdateDuringSliderMovement();
+                
+                // Heavy filtering only after debounce delay
+                debouncedUpdateVisibleGames();
+            }, 50));
+
+            yearSliderMax.addEventListener('change', () => {
+                // Отмечаем конец движения ползунка
+                isSliderMoving = false;
+                if (sliderMovementTimer) {
+                    clearTimeout(sliderMovementTimer);
+                }
+                
+                // Немедленно обновляем фильтры при отпускании
+                updateVisibleGames();
+                saveYearFiltersToStorage();
+                clearFilterCache();
+            });
+
+            yearSliderMax.addEventListener('mouseover', () => {
+                document.querySelector('.max-tooltip').style.opacity = '1';
+            });
+
+            yearSliderMax.addEventListener('mouseout', () => {
+                document.querySelector('.max-tooltip').style.opacity = '0';
+            });
+
+            // Инициализация подсветки трека и тултипов при загрузке
+            updateSliderTrack();
+            updateTooltips();
+            
+            // Обработчики событий для ползунка размера (внутри DOMContentLoaded)
+            sizeSlider.addEventListener('mousedown', () => {
+                sizeSliderMoving = true;
+            });
+
+            sizeSlider.addEventListener('touchstart', () => {
+                sizeSliderMoving = true;
+            });
+
+            sizeSlider.addEventListener('mouseup', () => {
+                sizeSliderMoving = false;
+                updateVisibleGames();
+            });
+
+            sizeSlider.addEventListener('touchend', () => {
+                sizeSliderMoving = false;
+                updateInProgressRow();
+                applyFiltersComplete();
+            });
+
+            sizeSlider.addEventListener('input', throttle(() => {
+                sizeSliderMoving = true;
+                updateGridSize();
+                processImageQueue();
+            }, 16));
+
+            sizeSlider.addEventListener('change', () => {
+                sizeSliderMoving = false;
+                updateInProgressRow();
+                updateVisibleGames();
+                preloadVisibleImages();
+            });
+
+            // Обработчики для случая, если мышь уходит за пределы окна
+            document.addEventListener('mouseup', () => {
+                if (sizeSliderMoving) {
+                    sizeSliderMoving = false;
+                    updateInProgressRow();
+                    updateVisibleGames();
+                    preloadVisibleImages();
+                }
+            });
+            
+            // Обработчики для поиска (внутри DOMContentLoaded)
+            searchInput.addEventListener('input', debouncedHandleSearch);
+            
+            searchInput.addEventListener('blur', () => {
+                if (searchInput.value.trim() === '') {
+                    clearSearch();
+                }
+            });
+            
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    clearSearch();
+                    searchInput.blur();
+                }
+            });
+            
+            clearSearchButton.addEventListener('click', clearSearch);
 
             // Запускаем обновление видимости изображений сразу после загрузки страницы
             setTimeout(updateVisibleCells, 100);
