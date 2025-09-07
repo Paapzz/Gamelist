@@ -2181,7 +2181,7 @@
         const debouncedUpdateVisibleGames = debounce(() => {
             updateVisibleGames();
             saveYearFiltersToStorage();
-        }, 100); // Reduced to 100ms for very fast response
+        }, 85); // Changed to 85ms for fast response
         
         // Highly optimized virtual update for slider movement with aggressive caching
         let lastVirtualUpdate = { yearMin: null, yearMax: null, count: null };
@@ -2300,7 +2300,7 @@
 
             state.search = searchTerm;
             updateVisibleGames();
-        }, 300);
+        }, 85);
 
         // Глобальные переменные для хранения индексов и файлов игр
         let searchIndex = null; // Поисковый индекс для быстрого поиска
