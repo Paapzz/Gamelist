@@ -3918,6 +3918,13 @@
             const currentGames = state.games && state.games.length > 0 ? state.games : parsedGames;
             const updatedGames = [];
             
+            console.log(`📋 Текущие игры перед синхронизацией (всего: ${currentGames.length}):`);
+            const customGames = currentGames.filter(g => g.isCustom);
+            console.log(`   Пользовательских игр: ${customGames.length}`);
+            customGames.forEach(game => {
+                console.log(`   - "${game.name}" (ID: ${game.id}, inProgress: ${game.inProgress}, completed: ${game.completed})`);
+            });
+            
             // Создаем карту игр из нового топ-1000 для быстрого поиска
             const newGamesMap = new Map();
             const newGamesByName = new Map(); // Дополнительная карта для поиска по названию
@@ -3944,12 +3951,11 @@
                 if (savedGame.isCustom) {
                     // Пользовательские игры сохраняем всегда
                     // Но проверяем, нет ли такой же игры в новом топ-1000
-                    console.log(`Проверяем пользовательскую игру: "${savedGame.name}"`);
                     const duplicateInNewList = newGamesByName.get(savedGame.name.toLowerCase());
                     
                     if (duplicateInNewList) {
                         // Если такая игра есть в новом топ-1000, используем её с сохранением прогресса
-                        console.log(`✅ Найден дубликат: "${savedGame.name}" -> заменяем на версию из топ-1000 (позиция ${duplicateInNewList.id})`);
+                        console.log(`Найден дубликат: ${savedGame.name} -> заменяем на версию из топ-1000 (позиция ${duplicateInNewList.id})`);
                         duplicateInNewList.completed = savedGame.completed;
                         duplicateInNewList.inProgress = savedGame.inProgress;
                         // Удаляем из обеих карт, чтобы не добавить дважды
@@ -3958,15 +3964,6 @@
                         updatedGames.push(duplicateInNewList);
                     } else {
                         // Если дубликата нет, сохраняем пользовательскую игру
-                        console.log(`❌ Дубликат НЕ найден для: "${savedGame.name}"`);
-                        // Выводим несколько похожих названий для отладки
-                        const similarNames = Array.from(newGamesByName.keys()).filter(name => 
-                            name.includes(savedGame.name.toLowerCase().substring(0, 10)) || 
-                            savedGame.name.toLowerCase().includes(name.substring(0, 10))
-                        ).slice(0, 3);
-                        if (similarNames.length > 0) {
-                            console.log(`Похожие названия в топ-1000:`, similarNames);
-                        }
                         updatedGames.push(savedGame);
                     }
                 } else {
@@ -4047,6 +4044,7 @@
             }
         };
 
+
         function loadSavedGames() {
             const savedGames = localStorage.getItem('games');
             
@@ -4056,6 +4054,8 @@
             
             if (savedGames && (!gamesSynchronized || forceSync)) {
                 console.log('Нужна синхронизация с обновленным списком');
+                console.log(`   Условия синхронизации: savedGames=${!!savedGames}, gamesSynchronized=${gamesSynchronized}, forceSync=${forceSync}`);
+                console.log(`   Текущее состояние: state.games.length=${state.games?.length || 0}`);
                 if (synchronizeWithUpdatedGamesList()) {
                     // Синхронизация выполнена, сетка уже пересоздана
                     updateCounter();
@@ -5163,72 +5163,32 @@
                 }
             });
 
+            inProgressRow.innerHTML = '';
             const inProgressGames = state.games.filter(game => game.inProgress);
-            const existingCells = new Map();
-            
-            // Собираем существующие ячейки
-            Array.from(inProgressRow.children).forEach(cell => {
-                const gameId = cell.dataset.gameId;
-                existingCells.set(gameId, cell);
-            });
 
-            // Создаем фрагмент для новых ячеек
+            // Создаем фрагмент для более эффективного добавления элементов в DOM
             const fragment = document.createDocumentFragment();
-            const cellsToKeep = new Set();
 
             inProgressGames.forEach(game => {
+                const cell = createCell(game);
+
+                // Восстанавливаем изображение из глобального кэша, если оно было загружено ранее
                 const gameId = game.id.toString();
-                cellsToKeep.add(gameId);
-                
-                let cell = existingCells.get(gameId);
-                if (cell) {
-                    // Обновляем данные существующей ячейки
-                    cell.dataset.gameObject = JSON.stringify({
-                        id: game.id,
-                        name: game.name,
-                        year: game.year,
-                        imageUrl: game.imageUrl || game.image_url,
-                        completed: game.completed,
-                        inProgress: game.inProgress,
-                        isCustom: game.isCustom
-                    });
-                    
-                    // Обновляем изображение если оно изменилось
+                if (gameCache.images[gameId]) {
                     const img = cell.querySelector('img');
-                    const currentImageUrl = game.imageUrl || game.image_url || DEFAULT_GAME_IMAGE;
-                    if (img && img.src !== currentImageUrl) {
-                        img.src = currentImageUrl;
-                        img.alt = game.name;
+                    if (img) {
+                        img.src = gameCache.images[gameId];
+                        img.classList.add('loaded');
+                        // Устанавливаем opacity напрямую для предотвращения мерцания
+                        img.style.opacity = '1';
                     }
-                } else {
-                    // Создаем новую ячейку
-                    cell = createCell(game);
-                    
-                    // Восстанавливаем изображение из глобального кэша, если оно было загружено ранее
-                    if (gameCache.images[gameId]) {
-                        const img = cell.querySelector('img');
-                        if (img) {
-                            img.src = gameCache.images[gameId];
-                            img.classList.add('loaded');
-                            img.style.opacity = '1';
-                        }
-                    }
-                    
-                    fragment.appendChild(cell);
                 }
+
+                fragment.appendChild(cell);
             });
 
-            // Удаляем ячейки игр, которых больше нет в процессе
-            existingCells.forEach((cell, gameId) => {
-                if (!cellsToKeep.has(gameId)) {
-                    cell.remove();
-                }
-            });
-
-            // Добавляем новые ячейки
-            if (fragment.children.length > 0) {
-                inProgressRow.appendChild(fragment);
-            }
+            // Добавляем фрагмент в DOM (это более эффективно, чем добавлять по одной ячейке)
+            inProgressRow.appendChild(fragment);
 
             // Устанавливаем свойства для inProgressRow
             inProgressRow.style.display = inProgressRow.children.length > 0 ? 'flex' : 'none';
@@ -6944,8 +6904,8 @@
                         cell.style.display = '';
                     }
                     if (cell.parentElement !== grid) {
-                        // Перемещаем ячейку в основную сетку в правильную позицию
-                        insertCellInOrder(cell);
+                        // Перемещаем ячейку в основную сетку если ее там нет
+                        grid.appendChild(cell);
                     }
                 } else {
                     // Игра должна быть скрыта
