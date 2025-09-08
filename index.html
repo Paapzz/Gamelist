@@ -3909,6 +3909,10 @@
             console.log('Начинаем синхронизацию с обновленным списком топ-1000');
             
             let parsedGames = JSON.parse(savedGames);
+            
+            // ИСПРАВЛЕНИЕ: Используем текущее состояние state.games вместо сохраненных игр
+            // Это гарантирует, что недавно добавленные пользовательские игры не будут потеряны
+            const currentGames = state.games && state.games.length > 0 ? state.games : parsedGames;
             const updatedGames = [];
             
             // Создаем карту игр из нового топ-1000 для быстрого поиска
@@ -3929,8 +3933,8 @@
             
             console.log(`Новый список содержит ${newGamesMap.size} игр`);
             
-            // Проходим по сохраненным играм
-            for (const savedGame of parsedGames) {
+            // Проходим по текущим играм (включая недавно добавленные пользовательские)
+            for (const savedGame of currentGames) {
                 if (savedGame.isCustom) {
                     // Пользовательские игры сохраняем всегда
                     // Но проверяем, нет ли такой же игры в новом топ-1000
@@ -3972,7 +3976,7 @@
                 updatedGames.push(newGame);
             }
             
-            console.log(`Синхронизация завершена. Было: ${parsedGames.length}, стало: ${updatedGames.length}`);
+            console.log(`Синхронизация завершена. Было: ${currentGames.length}, стало: ${updatedGames.length}`);
             
             // Обновляем состояние
             state.games = updatedGames;
@@ -4010,7 +4014,7 @@
             const gamesSynchronized = localStorage.getItem('gamesSynchronized');
             const forceSync = location.search.includes('sync_games=true');
             
-            if (savedGames && (!gamesSynchronized || forceSync)) {
+            if (savedGames && (!gamesSynchronized || forceSync) && (!state.games || state.games.length === 0)) {
                 console.log('Нужна синхронизация с обновленным списком');
                 if (synchronizeWithUpdatedGamesList()) {
                     // Синхронизация выполнена, обновляем отображение
