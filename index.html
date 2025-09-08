@@ -4186,12 +4186,20 @@
             gameCache.timers.localStorage = setTimeout(() => {
                 try {
                     localStorage.setItem('games', JSON.stringify(state.games));
-                    // Убираем сообщение об успешном сохранении для улучшения UX
                 } catch (e) {
                     console.error('Ошибка при сохранении игр:', e);
                     showMessage('Ошибка при сохранении игр: ' + e.message, 'error');
                 }
             }, 500);
+        }
+
+        function saveGamesImmediately() {
+            try {
+                localStorage.setItem('games', JSON.stringify(state.games));
+            } catch (e) {
+                console.error('Ошибка при сохранении игр:', e);
+                showMessage('Ошибка при сохранении игр: ' + e.message, 'error');
+            }
         }
 
         function updateCounter() {
@@ -5253,7 +5261,7 @@
                     // Применяем фильтры с восстановленными значениями
                     applyFilters();
 
-                    saveGames();
+                    saveGamesImmediately();
 
                     // Меняем кнопку на "Уже есть"
                     button.innerHTML = 'Уже есть';
@@ -5335,7 +5343,7 @@
                 // Применяем фильтры с восстановленными значениями
                 applyFilters();
 
-                saveGames();
+                saveGamesImmediately();
             }
         }
 
@@ -7493,7 +7501,7 @@
                 insertCellInOrder(cell);
             }
 
-            saveGames();
+            saveGamesImmediately();
             updateCounter();
 
             // Обновляем фильтры без изменения значений слайдеров
