@@ -3881,6 +3881,12 @@
 
         // Initialize games data function
         function initializeGamesData() {
+            // Не перезаписываем игры, если они уже загружены из localStorage
+            if (state.games && state.games.length > 0) {
+                console.log('Игры уже загружены, пропускаем инициализацию');
+                return;
+            }
+            
             state.games = gamesList.map(game => ({
                 id: game.number,
                 name: formatGameTitle(game.title),
@@ -3893,9 +3899,6 @@
                 isCustom: false
             }));
             games = state.games;
-            
-            // Load saved games after initialization
-            loadSavedGames();
         }
 
         // Функция синхронизации с обновленным списком топ-1000
@@ -4043,10 +4046,17 @@
             if (savedGames) {
                 let parsedGames = JSON.parse(savedGames);
 
+                // Не перезаписываем состояние, если игры уже загружены и их больше, чем в localStorage
+                // Это защищает от потери недавно добавленных игр
+                if (!state.games || state.games.length === 0 || parsedGames.length >= state.games.length) {
                 // Загружаем игры сразу в состояние
                 state.games = parsedGames;
                 games = parsedGames; // Для обратной совместимости
                 completedGames = state.games.filter(game => game.completed).length;
+                } else {
+                    console.log('Пропускаем загрузку из localStorage, текущее состояние содержит больше игр');
+                    return;
+                }
                 updateInProgressRow();
                 updateCounter(); // Обновляем счетчик сразу после загрузки
 
@@ -7355,7 +7365,7 @@
                     }
                 });
 
-                saveGames();
+                saveGamesImmediately();
 
                 updateCounter();
                 populateFilters();
@@ -7723,7 +7733,7 @@
             if (gameId && confirm('Вы уверены, что хотите удалить эту игру?')) {
                 state.games = state.games.filter(g => g.id.toString() !== gameId.toString());
                 games = state.games; // Для обратной совместимости
-                saveGames();
+                saveGamesImmediately();
 
                 const cellToRemove = document.querySelector(`.cell[data-game-id="${gameId}"]`);
                 if (cellToRemove) {
@@ -8476,10 +8486,11 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM полностью загружен');
+            // Сначала загружаем сохраненные игры, чтобы предотвратить их перезапись
+            loadSavedGames();
             // Инициализируем Web Worker
             initWorker();
             initializeImportButton();
-            loadSavedGames();
             // Не вызываем renderGames, так как loadSavedGames уже вызывает updateVisibleGames
             updateCounter();
             populateFilters();
