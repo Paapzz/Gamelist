@@ -4011,7 +4011,10 @@
         };
 
         function loadSavedGames() {
+            console.log('loadSavedGames вызвана');
             const savedGames = localStorage.getItem('games');
+            console.log('Сохраненные игры в localStorage:', savedGames ? JSON.parse(savedGames).length : 0);
+            console.log('Текущее состояние игр:', state.games ? state.games.length : 0);
             
             // Проверяем, нужна ли синхронизация с обновленным списком
             const gamesSynchronized = localStorage.getItem('gamesSynchronized');
@@ -4049,12 +4052,14 @@
                 // Не перезаписываем состояние, если игры уже загружены и их больше, чем в localStorage
                 // Это защищает от потери недавно добавленных игр
                 if (!state.games || state.games.length === 0 || parsedGames.length >= state.games.length) {
+                    console.log('Загружаем игры из localStorage. Было:', state.games ? state.games.length : 0, 'Будет:', parsedGames.length);
                 // Загружаем игры сразу в состояние
                 state.games = parsedGames;
                 games = parsedGames; // Для обратной совместимости
                 completedGames = state.games.filter(game => game.completed).length;
                 } else {
                     console.log('Пропускаем загрузку из localStorage, текущее состояние содержит больше игр');
+                    console.log('В памяти:', state.games.length, 'В localStorage:', parsedGames.length);
                     return;
                 }
                 updateInProgressRow();
@@ -4205,7 +4210,9 @@
 
         function saveGamesImmediately() {
             try {
+                console.log('Сохраняем игры немедленно. Количество игр:', state.games.length);
                 localStorage.setItem('games', JSON.stringify(state.games));
+                console.log('Игры сохранены в localStorage');
             } catch (e) {
                 console.error('Ошибка при сохранении игр:', e);
                 showMessage('Ошибка при сохранении игр: ' + e.message, 'error');
@@ -7487,6 +7494,9 @@
         }
 
         function addNewGame(gameData) {
+            console.log('addNewGame вызвана для:', gameData.name);
+            console.log('Текущее количество игр до добавления:', state.games.length);
+            
             const existingGame = findExistingGame(gameData);
             if (existingGame) {
                 if (gameData.name.length < existingGame.name.length) {
@@ -7505,6 +7515,9 @@
                 };
                 state.games.push(newGame);
                 games = state.games; // Для обратной совместимости
+                console.log('Игра добавлена. Новое количество игр:', state.games.length);
+                console.log('Добавленная игра:', newGame);
+                
                 const cell = createCell(newGame);
 
                 // Добавляем ячейку в сетку с учетом сортировки по году
@@ -7512,6 +7525,7 @@
             }
 
             saveGamesImmediately();
+            console.log('saveGamesImmediately выполнена');
             updateCounter();
 
             // Обновляем фильтры без изменения значений слайдеров
