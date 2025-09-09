@@ -2409,8 +2409,11 @@
                 updateYearsCache();
             }
 
-            const filteredGames = games.filter(game => {
+            return games.filter(game => {
                 if (game.inProgress) {
+                    if (search && !game.name.toLowerCase().includes(search.toLowerCase())) {
+                        return false;
+                    }
                     return true;
                 }
                 if (filters.hideCompleted && game.completed) {
@@ -2434,27 +2437,11 @@
                 if (filters.yearMax !== null && game.year > filters.yearMax) {
                     return false;
                 }
-                if (search && !gameMatchesSearch(game.name, search)) {
+                if (search && !game.name.toLowerCase().includes(search.toLowerCase())) {
                     return false;
                 }
                 return true;
             });
-
-            if (search && search.trim()) {
-                filteredGames.forEach(game => {
-                    game.searchRelevance = calculateRelevance(game.name, search.trim());
-                });
-                
-                const inProgressGames = filteredGames.filter(game => game.inProgress);
-                const regularGames = filteredGames.filter(game => !game.inProgress);
-                
-                inProgressGames.sort((a, b) => b.searchRelevance - a.searchRelevance);
-                regularGames.sort((a, b) => b.searchRelevance - a.searchRelevance);
-                
-                return [...inProgressGames, ...regularGames];
-            }
-
-            return filteredGames;
         }
         function debounce(fn, ms) {
             let timeout;
@@ -5000,12 +4987,6 @@
                     }
                 }
 
-                if (!gameMatchesSearch(game.name, state.search)) {
-                    cell.style.display = 'none';
-                } else {
-                    cell.style.display = '';
-                }
-
                 fragment.appendChild(cell);
             });
 
@@ -5282,84 +5263,33 @@
             searchResults.innerHTML = '';
         }
 
-        function convertKeyboardLayout(text) {
-            if (!text) return text;
-            const rusToEng = {
-                'й': 'q', 'ц': 'w', 'у': 'e', 'к': 'r', 'е': 't', 'н': 'y', 'г': 'u', 'ш': 'i', 'щ': 'o', 'з': 'p',
-                'х': '[', 'ъ': ']', 'ф': 'a', 'ы': 's', 'в': 'd', 'а': 'f', 'п': 'g', 'р': 'h', 'о': 'j', 'л': 'k',
-                'д': 'l', 'ж': ';', 'э': "'", 'я': 'z', 'ч': 'x', 'с': 'c', 'м': 'v', 'и': 'b', 'т': 'n', 'ь': 'm',
-                'б': ',', 'ю': '.', '.': '/', 'ё': '`', '!': '1', '"': '2', '№': '3', ';': '4', '%': '5', ':': '6',
-                '?': '7', '*': '8', '(': '9', ')': '0', '-': '-', '+': '=', '\\': '\\', '/': '/', ',': ',', '.': '.'
-            };
-
-            const engToRus = {
-                'q': 'й', 'w': 'ц', 'e': 'у', 'r': 'к', 't': 'е', 'y': 'н', 'u': 'г', 'i': 'ш', 'o': 'щ', 'p': 'з',
-                '[': 'х', ']': 'ъ', 'a': 'ф', 's': 'ы', 'd': 'в', 'f': 'а', 'g': 'п', 'h': 'р', 'j': 'о', 'k': 'л',
-                'l': 'д', ';': 'ж', "'": 'э', 'z': 'я', 'x': 'ч', 'c': 'с', 'v': 'м', 'b': 'и', 'n': 'т', 'm': 'ь',
-                ',': 'б', '.': 'ю', '/': '.', '`': 'ё', '1': '!', '2': '"', '3': '№', '4': ';', '5': '%', '6': ':',
-                '7': '?', '8': '*', '9': '(', '0': ')', '-': '-', '=': '+', '\\': '\\', '/': '/', ',': ',', '.': '.'
-            };
-
-            const lowerText = text.toLowerCase();
-            
-            let hasRussian = false;
-            let hasEnglish = false;
-            
-            for (let char of lowerText) {
-                if (/[а-яё]/.test(char)) {
-                    hasRussian = true;
-                }
-                if (/[a-z]/.test(char)) {
-                    hasEnglish = true;
-                }
-            }
-
-            if (hasRussian && !hasEnglish) {
-                return lowerText.split('').map(char => rusToEng[char] || char).join('');
-            }
-            
-            if (hasEnglish && !hasRussian) {
-                return lowerText.split('').map(char => engToRus[char] || char).join('');
-            }
-
-            return lowerText;
-        }
-
-        function gameMatchesSearch(gameName, searchTerm) {
-            if (!searchTerm) return true;
-            
-            const gameNameLower = gameName.toLowerCase();
-            const searchLower = searchTerm.toLowerCase();
-            const convertedSearch = convertKeyboardLayout(searchTerm);
-
-            return gameNameLower.includes(searchLower) || gameNameLower.includes(convertedSearch);
-        }
-
         function calculateRelevance(gameName, searchTerm) {
             const gameNameLower = gameName.toLowerCase();
-            
-            function calculateRelevanceForTerm(termLower, termWords) {
+            const searchTermLower = searchTerm.toLowerCase();
+
+            const queryWords = searchTermLower.split(/\s+/).filter(word => word.length > 0);
+
             let relevance = 0;
 
-                if (termWords.length === 1) {
-                    if (gameNameLower === termLower) {
+            if (queryWords.length === 1) {
+                if (gameNameLower === searchTermLower) {
                     relevance += 1000;
                 }
-                    else if (gameNameLower.startsWith(termLower)) {
+                else if (gameNameLower.startsWith(searchTermLower)) {
                     relevance += 500;
                 }
-                    else if (gameNameLower.split(' ').some(word => word.startsWith(termLower))) {
+                else if (gameNameLower.split(' ').some(word => word.startsWith(searchTermLower))) {
                     relevance += 200;
                 }
-                    else if (gameNameLower.includes(termLower)) {
+                else if (gameNameLower.includes(searchTermLower)) {
                     relevance += 100;
                 }
             }
             else {
-                    if (gameNameLower === termLower) {
+                if (gameNameLower === searchTermLower) {
                     relevance += 1000;
                 }
-                    else if (gameNameLower.includes(termLower)) {
+                else if (gameNameLower.includes(searchTermLower)) {
                     relevance += 800;
                 }
                 else {
@@ -5368,7 +5298,7 @@
 
                     const gameWords = gameNameLower.split(/\s+/);
 
-                        for (const queryWord of termWords) {
+                    for (const queryWord of queryWords) {
                         if (gameNameLower.includes(queryWord)) {
                             matchedWords++;
 
@@ -5378,34 +5308,22 @@
                         }
                     }
 
-                        relevance += (matchedWords / termWords.length) * 500;
-                        relevance += (matchedAtStart / termWords.length) * 300;
+                    relevance += (matchedWords / queryWords.length) * 500;
+                    relevance += (matchedAtStart / queryWords.length) * 300;
                 }
             }
 
-                const lengthDifference = Math.abs(gameNameLower.length - termLower.length);
+            const lengthDifference = Math.abs(gameNameLower.length - searchTermLower.length);
             relevance -= lengthDifference;
 
             const gameWords = gameNameLower.split(/\s+/);
-                for (const queryWord of termWords) {
+            for (const queryWord of queryWords) {
                 if (gameWords.includes(queryWord)) {
                     relevance += 50;
                 }
             }
 
             return relevance;
-            }
-
-            const searchTermLower = searchTerm.toLowerCase();
-            const convertedSearchTerm = convertKeyboardLayout(searchTerm);
-            
-            const queryWords = searchTermLower.split(/\s+/).filter(word => word.length > 0);
-            const convertedQueryWords = convertedSearchTerm.split(/\s+/).filter(word => word.length > 0);
-            
-            const originalRelevance = calculateRelevanceForTerm(searchTermLower, queryWords);
-            const convertedRelevance = calculateRelevanceForTerm(convertedSearchTerm, convertedQueryWords);
-            
-            return Math.max(originalRelevance, convertedRelevance);
         }
 
         function getRandomPastelColor() {
@@ -6198,6 +6116,62 @@
                 }
             });
 
+            if (state.search && state.search.trim() !== '') {
+                const searchTermLower = state.search.toLowerCase();
+                const convertedSearchLower = convertKeyboardLayout(searchTermLower);
+                const splitWords = s => s.split(/\s+/).filter(w => w.length > 0);
+                const words = splitWords(searchTermLower);
+                const wordsConv = splitWords(convertedSearchLower);
+                const matches = name => {
+                    const n = name.toLowerCase();
+                    const a = words.length === 0 || words.every(w => n.includes(w));
+                    const b = wordsConv.length === 0 || wordsConv.every(w => n.includes(w));
+                    return a || b;
+                };
+                const scoreCache = new Map();
+                const getScore = game => {
+                    const key = game.id;
+                    if (scoreCache.has(key)) return scoreCache.get(key);
+                    const s = calculateRelevance(game.name, state.search);
+                    scoreCache.set(key, s);
+                    return s;
+                };
+
+                const gameById = new Map(state.games.map(g => [g.id.toString(), g]));
+
+                const inProgCells = Array.from(inProgressRow.querySelectorAll('.cell'));
+                const inProgScored = inProgCells.map(cell => {
+                    const id = cell.getAttribute('data-game-id');
+                    const g = gameById.get(id);
+                    const m = g ? matches(g.name) : false;
+                    const sc = g ? getScore(g) : -Infinity;
+                    return { cell, g, matched: m, score: sc };
+                });
+                const inProgMatched = inProgScored.filter(x => x.matched).sort((a, b) => b.score - a.score);
+                const inProgUnmatched = inProgScored.filter(x => !x.matched);
+                if (inProgMatched.length > 0) {
+                    const frag = document.createDocumentFragment();
+                    inProgMatched.forEach(x => frag.appendChild(x.cell));
+                    inProgUnmatched.forEach(x => frag.appendChild(x.cell));
+                    inProgressRow.appendChild(frag);
+                }
+
+                const visibleSet = new Set(visibleGames.filter(g => !g.inProgress).map(g => g.id.toString()));
+                const gridCells = Array.from(grid.querySelectorAll('.cell'))
+                    .filter(cell => cell.style.display !== 'none' && visibleSet.has(cell.getAttribute('data-game-id')));
+                const gridScored = gridCells.map(cell => {
+                    const id = cell.getAttribute('data-game-id');
+                    const g = gameById.get(id);
+                    const sc = g ? getScore(g) : -Infinity;
+                    return { cell, g, score: sc };
+                }).sort((a, b) => b.score - a.score);
+                if (gridScored.length > 0) {
+                    const fragGrid = document.createDocumentFragment();
+                    gridScored.forEach(x => fragGrid.appendChild(x.cell));
+                    grid.appendChild(fragGrid);
+                }
+            }
+
             updateCounterDisplay(visibleGames.length, false);
 
             updateSaturation();
@@ -6502,16 +6476,8 @@
         function updateVisibleGames() {
             const filteredGames = filterAndSearchGames(state.games, state.filters, state.search);
 
-            const inProgressGames = [];
-            const regularGames = [];
-            
-            filteredGames.forEach(game => {
-                if (game.inProgress) {
-                    inProgressGames.push(game);
-                } else {
-                    regularGames.push(game);
-                }
-            });
+            const inProgressGames = filteredGames.filter(game => game.inProgress);
+            const regularGames = filteredGames.filter(game => !game.inProgress);
 
             state.visibleGames = regularGames;
             state.inProgressGames = inProgressGames;
@@ -6523,174 +6489,17 @@
             const visibleGameIds = new Set(visibleGames.map(game => game.id.toString()));
             const inProgressGameIds = new Set(inProgressGames.map(game => game.id.toString()));
             
-            if (state.search && state.search.trim()) {
-                document.querySelectorAll('.cell img.loaded').forEach(img => {
-                    if (img.src) {
-                        const cell = img.closest('.cell');
-                        if (cell && cell.dataset.gameId) {
-                            gameCache.images[cell.dataset.gameId] = img.src;
-                        }
-                    }
-                });
-                
-                if (inProgressGames.length > 0) {
-                    inProgressRow.innerHTML = '';
-                    const inProgressFragment = document.createDocumentFragment();
-                    
-                    inProgressGames.forEach(game => {
-                        let cell = document.querySelector(`.cell[data-game-id="${game.id}"]`);
-                        if (!cell) {
-                            cell = createCell(game);
-                        } else {
-                            if (cell.parentElement) {
-                                cell.parentElement.removeChild(cell);
-                            }
-                        }
-                        
-                        const gameId = game.id.toString();
-                        if (gameCache.images[gameId]) {
-                            const img = cell.querySelector('img');
-                            if (img) {
-                                img.src = gameCache.images[gameId];
-                                img.classList.add('loaded');
-                                img.style.opacity = '1';
-                            }
-                        }
-                        
-                        if (state.search && !game.name.toLowerCase().includes(state.search.toLowerCase())) {
-                            cell.style.display = 'none';
-                        } else {
-                            cell.style.display = '';
-                        }
-                        
-                        cell.classList.remove('completed', 'in-progress');
-                        if (game.completed) {
-                            cell.classList.add('completed');
-                        } else if (game.inProgress) {
-                            cell.classList.add('in-progress');
-                        }
-                        
-                        inProgressFragment.appendChild(cell);
-                    });
-                    
-                    inProgressRow.appendChild(inProgressFragment);
-                }
-                
-                if (visibleGames.length > 0) {
-                    grid.innerHTML = '';
-                    const gridFragment = document.createDocumentFragment();
-                    
-                    visibleGames.forEach(game => {
-                        let cell = document.querySelector(`.cell[data-game-id="${game.id}"]`);
-                        if (!cell) {
-                            cell = createCell(game);
-                        } else {
-                            if (cell.parentElement) {
-                                cell.parentElement.removeChild(cell);
-                            }
-                        }
-                        
-                        const gameId = game.id.toString();
-                        if (gameCache.images[gameId]) {
-                            const img = cell.querySelector('img');
-                            if (img) {
-                                img.src = gameCache.images[gameId];
-                                img.classList.add('loaded');
-                                img.style.opacity = '1';
-                            }
-                        }
-                        
-                        cell.style.display = '';
-                        
-                        cell.classList.remove('completed', 'in-progress');
-                        if (game.completed) {
-                            cell.classList.add('completed');
-                        } else if (game.inProgress) {
-                            cell.classList.add('in-progress');
-                        }
-                        
-                        gridFragment.appendChild(cell);
-                    });
-                    
-                    grid.appendChild(gridFragment);
-                }
-                
             document.querySelectorAll('.cell').forEach(cell => {
                 const gameId = cell.dataset.gameId;
-                    if (!inProgressGameIds.has(gameId) && !visibleGameIds.has(gameId)) {
-                        cell.style.display = 'none';
-                    }
-                });
-                
-            } else {
-                const cells = document.querySelectorAll('.cell');
-                const batchSize = 100;
-                let processed = 0;
-                
-                const processNextBatch = () => {
-                    const gameMap = new Map();
-                    const endIndex = Math.min(processed + batchSize, cells.length);
-                    
-                    for (let i = processed; i < endIndex; i++) {
-                        const cell = cells[i];
-                        const gameId = cell.dataset.gameId;
-                        
-                        if (!gameMap.has(gameId)) {
                 const game = state.games.find(g => g.id.toString() === gameId);
-                            if (game) gameMap.set(gameId, game);
-                        }
-                        
-                        const game = gameMap.get(gameId);
                 
                 if (inProgressGameIds.has(gameId)) {
-                            if (cell.parentElement !== inProgressRow) {
-                                inProgressRow.appendChild(cell);
-                            }
-                            cell.style.display = '';
-                        } else if (visibleGameIds.has(gameId)) {
                     if (cell.style.display === 'none') {
                         cell.style.display = '';
                     }
-                            if (cell.parentElement !== grid) {
-                                grid.appendChild(cell);
-                            }
-                        } else {
-                            if (cell.style.display !== 'none') {
-                                cell.style.display = 'none';
-                            }
-                        }
-                        
-                        if (game) {
-                            cell.classList.remove('completed', 'in-progress');
-                            if (game.completed) {
-                                cell.classList.add('completed');
-                            } else if (game.inProgress) {
-                                cell.classList.add('in-progress');
-                            }
-                        }
-                    }
-                    
-                    processed = endIndex;
-                    
-                    if (processed < cells.length) {
-                        setTimeout(processNextBatch, 1);
-                    }
-                };
-                
-                if (cells.length > batchSize) {
-                    processNextBatch();
-                } else {
-                    const gameMap = new Map(state.games.map(game => [game.id.toString(), game]));
-                    
-                    cells.forEach(cell => {
-                        const gameId = cell.dataset.gameId;
-                        const game = gameMap.get(gameId);
-                        
-                        if (inProgressGameIds.has(gameId)) {
                     if (cell.parentElement !== inProgressRow) {
                         inProgressRow.appendChild(cell);
                     }
-                            cell.style.display = '';
                 } else if (visibleGameIds.has(gameId)) {
                     if (cell.style.display === 'none') {
                         cell.style.display = '';
@@ -6713,10 +6522,7 @@
                     }
                 }
             });
-                }
-            }
             
-            if (!(state.search && state.search.trim())) {
             const existingCells = new Set(Array.from(document.querySelectorAll('.cell')).map(cell => cell.dataset.gameId));
             
             let newCellsCreated = 0;
@@ -6737,11 +6543,6 @@
                 }
             });
 
-                if (newCellsCreated > 0) {
-                    setTimeout(processImageQueue, 100);
-                }
-            }
-
 
             updateGridSize();
 
@@ -6749,7 +6550,14 @@
 
             updateSaturation();
 
-            setTimeout(processImageQueue, 100);
+            if (newCellsCreated > 0) {
+                setTimeout(() => {
+                    const newCells = document.querySelectorAll('.cell img:not(.loaded)');
+                    if (newCells.length > 0) {
+                        processImageQueue();
+                    }
+                }, 50);
+            }
         }
 
         function preFilterGames() {
