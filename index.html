@@ -2713,16 +2713,7 @@
             });
 
             const termPart = extractPartNumber(lowerQuery);
-            result.sort((a, b) => {
-                if (termPart == null) {
-                    const ia = getSeriesInfo(a.name);
-                    const ib = getSeriesInfo(b.name);
-                    if (ia.base && ib.base && ia.base === ib.base && ia.part !== ib.part) {
-                        return ia.part - ib.part;
-                    }
-                }
-                return (b.relevance || 0) - (a.relevance || 0);
-            });
+            result.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
 
             console.log(`Возвращаем ${Math.min(result.length, 100)} результатов`);
             return result.slice(0, 100);
@@ -4813,16 +4804,7 @@
 
                 const q = gameName.toLowerCase();
                 const tp = extractPartNumber(q);
-                limitedMatches.sort((a, b) => {
-                    if (tp == null) {
-                        const ia = getSeriesInfo(a.name);
-                        const ib = getSeriesInfo(b.name);
-                        if (ia.base && ib.base && ia.base === ib.base && ia.part !== ib.part) {
-                            return ia.part - ib.part;
-                        }
-                    }
-                    return (b.relevance || 0) - (a.relevance || 0);
-                });
+                limitedMatches.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
 
                 displaySearchResultsFromIndex(limitedMatches);
                 hideLoadingMessage();
@@ -5380,6 +5362,8 @@
                 return { base, part: 1, noNumber: true };
             }
         }
+
+        
 
         function calculateRelevance(gameName, searchTerm) {
             const gameNameLower = gameName.toLowerCase();
@@ -6215,24 +6199,7 @@
                 if (visibleGames.some(g => g.id.toString() === gameId) || (isInProgressRow && game.inProgress)) {
                     cell.style.display = '';
 
-                    if (isInProgressRow && state.search && state.search !== '') {
-                        const gameName = game.name.toLowerCase();
-                        const searchTermLower = state.search.toLowerCase();
-                        const queryWords = searchTermLower.split(/\s+/).filter(word => word.length > 0);
-
-                        if (queryWords.every(word => gameName.includes(word))) {
-                            cell.classList.add('search-match-in-progress');
-
-                            if (!document.querySelector('.search-match-in-progress') ||
-                                cell === document.querySelector('.search-match-in-progress')) {
-                                inProgressRow.insertBefore(cell, inProgressRow.firstChild);
-                            }
-                        } else {
-                            cell.classList.remove('search-match-in-progress');
-                        }
-                    } else {
-                        cell.classList.remove('search-match-in-progress');
-                    }
+                    cell.classList.remove('search-match-in-progress');
 
                     if (gameCache.images[gameId]) {
                         const img = cell.querySelector('img');
@@ -6249,7 +6216,7 @@
 
             if (state.search && state.search.trim() !== '') {
                 const scoreCache = new Map();
-                const score = g => {
+                const getScore = g => {
                     const key = g.id;
                     if (scoreCache.has(key)) return scoreCache.get(key);
                     const s = calculateRelevance(g.name, state.search);
@@ -6257,33 +6224,27 @@
                     return s;
                 };
 
-                const q = state.search.toLowerCase();
-                const tp = extractPartNumber(q);
-                const seriesCompare = (ga, gb) => {
-                    if (tp == null) {
-                        const ia = getSeriesInfo(ga.name);
-                        const ib = getSeriesInfo(gb.name);
-                        if (ia.base && ib.base && ia.base === ib.base && ia.part !== ib.part) {
-                            return ia.part - ib.part;
-                        }
-                    }
-                    const sa = score(ga);
-                    const sb = score(gb);
+                const cmp = (a, b) => {
+                    const sa = getScore(a);
+                    const sb = getScore(b);
                     if (sb !== sa) return sb - sa;
-                    const na = ga.name.toLowerCase();
-                    const nb = gb.name.toLowerCase();
+                    const na = (a.name || '').toLowerCase();
+                    const nb = (b.name || '').toLowerCase();
                     if (na !== nb) return na < nb ? -1 : 1;
-                    return (ga.id || 0) - (gb.id || 0);
+                    return (a.id || 0) - (b.id || 0);
                 };
 
-                const sortedInProg = inProgressGames.slice().sort(seriesCompare);
-                const sortedRegular = regularGames.slice().sort(seriesCompare);
+                const matchedInProg = state.games.filter(g => g.inProgress && matchesQuery(g.name, state.search));
+                const matchedRegular = visibleGames.filter(g => !g.inProgress);
+
+                matchedInProg.sort(cmp);
+                matchedRegular.sort(cmp);
 
                 const cellById = new Map(Array.from(document.querySelectorAll('.cell')).map(c => [c.dataset.gameId, c]));
 
                 inProgressRow.innerHTML = '';
                 const fragInProg = document.createDocumentFragment();
-                sortedInProg.forEach(g => {
+                matchedInProg.forEach(g => {
                     const cell = cellById.get(g.id.toString()) || createCell(g);
                     cell.style.display = '';
                     fragInProg.appendChild(cell);
@@ -6292,7 +6253,7 @@
 
                 grid.innerHTML = '';
                 const fragGrid = document.createDocumentFragment();
-                sortedRegular.forEach(g => {
+                matchedRegular.forEach(g => {
                     const cell = cellById.get(g.id.toString()) || createCell(g);
                     cell.style.display = '';
                     fragGrid.appendChild(cell);
