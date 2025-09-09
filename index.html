@@ -6460,8 +6460,8 @@
             const visibleGameIds = new Set(visibleGames.map(game => game.id.toString()));
             const inProgressGameIds = new Set(inProgressGames.map(game => game.id.toString()));
             
-            if (state.search && state.search.trim() && inProgressGames.length > 0) {
-                inProgressRow.querySelectorAll('.cell img.loaded').forEach(img => {
+            if (state.search && state.search.trim()) {
+                document.querySelectorAll('.cell img.loaded').forEach(img => {
                     if (img.src) {
                         const cell = img.closest('.cell');
                         if (cell && cell.dataset.gameId) {
@@ -6470,46 +6470,95 @@
                     }
                 });
                 
-                inProgressRow.innerHTML = '';
-                const fragment = document.createDocumentFragment();
+                if (inProgressGames.length > 0) {
+                    inProgressRow.innerHTML = '';
+                    const inProgressFragment = document.createDocumentFragment();
+                    
+                    inProgressGames.forEach(game => {
+                        let cell = document.querySelector(`.cell[data-game-id="${game.id}"]`);
+                        if (!cell) {
+                            cell = createCell(game);
+                        } else {
+                            if (cell.parentElement) {
+                                cell.parentElement.removeChild(cell);
+                            }
+                        }
+                        
+                        const gameId = game.id.toString();
+                        if (gameCache.images[gameId]) {
+                            const img = cell.querySelector('img');
+                            if (img) {
+                                img.src = gameCache.images[gameId];
+                                img.classList.add('loaded');
+                                img.style.opacity = '1';
+                            }
+                        }
+                        
+                        if (state.search && !game.name.toLowerCase().includes(state.search.toLowerCase())) {
+                            cell.style.display = 'none';
+                        } else {
+                            cell.style.display = '';
+                        }
+                        
+                        cell.classList.remove('completed', 'in-progress');
+                        if (game.completed) {
+                            cell.classList.add('completed');
+                        } else if (game.inProgress) {
+                            cell.classList.add('in-progress');
+                        }
+                        
+                        inProgressFragment.appendChild(cell);
+                    });
+                    
+                    inProgressRow.appendChild(inProgressFragment);
+                }
                 
-                inProgressGames.forEach(game => {
-                    let cell = document.querySelector(`.cell[data-game-id="${game.id}"]`);
-                    if (!cell) {
-                        cell = createCell(game);
-                    } else {
-                        if (cell.parentElement) {
-                            cell.parentElement.removeChild(cell);
-                        }
-                    }
+                if (visibleGames.length > 0) {
+                    grid.innerHTML = '';
+                    const gridFragment = document.createDocumentFragment();
                     
-                    const gameId = game.id.toString();
-                    if (gameCache.images[gameId]) {
-                        const img = cell.querySelector('img');
-                        if (img) {
-                            img.src = gameCache.images[gameId];
-                            img.classList.add('loaded');
-                            img.style.opacity = '1';
+                    visibleGames.forEach(game => {
+                        let cell = document.querySelector(`.cell[data-game-id="${game.id}"]`);
+                        if (!cell) {
+                            cell = createCell(game);
+                        } else {
+                            if (cell.parentElement) {
+                                cell.parentElement.removeChild(cell);
+                            }
                         }
-                    }
-                    
-                    if (state.search && !game.name.toLowerCase().includes(state.search.toLowerCase())) {
-                        cell.style.display = 'none';
-                    } else {
+                        
+                        const gameId = game.id.toString();
+                        if (gameCache.images[gameId]) {
+                            const img = cell.querySelector('img');
+                            if (img) {
+                                img.src = gameCache.images[gameId];
+                                img.classList.add('loaded');
+                                img.style.opacity = '1';
+                            }
+                        }
+                        
                         cell.style.display = '';
-                    }
+                        
+                        cell.classList.remove('completed', 'in-progress');
+                        if (game.completed) {
+                            cell.classList.add('completed');
+                        } else if (game.inProgress) {
+                            cell.classList.add('in-progress');
+                        }
+                        
+                        gridFragment.appendChild(cell);
+                    });
                     
-                    cell.classList.remove('completed', 'in-progress');
-                    if (game.completed) {
-                        cell.classList.add('completed');
-                    } else if (game.inProgress) {
-                        cell.classList.add('in-progress');
+                    grid.appendChild(gridFragment);
+                }
+                
+                document.querySelectorAll('.cell').forEach(cell => {
+                    const gameId = cell.dataset.gameId;
+                    if (!inProgressGameIds.has(gameId) && !visibleGameIds.has(gameId)) {
+                        cell.style.display = 'none';
                     }
-                    
-                    fragment.appendChild(cell);
                 });
                 
-                inProgressRow.appendChild(fragment);
             } else {
                 document.querySelectorAll('.cell').forEach(cell => {
                     const gameId = cell.dataset.gameId;
@@ -6519,12 +6568,7 @@
                         if (cell.parentElement !== inProgressRow) {
                             inProgressRow.appendChild(cell);
                         }
-                        
-                        if (state.search && !game.name.toLowerCase().includes(state.search.toLowerCase())) {
-                            cell.style.display = 'none';
-                        } else {
-                            cell.style.display = '';
-                        }
+                        cell.style.display = '';
                     } else if (visibleGameIds.has(gameId)) {
                         if (cell.style.display === 'none') {
                             cell.style.display = '';
@@ -6549,32 +6593,31 @@
                 });
             }
             
-            const existingCells = new Set(Array.from(document.querySelectorAll('.cell')).map(cell => cell.dataset.gameId));
-            
-            let newCellsCreated = 0;
-            
-            if (!(state.search && state.search.trim() && inProgressGames.length > 0)) {
+            if (!(state.search && state.search.trim())) {
+                const existingCells = new Set(Array.from(document.querySelectorAll('.cell')).map(cell => cell.dataset.gameId));
+                
+                let newCellsCreated = 0;
+                
                 inProgressGames.forEach(game => {
                     if (!existingCells.has(game.id.toString())) {
                         const cell = createCell(game);
-                        
-                        if (state.search && !game.name.toLowerCase().includes(state.search.toLowerCase())) {
-                            cell.style.display = 'none';
-                        }
-                        
                         inProgressRow.appendChild(cell);
                         newCellsCreated++;
                     }
                 });
-            }
-            
-            visibleGames.forEach(game => {
-                if (!game.inProgress && !existingCells.has(game.id.toString())) {
-                    const cell = createCell(game);
-                    insertCellInOrder(cell);
-                    newCellsCreated++;
+                
+                visibleGames.forEach(game => {
+                    if (!game.inProgress && !existingCells.has(game.id.toString())) {
+                        const cell = createCell(game);
+                        insertCellInOrder(cell);
+                        newCellsCreated++;
+                    }
+                });
+                
+                if (newCellsCreated > 0) {
+                    setTimeout(processImageQueue, 100);
                 }
-            });
+            }
 
 
             updateGridSize();
@@ -6583,14 +6626,7 @@
 
             updateSaturation();
 
-            if (newCellsCreated > 0) {
-                setTimeout(() => {
-                    const newCells = document.querySelectorAll('.cell img:not(.loaded)');
-                    if (newCells.length > 0) {
-                        processImageQueue();
-                    }
-                }, 50);
-            }
+            setTimeout(processImageQueue, 100);
         }
 
         function preFilterGames() {
