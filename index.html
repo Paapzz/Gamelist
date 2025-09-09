@@ -2050,7 +2050,7 @@
             }
         }, true);
 
-        console.log('Скрипт начал выполнение');
+        
 
         const state = {
             games: [], 
@@ -2223,7 +2223,7 @@
 
         function initWorker() {
             if (!window.Worker) {
-                console.log('Браузер не поддерживает Web Workers');
+                
                 worker = null;
                 return;
             }
@@ -2233,7 +2233,7 @@
 
                 worker.onmessage = function(e) {
                     if (!e.data || typeof e.data !== 'object') {
-                        console.log('Web Worker прислал некорректные данные');
+                        
                         isWorkerBusy = false;
                         return;
                     }
@@ -2258,52 +2258,52 @@
                             break;
 
                         case 'error':
-                            console.log('Web Worker сообщил об ошибке:', data);
+                            
                             break;
                             
                         default:
-                            console.log('Неизвестное действие от Web Worker:', action);
+                            
                     }
 
                     isWorkerBusy = false;
                 };
 
                 worker.onerror = function(error) {
-                    console.log('Web Worker недоступен, продолжаем без него');
+                    
                     worker = null;
                     isWorkerBusy = false;
                 };
 
-                console.log('Web Worker успешно инициализирован');
+                
             } catch (error) {
-                console.log('Web Worker недоступен, продолжаем без него');
+                
                 worker = null;
             }
         }
 
         function handleFilterResult(filteredGames) {
-            console.log(`Получены отфильтрованные игры от Web Worker: ${filteredGames.length} игр`);
+            
 
             renderFilteredGames(filteredGames);
         }
 
         function handleSortResult(sortedGames) {
-            console.log(`Получены отсортированные игры от Web Worker: ${sortedGames.length} игр`);
+            
 
             renderSortedGames(sortedGames);
         }
 
         function handleSearchResult(searchResults) {
-            console.log(`Получены результаты поиска от Web Worker: ${searchResults.length} игр`);
+            
 
             displaySearchResults(searchResults);
         }
 
         function handleProcessDataResult(processedData) {
-            console.log('Получены обработанные данные от Web Worker');
+            
 
             if (processedData.compress) {
-                console.log('Данные были сжаты');
+                
             }
         }
 
@@ -2474,7 +2474,7 @@
             gameCache.timers.imageCache = setTimeout(() => {
                 try {
                     localStorage.setItem('imageCache', JSON.stringify(gameCache.images));
-                    console.log('Глобальный кэш изображений сохранен в localStorage');
+                    
                 } catch (e) {
                     console.warn('Ошибка при сохранении кэша изображений:', e);
 
@@ -2488,7 +2488,7 @@
 
                         try {
                             localStorage.setItem('imageCache', JSON.stringify(gameCache.images));
-                            console.log(`Очищено ${keysToRemove} записей из кэша изображений`);
+                            
                         } catch (e) {
                             console.error('Не удалось сохранить кэш изображений даже после очистки:', e);
                         }
@@ -2505,7 +2505,7 @@
                 return null;
             }
 
-            console.log(`Поиск игры с ID ${id} в индексе`);
+            
             const indexEntry = index.find(game => game && (game.id == id || String(game.id) === String(id)));
 
             if (!indexEntry) {
@@ -2519,18 +2519,18 @@
             }
 
             const fileNumber = indexEntry.file_number;
-            console.log(`Игра с ID ${id} находится в файле ${fileNumber}`);
+            
 
             try {
                 if (!gameFiles[fileNumber]) {
-                    console.log(`Загрузка файла games_${fileNumber}.json`);
+                    
                     const response = await fetch(`./data/games_${fileNumber}.json`);
                     if (!response.ok) {
                         console.error(`Ошибка загрузки файла games_${fileNumber}.json: ${response.status} ${response.statusText}`);
                         return null;
                     }
                     gameFiles[fileNumber] = await response.json();
-                    console.log(`Файл games_${fileNumber}.json успешно загружен`);
+                    
                 }
 
                 const game = gameFiles[fileNumber].find(g => g && (g.id == id || String(g.id) === String(id)));
@@ -2539,7 +2539,7 @@
                     return null;
                 }
 
-                console.log(`Игра с ID ${id} успешно найдена: ${game.name}`);
+                
                 return game;
             } catch (error) {
                 console.error(`Ошибка при получении игры с ID ${id}:`, error);
@@ -2549,13 +2549,13 @@
 
         function initializeCacheClearing() {
             document.getElementById('resetFiltersButton').addEventListener('click', function() {
-                console.log('Сброс фильтров');
+                
             });
 
             const resetFiltersButtonHeader = document.getElementById('resetFiltersButtonHeader');
             if (resetFiltersButtonHeader) {
                 resetFiltersButtonHeader.addEventListener('click', function() {
-                    console.log('Сброс фильтров в шапке');
+                    
                 });
             }
         }
@@ -2619,32 +2619,20 @@
         }
 
         async function loadSearchIndex() {
-            console.log('Вызвана функция loadSearchIndex');
-            console.log('Текущее состояние индекса:', {
-                searchIndex: searchIndex ? `Загружен (${searchIndex.length} игр)` : 'Не загружен',
-                isSearchIndexLoading
-            });
-
             if (searchIndex !== null || isSearchIndexLoading) {
-                console.log('Индекс уже загружен или загружается, возвращаем текущий индекс');
-                return searchIndex; 
+                return searchIndex;
             }
 
             isSearchIndexLoading = true;
-            console.log('Начало загрузки поискового индекса');
 
             try {
-                console.log('Пытаемся загрузить файл data/search_index.json');
                 searchIndex = await loadJsonWithCompression('data/search_index.json', true);
-                console.log(`Поисковый индекс успешно загружен (${searchIndex.length} игр)`);
                 return searchIndex;
             } catch (error) {
-                console.warn('Поисковый индекс не доступен:', error.message);
                 searchIndex = [];
                 return searchIndex;
             } finally {
                 isSearchIndexLoading = false;
-                console.log('Завершена попытка загрузки индекса, isSearchIndexLoading =', isSearchIndexLoading);
             }
         }
 
@@ -2654,7 +2642,7 @@
                 return [];
             }
 
-            console.log(`Поиск по запросу "${gameName}" в индексе из ${searchIndex.length} игр`);
+            
             const lowerQuery = gameName.toLowerCase();
 
             function extractValue(str, prefix) {
@@ -2693,7 +2681,7 @@
                 return matchesQuery(nameOriginal, lowerQuery);
             });
 
-            console.log(`Найдено ${matchedGames.length} совпадений`);
+            
 
             const gameObjects = matchedGames.map(arrayToObject);
 
@@ -2715,15 +2703,15 @@
             const termPart = extractPartNumber(lowerQuery);
             result.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
 
-            console.log(`Возвращаем ${Math.min(result.length, 100)} результатов`);
+            
             return result.slice(0, 100);
         }
 
         function preloadSearchIndex() {
-            console.log('Запуск предварительной загрузки поискового индекса');
+            
             setTimeout(() => {
                 loadSearchIndex().then(() => {
-                    console.log('Поисковый индекс предварительно загружен');
+                    
 
                 }).catch(error => {
                     console.error('Ошибка при предварительной загрузке поискового индекса:', error);
@@ -3855,7 +3843,7 @@
 
         function initializeGamesData() {
             if (state.games && state.games.length > 0) {
-                console.log('Игры уже загружены, пропускаем инициализацию');
+                
                 return;
             }
             
@@ -3879,7 +3867,7 @@
                 return false;
             }
             
-            console.log('Начинаем синхронизацию с обновленным списком топ-1000');
+            
             
             let parsedGames = JSON.parse(savedGames);
             const filterSnapshot = {
@@ -3895,11 +3883,11 @@
             const currentGames = parsedGames;
             const updatedGames = [];
             
-            console.log(`📋 Текущие игры перед синхронизацией (всего: ${currentGames.length}):`);
+            
             const customGames = currentGames.filter(g => g.isCustom);
-            console.log(`   Пользовательских игр: ${customGames.length}`);
+            
             customGames.forEach(game => {
-                console.log(`   - "${game.name}" (ID: ${game.id}, inProgress: ${game.inProgress}, completed: ${game.completed})`);
+                
             });
             
             const newGamesMap = new Map();
@@ -3920,7 +3908,7 @@
                 newGamesByName.set(formattedGame.name.toLowerCase(), formattedGame);
             });
             
-            console.log(`Новый список содержит ${newGamesMap.size} игр`);
+            
             
             for (const savedGame of currentGames) {
                 if (savedGame.isCustom) {
@@ -3960,20 +3948,20 @@
                                     clearImageFromCache(savedGame.imageUrl);
                                 }
                                 updatedGames.push(customGame);
-                                console.log(`Игра удалена из топ-1000, но сохранена как пользовательская: ${savedGame.name}`);
+                                
                             } else {
-                                console.log(`Игра удалена из топ-1000: ${savedGame.name}`);
+                                
                             }
                         }
                     }
                 }
             
             for (const [gameId, newGame] of newGamesMap) {
-                console.log(`Добавляем новую игру: ${newGame.name}`);
+                
                 updatedGames.push(newGame);
             }
             
-            console.log(`Синхронизация завершена. Было: ${currentGames.length}, стало: ${updatedGames.length}`);
+            
 
             const byNameMap = new Map();
             for (const g of updatedGames) {
@@ -4015,14 +4003,14 @@
         }
         
         window.syncGamesList = function() {
-            console.log('Запуск ручной синхронизации...');
+            
             localStorage.removeItem('gamesSynchronized');
             if (synchronizeWithUpdatedGamesList()) {
                 updateCounter();
-                console.log('Синхронизация завершена! Страница обновлена.');
+                
                 return 'Успешно! Список игр синхронизирован.';
             } else {
-                console.log('Синхронизация не нужна или не выполнена.');
+                
                 return 'Синхронизация не нужна.';
             }
         };
@@ -4052,9 +4040,9 @@
             const hashChanged = prevHash && prevHash !== currentHash;
             
             if (savedGames && (!gamesSynchronized || forceSync || oneTimeForced || hashChanged)) {
-                console.log('Нужна синхронизация с обновленным списком');
-                console.log(`   Условия синхронизации: savedGames=${!!savedGames}, gamesSynchronized=${gamesSynchronized}, forceSync=${forceSync}`);
-                console.log(`   Текущее состояние: state.games.length=${state.games?.length || 0}`);
+                
+                
+                
                 if (synchronizeWithUpdatedGamesList()) {
                     localStorage.setItem('initialSyncDone', 'true');
                     localStorage.setItem('gamesListTailHash', currentHash);
@@ -4210,16 +4198,9 @@
             const totalGames = state.games.length;
             const completedGames = state.games.filter(game => game.completed).length;
             
-            console.log('Обновление счетчика:', {
-                totalGames,
-                completedGames,
-                stateGamesLength: state.games ? state.games.length : 'undefined'
-            });
-            
             const counter = document.getElementById('counter');
             if (counter) {
                 counter.textContent = `Пройдено: ${completedGames} из ${totalGames}`;
-                console.log('Счетчик успешно обновлен:', counter.textContent);
             } else {
                 console.error('Элемент counter не найден!');
             }
@@ -4372,7 +4353,7 @@
 
         function clearImageQueue() {
             imageLoadQueue = [];
-            console.log('Очередь загрузки изображений очищена');
+            
             updateLoadingIndicator();
         }
 
@@ -4523,7 +4504,7 @@
 
                         const retryDelay = Math.floor(Math.random() * 3000) + 3000;
 
-                        console.log(`Не удалось загрузить изображение (попытка ${retryCount + 1}/3), повторная попытка через ${retryDelay/1000} сек: ${url}`);
+                        
 
                         setTimeout(() => {
                             img.src = url + '?retry=' + (retryCount + 1);
@@ -4531,7 +4512,7 @@
 
                     } else {
                         this.src = DEFAULT_GAME_IMAGE;
-                        console.log(`Не удалось загрузить изображение после 3 попыток, используем заглушку: ${url}`);
+                        
 
                         setTimeout(() => {
                             img.classList.add('loaded');
@@ -4775,10 +4756,10 @@
             }
 
             showLoadingMessage();
-            console.log(`Начинаем поиск игры: "${gameName}"`);
+            
 
             try {
-                console.log('Загружаем поисковый индекс...');
+                
                 const searchIdx = await loadSearchIndex();
 
                 if (!searchIdx || !Array.isArray(searchIdx)) {
@@ -4788,19 +4769,19 @@
                     return;
                 }
 
-                console.log(`Поисковый индекс загружен (${searchIdx.length} игр). Выполняем поиск...`);
+                
                 const indexMatchedGames = await searchGamesWithIndex(gameName, searchIdx);
-                console.log(`Найдено ${indexMatchedGames.length} совпадений в индексе`);
+                
 
                 if (!indexMatchedGames || indexMatchedGames.length === 0) {
-                    console.log('Игры не найдены в индексе');
+                    
                     searchResults.innerHTML = '<p class="no-games-found">Игры не найдены.</p>';
                     hideLoadingMessage();
                     return;
                 }
 
                 const limitedMatches = indexMatchedGames.slice(0, 100);
-                console.log(`Отображаем ${limitedMatches.length} результатов из индекса`);
+                
 
                 const q = gameName.toLowerCase();
                 const tp = extractPartNumber(q);
@@ -5008,18 +4989,18 @@
 
             const fileNumber = indexGame.file_number;
             const gameId = indexGame.id;
-            console.log(`Загружаем информацию об игре с ID ${gameId} из файла ${fileNumber}`);
+            
 
             try {
                 if (!gameFiles[fileNumber]) {
-                    console.log(`Загрузка файла games_${fileNumber}.json`);
+                    
                     const response = await fetch(`./data/games_${fileNumber}.json`);
                     if (!response.ok) {
                         console.error(`Ошибка загрузки файла games_${fileNumber}.json: ${response.status} ${response.statusText}`);
                         return null;
                     }
                     gameFiles[fileNumber] = await response.json();
-                    console.log(`Файл games_${fileNumber}.json успешно загружен`);
+                    
                 }
 
                 const fullGame = gameFiles[fileNumber].find(g => g && (g.id == gameId || String(g.id) === String(gameId)));
@@ -5028,7 +5009,7 @@
                     return null;
                 }
 
-                console.log(`Игра с ID ${gameId} успешно загружена: ${fullGame.name}`);
+                
                 return fullGame;
             } catch (error) {
                 console.error(`Ошибка при загрузке информации об игре с ID ${gameId}:`, error);
@@ -5534,14 +5515,14 @@
 
                         const retryDelay = Math.floor(Math.random() * 3000) + 3000;
 
-                        console.log(`Не удалось загрузить изображение превью (попытка ${retryCount + 1}/3), повторная попытка через ${retryDelay/1000} сек: ${game.imageUrl}`);
+                        
 
                         setTimeout(() => {
                             img.src = game.imageUrl + '?retry=' + (retryCount + 1);
                         }, retryDelay);
                     } else {
                         this.src = DEFAULT_GAME_IMAGE;
-                        console.log(`Не удалось загрузить изображение превью после 3 попыток, используем заглушку: ${game.imageUrl}`);
+                        
 
                         img.style.width = '200px';
                         img.style.height = '300px';
@@ -5720,7 +5701,7 @@
 
                 saveImageCache();
 
-                console.log(`URL изображения сохранен в кэш: ${url.substring(0, 50)}...`);
+                
             } catch (e) {
                 console.error('Ошибка при сохранении URL изображения в кэш:', e);
             }
@@ -5796,7 +5777,7 @@
                 localStorage.setItem('imageCacheMetadata', JSON.stringify(cacheMetadata));
                 currentCacheSize -= clearedSpace;
 
-                console.log(`Очищено ${clearedSpace} байт из кэша изображений`);
+                
             } catch (e) {
                 console.error('Ошибка при очистке кэша изображений:', e);
             }
@@ -5817,7 +5798,7 @@
                     }
                 }
 
-                console.log(`Инициализирован кэш изображений, текущий размер: ${(currentCacheSize / 1024 / 1024).toFixed(2)} МБ, загружено ${loadedImages.size} URL`);
+                
             } catch (e) {
                 console.error('Ошибка при инициализации кэша изображений:', e);
                 localStorage.removeItem('imageCacheMetadata');
@@ -5853,7 +5834,7 @@
                 const savedGames = localStorage.getItem('games');
                 if (savedGames) {
                     localStorage.removeItem('games');
-                    console.log('Кэш игр очищен');
+                    
                 }
 
                 clearImageCache();
@@ -5880,7 +5861,7 @@
                     saveImageCache();
                 }
                 
-                console.log(`Очищен кеш для изображения: ${url}`);
+                
             } catch (e) {
                 console.warn('Ошибка при очистке изображения из кеша:', e);
             }
@@ -5899,7 +5880,7 @@
 
                 loadedImages.clear();
 
-                console.log('Кэш изображений полностью очищен');
+                
             } catch (e) {
                 console.error('Ошибка при очистке кэша изображений:', e);
             }
@@ -6528,7 +6509,7 @@
         }
 
         function fullRenderGrid(visibleGames, inProgressGames) {
-            console.log(`Рендеринг ${visibleGames.length} видимых игр и ${inProgressGames.length} игр в процессе`);
+            
 
             clearImageQueue();
 
@@ -7173,7 +7154,7 @@
                 populateFilters();
                 updateVisibleGames();
 
-                console.log(`Удалено ${deletedCount} добавленных игр`);
+                
 
                 updateCustomGameList();
             }
@@ -7853,7 +7834,7 @@
 
         async function importFromIGDB(count = 100) {
             if (isImporting || isMessageVisible || importButtonsDisabled) {
-                console.log('Импорт уже идет или отображается сообщение, выходим');
+                
                 return;
             }
 
@@ -7866,7 +7847,7 @@
             createSkeletonCells(Math.min(count, 20), grid);
 
             isImporting = true;
-            console.log('Начало импорта игр из IGDB');
+            
             try {
                 const existingIds = state.games.map(game => game.id.toString());
 
@@ -7875,7 +7856,7 @@
                 let newGames = [];
 
                 if (searchIdx) {
-                    console.log('Используем поисковый индекс для импорта');
+                    
 
                     const fileMap = {};
                     searchIdx.forEach(game => {
@@ -7911,7 +7892,7 @@
                         }
                     }
                 } else {
-                    console.log('Используем стандартный метод импорта');
+                    
 
                     index = await loadJsonWithCompression('data/index.json', true);
 
@@ -7955,7 +7936,7 @@
                     }
                 }
 
-                console.log('Импорт завершен успешно');
+                
 
                 removeSkeletonCells(grid);
 
@@ -8046,13 +8027,13 @@
         }
 
         function showLoadingMessage() {
-            console.log('Показываем сообщение о загрузке');
+            
             document.getElementById('loadingOverlay').style.display = 'flex';
             isMessageVisible = true;
         }
 
         function hideLoadingMessage() {
-            console.log('Скрываем сообщение о загрузке');
+            
             document.getElementById('loadingOverlay').style.display = 'none';
             isMessageVisible = false;
         }
@@ -8074,26 +8055,26 @@
 
 
         function handleImportCompletion(message) {
-            console.log('Вызвана функция handleImportCompletion с сообщением:', message);
+            
             if (window.messageTimer) {
-                console.log('Очищаем messageTimer');
+                
                 clearTimeout(window.messageTimer);
                 window.messageTimer = null;
             }
 
             if (window.animationTimer) {
-                console.log('Очищаем animationTimer');
+                
                 clearTimeout(window.animationTimer);
                 window.animationTimer = null;
             }
 
-            console.log('Скрываем сообщение о загрузке в handleImportCompletion');
+            
             const loadingOverlay = document.getElementById('loadingOverlay');
             loadingOverlay.style.display = 'none';
 
             const loadingMessage = loadingOverlay.querySelector('.loading-message');
             if (loadingMessage) {
-                console.log('Сбрасываем текст сообщения о загрузке');
+                
                 loadingMessage.textContent = 'Загружается, подождите...';
             }
 
@@ -8103,9 +8084,9 @@
             } else if (message.includes('ошибк') || message.includes('Ошибк')) {
                 messageType = 'warning';
             }
-            console.log('Определен тип сообщения:', messageType);
+            
 
-            console.log('Показываем сообщение:', message);
+            
             showMessage(message, messageType);
         }
 
@@ -8188,7 +8169,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOM полностью загружен');
+            
             loadSavedGames();
             initWorker();
             initializeImportButton();
@@ -8198,11 +8179,6 @@
             initializeCacheClearing();
 
             setTimeout(() => {
-                console.log('Проверка счетчика:', {
-                    totalGames: state.games.length,
-                    completedGames: state.games.filter(game => game.completed).length,
-                    counterText: document.getElementById('counter') ? document.getElementById('counter').textContent : 'элемент не найден'
-                });
                 if (state.games.length > 0) {
                     updateCounter();
                 }
@@ -8236,23 +8212,19 @@
 
             const performSearchButton = document.getElementById('performSearchButton');
             if (performSearchButton) {
-                console.log('Найдена кнопка поиска, добавляем обработчик');
                 performSearchButton.addEventListener('click', (e) => {
-                    console.log('Нажата кнопка поиска');
                     e.preventDefault();
                     searchGameFromApi();
                 });
-            } else {
-                console.error('Кнопка поиска не найдена');
             }
 
             const searchGameInput = document.getElementById('searchGameInput');
 
             if (searchGameInput) {
-                console.log('Найдено поле ввода поиска, добавляем обработчики');
+                
                 searchGameInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
-                        console.log('Нажата клавиша Enter в поле поиска');
+                        
                         e.preventDefault();
                         searchGameFromApi();
                     }
@@ -8270,8 +8242,6 @@
                 addGameButton.addEventListener('click', () => {
                     addGameModal.style.display = 'block';
                 });
-            } else {
-                console.error('Кнопка "Добавить игру" в шапке не найдена');
             }
 
             const searchGameButton = document.getElementById('searchGameButton');
@@ -8328,7 +8298,7 @@
             initializeImageCache();
 
             document.getElementById('resetFiltersButtonHeader').addEventListener('click', function() {
-                console.log('Сброс фильтров в шапке');
+                
                 resetFilters();
             });
             
