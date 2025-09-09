@@ -6248,54 +6248,56 @@
             });
 
             if (state.search && state.search.trim() !== '') {
-                const searchTermLower = state.search.toLowerCase();
-                const convertedSearchLower = convertKeyboardLayout(searchTermLower);
-                const splitWords = s => s.split(/\s+/).filter(w => w.length > 0);
-                const words = splitWords(searchTermLower);
-                const wordsConv = splitWords(convertedSearchLower);
-                const matches = (name) => matchesQuery(name, state.search);
                 const scoreCache = new Map();
-                const getScore = game => {
-                    const key = game.id;
+                const score = g => {
+                    const key = g.id;
                     if (scoreCache.has(key)) return scoreCache.get(key);
-                    const s = calculateRelevance(game.name, state.search);
+                    const s = calculateRelevance(g.name, state.search);
                     scoreCache.set(key, s);
                     return s;
                 };
 
-                const gameById = new Map(state.games.map(g => [g.id.toString(), g]));
+                const q = state.search.toLowerCase();
+                const tp = extractPartNumber(q);
+                const seriesCompare = (ga, gb) => {
+                    if (tp == null) {
+                        const ia = getSeriesInfo(ga.name);
+                        const ib = getSeriesInfo(gb.name);
+                        if (ia.base && ib.base && ia.base === ib.base && ia.part !== ib.part) {
+                            return ia.part - ib.part;
+                        }
+                    }
+                    const sa = score(ga);
+                    const sb = score(gb);
+                    if (sb !== sa) return sb - sa;
+                    const na = ga.name.toLowerCase();
+                    const nb = gb.name.toLowerCase();
+                    if (na !== nb) return na < nb ? -1 : 1;
+                    return (ga.id || 0) - (gb.id || 0);
+                };
 
-                const inProgCells = Array.from(inProgressRow.querySelectorAll('.cell'));
-                const inProgScored = inProgCells.map(cell => {
-                    const id = cell.getAttribute('data-game-id');
-                    const g = gameById.get(id);
-                    const m = g ? matches(g.name) : false;
-                    const sc = g ? getScore(g) : -Infinity;
-                    return { cell, g, matched: m, score: sc };
+                const sortedInProg = inProgressGames.slice().sort(seriesCompare);
+                const sortedRegular = regularGames.slice().sort(seriesCompare);
+
+                const cellById = new Map(Array.from(document.querySelectorAll('.cell')).map(c => [c.dataset.gameId, c]));
+
+                inProgressRow.innerHTML = '';
+                const fragInProg = document.createDocumentFragment();
+                sortedInProg.forEach(g => {
+                    const cell = cellById.get(g.id.toString()) || createCell(g);
+                    cell.style.display = '';
+                    fragInProg.appendChild(cell);
                 });
-                const inProgMatched = inProgScored.filter(x => x.matched).sort((a, b) => b.score - a.score);
-                const inProgUnmatched = inProgScored.filter(x => !x.matched);
-                if (inProgMatched.length > 0) {
-                    const frag = document.createDocumentFragment();
-                    inProgMatched.forEach(x => frag.appendChild(x.cell));
-                    inProgUnmatched.forEach(x => frag.appendChild(x.cell));
-                    inProgressRow.appendChild(frag);
-                }
+                inProgressRow.appendChild(fragInProg);
 
-                const visibleSet = new Set(visibleGames.filter(g => !g.inProgress).map(g => g.id.toString()));
-                const gridCells = Array.from(grid.querySelectorAll('.cell'))
-                    .filter(cell => cell.style.display !== 'none' && visibleSet.has(cell.getAttribute('data-game-id')));
-                const gridScored = gridCells.map(cell => {
-                    const id = cell.getAttribute('data-game-id');
-                    const g = gameById.get(id);
-                    const sc = g ? getScore(g) : -Infinity;
-                    return { cell, g, score: sc };
-                }).sort((a, b) => b.score - a.score);
-                if (gridScored.length > 0) {
-                    const fragGrid = document.createDocumentFragment();
-                    gridScored.forEach(x => fragGrid.appendChild(x.cell));
-                    grid.appendChild(fragGrid);
-                }
+                grid.innerHTML = '';
+                const fragGrid = document.createDocumentFragment();
+                sortedRegular.forEach(g => {
+                    const cell = cellById.get(g.id.toString()) || createCell(g);
+                    cell.style.display = '';
+                    fragGrid.appendChild(cell);
+                });
+                grid.appendChild(fragGrid);
             }
 
             updateCounterDisplay(visibleGames.length, false);
