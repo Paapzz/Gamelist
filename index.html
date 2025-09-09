@@ -5282,6 +5282,64 @@
             return out;
         }
 
+        function romanToInt(s) {
+            const map = {I:1,V:2*2,X:5*2,L:50,C:100,D:500,M:1000};
+            let total = 0, prev = 0;
+            for (let i = s.length - 1; i >= 0; i--) {
+                const ch = s[i].toUpperCase();
+                const val = map[ch] || 0;
+                if (val < prev) total -= val; else total += val;
+                prev = val;
+            }
+            return total > 0 && total <= 3999 ? total : null;
+        }
+
+        function extractPartNumber(text) {
+            const tokens = text.toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+            let candidate = null;
+            for (let i = tokens.length - 1; i >= 0; i--) {
+                const t = tokens[i];
+                if (/^\d+$/.test(t)) {
+                    const n = parseInt(t, 10);
+                    if (n >= 1 && n <= 50) { candidate = n; break; }
+                } else if (/^[IVXLCDM]+$/.test(t)) {
+                    const n = romanToInt(t);
+                    if (n && n >= 1 && n <= 50) { candidate = n; break; }
+                }
+            }
+            return candidate;
+        }
+
+        function matchesQuery(name, term) {
+            const nameLower = name.toLowerCase();
+            const termLower = term.toLowerCase();
+            const termConv = convertKeyboardLayout(termLower);
+            const splitWords = s => s.split(/\s+/).filter(w => w.length > 0);
+            const sets = [splitWords(termLower), splitWords(termConv)];
+            const nameTokens = nameLower.split(/[^a-z0-9]+/i).filter(Boolean);
+            const nameNums = nameTokens.map(t => {
+                if (/^\d+$/.test(t)) return parseInt(t,10);
+                if (/^[ivxlcdm]+$/.test(t)) return romanToInt(t);
+                return null;
+            }).filter(v => v != null);
+            const wordMatches = (w) => {
+                if (/^\d+$/.test(w)) {
+                    const n = parseInt(w,10);
+                    return nameNums.includes(n);
+                }
+                if (/^[ivxlcdm]+$/.test(w)) {
+                    const n = romanToInt(w);
+                    if (n == null) return false;
+                    return nameNums.includes(n);
+                }
+                return nameLower.includes(w);
+            };
+            for (const words of sets) {
+                if (words.every(wordMatches)) return true;
+            }
+            return false;
+        }
+
         function calculateRelevance(gameName, searchTerm) {
             const gameNameLower = gameName.toLowerCase();
 
@@ -5334,6 +5392,24 @@
                     if (gameWords.includes(queryWord)) {
                         relevance += 50;
                     }
+                }
+
+                const gamePart = extractPartNumber(gameNameLower);
+                const termPart = extractPartNumber(termLower);
+                if (termPart != null && gamePart != null) {
+                    if (gamePart === termPart) {
+                        relevance += 1200;
+                    } else {
+                        relevance -= Math.min(600, 200 * Math.abs(gamePart - termPart));
+                    }
+                } else if (termPart == null && gamePart != null) {
+                    const seriesMatch = termWords.some(w => gameNameLower.includes(w));
+                    if (seriesMatch) {
+                        const bonus = Math.max(0, 400 - 50 * (gamePart - 1));
+                        relevance += bonus;
+                    }
+                } else if (termPart != null && gamePart == null) {
+                    relevance -= 100;
                 }
                 return relevance;
             }
@@ -5997,15 +6073,7 @@
                 }
 
                 if (searchTerm && searchTerm !== '') {
-                    const nameLower = game.name.toLowerCase();
-                    const q = searchTerm.toLowerCase();
-                    const qConv = convertKeyboardLayout(q);
-                    const splitWords = s => s.split(/\s+/).filter(w => w.length > 0);
-                    const words = splitWords(q);
-                    const wordsConv = splitWords(qConv);
-                    const matchA = words.length === 0 || words.every(w => nameLower.includes(w));
-                    const matchB = wordsConv.length === 0 || wordsConv.every(w => nameLower.includes(w));
-                    return matchA || matchB;
+                    return matchesQuery(game.name, searchTerm);
                 }
 
                 return true;
@@ -6144,12 +6212,7 @@
                 const splitWords = s => s.split(/\s+/).filter(w => w.length > 0);
                 const words = splitWords(searchTermLower);
                 const wordsConv = splitWords(convertedSearchLower);
-                const matches = name => {
-                    const n = name.toLowerCase();
-                    const a = words.length === 0 || words.every(w => n.includes(w));
-                    const b = wordsConv.length === 0 || wordsConv.every(w => n.includes(w));
-                    return a || b;
-                };
+                const matches = (name) => matchesQuery(name, state.search);
                 const scoreCache = new Map();
                 const getScore = game => {
                     const key = game.id;
@@ -6543,12 +6606,17 @@
                     return { cell, g, matched: m, score: sc };
                 });
                 const inProgMatched = inProgItems.filter(x => x.matched).sort((a, b) => b.score - a.score);
-                const inProgUnmatched = inProgItems.filter(x => !x.matched);
-                if (inProgItems.length > 0) {
+                inProgItems.forEach(x => {
+                    if (x.matched) {
+                        x.cell.style.display = '';
+                    } else {
+                        x.cell.style.display = 'none';
+                    }
+                });
+                if (inProgMatched.length > 0) {
                     const frag = document.createDocumentFragment();
                     inProgMatched.forEach(x => frag.appendChild(x.cell));
-                    inProgUnmatched.forEach(x => frag.appendChild(x.cell));
-                    inProgressRow.appendChild(frag);
+                    inProgressRow.insertBefore(frag, inProgressRow.firstChild);
                 }
 
                 const regularIds = new Set(regularGames.map(g => g.id.toString()));
@@ -6565,6 +6633,11 @@
                     gridItems.forEach(x => fragGrid.appendChild(x.cell));
                     grid.appendChild(fragGrid);
                 }
+            } else {
+                inProgressRow.querySelectorAll('.cell').forEach(cell => {
+                    cell.style.display = '';
+                    cell.classList.remove('search-match-in-progress');
+                });
             }
         }
         
