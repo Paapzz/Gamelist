@@ -6049,6 +6049,9 @@
         function filterAndSearchGames(games, filters, searchTerm) {
             return games.filter(game => {
                 if (game.inProgress) {
+                    if (searchTerm && searchTerm.trim() !== '') {
+                        return matchesQuery(game.name, searchTerm);
+                    }
                     return true;
                 }
 
