@@ -5289,6 +5289,7 @@
         }
 
         function convertKeyboardLayout(text) {
+            if (!text) return text;
             const rusToEng = {
                 'й': 'q', 'ц': 'w', 'у': 'e', 'к': 'r', 'е': 't', 'н': 'y', 'г': 'u', 'ш': 'i', 'щ': 'o', 'з': 'p',
                 'х': '[', 'ъ': ']', 'ф': 'a', 'ы': 's', 'в': 'd', 'а': 'f', 'п': 'g', 'р': 'h', 'о': 'j', 'л': 'k',
@@ -6528,7 +6529,11 @@
             const visibleGameIds = new Set(visibleGames.map(game => game.id.toString()));
             const inProgressGameIds = new Set(inProgressGames.map(game => game.id.toString()));
             
-            if (state.search && state.search.trim()) {
+            const wasSearching = optimizedRenderGrid._lastSearchState;
+            const isSearching = !!(state.search && state.search.trim());
+            optimizedRenderGrid._lastSearchState = isSearching;
+            
+            if (isSearching) {
                 document.querySelectorAll('.cell img.loaded').forEach(img => {
                     if (img.src) {
                         const cell = img.closest('.cell');
@@ -6628,37 +6633,81 @@
                 });
                 
             } else {
-                document.querySelectorAll('.cell').forEach(cell => {
-                    const gameId = cell.dataset.gameId;
-                    const game = state.games.find(g => g.id.toString() === gameId);
-                    
-                    if (inProgressGameIds.has(gameId)) {
-                        if (cell.parentElement !== inProgressRow) {
-                            inProgressRow.appendChild(cell);
-                        }
+                if (wasSearching && !isSearching) {
+                    document.querySelectorAll('.cell').forEach(cell => {
                         cell.style.display = '';
-                    } else if (visibleGameIds.has(gameId)) {
-                        if (cell.style.display === 'none') {
-                            cell.style.display = '';
-                        }
-                        if (cell.parentElement !== grid) {
-                            grid.appendChild(cell);
-                        }
-                    } else {
-                        if (cell.style.display !== 'none') {
-                            cell.style.display = 'none';
-                        }
-                    }
+                    });
                     
-                    if (game) {
-                        cell.classList.remove('completed', 'in-progress');
-                        if (game.completed) {
-                            cell.classList.add('completed');
-                        } else if (game.inProgress) {
-                            cell.classList.add('in-progress');
+                    setTimeout(() => {
+                        const gameMap = new Map(state.games.map(game => [game.id.toString(), game]));
+                        
+                        document.querySelectorAll('.cell').forEach(cell => {
+                            const gameId = cell.dataset.gameId;
+                            const game = gameMap.get(gameId);
+                            
+                            if (inProgressGameIds.has(gameId)) {
+                                if (cell.parentElement !== inProgressRow) {
+                                    inProgressRow.appendChild(cell);
+                                }
+                                cell.style.display = '';
+                            } else if (visibleGameIds.has(gameId)) {
+                                if (cell.style.display === 'none') {
+                                    cell.style.display = '';
+                                }
+                                if (cell.parentElement !== grid) {
+                                    grid.appendChild(cell);
+                                }
+                            } else {
+                                if (cell.style.display !== 'none') {
+                                    cell.style.display = 'none';
+                                }
+                            }
+                            
+                            if (game) {
+                                cell.classList.remove('completed', 'in-progress');
+                                if (game.completed) {
+                                    cell.classList.add('completed');
+                                } else if (game.inProgress) {
+                                    cell.classList.add('in-progress');
+                                }
+                            }
+                        });
+                    }, 50);
+                } else {
+                    const gameMap = new Map(state.games.map(game => [game.id.toString(), game]));
+                    
+                    document.querySelectorAll('.cell').forEach(cell => {
+                        const gameId = cell.dataset.gameId;
+                        const game = gameMap.get(gameId);
+                        
+                        if (inProgressGameIds.has(gameId)) {
+                            if (cell.parentElement !== inProgressRow) {
+                                inProgressRow.appendChild(cell);
+                            }
+                            cell.style.display = '';
+                        } else if (visibleGameIds.has(gameId)) {
+                            if (cell.style.display === 'none') {
+                                cell.style.display = '';
+                            }
+                            if (cell.parentElement !== grid) {
+                                grid.appendChild(cell);
+                            }
+                        } else {
+                            if (cell.style.display !== 'none') {
+                                cell.style.display = 'none';
+                            }
                         }
-                    }
-                });
+                        
+                        if (game) {
+                            cell.classList.remove('completed', 'in-progress');
+                            if (game.completed) {
+                                cell.classList.add('completed');
+                            } else if (game.inProgress) {
+                                cell.classList.add('in-progress');
+                            }
+                        }
+                    });
+                }
             }
             
             if (!(state.search && state.search.trim())) {
