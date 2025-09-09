@@ -5340,6 +5340,19 @@
             return false;
         }
 
+        function getSeriesInfo(name) {
+            const lower = name.toLowerCase().trim();
+            const m = lower.match(/\s+(?:part\s*)?([ivxlcdm]+|\d+)\s*$/i);
+            if (m) {
+                const base = lower.slice(0, m.index).trim();
+                const token = m[1];
+                let part = /^\d+$/.test(token) ? parseInt(token, 10) : romanToInt(token);
+                if (!part || part < 1) part = 1;
+                return { base, part, noNumber: false };
+            }
+            return { base: lower, part: 1, noNumber: true };
+        }
+
         function calculateRelevance(gameName, searchTerm) {
             const gameNameLower = gameName.toLowerCase();
 
@@ -6605,7 +6618,22 @@
                     }
                     return { cell, g, matched: m, score: sc };
                 });
-                const inProgMatched = inProgItems.filter(x => x.matched).sort((a, b) => b.score - a.score);
+                const inProgMatched = inProgItems.filter(x => x.matched).sort((a, b) => {
+                    const qa = state.search.toLowerCase();
+                    const qb = qa;
+                    const ta = extractPartNumber(qa);
+                    const tb = ta;
+                    if (ta == null) {
+                        if (a.g && b.g) {
+                            const ia = getSeriesInfo(a.g.name);
+                            const ib = getSeriesInfo(b.g.name);
+                            if (ia.base && ib.base && ia.base === ib.base) {
+                                if (ia.part !== ib.part) return ia.part - ib.part;
+                            }
+                        }
+                    }
+                    return b.score - a.score;
+                });
                 inProgItems.forEach(x => {
                     if (x.matched) {
                         x.cell.style.display = '';
@@ -6626,8 +6654,21 @@
                     const id = cell.getAttribute('data-game-id');
                     const g = byId.get(id);
                     const sc = g ? score(g) : -Infinity;
-                    return { cell, score: sc };
-                }).sort((a, b) => b.score - a.score);
+                    return { cell, g, score: sc };
+                }).sort((a, b) => {
+                    const q = state.search.toLowerCase();
+                    const tp = extractPartNumber(q);
+                    if (tp == null) {
+                        if (a.g && b.g) {
+                            const ia = getSeriesInfo(a.g.name);
+                            const ib = getSeriesInfo(b.g.name);
+                            if (ia.base && ib.base && ia.base === ib.base) {
+                                if (ia.part !== ib.part) return ia.part - ib.part;
+                            }
+                        }
+                    }
+                    return b.score - a.score;
+                });
                 if (gridItems.length > 0) {
                     const fragGrid = document.createDocumentFragment();
                     gridItems.forEach(x => fragGrid.appendChild(x.cell));
