@@ -5997,12 +5997,15 @@
                 }
 
                 if (searchTerm && searchTerm !== '') {
-                    const gameName = game.name.toLowerCase();
-                    const searchTermLower = searchTerm.toLowerCase();
-
-                    const queryWords = searchTermLower.split(/\s+/).filter(word => word.length > 0);
-
-                    return queryWords.every(word => gameName.includes(word));
+                    const nameLower = game.name.toLowerCase();
+                    const q = searchTerm.toLowerCase();
+                    const qConv = convertKeyboardLayout(q);
+                    const splitWords = s => s.split(/\s+/).filter(w => w.length > 0);
+                    const words = splitWords(q);
+                    const wordsConv = splitWords(qConv);
+                    const matchA = words.length === 0 || words.every(w => nameLower.includes(w));
+                    const matchB = wordsConv.length === 0 || wordsConv.every(w => nameLower.includes(w));
+                    return matchA || matchB;
                 }
 
                 return true;
@@ -6502,6 +6505,67 @@
             state.inProgressGames = inProgressGames;
 
             optimizedRenderGrid(regularGames, inProgressGames);
+
+            if (state.search && state.search.trim() !== '') {
+                const searchLower = state.search.toLowerCase();
+                const searchConv = convertKeyboardLayout(searchLower);
+                const splitWords = s => s.split(/\s+/).filter(w => w.length > 0);
+                const words = splitWords(searchLower);
+                const wordsConv = splitWords(searchConv);
+                const matches = name => {
+                    const n = name.toLowerCase();
+                    const a = words.length === 0 || words.every(w => n.includes(w));
+                    const b = wordsConv.length === 0 || wordsConv.every(w => n.includes(w));
+                    return a || b;
+                };
+                const scoreCache = new Map();
+                const score = g => {
+                    const key = g.id;
+                    if (scoreCache.has(key)) return scoreCache.get(key);
+                    const s = calculateRelevance(g.name, state.search);
+                    scoreCache.set(key, s);
+                    return s;
+                };
+
+                const byId = new Map(state.games.map(g => [g.id.toString(), g]));
+
+                const inProgCells = Array.from(inProgressRow.querySelectorAll('.cell'));
+                const inProgItems = inProgCells.map(cell => {
+                    const id = cell.getAttribute('data-game-id');
+                    const g = byId.get(id);
+                    const m = g ? matches(g.name) : false;
+                    const sc = g ? score(g) : -Infinity;
+                    if (m) {
+                        cell.classList.add('search-match-in-progress');
+                    } else {
+                        cell.classList.remove('search-match-in-progress');
+                    }
+                    return { cell, g, matched: m, score: sc };
+                });
+                const inProgMatched = inProgItems.filter(x => x.matched).sort((a, b) => b.score - a.score);
+                const inProgUnmatched = inProgItems.filter(x => !x.matched);
+                if (inProgItems.length > 0) {
+                    const frag = document.createDocumentFragment();
+                    inProgMatched.forEach(x => frag.appendChild(x.cell));
+                    inProgUnmatched.forEach(x => frag.appendChild(x.cell));
+                    inProgressRow.appendChild(frag);
+                }
+
+                const regularIds = new Set(regularGames.map(g => g.id.toString()));
+                const gridCells = Array.from(grid.querySelectorAll('.cell'))
+                    .filter(cell => regularIds.has(cell.getAttribute('data-game-id')));
+                const gridItems = gridCells.map(cell => {
+                    const id = cell.getAttribute('data-game-id');
+                    const g = byId.get(id);
+                    const sc = g ? score(g) : -Infinity;
+                    return { cell, score: sc };
+                }).sort((a, b) => b.score - a.score);
+                if (gridItems.length > 0) {
+                    const fragGrid = document.createDocumentFragment();
+                    gridItems.forEach(x => fragGrid.appendChild(x.cell));
+                    grid.appendChild(fragGrid);
+                }
+            }
         }
         
         function optimizedRenderGrid(visibleGames, inProgressGames) {
