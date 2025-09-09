@@ -2434,29 +2434,19 @@
                 if (filters.yearMax !== null && game.year > filters.yearMax) {
                     return false;
                 }
-                if (search) {
-                    const searchLower = search.toLowerCase();
-                    const gameNameLower = game.name.toLowerCase();
-                    const convertedSearch = convertKeyboardLayout(search);
-                    
-                    if (!gameNameLower.includes(searchLower) && !gameNameLower.includes(convertedSearch)) {
+                if (search && !gameMatchesSearch(game.name, search)) {
                     return false;
-                    }
                 }
                 return true;
             });
 
             if (search && search.trim()) {
-                console.log(`Фильтрация игр по запросу: "${search.trim()}", найдено игр до сортировки: ${filteredGames.length}`);
-                
                 filteredGames.forEach(game => {
                     game.searchRelevance = calculateRelevance(game.name, search.trim());
                 });
                 
                 const inProgressGames = filteredGames.filter(game => game.inProgress);
                 const regularGames = filteredGames.filter(game => !game.inProgress);
-                
-                console.log(`После разделения: в процессе ${inProgressGames.length}, обычных ${regularGames.length}`);
                 
                 inProgressGames.sort((a, b) => b.searchRelevance - a.searchRelevance);
                 regularGames.sort((a, b) => b.searchRelevance - a.searchRelevance);
@@ -5325,18 +5315,13 @@
             }
 
             if (hasRussian && !hasEnglish) {
-                const converted = lowerText.split('').map(char => rusToEng[char] || char).join('');
-                console.log(`Конвертация RU->EN: "${lowerText}" -> "${converted}"`);
-                return converted;
+                return lowerText.split('').map(char => rusToEng[char] || char).join('');
             }
             
             if (hasEnglish && !hasRussian) {
-                const converted = lowerText.split('').map(char => engToRus[char] || char).join('');
-                console.log(`Конвертация EN->RU: "${lowerText}" -> "${converted}"`);
-                return converted;
+                return lowerText.split('').map(char => engToRus[char] || char).join('');
             }
 
-            console.log(`Конвертация не применена: "${lowerText}" (hasRus: ${hasRussian}, hasEng: ${hasEnglish})`);
             return lowerText;
         }
 
@@ -5346,16 +5331,8 @@
             const gameNameLower = gameName.toLowerCase();
             const searchLower = searchTerm.toLowerCase();
             const convertedSearch = convertKeyboardLayout(searchTerm);
-            
-            const originalMatch = gameNameLower.includes(searchLower);
-            const convertedMatch = gameNameLower.includes(convertedSearch);
-            const result = originalMatch || convertedMatch;
-            
-            if (result) {
-                console.log(`Матч найден для "${gameName}": оригинал "${searchLower}" (${originalMatch}), конвертированный "${convertedSearch}" (${convertedMatch})`);
-            }
-            
-            return result;
+
+            return gameNameLower.includes(searchLower) || gameNameLower.includes(convertedSearch);
         }
 
         function calculateRelevance(gameName, searchTerm) {
@@ -6646,17 +6623,74 @@
                 });
                 
             } else {
-                const gameMap = new Map(state.games.map(game => [game.id.toString(), game]));
+                const cells = document.querySelectorAll('.cell');
+                const batchSize = 100;
+                let processed = 0;
                 
-                document.querySelectorAll('.cell').forEach(cell => {
-                    const gameId = cell.dataset.gameId;
-                    const game = gameMap.get(gameId);
+                const processNextBatch = () => {
+                    const gameMap = new Map();
+                    const endIndex = Math.min(processed + batchSize, cells.length);
+                    
+                    for (let i = processed; i < endIndex; i++) {
+                        const cell = cells[i];
+                        const gameId = cell.dataset.gameId;
+                        
+                        if (!gameMap.has(gameId)) {
+                const game = state.games.find(g => g.id.toString() === gameId);
+                            if (game) gameMap.set(gameId, game);
+                        }
+                        
+                        const game = gameMap.get(gameId);
                 
                 if (inProgressGameIds.has(gameId)) {
+                            if (cell.parentElement !== inProgressRow) {
+                                inProgressRow.appendChild(cell);
+                            }
+                            cell.style.display = '';
+                        } else if (visibleGameIds.has(gameId)) {
+                    if (cell.style.display === 'none') {
+                        cell.style.display = '';
+                    }
+                            if (cell.parentElement !== grid) {
+                                grid.appendChild(cell);
+                            }
+                        } else {
+                            if (cell.style.display !== 'none') {
+                                cell.style.display = 'none';
+                            }
+                        }
+                        
+                        if (game) {
+                            cell.classList.remove('completed', 'in-progress');
+                            if (game.completed) {
+                                cell.classList.add('completed');
+                            } else if (game.inProgress) {
+                                cell.classList.add('in-progress');
+                            }
+                        }
+                    }
+                    
+                    processed = endIndex;
+                    
+                    if (processed < cells.length) {
+                        setTimeout(processNextBatch, 1);
+                    }
+                };
+                
+                if (cells.length > batchSize) {
+                    processNextBatch();
+                } else {
+                    const gameMap = new Map(state.games.map(game => [game.id.toString(), game]));
+                    
+                    cells.forEach(cell => {
+                        const gameId = cell.dataset.gameId;
+                        const game = gameMap.get(gameId);
+                        
+                        if (inProgressGameIds.has(gameId)) {
                     if (cell.parentElement !== inProgressRow) {
                         inProgressRow.appendChild(cell);
                     }
-                        cell.style.display = '';
+                            cell.style.display = '';
                 } else if (visibleGameIds.has(gameId)) {
                     if (cell.style.display === 'none') {
                         cell.style.display = '';
@@ -6679,6 +6713,7 @@
                     }
                 }
             });
+                }
             }
             
             if (!(state.search && state.search.trim())) {
