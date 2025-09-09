@@ -2409,11 +2409,8 @@
                 updateYearsCache();
             }
 
-            return games.filter(game => {
+            const filteredGames = games.filter(game => {
                 if (game.inProgress) {
-                    if (search && !game.name.toLowerCase().includes(search.toLowerCase())) {
-                        return false;
-                    }
                     return true;
                 }
                 if (filters.hideCompleted && game.completed) {
@@ -2442,6 +2439,22 @@
                 }
                 return true;
             });
+
+            if (search && search.trim()) {
+                filteredGames.forEach(game => {
+                    game.searchRelevance = calculateRelevance(game.name, search.trim());
+                });
+                
+                const inProgressGames = filteredGames.filter(game => game.inProgress);
+                const regularGames = filteredGames.filter(game => !game.inProgress);
+                
+                inProgressGames.sort((a, b) => b.searchRelevance - a.searchRelevance);
+                regularGames.sort((a, b) => b.searchRelevance - a.searchRelevance);
+                
+                return [...inProgressGames, ...regularGames];
+            }
+
+            return filteredGames;
         }
         function debounce(fn, ms) {
             let timeout;
@@ -4987,6 +5000,12 @@
                     }
                 }
 
+                if (state.search && !game.name.toLowerCase().includes(state.search.toLowerCase())) {
+                    cell.style.display = 'none';
+                } else {
+                    cell.style.display = '';
+                }
+
                 fragment.appendChild(cell);
             });
 
@@ -6420,8 +6439,16 @@
         function updateVisibleGames() {
             const filteredGames = filterAndSearchGames(state.games, state.filters, state.search);
 
-            const inProgressGames = filteredGames.filter(game => game.inProgress);
-            const regularGames = filteredGames.filter(game => !game.inProgress);
+            const inProgressGames = [];
+            const regularGames = [];
+            
+            filteredGames.forEach(game => {
+                if (game.inProgress) {
+                    inProgressGames.push(game);
+                } else {
+                    regularGames.push(game);
+                }
+            });
 
             state.visibleGames = regularGames;
             state.inProgressGames = inProgressGames;
@@ -6433,51 +6460,113 @@
             const visibleGameIds = new Set(visibleGames.map(game => game.id.toString()));
             const inProgressGameIds = new Set(inProgressGames.map(game => game.id.toString()));
             
-            document.querySelectorAll('.cell').forEach(cell => {
-                const gameId = cell.dataset.gameId;
-                const game = state.games.find(g => g.id.toString() === gameId);
+            if (state.search && state.search.trim() && inProgressGames.length > 0) {
+                inProgressRow.querySelectorAll('.cell img.loaded').forEach(img => {
+                    if (img.src) {
+                        const cell = img.closest('.cell');
+                        if (cell && cell.dataset.gameId) {
+                            gameCache.images[cell.dataset.gameId] = img.src;
+                        }
+                    }
+                });
                 
-                if (inProgressGameIds.has(gameId)) {
-                    if (cell.style.display === 'none') {
-                        cell.style.display = '';
+                inProgressRow.innerHTML = '';
+                const fragment = document.createDocumentFragment();
+                
+                inProgressGames.forEach(game => {
+                    let cell = document.querySelector(`.cell[data-game-id="${game.id}"]`);
+                    if (!cell) {
+                        cell = createCell(game);
+                    } else {
+                        if (cell.parentElement) {
+                            cell.parentElement.removeChild(cell);
+                        }
                     }
-                    if (cell.parentElement !== inProgressRow) {
-                        inProgressRow.appendChild(cell);
+                    
+                    const gameId = game.id.toString();
+                    if (gameCache.images[gameId]) {
+                        const img = cell.querySelector('img');
+                        if (img) {
+                            img.src = gameCache.images[gameId];
+                            img.classList.add('loaded');
+                            img.style.opacity = '1';
+                        }
                     }
-                } else if (visibleGameIds.has(gameId)) {
-                    if (cell.style.display === 'none') {
-                        cell.style.display = '';
-                    }
-                    if (cell.parentElement !== grid) {
-                        grid.appendChild(cell);
-                    }
-                } else {
-                    if (cell.style.display !== 'none') {
+                    
+                    if (state.search && !game.name.toLowerCase().includes(state.search.toLowerCase())) {
                         cell.style.display = 'none';
+                    } else {
+                        cell.style.display = '';
                     }
-                }
-                
-                if (game) {
+                    
                     cell.classList.remove('completed', 'in-progress');
                     if (game.completed) {
                         cell.classList.add('completed');
                     } else if (game.inProgress) {
                         cell.classList.add('in-progress');
                     }
-                }
-            });
+                    
+                    fragment.appendChild(cell);
+                });
+                
+                inProgressRow.appendChild(fragment);
+            } else {
+                document.querySelectorAll('.cell').forEach(cell => {
+                    const gameId = cell.dataset.gameId;
+                    const game = state.games.find(g => g.id.toString() === gameId);
+                    
+                    if (inProgressGameIds.has(gameId)) {
+                        if (cell.parentElement !== inProgressRow) {
+                            inProgressRow.appendChild(cell);
+                        }
+                        
+                        if (state.search && !game.name.toLowerCase().includes(state.search.toLowerCase())) {
+                            cell.style.display = 'none';
+                        } else {
+                            cell.style.display = '';
+                        }
+                    } else if (visibleGameIds.has(gameId)) {
+                        if (cell.style.display === 'none') {
+                            cell.style.display = '';
+                        }
+                        if (cell.parentElement !== grid) {
+                            grid.appendChild(cell);
+                        }
+                    } else {
+                        if (cell.style.display !== 'none') {
+                            cell.style.display = 'none';
+                        }
+                    }
+                    
+                    if (game) {
+                        cell.classList.remove('completed', 'in-progress');
+                        if (game.completed) {
+                            cell.classList.add('completed');
+                        } else if (game.inProgress) {
+                            cell.classList.add('in-progress');
+                        }
+                    }
+                });
+            }
             
             const existingCells = new Set(Array.from(document.querySelectorAll('.cell')).map(cell => cell.dataset.gameId));
             
             let newCellsCreated = 0;
             
-            inProgressGames.forEach(game => {
-                if (!existingCells.has(game.id.toString())) {
-                    const cell = createCell(game);
-                    inProgressRow.appendChild(cell);
-                    newCellsCreated++;
-                }
-            });
+            if (!(state.search && state.search.trim() && inProgressGames.length > 0)) {
+                inProgressGames.forEach(game => {
+                    if (!existingCells.has(game.id.toString())) {
+                        const cell = createCell(game);
+                        
+                        if (state.search && !game.name.toLowerCase().includes(state.search.toLowerCase())) {
+                            cell.style.display = 'none';
+                        }
+                        
+                        inProgressRow.appendChild(cell);
+                        newCellsCreated++;
+                    }
+                });
+            }
             
             visibleGames.forEach(game => {
                 if (!game.inProgress && !existingCells.has(game.id.toString())) {
