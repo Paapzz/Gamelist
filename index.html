@@ -2689,13 +2689,8 @@
                 const nameItem = game.find(item => typeof item === 'string' && item.startsWith('name'));
                 if (!nameItem) return false;
 
-                const gameName = extractValue(nameItem, 'name').toLowerCase();
-
-                const queryWords = lowerQuery.split(/\s+/).filter(word => word.length > 0);
-
-                if (queryWords.length === 0) return false;
-
-                return queryWords.every(word => gameName.includes(word));
+                const nameOriginal = extractValue(nameItem, 'name');
+                return matchesQuery(nameOriginal, lowerQuery);
             });
 
             console.log(`Найдено ${matchedGames.length} совпадений`);
@@ -2717,7 +2712,17 @@
                 game.relevance = calculateRelevance(game.name, lowerQuery);
             });
 
-            result.sort((a, b) => b.relevance - a.relevance);
+            const termPart = extractPartNumber(lowerQuery);
+            result.sort((a, b) => {
+                if (termPart == null) {
+                    const ia = getSeriesInfo(a.name);
+                    const ib = getSeriesInfo(b.name);
+                    if (ia.base && ib.base && ia.base === ib.base && ia.part !== ib.part) {
+                        return ia.part - ib.part;
+                    }
+                }
+                return (b.relevance || 0) - (a.relevance || 0);
+            });
 
             console.log(`Возвращаем ${Math.min(result.length, 100)} результатов`);
             return result.slice(0, 100);
@@ -4806,7 +4811,18 @@
                 const limitedMatches = indexMatchedGames.slice(0, 100);
                 console.log(`Отображаем ${limitedMatches.length} результатов из индекса`);
 
-                limitedMatches.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
+                const q = gameName.toLowerCase();
+                const tp = extractPartNumber(q);
+                limitedMatches.sort((a, b) => {
+                    if (tp == null) {
+                        const ia = getSeriesInfo(a.name);
+                        const ib = getSeriesInfo(b.name);
+                        if (ia.base && ib.base && ia.base === ib.base && ia.part !== ib.part) {
+                            return ia.part - ib.part;
+                        }
+                    }
+                    return (b.relevance || 0) - (a.relevance || 0);
+                });
 
                 displaySearchResultsFromIndex(limitedMatches);
                 hideLoadingMessage();
