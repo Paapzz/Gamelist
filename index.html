@@ -2440,19 +2440,23 @@
                     const convertedSearch = convertKeyboardLayout(search);
                     
                     if (!gameNameLower.includes(searchLower) && !gameNameLower.includes(convertedSearch)) {
-                        return false;
+                    return false;
                     }
                 }
                 return true;
             });
 
             if (search && search.trim()) {
+                console.log(`Фильтрация игр по запросу: "${search.trim()}", найдено игр до сортировки: ${filteredGames.length}`);
+                
                 filteredGames.forEach(game => {
                     game.searchRelevance = calculateRelevance(game.name, search.trim());
                 });
                 
                 const inProgressGames = filteredGames.filter(game => game.inProgress);
                 const regularGames = filteredGames.filter(game => !game.inProgress);
+                
+                console.log(`После разделения: в процессе ${inProgressGames.length}, обычных ${regularGames.length}`);
                 
                 inProgressGames.sort((a, b) => b.searchRelevance - a.searchRelevance);
                 regularGames.sort((a, b) => b.searchRelevance - a.searchRelevance);
@@ -5321,13 +5325,18 @@
             }
 
             if (hasRussian && !hasEnglish) {
-                return lowerText.split('').map(char => rusToEng[char] || char).join('');
+                const converted = lowerText.split('').map(char => rusToEng[char] || char).join('');
+                console.log(`Конвертация RU->EN: "${lowerText}" -> "${converted}"`);
+                return converted;
             }
             
             if (hasEnglish && !hasRussian) {
-                return lowerText.split('').map(char => engToRus[char] || char).join('');
+                const converted = lowerText.split('').map(char => engToRus[char] || char).join('');
+                console.log(`Конвертация EN->RU: "${lowerText}" -> "${converted}"`);
+                return converted;
             }
 
+            console.log(`Конвертация не применена: "${lowerText}" (hasRus: ${hasRussian}, hasEng: ${hasEnglish})`);
             return lowerText;
         }
 
@@ -5338,68 +5347,76 @@
             const searchLower = searchTerm.toLowerCase();
             const convertedSearch = convertKeyboardLayout(searchTerm);
             
-            return gameNameLower.includes(searchLower) || gameNameLower.includes(convertedSearch);
+            const originalMatch = gameNameLower.includes(searchLower);
+            const convertedMatch = gameNameLower.includes(convertedSearch);
+            const result = originalMatch || convertedMatch;
+            
+            if (result) {
+                console.log(`Матч найден для "${gameName}": оригинал "${searchLower}" (${originalMatch}), конвертированный "${convertedSearch}" (${convertedMatch})`);
+            }
+            
+            return result;
         }
 
         function calculateRelevance(gameName, searchTerm) {
             const gameNameLower = gameName.toLowerCase();
             
             function calculateRelevanceForTerm(termLower, termWords) {
-                let relevance = 0;
+            let relevance = 0;
 
                 if (termWords.length === 1) {
                     if (gameNameLower === termLower) {
-                        relevance += 1000;
-                    }
+                    relevance += 1000;
+                }
                     else if (gameNameLower.startsWith(termLower)) {
-                        relevance += 500;
-                    }
+                    relevance += 500;
+                }
                     else if (gameNameLower.split(' ').some(word => word.startsWith(termLower))) {
-                        relevance += 200;
-                    }
+                    relevance += 200;
+                }
                     else if (gameNameLower.includes(termLower)) {
-                        relevance += 100;
-                    }
+                    relevance += 100;
+                }
+            }
+            else {
+                    if (gameNameLower === termLower) {
+                    relevance += 1000;
+                }
+                    else if (gameNameLower.includes(termLower)) {
+                    relevance += 800;
                 }
                 else {
-                    if (gameNameLower === termLower) {
-                        relevance += 1000;
-                    }
-                    else if (gameNameLower.includes(termLower)) {
-                        relevance += 800;
-                    }
-                    else {
-                        let matchedWords = 0;
-                        let matchedAtStart = 0;
+                    let matchedWords = 0;
+                    let matchedAtStart = 0;
 
-                        const gameWords = gameNameLower.split(/\s+/);
+                    const gameWords = gameNameLower.split(/\s+/);
 
                         for (const queryWord of termWords) {
-                            if (gameNameLower.includes(queryWord)) {
-                                matchedWords++;
+                        if (gameNameLower.includes(queryWord)) {
+                            matchedWords++;
 
-                                if (gameWords.some(word => word.startsWith(queryWord))) {
-                                    matchedAtStart++;
-                                }
+                            if (gameWords.some(word => word.startsWith(queryWord))) {
+                                matchedAtStart++;
                             }
                         }
+                    }
 
                         relevance += (matchedWords / termWords.length) * 500;
                         relevance += (matchedAtStart / termWords.length) * 300;
-                    }
                 }
+            }
 
                 const lengthDifference = Math.abs(gameNameLower.length - termLower.length);
-                relevance -= lengthDifference;
+            relevance -= lengthDifference;
 
-                const gameWords = gameNameLower.split(/\s+/);
+            const gameWords = gameNameLower.split(/\s+/);
                 for (const queryWord of termWords) {
-                    if (gameWords.includes(queryWord)) {
-                        relevance += 50;
-                    }
+                if (gameWords.includes(queryWord)) {
+                    relevance += 50;
                 }
+            }
 
-                return relevance;
+            return relevance;
             }
 
             const searchTermLower = searchTerm.toLowerCase();
@@ -6529,11 +6546,7 @@
             const visibleGameIds = new Set(visibleGames.map(game => game.id.toString()));
             const inProgressGameIds = new Set(inProgressGames.map(game => game.id.toString()));
             
-            const wasSearching = optimizedRenderGrid._lastSearchState;
-            const isSearching = !!(state.search && state.search.trim());
-            optimizedRenderGrid._lastSearchState = isSearching;
-            
-            if (isSearching) {
+            if (state.search && state.search.trim()) {
                 document.querySelectorAll('.cell img.loaded').forEach(img => {
                     if (img.src) {
                         const cell = img.closest('.cell');
@@ -6625,112 +6638,70 @@
                     grid.appendChild(gridFragment);
                 }
                 
-                document.querySelectorAll('.cell').forEach(cell => {
-                    const gameId = cell.dataset.gameId;
+            document.querySelectorAll('.cell').forEach(cell => {
+                const gameId = cell.dataset.gameId;
                     if (!inProgressGameIds.has(gameId) && !visibleGameIds.has(gameId)) {
                         cell.style.display = 'none';
                     }
                 });
                 
             } else {
-                if (wasSearching && !isSearching) {
-                    document.querySelectorAll('.cell').forEach(cell => {
+                const gameMap = new Map(state.games.map(game => [game.id.toString(), game]));
+                
+                document.querySelectorAll('.cell').forEach(cell => {
+                    const gameId = cell.dataset.gameId;
+                    const game = gameMap.get(gameId);
+                
+                if (inProgressGameIds.has(gameId)) {
+                    if (cell.parentElement !== inProgressRow) {
+                        inProgressRow.appendChild(cell);
+                    }
                         cell.style.display = '';
-                    });
-                    
-                    setTimeout(() => {
-                        const gameMap = new Map(state.games.map(game => [game.id.toString(), game]));
-                        
-                        document.querySelectorAll('.cell').forEach(cell => {
-                            const gameId = cell.dataset.gameId;
-                            const game = gameMap.get(gameId);
-                            
-                            if (inProgressGameIds.has(gameId)) {
-                                if (cell.parentElement !== inProgressRow) {
-                                    inProgressRow.appendChild(cell);
-                                }
-                                cell.style.display = '';
-                            } else if (visibleGameIds.has(gameId)) {
-                                if (cell.style.display === 'none') {
-                                    cell.style.display = '';
-                                }
-                                if (cell.parentElement !== grid) {
-                                    grid.appendChild(cell);
-                                }
-                            } else {
-                                if (cell.style.display !== 'none') {
-                                    cell.style.display = 'none';
-                                }
-                            }
-                            
-                            if (game) {
-                                cell.classList.remove('completed', 'in-progress');
-                                if (game.completed) {
-                                    cell.classList.add('completed');
-                                } else if (game.inProgress) {
-                                    cell.classList.add('in-progress');
-                                }
-                            }
-                        });
-                    }, 50);
+                } else if (visibleGameIds.has(gameId)) {
+                    if (cell.style.display === 'none') {
+                        cell.style.display = '';
+                    }
+                    if (cell.parentElement !== grid) {
+                        grid.appendChild(cell);
+                    }
                 } else {
-                    const gameMap = new Map(state.games.map(game => [game.id.toString(), game]));
-                    
-                    document.querySelectorAll('.cell').forEach(cell => {
-                        const gameId = cell.dataset.gameId;
-                        const game = gameMap.get(gameId);
-                        
-                        if (inProgressGameIds.has(gameId)) {
-                            if (cell.parentElement !== inProgressRow) {
-                                inProgressRow.appendChild(cell);
-                            }
-                            cell.style.display = '';
-                        } else if (visibleGameIds.has(gameId)) {
-                            if (cell.style.display === 'none') {
-                                cell.style.display = '';
-                            }
-                            if (cell.parentElement !== grid) {
-                                grid.appendChild(cell);
-                            }
-                        } else {
-                            if (cell.style.display !== 'none') {
-                                cell.style.display = 'none';
-                            }
-                        }
-                        
-                        if (game) {
-                            cell.classList.remove('completed', 'in-progress');
-                            if (game.completed) {
-                                cell.classList.add('completed');
-                            } else if (game.inProgress) {
-                                cell.classList.add('in-progress');
-                            }
-                        }
-                    });
+                    if (cell.style.display !== 'none') {
+                        cell.style.display = 'none';
+                    }
                 }
+                
+                if (game) {
+                    cell.classList.remove('completed', 'in-progress');
+                    if (game.completed) {
+                        cell.classList.add('completed');
+                    } else if (game.inProgress) {
+                        cell.classList.add('in-progress');
+                    }
+                }
+            });
             }
             
             if (!(state.search && state.search.trim())) {
-                const existingCells = new Set(Array.from(document.querySelectorAll('.cell')).map(cell => cell.dataset.gameId));
-                
-                let newCellsCreated = 0;
-                
-                inProgressGames.forEach(game => {
-                    if (!existingCells.has(game.id.toString())) {
-                        const cell = createCell(game);
-                        inProgressRow.appendChild(cell);
-                        newCellsCreated++;
-                    }
-                });
-                
-                visibleGames.forEach(game => {
-                    if (!game.inProgress && !existingCells.has(game.id.toString())) {
-                        const cell = createCell(game);
-                        insertCellInOrder(cell);
-                        newCellsCreated++;
-                    }
-                });
-                
+            const existingCells = new Set(Array.from(document.querySelectorAll('.cell')).map(cell => cell.dataset.gameId));
+            
+            let newCellsCreated = 0;
+            
+            inProgressGames.forEach(game => {
+                if (!existingCells.has(game.id.toString())) {
+                    const cell = createCell(game);
+                    inProgressRow.appendChild(cell);
+                    newCellsCreated++;
+                }
+            });
+            
+            visibleGames.forEach(game => {
+                if (!game.inProgress && !existingCells.has(game.id.toString())) {
+                    const cell = createCell(game);
+                    insertCellInOrder(cell);
+                    newCellsCreated++;
+                }
+            });
+
                 if (newCellsCreated > 0) {
                     setTimeout(processImageQueue, 100);
                 }
