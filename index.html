@@ -5263,67 +5263,86 @@
             searchResults.innerHTML = '';
         }
 
+        function convertKeyboardLayout(text) {
+            const ru = "йцукенгшщзхъфывапролджэячсмитьбю";
+            const en = "qwertyuiop[]asdfghjkl;'zxcvbnm,.";
+            const ruUp = ru.toUpperCase();
+            const enUp = en.toUpperCase();
+            const mapRuToEn = new Map();
+            for (let i = 0; i < ru.length; i++) mapRuToEn.set(ru[i], en[i]);
+            for (let i = 0; i < ruUp.length; i++) mapRuToEn.set(ruUp[i], enUp[i]);
+            const mapEnToRu = new Map();
+            for (let i = 0; i < en.length; i++) mapEnToRu.set(en[i], ru[i]);
+            for (let i = 0; i < enUp.length; i++) mapEnToRu.set(enUp[i], ruUp[i]);
+            let hasRu = false;
+            for (const ch of text) { if (mapRuToEn.has(ch)) { hasRu = true; break; } }
+            const map = hasRu ? mapRuToEn : mapEnToRu;
+            let out = '';
+            for (const ch of text) out += map.get(ch) || ch;
+            return out;
+        }
+
         function calculateRelevance(gameName, searchTerm) {
             const gameNameLower = gameName.toLowerCase();
-            const searchTermLower = searchTerm.toLowerCase();
 
-            const queryWords = searchTermLower.split(/\s+/).filter(word => word.length > 0);
-
-            let relevance = 0;
-
-            if (queryWords.length === 1) {
-                if (gameNameLower === searchTermLower) {
-                    relevance += 1000;
-                }
-                else if (gameNameLower.startsWith(searchTermLower)) {
-                    relevance += 500;
-                }
-                else if (gameNameLower.split(' ').some(word => word.startsWith(searchTermLower))) {
-                    relevance += 200;
-                }
-                else if (gameNameLower.includes(searchTermLower)) {
-                    relevance += 100;
-                }
-            }
-            else {
-                if (gameNameLower === searchTermLower) {
-                    relevance += 1000;
-                }
-                else if (gameNameLower.includes(searchTermLower)) {
-                    relevance += 800;
+            function calc(termLower, termWords) {
+                let relevance = 0;
+                if (termWords.length === 1) {
+                    if (gameNameLower === termLower) {
+                        relevance += 1000;
+                    }
+                    else if (gameNameLower.startsWith(termLower)) {
+                        relevance += 500;
+                    }
+                    else if (gameNameLower.split(' ').some(word => word.startsWith(termLower))) {
+                        relevance += 200;
+                    }
+                    else if (gameNameLower.includes(termLower)) {
+                        relevance += 100;
+                    }
                 }
                 else {
-                    let matchedWords = 0;
-                    let matchedAtStart = 0;
+                    if (gameNameLower === termLower) {
+                        relevance += 1000;
+                    }
+                    else if (gameNameLower.includes(termLower)) {
+                        relevance += 800;
+                    }
+                    else {
+                        let matchedWords = 0;
+                        let matchedAtStart = 0;
 
-                    const gameWords = gameNameLower.split(/\s+/);
-
-                    for (const queryWord of queryWords) {
-                        if (gameNameLower.includes(queryWord)) {
-                            matchedWords++;
-
-                            if (gameWords.some(word => word.startsWith(queryWord))) {
-                                matchedAtStart++;
+                        const gameWords = gameNameLower.split(/\s+/);
+                        for (const queryWord of termWords) {
+                            if (gameNameLower.includes(queryWord)) {
+                                matchedWords++;
+                                if (gameWords.some(word => word.startsWith(queryWord))) {
+                                    matchedAtStart++;
+                                }
                             }
                         }
+                        relevance += (matchedWords / termWords.length) * 500;
+                        relevance += (matchedAtStart / termWords.length) * 300;
                     }
-
-                    relevance += (matchedWords / queryWords.length) * 500;
-                    relevance += (matchedAtStart / queryWords.length) * 300;
                 }
+
+                const lengthDifference = Math.abs(gameNameLower.length - termLower.length);
+                relevance -= lengthDifference;
+
+                const gameWords = gameNameLower.split(/\s+/);
+                for (const queryWord of termWords) {
+                    if (gameWords.includes(queryWord)) {
+                        relevance += 50;
+                    }
+                }
+                return relevance;
             }
 
-            const lengthDifference = Math.abs(gameNameLower.length - searchTermLower.length);
-            relevance -= lengthDifference;
-
-            const gameWords = gameNameLower.split(/\s+/);
-            for (const queryWord of queryWords) {
-                if (gameWords.includes(queryWord)) {
-                    relevance += 50;
-                }
-            }
-
-            return relevance;
+            const lower = searchTerm.toLowerCase();
+            const converted = convertKeyboardLayout(lower);
+            const words1 = lower.split(/\s+/).filter(word => word.length > 0);
+            const words2 = converted.split(/\s+/).filter(word => word.length > 0);
+            return Math.max(calc(lower, words1), calc(converted, words2));
         }
 
         function getRandomPastelColor() {
