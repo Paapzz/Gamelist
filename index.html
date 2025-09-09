@@ -2434,8 +2434,14 @@
                 if (filters.yearMax !== null && game.year > filters.yearMax) {
                     return false;
                 }
-                if (search && !game.name.toLowerCase().includes(search.toLowerCase())) {
-                    return false;
+                if (search) {
+                    const searchLower = search.toLowerCase();
+                    const gameNameLower = game.name.toLowerCase();
+                    const convertedSearch = convertKeyboardLayout(search);
+                    
+                    if (!gameNameLower.includes(searchLower) && !gameNameLower.includes(convertedSearch)) {
+                        return false;
+                    }
                 }
                 return true;
             });
@@ -5000,7 +5006,7 @@
                     }
                 }
 
-                if (state.search && !game.name.toLowerCase().includes(state.search.toLowerCase())) {
+                if (!gameMatchesSearch(game.name, state.search)) {
                     cell.style.display = 'none';
                 } else {
                     cell.style.display = '';
@@ -5282,67 +5288,129 @@
             searchResults.innerHTML = '';
         }
 
+        function convertKeyboardLayout(text) {
+            const rusToEng = {
+                'й': 'q', 'ц': 'w', 'у': 'e', 'к': 'r', 'е': 't', 'н': 'y', 'г': 'u', 'ш': 'i', 'щ': 'o', 'з': 'p',
+                'х': '[', 'ъ': ']', 'ф': 'a', 'ы': 's', 'в': 'd', 'а': 'f', 'п': 'g', 'р': 'h', 'о': 'j', 'л': 'k',
+                'д': 'l', 'ж': ';', 'э': "'", 'я': 'z', 'ч': 'x', 'с': 'c', 'м': 'v', 'и': 'b', 'т': 'n', 'ь': 'm',
+                'б': ',', 'ю': '.', '.': '/', 'ё': '`', '!': '1', '"': '2', '№': '3', ';': '4', '%': '5', ':': '6',
+                '?': '7', '*': '8', '(': '9', ')': '0', '-': '-', '+': '=', '\\': '\\', '/': '/', ',': ',', '.': '.'
+            };
+
+            const engToRus = {
+                'q': 'й', 'w': 'ц', 'e': 'у', 'r': 'к', 't': 'е', 'y': 'н', 'u': 'г', 'i': 'ш', 'o': 'щ', 'p': 'з',
+                '[': 'х', ']': 'ъ', 'a': 'ф', 's': 'ы', 'd': 'в', 'f': 'а', 'g': 'п', 'h': 'р', 'j': 'о', 'k': 'л',
+                'l': 'д', ';': 'ж', "'": 'э', 'z': 'я', 'x': 'ч', 'c': 'с', 'v': 'м', 'b': 'и', 'n': 'т', 'm': 'ь',
+                ',': 'б', '.': 'ю', '/': '.', '`': 'ё', '1': '!', '2': '"', '3': '№', '4': ';', '5': '%', '6': ':',
+                '7': '?', '8': '*', '9': '(', '0': ')', '-': '-', '=': '+', '\\': '\\', '/': '/', ',': ',', '.': '.'
+            };
+
+            const lowerText = text.toLowerCase();
+            
+            let hasRussian = false;
+            let hasEnglish = false;
+            
+            for (let char of lowerText) {
+                if (/[а-яё]/.test(char)) {
+                    hasRussian = true;
+                }
+                if (/[a-z]/.test(char)) {
+                    hasEnglish = true;
+                }
+            }
+
+            if (hasRussian && !hasEnglish) {
+                return lowerText.split('').map(char => rusToEng[char] || char).join('');
+            }
+            
+            if (hasEnglish && !hasRussian) {
+                return lowerText.split('').map(char => engToRus[char] || char).join('');
+            }
+
+            return lowerText;
+        }
+
+        function gameMatchesSearch(gameName, searchTerm) {
+            if (!searchTerm) return true;
+            
+            const gameNameLower = gameName.toLowerCase();
+            const searchLower = searchTerm.toLowerCase();
+            const convertedSearch = convertKeyboardLayout(searchTerm);
+            
+            return gameNameLower.includes(searchLower) || gameNameLower.includes(convertedSearch);
+        }
+
         function calculateRelevance(gameName, searchTerm) {
             const gameNameLower = gameName.toLowerCase();
-            const searchTermLower = searchTerm.toLowerCase();
+            
+            function calculateRelevanceForTerm(termLower, termWords) {
+                let relevance = 0;
 
-            const queryWords = searchTermLower.split(/\s+/).filter(word => word.length > 0);
-
-            let relevance = 0;
-
-            if (queryWords.length === 1) {
-                if (gameNameLower === searchTermLower) {
-                    relevance += 1000;
-                }
-                else if (gameNameLower.startsWith(searchTermLower)) {
-                    relevance += 500;
-                }
-                else if (gameNameLower.split(' ').some(word => word.startsWith(searchTermLower))) {
-                    relevance += 200;
-                }
-                else if (gameNameLower.includes(searchTermLower)) {
-                    relevance += 100;
-                }
-            }
-            else {
-                if (gameNameLower === searchTermLower) {
-                    relevance += 1000;
-                }
-                else if (gameNameLower.includes(searchTermLower)) {
-                    relevance += 800;
+                if (termWords.length === 1) {
+                    if (gameNameLower === termLower) {
+                        relevance += 1000;
+                    }
+                    else if (gameNameLower.startsWith(termLower)) {
+                        relevance += 500;
+                    }
+                    else if (gameNameLower.split(' ').some(word => word.startsWith(termLower))) {
+                        relevance += 200;
+                    }
+                    else if (gameNameLower.includes(termLower)) {
+                        relevance += 100;
+                    }
                 }
                 else {
-                    let matchedWords = 0;
-                    let matchedAtStart = 0;
+                    if (gameNameLower === termLower) {
+                        relevance += 1000;
+                    }
+                    else if (gameNameLower.includes(termLower)) {
+                        relevance += 800;
+                    }
+                    else {
+                        let matchedWords = 0;
+                        let matchedAtStart = 0;
 
-                    const gameWords = gameNameLower.split(/\s+/);
+                        const gameWords = gameNameLower.split(/\s+/);
 
-                    for (const queryWord of queryWords) {
-                        if (gameNameLower.includes(queryWord)) {
-                            matchedWords++;
+                        for (const queryWord of termWords) {
+                            if (gameNameLower.includes(queryWord)) {
+                                matchedWords++;
 
-                            if (gameWords.some(word => word.startsWith(queryWord))) {
-                                matchedAtStart++;
+                                if (gameWords.some(word => word.startsWith(queryWord))) {
+                                    matchedAtStart++;
+                                }
                             }
                         }
+
+                        relevance += (matchedWords / termWords.length) * 500;
+                        relevance += (matchedAtStart / termWords.length) * 300;
                     }
-
-                    relevance += (matchedWords / queryWords.length) * 500;
-                    relevance += (matchedAtStart / queryWords.length) * 300;
                 }
+
+                const lengthDifference = Math.abs(gameNameLower.length - termLower.length);
+                relevance -= lengthDifference;
+
+                const gameWords = gameNameLower.split(/\s+/);
+                for (const queryWord of termWords) {
+                    if (gameWords.includes(queryWord)) {
+                        relevance += 50;
+                    }
+                }
+
+                return relevance;
             }
 
-            const lengthDifference = Math.abs(gameNameLower.length - searchTermLower.length);
-            relevance -= lengthDifference;
-
-            const gameWords = gameNameLower.split(/\s+/);
-            for (const queryWord of queryWords) {
-                if (gameWords.includes(queryWord)) {
-                    relevance += 50;
-                }
-            }
-
-            return relevance;
+            const searchTermLower = searchTerm.toLowerCase();
+            const convertedSearchTerm = convertKeyboardLayout(searchTerm);
+            
+            const queryWords = searchTermLower.split(/\s+/).filter(word => word.length > 0);
+            const convertedQueryWords = convertedSearchTerm.split(/\s+/).filter(word => word.length > 0);
+            
+            const originalRelevance = calculateRelevanceForTerm(searchTermLower, queryWords);
+            const convertedRelevance = calculateRelevanceForTerm(convertedSearchTerm, convertedQueryWords);
+            
+            return Math.max(originalRelevance, convertedRelevance);
         }
 
         function getRandomPastelColor() {
