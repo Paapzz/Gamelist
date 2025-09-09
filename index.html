@@ -2620,7 +2620,7 @@
 
         async function loadSearchIndex() {
             if (searchIndex !== null || isSearchIndexLoading) {
-                return searchIndex; 
+                return searchIndex;
             }
 
             isSearchIndexLoading = true;
@@ -3961,7 +3961,7 @@
                 updatedGames.push(newGame);
             }
             
-
+            
 
             const byNameMap = new Map();
             for (const g of updatedGames) {
@@ -4504,7 +4504,7 @@
 
                         const retryDelay = Math.floor(Math.random() * 3000) + 3000;
 
-
+                        
 
                         setTimeout(() => {
                             img.src = url + '?retry=' + (retryCount + 1);
@@ -4512,7 +4512,7 @@
 
                     } else {
                         this.src = DEFAULT_GAME_IMAGE;
-
+                        
 
                         setTimeout(() => {
                             img.classList.add('loaded');
@@ -4781,7 +4781,7 @@
                 }
 
                 const limitedMatches = indexMatchedGames.slice(0, 100);
-
+                
 
                 const q = gameName.toLowerCase();
                 const tp = extractPartNumber(q);
@@ -5350,55 +5350,55 @@
             const gameNameLower = gameName.toLowerCase();
 
             function calc(termLower, termWords) {
-            let relevance = 0;
+                let relevance = 0;
                 if (termWords.length === 1) {
                     if (gameNameLower === termLower) {
-                    relevance += 1000;
-                }
+                        relevance += 1000;
+                    }
                     else if (gameNameLower.startsWith(termLower)) {
-                    relevance += 500;
-                }
+                        relevance += 500;
+                    }
                     else if (gameNameLower.split(' ').some(word => word.startsWith(termLower))) {
-                    relevance += 200;
-                }
+                        relevance += 200;
+                    }
                     else if (gameNameLower.includes(termLower)) {
-                    relevance += 100;
-                }
-            }
-            else {
-                    if (gameNameLower === termLower) {
-                    relevance += 1000;
-                }
-                    else if (gameNameLower.includes(termLower)) {
-                    relevance += 800;
+                        relevance += 100;
+                    }
                 }
                 else {
-                    let matchedWords = 0;
-                    let matchedAtStart = 0;
+                    if (gameNameLower === termLower) {
+                        relevance += 1000;
+                    }
+                    else if (gameNameLower.includes(termLower)) {
+                        relevance += 800;
+                    }
+                    else {
+                        let matchedWords = 0;
+                        let matchedAtStart = 0;
 
-                    const gameWords = gameNameLower.split(/\s+/);
+                        const gameWords = gameNameLower.split(/\s+/);
                         for (const queryWord of termWords) {
-                        if (gameNameLower.includes(queryWord)) {
-                            matchedWords++;
-                            if (gameWords.some(word => word.startsWith(queryWord))) {
-                                matchedAtStart++;
+                            if (gameNameLower.includes(queryWord)) {
+                                matchedWords++;
+                                if (gameWords.some(word => word.startsWith(queryWord))) {
+                                    matchedAtStart++;
+                                }
                             }
                         }
-                    }
                         relevance += (matchedWords / termWords.length) * 500;
                         relevance += (matchedAtStart / termWords.length) * 300;
                     }
                 }
 
                 const lengthDifference = Math.abs(gameNameLower.length - termLower.length);
-            relevance -= lengthDifference;
+                relevance -= lengthDifference;
 
-            const gameWords = gameNameLower.split(/\s+/);
+                const gameWords = gameNameLower.split(/\s+/);
                 for (const queryWord of termWords) {
-                if (gameWords.includes(queryWord)) {
-                    relevance += 50;
+                    if (gameWords.includes(queryWord)) {
+                        relevance += 50;
+                    }
                 }
-            }
 
                 const gamePart = extractPartNumber(gameNameLower);
                 const termPart = extractPartNumber(termLower);
@@ -5417,7 +5417,7 @@
                 } else if (termPart != null && gamePart == null) {
                     relevance -= 100;
                 }
-            return relevance;
+                return relevance;
             }
 
             const lower = searchTerm.toLowerCase();
@@ -5515,14 +5515,14 @@
 
                         const retryDelay = Math.floor(Math.random() * 3000) + 3000;
 
-
+                        
 
                         setTimeout(() => {
                             img.src = game.imageUrl + '?retry=' + (retryCount + 1);
                         }, retryDelay);
                     } else {
                         this.src = DEFAULT_GAME_IMAGE;
-
+                        
 
                         img.style.width = '200px';
                         img.style.height = '300px';
@@ -6180,7 +6180,7 @@
                 if (visibleGames.some(g => g.id.toString() === gameId) || (isInProgressRow && game.inProgress)) {
                     cell.style.display = '';
 
-                            cell.classList.remove('search-match-in-progress');
+                    cell.classList.remove('search-match-in-progress');
 
                     if (gameCache.images[gameId]) {
                         const img = cell.querySelector('img');
@@ -6509,7 +6509,7 @@
         }
 
         function fullRenderGrid(visibleGames, inProgressGames) {
-
+            
 
             clearImageQueue();
 
@@ -6544,48 +6544,30 @@
         }
 
         function updateVisibleGames() {
-            if (isSliderMoving) {
-                return;
-            }
+            const filteredGames = filterAndSearchGames(state.games, state.filters, state.search);
 
-            document.querySelectorAll('.cell img.loaded').forEach(img => {
-                if (img.src) {
-                    const cell = img.closest('.cell');
-                    if (cell && cell.dataset.gameId) {
-                        gameCache.images[cell.dataset.gameId] = img.src;
-                    }
-                }
-            });
+            const inProgressGames = filteredGames.filter(game => game.inProgress);
+            const regularGames = filteredGames.filter(game => !game.inProgress);
 
-            const visibleGames = filterAndSearchGames(state.games, state.filters, state.search);
+            state.visibleGames = regularGames;
+            state.inProgressGames = inProgressGames;
 
-            document.querySelectorAll('.cell').forEach(cell => {
-                const gameId = cell.getAttribute('data-game-id');
-                const game = state.games.find(g => g.id.toString() === gameId);
-
-                const isInProgressRow = cell.parentElement.id === 'inProgressRow';
-
-                if (visibleGames.some(g => g.id.toString() === gameId) || (isInProgressRow && game.inProgress)) {
-                    cell.style.display = '';
-
-                    cell.classList.remove('search-match-in-progress');
-
-                    if (gameCache.images[gameId]) {
-                        const img = cell.querySelector('img');
-                        if (img) {
-                            img.src = gameCache.images[gameId];
-                            img.classList.add('loaded');
-                            img.style.opacity = '1';
-                        }
-                    }
-                } else {
-                    cell.style.display = 'none';
-                }
-            });
+            optimizedRenderGrid(regularGames, inProgressGames);
 
             if (state.search && state.search.trim() !== '') {
+                const searchLower = state.search.toLowerCase();
+                const searchConv = convertKeyboardLayout(searchLower);
+                const splitWords = s => s.split(/\s+/).filter(w => w.length > 0);
+                const words = splitWords(searchLower);
+                const wordsConv = splitWords(searchConv);
+                const matches = name => {
+                    const n = name.toLowerCase();
+                    const a = words.length === 0 || words.every(w => n.includes(w));
+                    const b = wordsConv.length === 0 || wordsConv.every(w => n.includes(w));
+                    return a || b;
+                };
                 const scoreCache = new Map();
-                const getScore = g => {
+                const score = g => {
                     const key = g.id;
                     if (scoreCache.has(key)) return scoreCache.get(key);
                     const s = calculateRelevance(g.name, state.search);
@@ -6593,27 +6575,86 @@
                     return s;
                 };
 
-                const cmp = (a, b) => {
-                    const sa = getScore(a);
-                    const sb = getScore(b);
-                    if (sb !== sa) return sb - sa;
-                    const na = (a.name || '').toLowerCase();
-                    const nb = (b.name || '').toLowerCase();
-                    if (na !== nb) return na < nb ? -1 : 1;
-                    return (a.id || 0) - (b.id || 0);
-                };
+                const byId = new Map(state.games.map(g => [g.id.toString(), g]));
 
-                const matchedInProg = state.games.filter(g => g.inProgress && matchesQuery(g.name, state.search));
-                const matchedRegular = visibleGames.filter(g => !g.inProgress);
+                const inProgCells = Array.from(inProgressRow.querySelectorAll('.cell'));
+                const inProgItems = inProgCells.map(cell => {
+                    const id = cell.getAttribute('data-game-id');
+                    const g = byId.get(id);
+                    const m = g ? matches(g.name) : false;
+                    const sc = g ? score(g) : -Infinity;
+                    if (m) {
+                        cell.classList.add('search-match-in-progress');
+                    } else {
+                        cell.classList.remove('search-match-in-progress');
+                    }
+                    return { cell, g, matched: m, score: sc };
+                });
+                const inProgMatched = inProgItems.filter(x => x.matched).sort((a, b) => {
+                    const q = state.search.toLowerCase();
+                    const tp = extractPartNumber(q);
+                    if (tp == null) {
+                        if (a.g && b.g) {
+                            const ia = getSeriesInfo(a.g.name);
+                            const ib = getSeriesInfo(b.g.name);
+                            if (ia.base && ib.base && ia.base === ib.base) {
+                                if (ia.part !== ib.part) return ia.part - ib.part;
+                            }
+                        }
+                    }
+                    return b.score - a.score;
+                });
+                inProgItems.forEach(x => {
+                    if (x.matched) {
+                        x.cell.style.display = '';
+                    } else {
+                        x.cell.style.display = 'none';
+                    }
+                });
+                if (inProgMatched.length > 0) {
+                    const frag = document.createDocumentFragment();
+                    inProgMatched.forEach(x => frag.appendChild(x.cell));
+                    inProgressRow.insertBefore(frag, inProgressRow.firstChild);
+                }
 
-                matchedInProg.sort(cmp);
-                matchedRegular.sort(cmp);
+                const regularIds = new Set(regularGames.map(g => g.id.toString()));
+                const gridCells = Array.from(grid.querySelectorAll('.cell'))
+                    .filter(cell => regularIds.has(cell.getAttribute('data-game-id')));
+                const gridItems = gridCells.map(cell => {
+                    const id = cell.getAttribute('data-game-id');
+                    const g = byId.get(id);
+                    const sc = g ? score(g) : -Infinity;
+                    return { cell, g, score: sc };
+                }).sort((a, b) => {
+                    const q = state.search.toLowerCase();
+                    const tp = extractPartNumber(q);
+                    if (tp == null) {
+                        if (a.g && b.g) {
+                            const ia = getSeriesInfo(a.g.name);
+                            const ib = getSeriesInfo(b.g.name);
+                            if (ia.base && ib.base && ia.base === ib.base) {
+                                if (ia.part !== ib.part) return ia.part - ib.part;
+                            }
+                        }
+                    }
+                    return b.score - a.score;
+                });
+                if (gridItems.length > 0) {
+                    const fragGrid = document.createDocumentFragment();
+                    gridItems.forEach(x => fragGrid.appendChild(x.cell));
+                    grid.appendChild(fragGrid);
+                }
+            } else {
+                inProgressRow.querySelectorAll('.cell').forEach(cell => {
+                    cell.style.display = '';
+                    cell.classList.remove('search-match-in-progress');
+                });
 
                 const cellById = new Map(Array.from(document.querySelectorAll('.cell')).map(c => [c.dataset.gameId, c]));
 
                 inProgressRow.innerHTML = '';
                 const fragInProg = document.createDocumentFragment();
-                matchedInProg.forEach(g => {
+                inProgressGames.forEach(g => {
                     const cell = cellById.get(g.id.toString()) || createCell(g);
                     cell.style.display = '';
                     fragInProg.appendChild(cell);
@@ -6621,20 +6662,14 @@
                 inProgressRow.appendChild(fragInProg);
 
                 grid.innerHTML = '';
-                const fragGrid = document.createDocumentFragment();
-                matchedRegular.forEach(g => {
+                const fragGridReset = document.createDocumentFragment();
+                regularGames.forEach(g => {
                     const cell = cellById.get(g.id.toString()) || createCell(g);
                     cell.style.display = '';
-                    fragGrid.appendChild(cell);
+                    fragGridReset.appendChild(cell);
                 });
-                grid.appendChild(fragGrid);
+                grid.appendChild(fragGridReset);
             }
-
-            updateCounterDisplay(visibleGames.length, false);
-
-            updateSaturation();
-
-            preloadVisibleImages();
         }
         
         function optimizedRenderGrid(visibleGames, inProgressGames) {
@@ -7821,7 +7856,7 @@
                 let newGames = [];
 
                 if (searchIdx) {
-
+                    
 
                     const fileMap = {};
                     searchIdx.forEach(game => {
@@ -7857,7 +7892,7 @@
                         }
                     }
                 } else {
-
+                    
 
                     index = await loadJsonWithCompression('data/index.json', true);
 
@@ -7901,7 +7936,7 @@
                     }
                 }
 
-
+                
 
                 removeSkeletonCells(grid);
 
@@ -8049,7 +8084,7 @@
             } else if (message.includes('ошибк') || message.includes('Ошибк')) {
                 messageType = 'warning';
             }
-
+            
 
             
             showMessage(message, messageType);
