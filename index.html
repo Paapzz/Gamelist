@@ -2135,14 +2135,14 @@
         const debouncedUpdateVisibleGames = debounce(() => {
             updateVisibleGames();
             saveYearFiltersToStorage();
-        }, 50); 
+        }, 20); 
         let allowFilterDuringDrag = false;
         const debouncedUpdateVisibleGamesDuringDrag = debounce(() => {
             allowFilterDuringDrag = true;
-            updateVisibleGames();
+            updateVisibleGamesYearOnlyDuringDrag();
             saveYearFiltersToStorage();
             allowFilterDuringDrag = false;
-        }, 50);
+        }, 20);
         
         let lastVirtualUpdate = { yearMin: null, yearMax: null, count: null };
         let isSliderMoving = false;
@@ -6340,6 +6340,43 @@
             updateSaturation();
 
             preloadVisibleImages();
+        }
+
+        function updateVisibleGamesYearOnlyDuringDrag() {
+            const minYear = state.filters.yearMin;
+            const maxYear = state.filters.yearMax;
+            const queryActive = !!(state.search && state.search.trim() !== '');
+            const hasGenreFilter = state.filters.genres.length > 0;
+            const hasPlatformFilter = state.filters.platforms.length > 0;
+            const completedOnly = !!state.filters.completedOnly;
+            const hideCompleted = !!state.filters.hideCompleted;
+
+            const cells = document.querySelectorAll('.cell');
+            for (let i = 0; i < cells.length; i++) {
+                const cell = cells[i];
+                const gameId = cell.getAttribute('data-game-id');
+                const game = state.games.find(g => g.id.toString() === gameId);
+                if (!game) continue;
+
+                if (cell.parentElement && cell.parentElement.id === 'inProgressRow') {
+                    cell.style.display = '';
+                    continue;
+                }
+
+                if (queryActive) {
+                    continue;
+                }
+                if (hasGenreFilter || hasPlatformFilter || completedOnly || hideCompleted) {
+                    continue;
+                }
+
+                let visible = true;
+                if (game.year !== null) {
+                    if (game.year < minYear || game.year > maxYear) visible = false;
+                }
+
+                cell.style.display = visible ? '' : 'none';
+            }
         }
 
         function updatePlatformFilters(platforms) {
