@@ -638,6 +638,12 @@
             margin: 5px 0 0;
             text-align: center;
             font-size: 14px;
+            max-width: 100%;
+            width: 100%;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            box-sizing: border-box;
         }
         .game-title {
             position: fixed;
@@ -5577,7 +5583,8 @@
                     }
                     img.style.width = `${width}px`;
                     img.style.height = `${height}px`;
-
+                    const content = preview.querySelector('.preview-content');
+                    content.style.width = `${width}px`;
                     updatePreviewPosition();
                 };
 
@@ -5606,6 +5613,8 @@
             } else {
                 img.style.width = '200px';
                 img.style.height = '300px';
+                const previewContent = preview.querySelector('.preview-content');
+                previewContent.style.width = '200px';
                 updatePreviewPosition();
             }
 
