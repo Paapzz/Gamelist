@@ -4233,15 +4233,7 @@
             }
         }
 
-        function renderGames() {
-            document.querySelectorAll('.cell').forEach(cell => {
-                const gameId = cell.getAttribute('data-game-id');
-                const game = state.games.find(g => g.id.toString() === gameId);
-                if (game) {
-                    cell.title = game.name;
-                }
-            });
-        }
+        function renderGames() {}
 
         function saveGames() {
             clearTimeout(gameCache.timers.localStorage);
@@ -7512,7 +7504,6 @@
             }
 
             cell.appendChild(img);
-            cell.title = game.name;
             cell.dataset.gameName = game.name;
             cell.dataset.gameYear = game.year || 'N/A';
 
@@ -7601,7 +7592,6 @@
         function updateGameCell(game) {
             const cell = document.querySelector(`.cell[data-game-id="${game.id}"]`);
             if (cell) {
-                cell.title = game.name;
                 cell.dataset.gameName = game.name;
                 cell.dataset.gameYear = game.year || 'N/A';
 
