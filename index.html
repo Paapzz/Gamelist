@@ -6653,6 +6653,10 @@
             updateSaturation();
 
             setTimeout(processImageQueue, 100);
+            if (typeof syncCellClassesFromState === 'function') {
+                syncCellClassesFromState();
+                setTimeout(syncCellClassesFromState, 0);
+            }
         }
 
         function updateVisibleGames() {
@@ -6739,6 +6743,10 @@
                     }
                 }, 50);
             }
+            if (typeof syncCellClassesFromState === 'function') {
+                syncCellClassesFromState();
+                setTimeout(syncCellClassesFromState, 0);
+            }
         }
         
         function optimizedRenderGrid(visibleGames, inProgressGames) {
@@ -6814,6 +6822,20 @@
                     }
                 }, 50);
             }
+            if (typeof syncCellClassesFromState === 'function') {
+                syncCellClassesFromState();
+                setTimeout(syncCellClassesFromState, 0);
+            }
+        }
+
+        function syncCellClassesFromState() {
+            const map = new Map(state.games.map(g => [String(g.id), g]));
+            document.querySelectorAll('.cell').forEach(cell => {
+                const g = map.get(cell.getAttribute('data-game-id'));
+                if (!g) return;
+                cell.classList.toggle('completed', !!g.completed);
+                cell.classList.toggle('in-progress', !!g.inProgress && !g.completed);
+            });
         }
 
         function preFilterGames() {
