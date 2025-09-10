@@ -4084,7 +4084,6 @@
             };
 
             modal.style.display = 'block';
-            // Отключаем закрытие по клику вне окна
         }
 
         function simpleHash(str) {
@@ -4515,6 +4514,7 @@
 
             const gameId = img.closest('.cell')?.dataset.gameId;
             if (gameId && gameCache.images[gameId]) {
+                if (gameCache.images[gameId] === url) {
                 img.src = gameCache.images[gameId];
 
                 setTimeout(() => {
@@ -4527,6 +4527,9 @@
 
                 setTimeout(processImageQueue, 50);
                 return;
+                } else {
+                    delete gameCache.images[gameId];
+                }
             }
 
             const cachedImage = loadImageFromCache(url);
