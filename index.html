@@ -5036,9 +5036,16 @@
                 if (gameCache.images[gameId]) {
                     const img = cell.querySelector('img');
                     if (img) {
-                        img.src = gameCache.images[gameId];
-                        img.classList.add('loaded');
-                        img.style.opacity = '1';
+                        const data = cell.dataset.gameObject ? JSON.parse(cell.dataset.gameObject) : null;
+                        const expectedUrl = data && data.imageUrl ? data.imageUrl : '';
+                        const cachedUrl = gameCache.images[gameId];
+                        if (cachedUrl === expectedUrl) {
+                            img.src = cachedUrl;
+                            img.classList.add('loaded');
+                            img.style.opacity = '1';
+                        } else {
+                            delete gameCache.images[gameId];
+                        }
                     }
                 }
 
@@ -6274,9 +6281,16 @@
                     if (gameCache.images[gameId]) {
                         const img = cell.querySelector('img');
                         if (img) {
-                            img.src = gameCache.images[gameId];
-                            img.classList.add('loaded');
-                            img.style.opacity = '1';
+                            const data = cell.dataset.gameObject ? JSON.parse(cell.dataset.gameObject) : null;
+                            const expectedUrl = data && data.imageUrl ? data.imageUrl : '';
+                            const cachedUrl = gameCache.images[gameId];
+                            if (cachedUrl === expectedUrl) {
+                                img.src = cachedUrl;
+                                img.classList.add('loaded');
+                                img.style.opacity = '1';
+                            } else {
+                                delete gameCache.images[gameId];
+                            }
                         }
                     }
                 } else {
