@@ -2135,7 +2135,7 @@
         const debouncedUpdateVisibleGames = debounce(() => {
             updateVisibleGames();
             saveYearFiltersToStorage();
-        }, 85); 
+        }, 70); 
         
         let lastVirtualUpdate = { yearMin: null, yearMax: null, count: null };
         let isSliderMoving = false;
@@ -8440,6 +8440,7 @@
 
             yearSliderMin.addEventListener('mouseover', () => {
                 document.querySelector('.min-tooltip').style.opacity = '1';
+                updateTooltips();
             });
 
             yearSliderMin.addEventListener('mouseout', () => {
@@ -8478,6 +8479,7 @@
 
             yearSliderMax.addEventListener('mouseover', () => {
                 document.querySelector('.max-tooltip').style.opacity = '1';
+                updateTooltips();
             });
 
             yearSliderMax.addEventListener('mouseout', () => {
