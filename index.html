@@ -3958,13 +3958,9 @@
                             const customGame = {
                                 ...savedGame,
                                 isCustom: true,
-                                    id: Date.now() + Math.random(),
-                                imageUrl: newGameAtSamePosition ? newGameAtSamePosition.imageUrl : savedGame.imageUrl
+                                id: Date.now() + Math.random(),
+                                imageUrl: savedGame.imageUrl || (newGameAtSamePosition ? newGameAtSamePosition.imageUrl : savedGame.imageUrl)
                             };
-                            
-                            if (newGameAtSamePosition && savedGame.imageUrl !== newGameAtSamePosition.imageUrl) {
-                                clearImageFromCache(savedGame.imageUrl);
-                            }
                             updatedGames.push(customGame);
                             removedFromTop.push(customGame);
                         } else {
@@ -4038,7 +4034,7 @@
             const keepBtn = document.getElementById('syncKeepBtn');
             const delBtn = document.getElementById('syncDeleteBtn');
 
-            header.textContent = `Топ-1000 обновлён. Эти игры больше в него не входят или были заменены. Их можно удалить:`;
+            header.textContent = `Топ-1000 обновлён. Эти игры больше в него не входят или были заменены на такие же. Возможно вам придётся заного отметить пройденные.`;
             list.innerHTML = '';
             removedGames.forEach(g => {
                 const row = document.createElement('div');
