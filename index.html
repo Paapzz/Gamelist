@@ -2136,6 +2136,13 @@
             updateVisibleGames();
             saveYearFiltersToStorage();
         }, 70); 
+        let allowFilterDuringDrag = false;
+        const debouncedUpdateVisibleGamesDuringDrag = debounce(() => {
+            allowFilterDuringDrag = true;
+            updateVisibleGames();
+            saveYearFiltersToStorage();
+            allowFilterDuringDrag = false;
+        }, 70);
         
         let lastVirtualUpdate = { yearMin: null, yearMax: null, count: null };
         let isSliderMoving = false;
@@ -6242,7 +6249,7 @@
         }
 
         function updateVisibleGames() {
-            if (isSliderMoving) {
+            if (isSliderMoving && !allowFilterDuringDrag) {
                 return;
             }
             
@@ -8423,6 +8430,7 @@
                     isYearSliderActive = true;
                     yearRafStep();
                 }
+                debouncedUpdateVisibleGamesDuringDrag();
             };
             yearSliderMin.addEventListener('input', onYearInputMin);
 
@@ -8462,6 +8470,7 @@
                     isYearSliderActive = true;
                     yearRafStep();
                 }
+                debouncedUpdateVisibleGamesDuringDrag();
             };
             yearSliderMax.addEventListener('input', onYearInputMax);
 
