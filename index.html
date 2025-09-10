@@ -4939,6 +4939,10 @@
 
 
         function updateInProgressRow() {
+            if (state.search && state.search.trim() !== '') {
+                updateVisibleGames();
+                return;
+            }
             inProgressRow.querySelectorAll('.cell img.loaded').forEach(img => {
                 if (img.src) {
                     const cell = img.closest('.cell');
@@ -5400,22 +5404,29 @@
                 }
             }
 
-                const gamePart = extractPartNumber(gameNameLower);
+                const seriesInfoCalc = getSeriesInfo(gameNameLower);
+                const gamePartNorm = seriesInfoCalc.noNumber ? 1 : seriesInfoCalc.part;
                 const termPart = extractPartNumber(termLower);
-                if (termPart != null && gamePart != null) {
-                    if (gamePart === termPart) {
+                if (termPart != null && gamePartNorm != null) {
+                    if (gamePartNorm === termPart) {
                         relevance += 1200;
                     } else {
-                        relevance -= Math.min(600, 200 * Math.abs(gamePart - termPart));
+                        relevance -= Math.min(600, 200 * Math.abs(gamePartNorm - termPart));
                     }
-                } else if (termPart == null && gamePart != null) {
+                } else if (termPart == null && gamePartNorm != null) {
                     const seriesMatch = termWords.some(w => gameNameLower.includes(w));
                     if (seriesMatch) {
-                        const bonus = Math.max(0, 400 - 50 * (gamePart - 1));
+                        const bonus = Math.max(0, 400 - 50 * (gamePartNorm - 1));
                         relevance += bonus;
                     }
-                } else if (termPart != null && gamePart == null) {
+                } else if (termPart != null && gamePartNorm == null) {
                     relevance -= 100;
+                }
+                const editionKeywords = new Set(['definitive','remaster','remastered','bundle','premium','online','ultimate','deluxe','special','collector','collection','complete','anniversary','director','intergrade','intermission','twin','pack','story','enhanced']);
+                const titleTokens = gameNameLower.split(/[^a-z0-9]+/).filter(Boolean);
+                const hasEdition = titleTokens.some(t => editionKeywords.has(t));
+                if (termPart == null && hasEdition) {
+                    relevance -= 200;
                 }
             return relevance;
             }
