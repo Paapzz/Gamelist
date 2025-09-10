@@ -3924,6 +3924,10 @@
             
             
             
+            console.log('[sync] pre-loop currentGames completed=', currentGames.filter(g => !!g.completed).length,
+                'inProgress=', currentGames.filter(g => !!g.inProgress).length,
+                'total=', currentGames.length);
+
             for (const savedGame of currentGames) {
                 if (savedGame.isCustom || savedGame.importedFromApi || typeof savedGame.id !== 'number' || savedGame.id <= 0 || savedGame.id > 1000) {
                     const duplicateInNewList = newGamesByName.get(savedGame.name.toLowerCase()) || newGamesByBase.get(getBaseKey(savedGame.name || ''));
@@ -3974,6 +3978,9 @@
                 
                 updatedGames.push(newGame);
             }
+            console.log('[sync] before-dedup updatedGames completed=', updatedGames.filter(g => !!g.completed).length,
+                'inProgress=', updatedGames.filter(g => !!g.inProgress).length,
+                'total=', updatedGames.length);
             
 
 
@@ -3984,6 +3991,9 @@
             }
             state.games = Array.from(byIdMap.values()).sort((a, b) => (a.id || 0) - (b.id || 0));
             games = state.games;
+            console.log('[sync] after-apply state.games completed=', state.games.filter(g => !!g.completed).length,
+                'inProgress=', state.games.filter(g => !!g.inProgress).length,
+                'total=', state.games.length);
             
             localStorage.setItem('games', JSON.stringify(state.games));
             
@@ -6616,18 +6626,29 @@
             updateGridSize();
 
             updateCounter();
-            if (!localStorage.getItem('completedMarksPatched')) {
+            document.querySelectorAll('.cell').forEach(cell => {
+                const id = cell.getAttribute('data-game-id');
+                const g = state.games.find(x => x.id.toString() === id);
+                if (g) {
+                    cell.classList.remove('completed', 'in-progress');
+                    if (g.completed) cell.classList.add('completed');
+                    if (g.inProgress) cell.classList.add('in-progress');
+                    console.log('[cross-pass1]', id, g.name, 'completed=', !!g.completed, 'hasClass=', cell.classList.contains('completed'));
+                }
+            });
+            setTimeout(() => {
                 document.querySelectorAll('.cell').forEach(cell => {
                     const id = cell.getAttribute('data-game-id');
                     const g = state.games.find(x => x.id.toString() === id);
                     if (g) {
-                        cell.classList.remove('completed', 'in-progress');
-                        if (g.completed) cell.classList.add('completed');
-                        if (g.inProgress) cell.classList.add('in-progress');
+                        if (g.completed && !cell.classList.contains('completed')) cell.classList.add('completed');
+                        if (!g.completed && cell.classList.contains('completed')) cell.classList.remove('completed');
+                        if (g.inProgress && !cell.classList.contains('in-progress')) cell.classList.add('in-progress');
+                        if (!g.inProgress && cell.classList.contains('in-progress')) cell.classList.remove('in-progress');
+                        console.log('[cross-pass2]', id, g.name, 'completed=', !!g.completed, 'hasClass=', cell.classList.contains('completed'));
                     }
                 });
-                localStorage.setItem('completedMarksPatched', 'true');
-            }
+            }, 0);
 
             updateSaturation();
 
