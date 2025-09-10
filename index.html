@@ -2135,14 +2135,14 @@
         const debouncedUpdateVisibleGames = debounce(() => {
             updateVisibleGames();
             saveYearFiltersToStorage();
-        }, 70); 
+        }, 50); 
         let allowFilterDuringDrag = false;
         const debouncedUpdateVisibleGamesDuringDrag = debounce(() => {
             allowFilterDuringDrag = true;
             updateVisibleGames();
             saveYearFiltersToStorage();
             allowFilterDuringDrag = false;
-        }, 70);
+        }, 50);
         
         let lastVirtualUpdate = { yearMin: null, yearMax: null, count: null };
         let isSliderMoving = false;
