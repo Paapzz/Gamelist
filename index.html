@@ -6560,6 +6560,19 @@
             maxTooltip.style.left = `${Math.max(0, Math.min(maxPx, containerWidth))}px`;
         }
 
+        let isYearSliderActive = false;
+        let yearRafId = null;
+        function yearRafStep() {
+            updateSliderTrack();
+            updateTooltips();
+            if (isYearSliderActive) {
+                yearRafId = requestAnimationFrame(yearRafStep);
+            } else if (yearRafId != null) {
+                cancelAnimationFrame(yearRafId);
+                yearRafId = null;
+            }
+        }
+
         function updateYearsCache() {
             const years = [...new Set(state.games.filter(game => game.year !== null).map(game => game.year))].sort((a, b) => a - b);
 
@@ -8395,7 +8408,7 @@
                 resetFilters();
             });
             
-            yearSliderMin.addEventListener('input', throttle(() => {
+            const onYearInputMin = () => {
                 const minVal = parseInt(yearSliderMin.value);
                 const maxVal = parseInt(yearSliderMax.value);
 
@@ -8406,12 +8419,16 @@
                 state.filters.yearMin = parseInt(yearSliderMin.value);
 
                 virtualUpdateDuringSliderMovement();
-                
-                debouncedUpdateVisibleGames();
-            }, 50));
+                if (!isYearSliderActive) {
+                    isYearSliderActive = true;
+                    yearRafStep();
+                }
+            };
+            yearSliderMin.addEventListener('input', onYearInputMin);
 
             yearSliderMin.addEventListener('change', () => {
                 isSliderMoving = false;
+                isYearSliderActive = false;
                 if (sliderMovementTimer) {
                     clearTimeout(sliderMovementTimer);
                 }
@@ -8429,7 +8446,7 @@
                 document.querySelector('.min-tooltip').style.opacity = '0';
             });
 
-            yearSliderMax.addEventListener('input', throttle(() => {
+            const onYearInputMax = () => {
                 const minVal = parseInt(yearSliderMin.value);
                 const maxVal = parseInt(yearSliderMax.value);
 
@@ -8440,12 +8457,16 @@
                 state.filters.yearMax = parseInt(yearSliderMax.value);
 
                 virtualUpdateDuringSliderMovement();
-                
-                debouncedUpdateVisibleGames();
-            }, 50));
+                if (!isYearSliderActive) {
+                    isYearSliderActive = true;
+                    yearRafStep();
+                }
+            };
+            yearSliderMax.addEventListener('input', onYearInputMax);
 
             yearSliderMax.addEventListener('change', () => {
                 isSliderMoving = false;
+                isYearSliderActive = false;
                 if (sliderMovementTimer) {
                     clearTimeout(sliderMovementTimer);
                 }
