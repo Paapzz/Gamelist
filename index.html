@@ -6557,64 +6557,64 @@
 
             const cellById = new Map(Array.from(document.querySelectorAll('.cell')).map(c => [c.dataset.gameId, c]));
 
-            if (state.search && state.search.trim() !== '') {
-                const scoreCache = new Map();
-                const getScore = g => {
-                    const key = g.id;
-                    if (scoreCache.has(key)) return scoreCache.get(key);
-                    const s = calculateRelevance(g.name, state.search);
-                    scoreCache.set(key, s);
-                    return s;
-                };
-                const cmp = (a, b) => {
-                    const sa = getScore(a);
-                    const sb = getScore(b);
-                    if (sb !== sa) return sb - sa;
-                    const na = (a.name || '').toLowerCase();
-                    const nb = (b.name || '').toLowerCase();
-                    if (na !== nb) return na < nb ? -1 : 1;
-                    return (a.id || 0) - (b.id || 0);
-                };
+            const scoreCache = new Map();
+            const getScore = g => {
+                const key = g.id;
+                if (scoreCache.has(key)) return scoreCache.get(key);
+                const s = calculateRelevance(g.name, state.search || '');
+                scoreCache.set(key, s);
+                return s;
+            };
+            const cmp = (a, b) => {
+                const ia = getSeriesInfo(a.name);
+                const ib = getSeriesInfo(b.name);
+                if (ia.base && ib.base && ia.base === ib.base) {
+                    const pa = ia.noNumber ? 1 : ia.part;
+                    const pb = ib.noNumber ? 1 : ib.part;
+                    if (pa !== pb) return pa - pb;
+                }
+                const sa = getScore(a);
+                const sb = getScore(b);
+                if (sb !== sa) return sb - sa;
+                const na = (a.name || '').toLowerCase();
+                const nb = (b.name || '').toLowerCase();
+                if (na !== nb) return na < nb ? -1 : 1;
+                return (a.id || 0) - (b.id || 0);
+            };
 
-                const matchedInProg = inProgressGames.filter(g => matchesQuery(g.name, state.search)).sort(cmp);
-                const matchedRegular = regularGames.slice().sort(cmp);
+            const hasSearch = !!(state.search && state.search.trim() !== '');
+            const desiredInProg = hasSearch ? inProgressGames.filter(g => matchesQuery(g.name, state.search)).sort(cmp)
+                                            : inProgressGames;
+            const desiredRegular = hasSearch ? regularGames.slice().sort(cmp) : regularGames;
 
-                inProgressRow.innerHTML = '';
-                const fragInProg = document.createDocumentFragment();
-                matchedInProg.forEach(g => {
-                    const cell = cellById.get(g.id.toString()) || createCell(g);
-                    cell.style.display = '';
-                    fragInProg.appendChild(cell);
-                });
-                inProgressRow.appendChild(fragInProg);
+            const desiredInProgIds = new Set(desiredInProg.map(g => g.id.toString()));
+            const desiredRegularIds = new Set(desiredRegular.map(g => g.id.toString()));
 
-                grid.innerHTML = '';
-                const fragGrid = document.createDocumentFragment();
-                matchedRegular.forEach(g => {
-                    const cell = cellById.get(g.id.toString()) || createCell(g);
-                    cell.style.display = '';
-                    fragGrid.appendChild(cell);
-                });
-                grid.appendChild(fragGrid);
-            } else {
-                inProgressRow.innerHTML = '';
-                const fragInProg = document.createDocumentFragment();
-                inProgressGames.forEach(g => {
-                    const cell = cellById.get(g.id.toString()) || createCell(g);
-                    cell.style.display = '';
-                    fragInProg.appendChild(cell);
-                });
-                inProgressRow.appendChild(fragInProg);
+            inProgressRow.querySelectorAll('.cell').forEach(cell => {
+                const id = cell.dataset.gameId;
+                cell.style.display = desiredInProgIds.has(id) ? '' : 'none';
+            });
+            grid.querySelectorAll('.cell').forEach(cell => {
+                const id = cell.dataset.gameId;
+                cell.style.display = desiredRegularIds.has(id) ? '' : 'none';
+            });
 
-                grid.innerHTML = '';
-                const fragGridReset = document.createDocumentFragment();
-                regularGames.forEach(g => {
-                    const cell = cellById.get(g.id.toString()) || createCell(g);
+            const reorder = (container, desiredList) => {
+                let cursor = container.firstElementChild;
+                for (const g of desiredList) {
+                    const id = g.id.toString();
+                    let cell = cellById.get(id) || createCell(g);
                     cell.style.display = '';
-                    fragGridReset.appendChild(cell);
-                });
-                grid.appendChild(fragGridReset);
-            }
+                    if (cursor === cell) {
+                        cursor = cursor.nextElementSibling;
+                    } else {
+                        container.insertBefore(cell, cursor);
+                    }
+                }
+            };
+
+            reorder(inProgressRow, desiredInProg);
+            reorder(grid, desiredRegular);
 
             updateGridSize();
             updateCounter();
