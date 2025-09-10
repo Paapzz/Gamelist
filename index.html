@@ -4048,7 +4048,7 @@
             const keepBtn = document.getElementById('syncKeepBtn');
             const delBtn = document.getElementById('syncDeleteBtn');
 
-            header.textContent = `Топ-1000 обновлён. Эти игры больше в него не входят или были заменены на такие же. Возможно вам придётся заного отметить пройденные.`;
+            header.textContent = `Топ-1000 обновлён. Эти игры больше в него не входят или были заменены на такие же. Возможно вам придётся заново отметить пройденные.`;
             list.innerHTML = '';
             removedGames.forEach(g => {
                 const row = document.createElement('div');
@@ -4374,10 +4374,22 @@
         let imageLoadQueue = [];
         let activeImageLoads = 0;
         const MAX_CONCURRENT_LOADS = 8;
-        const IMAGE_CACHE_PREFIX = 'img_cache_';
+        const IMAGE_CACHE_VERSION = '2';
+        const IMAGE_CACHE_PREFIX = 'img_cache_v2_';
         const MAX_CACHE_SIZE = 50 * 1024 * 1024;
         let currentCacheSize = 0;
         let loadedImages = new Set();
+
+        (function ensureImageCacheVersion() {
+            try {
+                const v = localStorage.getItem('imageCacheVersion');
+                if (v !== IMAGE_CACHE_VERSION) {
+                    clearImageCache();
+                    localStorage.setItem('imageCacheVersion', IMAGE_CACHE_VERSION);
+                }
+            } catch (e) {
+            }
+        })();
 
         function queueImageLoad(img, url, priority = false) {
             if (loadedImages.has(url)) {
@@ -7590,6 +7602,7 @@
                 imageUrl = DEFAULT_GAME_IMAGE;
             }
 
+            img.src = imageUrl;
             const cachedImage = loadImageFromCache(imageUrl);
             if (cachedImage) {
                 img.src = cachedImage;
@@ -7717,7 +7730,16 @@
 
                 cell.appendChild(img);
 
-                queueImageLoad(img, imageUrl);
+                img.src = imageUrl;
+                const cachedImage = loadImageFromCache(imageUrl);
+                if (cachedImage) {
+                    img.src = cachedImage;
+                    setTimeout(() => {
+                        img.classList.add('loaded');
+                    }, 10);
+                } else {
+                    queueImageLoad(img, imageUrl);
+                }
 
                 updateCellSize(cell, game.inProgress);
             }
