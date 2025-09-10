@@ -6534,30 +6534,30 @@
         }
 
         function updateSliderTrack() {
-            const minVal = state.filters.yearMin;
-            const maxVal = state.filters.yearMax;
+            const minVal = parseInt(yearSliderMin.value);
+            const maxVal = parseInt(yearSliderMax.value);
             const minPos = (minVal - yearSliderMin.min) / (yearSliderMin.max - yearSliderMin.min) * 100;
             const maxPos = (maxVal - yearSliderMax.min) / (yearSliderMax.max - yearSliderMax.min) * 100;
-
             const trackHighlight = document.querySelector('.slider-track-highlight');
             trackHighlight.style.left = `${minPos}%`;
             trackHighlight.style.width = `${maxPos - minPos}%`;
         }
 
         function updateTooltips() {
-            const minVal = state.filters.yearMin;
-            const maxVal = state.filters.yearMax;
-            const minPos = (minVal - yearSliderMin.min) / (yearSliderMin.max - yearSliderMin.min) * 100;
-            const maxPos = (maxVal - yearSliderMax.min) / (yearSliderMax.max - yearSliderMax.min) * 100;
-
+            const minVal = parseInt(yearSliderMin.value);
+            const maxVal = parseInt(yearSliderMax.value);
             const minTooltip = document.querySelector('.min-tooltip');
             const maxTooltip = document.querySelector('.max-tooltip');
-
+            const container = document.querySelector('.double-slider');
+            const containerWidth = container.clientWidth;
+            const thumbWidth = 18;
+            const trackWidth = yearSliderMin.clientWidth - thumbWidth;
+            const minPx = ((minVal - yearSliderMin.min) / (yearSliderMin.max - yearSliderMin.min)) * trackWidth + thumbWidth / 2;
+            const maxPx = ((maxVal - yearSliderMax.min) / (yearSliderMax.max - yearSliderMax.min)) * trackWidth + thumbWidth / 2;
             minTooltip.textContent = minVal;
             maxTooltip.textContent = maxVal;
-
-            minTooltip.style.left = `${minPos}%`;
-            maxTooltip.style.left = `${maxPos}%`;
+            minTooltip.style.left = `${Math.max(0, Math.min(minPx, containerWidth))}px`;
+            maxTooltip.style.left = `${Math.max(0, Math.min(maxPx, containerWidth))}px`;
         }
 
         function updateYearsCache() {
