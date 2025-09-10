@@ -3810,7 +3810,13 @@
 
             const hasRomanNumerals = SIMPLE_ROMAN_CHECK.test(formattedTitle.toLowerCase());
 
-            formattedTitle = formattedTitle.replace(WORD_BOUNDARY_REGEX, l => l.toUpperCase());
+            formattedTitle = formattedTitle.replace(WORD_BOUNDARY_REGEX, (l, idx, str) => {
+                const prev = str[idx - 1];
+                if (prev === "'" || prev === "\u2019") {
+                    return l;
+                }
+                return l.toUpperCase();
+            });
 
             if (hasRomanNumerals) {
                 const romanNumerals = [];
