@@ -2209,7 +2209,7 @@
 
             state.search = searchTerm;
             updateVisibleGames();
-        }, 20);
+        }, 140);
 
         let searchIndex = null; 
         let gameIndex = null; 
@@ -6595,8 +6595,8 @@
 
             const hasSearch = !!(state.search && state.search.trim() !== '');
             const desiredInProg = hasSearch ? inProgressGames.filter(g => matchesQuery(g.name, state.search)).sort(cmp)
-                                            : inProgressGames;
-            const desiredRegular = hasSearch ? regularGames.slice().sort(cmp) : regularGames;
+                                            : inProgressGames.slice();
+            const desiredRegular = hasSearch ? regularGames.slice().sort(cmp) : regularGames.slice();
 
             const desiredInProgIds = new Set(desiredInProg.map(g => g.id.toString()));
             const desiredRegularIds = new Set(desiredRegular.map(g => g.id.toString()));
