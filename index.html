@@ -2209,7 +2209,7 @@
 
             state.search = searchTerm;
             updateVisibleGames();
-        }, 140);
+        }, 60);
 
         let searchIndex = null; 
         let gameIndex = null; 
@@ -6583,6 +6583,9 @@
                     const pa = ia.noNumber ? 1 : ia.part;
                     const pb = ib.noNumber ? 1 : ib.part;
                     if (pa !== pb) return pa - pb;
+                    const ya = a.year == null ? Infinity : a.year;
+                    const yb = b.year == null ? Infinity : b.year;
+                    if (ya !== yb) return ya - yb;
                 }
                 const sa = getScore(a);
                 const sb = getScore(b);
@@ -6627,15 +6630,17 @@
             reorder(inProgressRow, desiredInProg);
             reorder(grid, desiredRegular);
 
-            updateGridSize();
-            updateCounter();
-            updateSaturation();
-            setTimeout(() => {
-                const newCells = document.querySelectorAll('.cell img:not(.loaded)');
-                if (newCells.length > 0) {
-                    processImageQueue();
-                }
-            }, 50);
+            if (!hasSearch) {
+                updateGridSize();
+                updateCounter();
+                updateSaturation();
+                setTimeout(() => {
+                    const newCells = document.querySelectorAll('.cell img:not(.loaded)');
+                    if (newCells.length > 0) {
+                        processImageQueue();
+                    }
+                }, 50);
+            }
         }
         
         function optimizedRenderGrid(visibleGames, inProgressGames) {
