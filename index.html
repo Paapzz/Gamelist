@@ -6645,6 +6645,8 @@
             maxTooltip.textContent = maxVal;
             minTooltip.style.left = `${Math.max(0, Math.min(minPx, containerWidth))}px`;
             maxTooltip.style.left = `${Math.max(0, Math.min(maxPx, containerWidth))}px`;
+
+            yearValue.textContent = minVal === maxVal ? `${minVal}` : `${minVal} - ${maxVal}`;
         }
 
         let isYearSliderActive = false;
