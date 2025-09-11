@@ -2781,6 +2781,7 @@
         let previewTimeout;
         let previewEnabled = localStorage.getItem('previewEnabled') !== 'false';
         let inProgressMode = false;
+        let lastInProgressSignature = '';
         let hideCompleted = JSON.parse(localStorage.getItem('hideCompleted')) || false;
 
         let savedMinYear = localStorage.getItem('minYear');
@@ -5021,6 +5022,15 @@
                 }
             });
 
+            const sig = state.games
+                .filter(g => g.inProgress)
+                .map(g => `${g.id}:${g.name}:${g.year}:${g.imageUrl}`)
+                .join('|');
+            if (sig === lastInProgressSignature) {
+                return;
+            }
+            lastInProgressSignature = sig;
+
             inProgressRow.innerHTML = '';
             const inProgressGames = state.games.filter(game => game.inProgress);
 
@@ -7218,8 +7228,6 @@
         });
 
         window.addEventListener('resize', () => {
-            updateInProgressRow();
-
             updateVisibleGames();
 
             if (typeof setListsHeight === 'function') {
@@ -7254,7 +7262,6 @@
         window.addEventListener('load', () => {
             setTimeout(() => {
                 updateGridSize();
-                updateInProgressRow();
 
                 updateYearsCache();
 
