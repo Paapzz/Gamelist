@@ -4578,7 +4578,10 @@
 
                     const gameId = img.closest('.cell')?.dataset.gameId;
                     if (gameId) {
-                        gameCache.images[gameId] = url;
+                        const cell = img.closest('.cell');
+                        const data = cell && cell.dataset.gameObject ? JSON.parse(cell.dataset.gameObject) : null;
+                        const expectedUrl = data && data.imageUrl ? data.imageUrl : url;
+                        gameCache.images[gameId] = expectedUrl;
                     }
 
                     updateLoadingIndicator();
