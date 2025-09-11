@@ -5769,7 +5769,7 @@
                     clearOldestImagesFromCache(size);
                 }
 
-                const cacheKey = IMAGE_CACHE_PREFIX + hashUrl(url);
+                const cacheKey = IMAGE_CACHE_PREFIX + url;
                 localStorage.setItem(cacheKey, url);
 
                 currentCacheSize += size;
@@ -5792,10 +5792,21 @@
 
         function loadImageFromCache(url) {
             try {
-                const cacheKey = IMAGE_CACHE_PREFIX + hashUrl(url);
+                const cacheKey = IMAGE_CACHE_PREFIX + url;
                 const cachedUrl = localStorage.getItem(cacheKey);
 
                 if (cachedUrl) {
+                    if (cachedUrl !== url) {
+                        localStorage.removeItem(cacheKey);
+                        try {
+                            const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
+                            if (cacheMetadata[cacheKey]) {
+                                delete cacheMetadata[cacheKey];
+                                localStorage.setItem('imageCacheMetadata', JSON.stringify(cacheMetadata));
+                            }
+                        } catch (e) {}
+                        return null;
+                    }
                     try {
                         const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
                         if (cacheMetadata[cacheKey]) {
@@ -5819,15 +5830,7 @@
             }
         }
 
-        function hashUrl(url) {
-            let hash = 0;
-            for (let i = 0; i < url.length; i++) {
-                const char = url.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash;
-            }
-            return Math.abs(hash).toString(16);
-        }
+        // hashUrl больше не используется; ключом является сам URL
 
         function clearOldestImagesFromCache(requiredSpace) {
             try {
@@ -5928,7 +5931,7 @@
 
         function clearImageFromCache(url) {
             try {
-                const cacheKey = IMAGE_CACHE_PREFIX + hashUrl(url);
+                const cacheKey = IMAGE_CACHE_PREFIX + url;
                 const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
                 
                 localStorage.removeItem(cacheKey);
