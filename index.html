@@ -5024,7 +5024,15 @@
 
             const inProgressGames = state.games.filter(game => game.inProgress);
             const signature = inProgressGames.map(g => `${g.id}:${g.name}:${g.imageUrl}:${g.year}:${g.completed ? 1 : 0}`).join('|');
-            if (signature === lastInProgressSignature) {
+
+            const currentCells = Array.from(inProgressRow.querySelectorAll('.cell'));
+            const currentIds = currentCells.map(c => c.getAttribute('data-game-id'));
+            const uniqueCurrentIds = new Set(currentIds);
+            const expectedIds = new Set(inProgressGames.map(g => String(g.id)));
+
+            const domClean = currentIds.length === uniqueCurrentIds.size && currentIds.length === expectedIds.size && currentIds.every(id => expectedIds.has(id));
+
+            if (signature === lastInProgressSignature && domClean) {
                 return;
             }
             lastInProgressSignature = signature;
