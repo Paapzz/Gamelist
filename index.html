@@ -2782,6 +2782,7 @@
         let previewEnabled = localStorage.getItem('previewEnabled') !== 'false';
         let inProgressMode = false;
         let hideCompleted = JSON.parse(localStorage.getItem('hideCompleted')) || false;
+        let lastInProgressSignature = null;
 
         let savedMinYear = localStorage.getItem('minYear');
         let savedMaxYear = localStorage.getItem('maxYear');
@@ -4385,12 +4386,6 @@
                 const v = localStorage.getItem('imageCacheVersion');
                 if (v !== IMAGE_CACHE_VERSION) {
                     clearImageCache();
-                    try {
-                        localStorage.setItem('imageCache', JSON.stringify({}));
-                    } catch (e) {}
-                    if (gameCache && gameCache.images) {
-                        gameCache.images = {};
-                    }
                     localStorage.setItem('imageCacheVersion', IMAGE_CACHE_VERSION);
                 }
             } catch (e) {
@@ -4531,6 +4526,9 @@
             activeImageLoads++;
 
             const gameId = img.closest('.cell')?.dataset.gameId;
+            if (gameId && gameCache.images[gameId]) {
+                delete gameCache.images[gameId];
+            }
 
             const cachedImage = loadImageFromCache(url);
 
@@ -4560,10 +4558,7 @@
 
                     const gameId = img.closest('.cell')?.dataset.gameId;
                     if (gameId) {
-                        const cell = img.closest('.cell');
-                        const data = cell && cell.dataset.gameObject ? JSON.parse(cell.dataset.gameObject) : null;
-                        const expectedUrl = data && data.imageUrl ? data.imageUrl : url;
-                        gameCache.images[gameId] = expectedUrl;
+                        gameCache.images[gameId] = url;
                     }
 
                     updateLoadingIndicator();
@@ -5019,18 +5014,22 @@
                 return;
             }
             inProgressRow.querySelectorAll('.cell img.loaded').forEach(img => {
-                const cell = img.closest('.cell');
-                if (cell && cell.dataset.gameId) {
-                    const data = cell.dataset.gameObject ? JSON.parse(cell.dataset.gameObject) : null;
-                    const expectedUrl = data && data.imageUrl ? data.imageUrl : '';
-                    if (expectedUrl) {
-                        gameCache.images[cell.dataset.gameId] = expectedUrl;
+                if (img.src) {
+                    const cell = img.closest('.cell');
+                    if (cell && cell.dataset.gameId) {
+                        gameCache.images[cell.dataset.gameId] = img.src;
                     }
                 }
             });
 
-            inProgressRow.innerHTML = '';
             const inProgressGames = state.games.filter(game => game.inProgress);
+            const signature = inProgressGames.map(g => `${g.id}:${g.name}:${g.imageUrl}:${g.year}:${g.completed ? 1 : 0}`).join('|');
+            if (signature === lastInProgressSignature) {
+                return;
+            }
+            lastInProgressSignature = signature;
+
+            inProgressRow.innerHTML = '';
 
             const fragment = document.createDocumentFragment();
 
@@ -5796,20 +5795,9 @@
                 const cachedUrl = localStorage.getItem(cacheKey);
 
                 if (cachedUrl) {
-                    if (cachedUrl !== url) {
-                        localStorage.removeItem(cacheKey);
-                        try {
-                            const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
-                            if (cacheMetadata[cacheKey]) {
-                                delete cacheMetadata[cacheKey];
-                                localStorage.setItem('imageCacheMetadata', JSON.stringify(cacheMetadata));
-                            }
-                        } catch (e) {}
-                        return null;
-                    }
                     try {
                         const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
-                        if (cacheMetadata[cacheKey]) {
+                        if (cacheMetadata[cacheKey] && cacheMetadata[cacheKey].url === url) {
                             cacheMetadata[cacheKey].usageCount = (cacheMetadata[cacheKey].usageCount || 0) + 1;
                             cacheMetadata[cacheKey].lastAccessed = Date.now();
 
@@ -5817,6 +5805,11 @@
                             gameCache.timers.cacheMetadata = setTimeout(() => {
                                 localStorage.setItem('imageCacheMetadata', JSON.stringify(cacheMetadata));
                             }, 5000);
+                        } else if (cacheMetadata[cacheKey] && cacheMetadata[cacheKey].url !== url) {
+                            localStorage.removeItem(cacheKey);
+                            delete cacheMetadata[cacheKey];
+                            localStorage.setItem('imageCacheMetadata', JSON.stringify(cacheMetadata));
+                            return null;
                         }
                     } catch (metadataError) {
                         console.error('Ошибка при обновлении метаданных кэша:', metadataError);
@@ -5830,7 +5823,7 @@
             }
         }
 
-        // hashUrl больше не используется; ключом является сам URL
+        
 
         function clearOldestImagesFromCache(requiredSpace) {
             try {
@@ -5931,7 +5924,7 @@
 
         function clearImageFromCache(url) {
             try {
-                const cacheKey = IMAGE_CACHE_PREFIX + url;
+                const cacheKey = IMAGE_CACHE_PREFIX + hashUrl(url);
                 const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
                 
                 localStorage.removeItem(cacheKey);
@@ -6250,12 +6243,10 @@
             }
             
             document.querySelectorAll('.cell img.loaded').forEach(img => {
-                const cell = img.closest('.cell');
-                if (cell && cell.dataset.gameId) {
-                    const data = cell.dataset.gameObject ? JSON.parse(cell.dataset.gameObject) : null;
-                    const expectedUrl = data && data.imageUrl ? data.imageUrl : '';
-                    if (expectedUrl) {
-                        gameCache.images[cell.dataset.gameId] = expectedUrl;
+                if (img.src) {
+                    const cell = img.closest('.cell');
+                    if (cell && cell.dataset.gameId) {
+                        gameCache.images[cell.dataset.gameId] = img.src;
                     }
                 }
             });
@@ -7066,12 +7057,10 @@
 
         function resetFilters() {
             document.querySelectorAll('.cell img.loaded').forEach(img => {
-                const cell = img.closest('.cell');
-                if (cell && cell.dataset.gameId) {
-                    const data = cell.dataset.gameObject ? JSON.parse(cell.dataset.gameObject) : null;
-                    const expectedUrl = data && data.imageUrl ? data.imageUrl : '';
-                    if (expectedUrl) {
-                        gameCache.images[cell.dataset.gameId] = expectedUrl;
+                if (img.src) {
+                    const cell = img.closest('.cell');
+                    if (cell && cell.dataset.gameId) {
+                        gameCache.images[cell.dataset.gameId] = img.src;
                     }
                 }
             });
@@ -7711,7 +7700,7 @@
                         img.classList.add('loaded');
                     }, 10);
                 } else {
-                    queueImageLoad(img, imageUrl);
+                queueImageLoad(img, imageUrl);
                 }
 
                 updateCellSize(cell, game.inProgress);
@@ -8487,7 +8476,7 @@
                     yearSliderMax.style.zIndex = '6';
                 }
             }
-
+            
             const onYearInputMin = () => {
                 const minVal = parseInt(yearSliderMin.value);
                 const maxVal = parseInt(yearSliderMax.value);
