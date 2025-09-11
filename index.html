@@ -5041,16 +5041,19 @@
             const expectedIdsArr = inProgressGames.map(g => String(g.id));
             const expectedIdSet = new Set(expectedIdsArr);
 
+            const seen = new Set();
             existingCells.forEach(cell => {
                 const id = cell.getAttribute('data-game-id');
-                if (!expectedIdSet.has(id)) {
+                if (!expectedIdSet.has(id) || seen.has(id)) {
                     cell.remove();
+                } else {
+                    seen.add(id);
                 }
             });
 
             for (let i = 0; i < expectedIdsArr.length; i++) {
                 const id = expectedIdsArr[i];
-                let cell = inProgressRow.querySelector(`.cell[data-game-id="${id}"]`);
+                let cell = Array.from(inProgressRow.querySelectorAll(`.cell[data-game-id="${id}"]`))[0] || null;
                 if (!cell) {
                     cell = createCell(inProgressGames[i]);
                     const before = inProgressRow.children[i] || null;
