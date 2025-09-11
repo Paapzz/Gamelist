@@ -8509,8 +8509,8 @@
                 const minVal = parseInt(yearSliderMin.value);
                 const maxVal = parseInt(yearSliderMax.value);
 
-                if (minVal > maxVal - 1) {
-                    yearSliderMin.value = maxVal - 1;
+                if (minVal > maxVal) {
+                    yearSliderMin.value = maxVal;
                 }
 
                 state.filters.yearMin = parseInt(yearSliderMin.value);
@@ -8549,8 +8549,8 @@
                 const minVal = parseInt(yearSliderMin.value);
                 const maxVal = parseInt(yearSliderMax.value);
 
-                if (maxVal < minVal + 1) {
-                    yearSliderMax.value = minVal + 1;
+                if (maxVal < minVal) {
+                    yearSliderMax.value = minVal;
                 }
 
                 state.filters.yearMax = parseInt(yearSliderMax.value);
