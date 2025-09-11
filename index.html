@@ -5037,19 +5037,31 @@
             }
             lastInProgressSignature = signature;
 
-            inProgressRow.innerHTML = '';
+            const existingCells = Array.from(inProgressRow.children);
+            const expectedIdsArr = inProgressGames.map(g => String(g.id));
+            const expectedIdSet = new Set(expectedIdsArr);
 
-            const fragment = document.createDocumentFragment();
-
-            inProgressGames.forEach(game => {
-                const cell = createCell(game);
-
-                
-
-                fragment.appendChild(cell);
+            existingCells.forEach(cell => {
+                const id = cell.getAttribute('data-game-id');
+                if (!expectedIdSet.has(id)) {
+                    cell.remove();
+                }
             });
 
-            inProgressRow.appendChild(fragment);
+            for (let i = 0; i < expectedIdsArr.length; i++) {
+                const id = expectedIdsArr[i];
+                let cell = inProgressRow.querySelector(`.cell[data-game-id="${id}"]`);
+                if (!cell) {
+                    cell = createCell(inProgressGames[i]);
+                    const before = inProgressRow.children[i] || null;
+                    inProgressRow.insertBefore(cell, before);
+                } else {
+                    const atI = inProgressRow.children[i];
+                    if (atI !== cell) {
+                        inProgressRow.insertBefore(cell, atI || null);
+                    }
+                }
+            }
 
             inProgressRow.style.display = inProgressRow.children.length > 0 ? 'flex' : 'none';
             inProgressRow.style.justifyContent = 'flex-start';
