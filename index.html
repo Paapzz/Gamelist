@@ -5050,6 +5050,18 @@
             inProgressRow.style.justifyContent = 'flex-start';
             inProgressRow.style.alignItems = 'flex-start';
 
+            const seenIds = new Set();
+            Array.from(inProgressRow.children).forEach(child => {
+                const id = child.getAttribute('data-game-id');
+                if (id) {
+                    if (seenIds.has(id)) {
+                        child.remove();
+                    } else {
+                        seenIds.add(id);
+                    }
+                }
+            });
+
             const size = sizeSlider.value;
             inProgressRow.querySelectorAll('.cell').forEach(cell => {
                 updateCellSize(cell, true);
@@ -6684,6 +6696,18 @@
 
             inProgressRow.appendChild(inProgressFragment);
             grid.appendChild(gridFragment);
+
+            const seenInProg = new Set();
+            Array.from(inProgressRow.children).forEach(child => {
+                const id = child.getAttribute('data-game-id');
+                if (id) {
+                    if (seenInProg.has(id)) {
+                        child.remove();
+                    } else {
+                        seenInProg.add(id);
+                    }
+                }
+            });
 
             updateGridSize();
 
