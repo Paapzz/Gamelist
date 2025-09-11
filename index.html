@@ -4531,24 +4531,6 @@
             activeImageLoads++;
 
             const gameId = img.closest('.cell')?.dataset.gameId;
-            if (gameId && gameCache.images[gameId]) {
-                if (gameCache.images[gameId] === url) {
-                img.src = gameCache.images[gameId];
-
-                setTimeout(() => {
-                    img.classList.add('loaded');
-                }, 10);
-
-                activeImageLoads--;
-
-                updateLoadingIndicator();
-
-                setTimeout(processImageQueue, 50);
-                return;
-                } else {
-                    delete gameCache.images[gameId];
-                }
-            }
 
             const cachedImage = loadImageFromCache(url);
 
@@ -5055,22 +5037,7 @@
             inProgressGames.forEach(game => {
                 const cell = createCell(game);
 
-                const gameId = game.id.toString();
-                if (gameCache.images[gameId]) {
-                    const img = cell.querySelector('img');
-                    if (img) {
-                        const data = cell.dataset.gameObject ? JSON.parse(cell.dataset.gameObject) : null;
-                        const expectedUrl = data && data.imageUrl ? data.imageUrl : '';
-                        const cachedUrl = gameCache.images[gameId];
-                        if (cachedUrl === expectedUrl) {
-                            img.src = cachedUrl;
-                            img.classList.add('loaded');
-                            img.style.opacity = '1';
-                        } else {
-                            delete gameCache.images[gameId];
-                        }
-                    }
-                }
+                
 
                 fragment.appendChild(cell);
             });
@@ -6303,21 +6270,7 @@
 
                             cell.classList.remove('search-match-in-progress');
 
-                    if (gameCache.images[gameId]) {
-                        const img = cell.querySelector('img');
-                        if (img) {
-                            const data = cell.dataset.gameObject ? JSON.parse(cell.dataset.gameObject) : null;
-                            const expectedUrl = data && data.imageUrl ? data.imageUrl : '';
-                            const cachedUrl = gameCache.images[gameId];
-                            if (cachedUrl === expectedUrl) {
-                                img.src = cachedUrl;
-                                img.classList.add('loaded');
-                                img.style.opacity = '1';
-                            } else {
-                                delete gameCache.images[gameId];
-                            }
-                        }
-                    }
+                    
                 } else {
                     cell.style.display = 'none';
                 }
