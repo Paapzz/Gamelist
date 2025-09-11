@@ -2781,8 +2781,8 @@
         let previewTimeout;
         let previewEnabled = localStorage.getItem('previewEnabled') !== 'false';
         let inProgressMode = false;
-        let lastInProgressSignature = '';
         let hideCompleted = JSON.parse(localStorage.getItem('hideCompleted')) || false;
+        let lastInProgressSignature = null;
 
         let savedMinYear = localStorage.getItem('minYear');
         let savedMaxYear = localStorage.getItem('maxYear');
@@ -5013,26 +5013,15 @@
                 updateVisibleGames();
                 return;
             }
-            inProgressRow.querySelectorAll('.cell img.loaded').forEach(img => {
-                if (img.src) {
-                    const cell = img.closest('.cell');
-                    if (cell && cell.dataset.gameId) {
-                        gameCache.images[cell.dataset.gameId] = img.src;
-                    }
-                }
-            });
+            const inProgressGames = state.games.filter(game => game.inProgress);
 
-            const sig = state.games
-                .filter(g => g.inProgress)
-                .map(g => `${g.id}:${g.name}:${g.year}:${g.imageUrl}`)
-                .join('|');
-            if (sig === lastInProgressSignature) {
+            const signature = inProgressGames.map(g => `${g.id}:${g.name}:${g.imageUrl}:${g.year}:${g.completed ? 1 : 0}`).join('|');
+            if (signature === lastInProgressSignature) {
                 return;
             }
-            lastInProgressSignature = sig;
+            lastInProgressSignature = signature;
 
             inProgressRow.innerHTML = '';
-            const inProgressGames = state.games.filter(game => game.inProgress);
 
             const fragment = document.createDocumentFragment();
 
@@ -5049,18 +5038,6 @@
             inProgressRow.style.display = inProgressRow.children.length > 0 ? 'flex' : 'none';
             inProgressRow.style.justifyContent = 'flex-start';
             inProgressRow.style.alignItems = 'flex-start';
-
-            const seenIds = new Set();
-            Array.from(inProgressRow.children).forEach(child => {
-                const id = child.getAttribute('data-game-id');
-                if (id) {
-                    if (seenIds.has(id)) {
-                        child.remove();
-                    } else {
-                        seenIds.add(id);
-                    }
-                }
-            });
 
             const size = sizeSlider.value;
             inProgressRow.querySelectorAll('.cell').forEach(cell => {
@@ -6697,18 +6674,6 @@
             inProgressRow.appendChild(inProgressFragment);
             grid.appendChild(gridFragment);
 
-            const seenInProg = new Set();
-            Array.from(inProgressRow.children).forEach(child => {
-                const id = child.getAttribute('data-game-id');
-                if (id) {
-                    if (seenInProg.has(id)) {
-                        child.remove();
-                    } else {
-                        seenInProg.add(id);
-                    }
-                }
-            });
-
             updateGridSize();
 
             updateCounter();
@@ -7252,6 +7217,8 @@
         });
 
         window.addEventListener('resize', () => {
+            updateInProgressRow();
+
             updateVisibleGames();
 
             if (typeof setListsHeight === 'function') {
@@ -7286,6 +7253,7 @@
         window.addEventListener('load', () => {
             setTimeout(() => {
                 updateGridSize();
+                updateInProgressRow();
 
                 updateYearsCache();
 
