@@ -4385,6 +4385,12 @@
                 const v = localStorage.getItem('imageCacheVersion');
                 if (v !== IMAGE_CACHE_VERSION) {
                     clearImageCache();
+                    try {
+                        localStorage.setItem('imageCache', JSON.stringify({}));
+                    } catch (e) {}
+                    if (gameCache && gameCache.images) {
+                        gameCache.images = {};
+                    }
                     localStorage.setItem('imageCacheVersion', IMAGE_CACHE_VERSION);
                 }
             } catch (e) {
@@ -5028,10 +5034,12 @@
                 return;
             }
             inProgressRow.querySelectorAll('.cell img.loaded').forEach(img => {
-                if (img.src) {
-                    const cell = img.closest('.cell');
-                    if (cell && cell.dataset.gameId) {
-                        gameCache.images[cell.dataset.gameId] = img.src;
+                const cell = img.closest('.cell');
+                if (cell && cell.dataset.gameId) {
+                    const data = cell.dataset.gameObject ? JSON.parse(cell.dataset.gameObject) : null;
+                    const expectedUrl = data && data.imageUrl ? data.imageUrl : '';
+                    if (expectedUrl) {
+                        gameCache.images[cell.dataset.gameId] = expectedUrl;
                     }
                 }
             });
@@ -6269,10 +6277,12 @@
             }
             
             document.querySelectorAll('.cell img.loaded').forEach(img => {
-                if (img.src) {
-                    const cell = img.closest('.cell');
-                    if (cell && cell.dataset.gameId) {
-                        gameCache.images[cell.dataset.gameId] = img.src;
+                const cell = img.closest('.cell');
+                if (cell && cell.dataset.gameId) {
+                    const data = cell.dataset.gameObject ? JSON.parse(cell.dataset.gameObject) : null;
+                    const expectedUrl = data && data.imageUrl ? data.imageUrl : '';
+                    if (expectedUrl) {
+                        gameCache.images[cell.dataset.gameId] = expectedUrl;
                     }
                 }
             });
@@ -7097,10 +7107,12 @@
 
         function resetFilters() {
             document.querySelectorAll('.cell img.loaded').forEach(img => {
-                if (img.src) {
-                    const cell = img.closest('.cell');
-                    if (cell && cell.dataset.gameId) {
-                        gameCache.images[cell.dataset.gameId] = img.src;
+                const cell = img.closest('.cell');
+                if (cell && cell.dataset.gameId) {
+                    const data = cell.dataset.gameObject ? JSON.parse(cell.dataset.gameObject) : null;
+                    const expectedUrl = data && data.imageUrl ? data.imageUrl : '';
+                    if (expectedUrl) {
+                        gameCache.images[cell.dataset.gameId] = expectedUrl;
                     }
                 }
             });
