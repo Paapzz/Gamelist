@@ -8505,6 +8505,16 @@
                 resetFilters();
             });
             
+            function setActiveSlider(which) {
+                if (which === 'min') {
+                    yearSliderMin.style.zIndex = '6';
+                    yearSliderMax.style.zIndex = '5';
+                } else if (which === 'max') {
+                    yearSliderMin.style.zIndex = '5';
+                    yearSliderMax.style.zIndex = '6';
+                }
+            }
+
             const onYearInputMin = () => {
                 const minVal = parseInt(yearSliderMin.value);
                 const maxVal = parseInt(yearSliderMax.value);
@@ -8523,6 +8533,8 @@
                 debouncedUpdateVisibleGamesDuringDrag();
             };
             yearSliderMin.addEventListener('input', onYearInputMin);
+            yearSliderMin.addEventListener('pointerdown', () => setActiveSlider('min'));
+            yearSliderMin.addEventListener('mouseenter', () => setActiveSlider('min'));
 
             yearSliderMin.addEventListener('change', () => {
                 isSliderMoving = false;
@@ -8563,6 +8575,8 @@
                 debouncedUpdateVisibleGamesDuringDrag();
             };
             yearSliderMax.addEventListener('input', onYearInputMax);
+            yearSliderMax.addEventListener('pointerdown', () => setActiveSlider('max'));
+            yearSliderMax.addEventListener('mouseenter', () => setActiveSlider('max'));
 
             yearSliderMax.addEventListener('change', () => {
                 isSliderMoving = false;
