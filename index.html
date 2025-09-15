@@ -427,9 +427,9 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background:
-                linear-gradient(to top right, transparent calc(50% - 1px), red calc(50% - 1px), red calc(50% + 1px), transparent calc(50% + 1px)),
-                linear-gradient(to bottom right, transparent calc(50% - 1px), red calc(50% - 1px), red calc(50% + 1px), transparent calc(50% + 1px));
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 133' preserveAspectRatio='none'><line x1='0' y1='0' x2='100' y2='133' stroke='%23fff' stroke-width='2' stroke-linecap='round'/><line x1='0' y1='133' x2='100' y2='0' stroke='%23fff' stroke-width='2' stroke-linecap='round'/></svg>");
+            background-repeat: no-repeat;
+            background-size: 100% 100%;
             z-index: 2;
             pointer-events: none;
             filter: saturate(100%) !important;
@@ -443,7 +443,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(to bottom right, transparent calc(50% - 1px), #fff, transparent calc(50% + 1px));
+            background: none;
             pointer-events: none;
             border-radius: 10%;
             transition: transform 0.2s ease;
@@ -1328,7 +1328,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(to bottom right, transparent calc(50% - 1px), #fff, transparent calc(50% + 1px));
+            background: none;
             pointer-events: none;
         }
         .modal {
