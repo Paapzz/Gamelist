@@ -663,8 +663,23 @@
         }
         #searchInput {
             margin-left: 10px;
-            padding: 3px;
+            font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Roboto","Oxygen","Ubuntu","Cantarell","Fira Sans","Droid Sans","Helvetica Neue",sans-serif;
+            font-weight: 500;
             font-size: 14px;
+            color: #fff;
+            background-color: rgb(28,28,30);
+            box-shadow: 0 0 .4vw rgba(0,0,0,0.5), 0 0 0 .12vw transparent;
+            border-radius: 0.4vw;
+            border: none;
+            outline: none;
+            padding: 0.4vw;
+            transition: .4s;
+        }
+        #searchInput:hover {
+            box-shadow: 0 0 0 .12vw rgba(76, 175, 80, 0.25);
+        }
+        #searchInput:focus {
+            box-shadow: 0 0 0 .12vw #4CAF50;
         }
         #filtersPanel {
             position: fixed;
