@@ -2233,6 +2233,7 @@
 
             state.search = searchTerm;
             updateVisibleGames();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }, 60);
 
         let searchIndex = null; 
@@ -6091,6 +6092,7 @@
             state.search = searchTerm;
 
             updateVisibleGames();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function clearSearch() {
@@ -6103,6 +6105,7 @@
             });
 
             updateVisibleGames();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function shouldShowGame(game) {
@@ -6252,6 +6255,7 @@
         function updateSearch(search) {
             state.search = search;
             updateVisibleGames();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function updateSaturationValue(value) {
