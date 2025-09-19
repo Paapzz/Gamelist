@@ -293,13 +293,14 @@ def search_game_single_attempt(page, game_title):
             return None
         
         # Выбираем наиболее подходящий результат
-        best_match = find_best_match(page, game_links, game_title)
+        best_match, best_title, similarity = find_best_match(page, game_links, game_title)
         if not best_match:
             return None
         
-        # Проверяем схожесть названия
-        best_title = best_match.inner_text().strip()
-        similarity = calculate_title_similarity(game_title, best_title)
+        # Сохраняем данные выбранной игры
+        best_url = best_match.get_attribute("href")
+        
+        # Логируем выбор
         log_message(f"🎯 Выбрано: '{best_title}' (схожесть: {similarity:.2f})")
         
         # Если схожесть меньше 0.6, возвращаем None для попытки альтернативного названия
@@ -308,8 +309,7 @@ def search_game_single_attempt(page, game_title):
             return None
         
         # Переходим на страницу выбранной игры
-        game_url = best_match.get_attribute("href")
-        full_url = f"{BASE_URL}{game_url}"
+        full_url = f"{BASE_URL}{best_url}"
         
         page.goto(full_url, timeout=20000)
         page.wait_for_load_state("domcontentloaded", timeout=15000)
@@ -343,6 +343,7 @@ def find_best_match(page, game_links, original_title):
     try:
         best_match = None
         best_score = 0
+        best_title = ""
         
         # Очищаем оригинальное название для сравнения
         original_clean = clean_title_for_comparison(original_title)
@@ -361,21 +362,21 @@ def find_best_match(page, game_links, original_title):
                 if score > best_score:
                     best_score = score
                     best_match = link
+                    best_title = link_text
                 
                 # Если нашли очень хорошее совпадение, останавливаемся
                 if score >= 0.9:
                     break
         
-        # Логируем выбор
-        if best_match and best_score > 0:
-            chosen_title = best_match.inner_text().strip()
-            log_message(f"🎯 Выбрано: '{chosen_title}' (схожесть: {best_score:.2f})")
-        
-        return best_match if best_score >= 0.3 else None  # Минимальный порог схожести
+        # Возвращаем кортеж с результатом и схожестью
+        if best_score >= 0.3:
+            return best_match, best_title, best_score
+        else:
+            return None, "", 0
         
     except Exception as e:
         log_message(f"❌ Ошибка выбора лучшего совпадения: {e}")
-        return game_links.first if game_links.count() > 0 else None
+        return game_links.first if game_links.count() > 0 else None, "", 0
 
 def clean_title_for_comparison(title):
     """Очищает название игры для сравнения"""
@@ -532,6 +533,15 @@ def extract_hltb_data_from_page(page):
         if store_links:
             hltb_data["stores"] = store_links
         
+        # Логируем итоговые результаты
+        if hltb_data:
+            categories = []
+            for key, value in hltb_data.items():
+                if key != "stores" and isinstance(value, dict) and "t" in value:
+                    categories.append(f"{key}: {value['t']}")
+            if categories:
+                log_message(f"📊 Найдены категории: {', '.join(categories)}")
+        
         return hltb_data if hltb_data else None
         
     except Exception as e:
@@ -593,9 +603,12 @@ def extract_hltb_row_data(row_text):
     try:
         import re
         
-        # Ищем количество голосов (число после названия категории)
-        # Пример: "Main Story 54 660h 37m" -> 54
-        polled_match = re.search(r'^[A-Za-z\s]+\s+(\d+)\s+', row_text)
+        # Ищем количество голосов (первое число в строке после названия категории)
+        # Примеры: "Main Story 54 660h 37m" -> 54, "Co-Op 781 10 Hours" -> 781
+        polled_match = re.search(r'^[A-Za-z\s/]+\s+(\d+)\s+', row_text)
+        if not polled_match:
+            # Альтернативный поиск: число перед первым временем
+            polled_match = re.search(r'(\d+)\s+(?:\d+h|\d+\s*Hours?)', row_text)
         polled = int(polled_match.group(1)) if polled_match else None
         
         # Ищем времена в разных форматах
@@ -627,7 +640,7 @@ def extract_hltb_row_data(row_text):
         
         # Вычисляем среднее между Average и Median
         final_time = calculate_average_time(average_time, median_time)
-        result["t"] = final_time
+        result["t"] = round_time(final_time) if final_time else None
         
         if polled:
             result["p"] = polled
@@ -637,13 +650,11 @@ def extract_hltb_row_data(row_text):
             # Single-Player: Average, Median, Rushed, Leisure
             result["r"] = round_time(times[2])  # Rushed (сокращенно и округлено)
             result["l"] = round_time(times[3])  # Leisure (сокращенно и округлено)
-            log_message(f"📊 Single-Player данные: Average={final_time}, Rushed={result['r']}, Leisure={result['l']}")
             
         elif is_multi_player and len(times) >= 4:
             # Multi-Player: Average, Median, Least, Most
             result["min"] = round_time(times[2])  # Least (сокращенно и округлено)
             result["max"] = round_time(times[3])  # Most (сокращенно и округлено)
-            log_message(f"📊 Multi-Player данные: Average={final_time}, Least={result['min']}, Most={result['max']}")
             
         return result
         
@@ -705,6 +716,7 @@ def calculate_average_time(time1_str, time2_str):
         # Конвертируем обратно в часы
         hours = avg_minutes / 60
         
+        # Применяем умное округление
         if hours >= 1:
             if hours == int(hours):
                 return f"{int(hours)}h"
