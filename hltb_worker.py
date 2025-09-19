@@ -491,25 +491,16 @@ def extract_hltb_data_from_page(page):
                         try:
                             row_text = rows.nth(row_idx).inner_text().strip()
                             
-                            # Логируем все строки для отладки
-                            if any(keyword in row_text for keyword in ["Main Story", "Main + Extras", "Completionist", "Co-Op", "Competitive"]):
-                                log_message(f"🔍 Строка {row_idx + 1}: '{row_text}'")
-                            
                             # Парсим строки с данными (только если еще не найдены)
                             if "Main Story" in row_text and "ms" not in hltb_data:
-                                log_message(f"📝 Парсим Main Story: '{row_text}'")
                                 hltb_data["ms"] = extract_hltb_row_data(row_text)
                             elif "Main + Extras" in row_text and "mpe" not in hltb_data:
-                                log_message(f"📝 Парсим Main + Extras: '{row_text}'")
                                 hltb_data["mpe"] = extract_hltb_row_data(row_text)
                             elif "Completionist" in row_text and "comp" not in hltb_data:
-                                log_message(f"📝 Парсим Completionist: '{row_text}'")
                                 hltb_data["comp"] = extract_hltb_row_data(row_text)
                             elif "Co-Op" in row_text and "coop" not in hltb_data:
-                                log_message(f"📝 Парсим Co-Op: '{row_text}'")
                                 hltb_data["coop"] = extract_hltb_row_data(row_text)
                             elif "Competitive" in row_text and "vs" not in hltb_data:
-                                log_message(f"📝 Парсим Competitive: '{row_text}'")
                                 hltb_data["vs"] = extract_hltb_row_data(row_text)
                                 
                         except Exception as e:
@@ -616,7 +607,6 @@ def extract_hltb_row_data(row_text):
     """Извлекает данные из строки таблицы HLTB (новый формат)"""
     try:
         import re
-        log_message(f"🔍 Парсим строку: '{row_text}'")
         
         # Ищем количество голосов (поддерживаем K формат и табы)
         # Примеры: "Main Story 54 660h 37m" -> 54, "Main Story	1.7K	15h 31m" -> 1700
@@ -637,7 +627,6 @@ def extract_hltb_row_data(row_text):
                 polled = int(number * 1000)
             else:
                 polled = int(float(polled_str))
-        log_message(f"   Голоса: {polled}")
         
         # Ищем времена в правильном порядке
         times = []
@@ -648,7 +637,6 @@ def extract_hltb_row_data(row_text):
         time_part = re.sub(r'^[A-Za-z\s/\+]+\s+\d+(?:\.\d+)?[Kk]?\s+', '', row_text)
         if time_part == row_text:  # Если не сработало, пробуем с табами
             time_part = re.sub(r'^[A-Za-z\s/\+]+\t+\d+(?:\.\d+)?[Kk]?\t+', '', row_text)
-        log_message(f"   Временная часть: '{time_part}'")
         
         # Парсим времена в правильном порядке: Average, Median, Rushed, Leisure
         # Формат: "5h 7m 5h 2h 45m 9h 1m"
@@ -663,7 +651,6 @@ def extract_hltb_row_data(row_text):
             # Убираем лишние пробелы и табы
             clean_match = re.sub(r'\s+', ' ', match.strip())
             times.append(clean_match)
-        log_message(f"   Найдены времена: {times}")
         
         if len(times) < 1:
             return None
@@ -678,13 +665,9 @@ def extract_hltb_row_data(row_text):
         average_time = times[0] if len(times) > 0 else None
         median_time = times[1] if len(times) > 1 else None
         
-        log_message(f"   Average: {average_time}, Median: {median_time}")
-        
         # Вычисляем среднее между Average и Median
         final_time = calculate_average_time(average_time, median_time)
         result["t"] = round_time(final_time) if final_time else None
-        
-        log_message(f"   Итоговое время: {result['t']}")
         
         if polled:
             result["p"] = polled
@@ -709,7 +692,6 @@ def extract_hltb_row_data(row_text):
 def calculate_average_time(time1_str, time2_str):
     """Вычисляет среднее время между двумя временными значениями"""
     try:
-        log_message(f"   Вычисляем среднее: '{time1_str}' + '{time2_str}'")
         def parse_time_to_minutes(time_str):
             if not time_str:
                 return 0
@@ -747,8 +729,6 @@ def calculate_average_time(time1_str, time2_str):
         minutes1 = parse_time_to_minutes(time1_str)
         minutes2 = parse_time_to_minutes(time2_str)
         
-        log_message(f"   Минуты: {minutes1} + {minutes2}")
-        
         if minutes1 == 0 and minutes2 == 0:
             # Если оба времени равны 0, возвращаем первое доступное, но обработанное
             return round_time(time1_str or time2_str) if (time1_str or time2_str) else None
@@ -763,19 +743,14 @@ def calculate_average_time(time1_str, time2_str):
         # Конвертируем обратно в часы
         hours = avg_minutes / 60
         
-        log_message(f"   Среднее: {avg_minutes} минут = {hours} часов")
-        
         # Применяем умное округление
         if hours >= 1:
             if hours == int(hours):
-                result = f"{int(hours)}h"
+                return f"{int(hours)}h"
             else:
-                result = f"{hours:.1f}h"
+                return f"{hours:.1f}h"
         else:
-            result = f"{int(avg_minutes)}m"
-        
-        log_message(f"   Результат: {result}")
-        return result
+            return f"{int(avg_minutes)}m"
             
     except Exception as e:
         log_message(f"❌ Ошибка вычисления среднего времени: {e}")
