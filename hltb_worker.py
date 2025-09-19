@@ -611,6 +611,7 @@ def extract_hltb_row_data(row_text):
     """Извлекает данные из строки таблицы HLTB (новый формат)"""
     try:
         import re
+        log_message(f"🔍 Парсим строку: '{row_text}'")
         
         # Ищем количество голосов (поддерживаем K формат и табы)
         # Примеры: "Main Story 54 660h 37m" -> 54, "Main Story	1.7K	15h 31m" -> 1700
@@ -631,6 +632,7 @@ def extract_hltb_row_data(row_text):
                 polled = int(number * 1000)
             else:
                 polled = int(float(polled_str))
+        log_message(f"   Голоса: {polled}")
         
         # Ищем времена в правильном порядке
         times = []
@@ -641,6 +643,7 @@ def extract_hltb_row_data(row_text):
         time_part = re.sub(r'^[A-Za-z\s/\+]+\s+\d+(?:\.\d+)?[Kk]?\s+', '', row_text)
         if time_part == row_text:  # Если не сработало, пробуем с табами
             time_part = re.sub(r'^[A-Za-z\s/\+]+\t+\d+(?:\.\d+)?[Kk]?\t+', '', row_text)
+        log_message(f"   Временная часть: '{time_part}'")
         
         # Парсим времена в правильном порядке: Average, Median, Rushed, Leisure
         # Формат: "5h 7m 5h 2h 45m 9h 1m"
@@ -655,6 +658,7 @@ def extract_hltb_row_data(row_text):
             # Убираем лишние пробелы и табы
             clean_match = re.sub(r'\s+', ' ', match.strip())
             times.append(clean_match)
+        log_message(f"   Найдены времена: {times}")
         
         if len(times) < 1:
             return None
@@ -669,9 +673,13 @@ def extract_hltb_row_data(row_text):
         average_time = times[0] if len(times) > 0 else None
         median_time = times[1] if len(times) > 1 else None
         
+        log_message(f"   Average: {average_time}, Median: {median_time}")
+        
         # Вычисляем среднее между Average и Median
         final_time = calculate_average_time(average_time, median_time)
         result["t"] = round_time(final_time) if final_time else None
+        
+        log_message(f"   Итоговое время: {result['t']}")
         
         if polled:
             result["p"] = polled
