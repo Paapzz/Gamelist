@@ -486,16 +486,25 @@ def extract_hltb_data_from_page(page):
                         try:
                             row_text = rows.nth(row_idx).inner_text().strip()
                             
+                            # Логируем все строки для отладки
+                            if any(keyword in row_text for keyword in ["Main Story", "Main + Extras", "Completionist", "Co-Op", "Competitive"]):
+                                log_message(f"🔍 Строка {row_idx + 1}: '{row_text}'")
+                            
                             # Парсим строки с данными (только если еще не найдены)
                             if "Main Story" in row_text and "ms" not in hltb_data:
+                                log_message(f"📝 Парсим Main Story: '{row_text}'")
                                 hltb_data["ms"] = extract_hltb_row_data(row_text)
                             elif "Main + Extras" in row_text and "mpe" not in hltb_data:
+                                log_message(f"📝 Парсим Main + Extras: '{row_text}'")
                                 hltb_data["mpe"] = extract_hltb_row_data(row_text)
                             elif "Completionist" in row_text and "comp" not in hltb_data:
+                                log_message(f"📝 Парсим Completionist: '{row_text}'")
                                 hltb_data["comp"] = extract_hltb_row_data(row_text)
                             elif "Co-Op" in row_text and "coop" not in hltb_data:
+                                log_message(f"📝 Парсим Co-Op: '{row_text}'")
                                 hltb_data["coop"] = extract_hltb_row_data(row_text)
                             elif "Competitive" in row_text and "vs" not in hltb_data:
+                                log_message(f"📝 Парсим Competitive: '{row_text}'")
                                 hltb_data["vs"] = extract_hltb_row_data(row_text)
                                 
                         except Exception as e:
