@@ -139,9 +139,12 @@ def extract_games_list(html_file):
         raise
 
 def parse_time_to_hours(time_str):
-    """Парсит время в формате 'Xh Ym' в часы и минуты"""
+    """Парсит время в формате 'Xh Ym' или 'X Hours' в часы и минуты"""
     if not time_str or time_str == "N/A":
         return 0, 0
+    
+    # Убираем "Hours" если есть
+    time_str = time_str.replace("Hours", "").strip()
     
     # Ищем часы и минуты
     hours_match = re.search(r'(\d+)h', time_str)
@@ -149,6 +152,16 @@ def parse_time_to_hours(time_str):
     
     hours = int(hours_match.group(1)) if hours_match else 0
     minutes = int(minutes_match.group(1)) if minutes_match else 0
+    
+    # Если нет "h" и "m", но есть только число (часы)
+    if hours == 0 and minutes == 0:
+        number_match = re.search(r'(\d+(?:\.\d+)?)', time_str)
+        if number_match:
+            hours = float(number_match.group(1))
+            # Конвертируем дробную часть в минуты
+            if hours != int(hours):
+                minutes = int((hours - int(hours)) * 60)
+                hours = int(hours)
     
     return hours, minutes
 
@@ -192,6 +205,9 @@ def search_game_on_hltb(page, game_title):
     max_attempts = 3
     delays = [0, (15, 18), (65, 70)]  # Паузы между попытками в секундах
     
+    # Получаем альтернативное название
+    alternative_title = extract_alternative_title(game_title)
+    
     for attempt in range(max_attempts):
         try:
             if attempt > 0:
@@ -204,11 +220,20 @@ def search_game_on_hltb(page, game_title):
                     log_message(f"⏳ Пауза {delays[attempt]} секунд...")
                     time.sleep(delays[attempt])
             
+            # Пробуем основное название
             result = search_game_single_attempt(page, game_title)
             if result is not None:
                 if attempt > 0:
                     log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
                 return result
+            
+            # Если схожесть меньше 0.6 и есть альтернативное название, пробуем его
+            if alternative_title and attempt == 0:
+                log_message(f"🔄 Пробуем альтернативное название: '{alternative_title}'")
+                alt_result = search_game_single_attempt(page, alternative_title)
+                if alt_result is not None:
+                    log_message(f"✅ Найдено по альтернативному названию")
+                    return alt_result
             
         except Exception as e:
             log_message(f"❌ Ошибка попытки {attempt + 1} для '{game_title}': {e}")
@@ -270,6 +295,16 @@ def search_game_single_attempt(page, game_title):
         # Выбираем наиболее подходящий результат
         best_match = find_best_match(page, game_links, game_title)
         if not best_match:
+            return None
+        
+        # Проверяем схожесть названия
+        best_title = best_match.inner_text().strip()
+        similarity = calculate_title_similarity(game_title, best_title)
+        log_message(f"🎯 Выбрано: '{best_title}' (схожесть: {similarity:.2f})")
+        
+        # Если схожесть меньше 0.6, возвращаем None для попытки альтернативного названия
+        if similarity < 0.6:
+            log_message(f"⚠️  Низкая схожесть ({similarity:.2f}), пробуем альтернативное название")
             return None
         
         # Переходим на страницу выбранной игры
@@ -356,13 +391,37 @@ def extract_primary_title(game_title):
     if not game_title:
         return game_title
     
-    # Если есть "/", берем только первую часть
+    # Если есть "/", обрабатываем по-разному
     if "/" in game_title:
-        primary = game_title.split("/")[0].strip()
-        log_message(f"📝 Извлекаем основное название: '{game_title}' -> '{primary}'")
-        return primary
+        parts = [part.strip() for part in game_title.split("/")]
+        
+        # Если части без пробелов (например "Gold/Silver/Crystal"), объединяем с "and"
+        if all(" " not in part for part in parts):
+            primary = f"{parts[0]} and {parts[1]}"
+            log_message(f"📝 Объединяем части: '{game_title}' -> '{primary}'")
+            return primary
+        else:
+            # Если есть пробелы, берем только первую часть
+            primary = parts[0]
+            log_message(f"📝 Извлекаем основное название: '{game_title}' -> '{primary}'")
+            return primary
     
     return game_title
+
+def extract_alternative_title(game_title):
+    """Извлекает альтернативное название для поиска"""
+    if not game_title or "/" not in game_title:
+        return None
+    
+    parts = [part.strip() for part in game_title.split("/")]
+    
+    # Если части без пробелов, возвращаем вторую часть
+    if len(parts) >= 2 and all(" " not in part for part in parts):
+        alternative = parts[1]
+        log_message(f"📝 Альтернативное название: '{game_title}' -> '{alternative}'")
+        return alternative
+    
+    return None
 
 def calculate_title_similarity(title1, title2):
     """Вычисляет схожесть между двумя названиями игр"""
@@ -403,26 +462,70 @@ def calculate_title_similarity(title1, title2):
 def extract_hltb_data_from_page(page):
     """Извлекает данные HLTB со страницы игры"""
     try:
-        # Ищем таблицу с данными
-        table_rows = page.locator("table tr")
         hltb_data = {}
         
-        for i in range(table_rows.count()):
-            row_text = table_rows.nth(i).inner_text().strip()
-            
-            # Ищем строки с нужными категориями
-            if "Main Story" in row_text:
-                hltb_data["ms"] = extract_time_and_polled_from_row(row_text)
-            elif "Main + Extras" in row_text:
-                hltb_data["mpe"] = extract_time_and_polled_from_row(row_text)
-            elif "Completionist" in row_text:
-                hltb_data["comp"] = extract_time_and_polled_from_row(row_text)
-            elif "All PlayStyles" in row_text:
-                hltb_data["all"] = extract_time_and_polled_from_row(row_text)
-            elif "Co-Op" in row_text:
-                hltb_data["coop"] = extract_time_and_polled_from_row(row_text)
-            elif "Vs." in row_text:
-                hltb_data["vs"] = extract_time_and_polled_from_row(row_text)
+        # Ищем все таблицы на странице
+        tables = page.locator("table")
+        table_count = tables.count()
+        
+        for table_idx in range(table_count):
+            try:
+                table = tables.nth(table_idx)
+                table_text = table.inner_text()
+                
+                # Проверяем, содержит ли таблица нужные ключевые слова
+                if any(keyword in table_text for keyword in ["Main Story", "Main + Extras", "Completionist", "Co-Op", "Competitive", "Vs."]):
+                    log_message(f"📊 Обрабатываем таблицу {table_idx + 1}")
+                    
+                    # Получаем все строки таблицы
+                    rows = table.locator("tr")
+                    row_count = rows.count()
+                    
+                    for row_idx in range(row_count):
+                        try:
+                            row_text = rows.nth(row_idx).inner_text().strip()
+                            
+                            # Парсим строки с данными
+                            if "Main Story" in row_text:
+                                hltb_data["ms"] = extract_hltb_row_data(row_text)
+                            elif "Main + Extras" in row_text:
+                                hltb_data["mpe"] = extract_hltb_row_data(row_text)
+                            elif "Completionist" in row_text:
+                                hltb_data["comp"] = extract_hltb_row_data(row_text)
+                            elif "Co-Op" in row_text:
+                                hltb_data["coop"] = extract_hltb_row_data(row_text)
+                            elif "Competitive" in row_text:
+                                hltb_data["vs"] = extract_hltb_row_data(row_text)
+                                
+                        except Exception as e:
+                            log_message(f"⚠️ Ошибка обработки строки {row_idx}: {e}")
+                            continue
+                            
+            except Exception as e:
+                log_message(f"⚠️ Ошибка обработки таблицы {table_idx}: {e}")
+                continue
+        
+        # Ищем отдельные блоки с "Vs." (не в таблицах)
+        try:
+            vs_elements = page.locator('text="Vs."')
+            vs_count = vs_elements.count()
+            if vs_count > 0:
+                for i in range(min(3, vs_count)):  # Проверяем первые 3 вхождения
+                    try:
+                        vs_element = vs_elements.nth(i)
+                        surrounding_text = vs_element.evaluate("(e) => (e.closest('div')||e.parentElement||e).innerText")
+                        
+                        # Если это не таблица и содержит время, извлекаем данные
+                        if "Hours" in surrounding_text and "table" not in str(vs_element.locator("..").get_attribute("tagName")).lower():
+                            vs_data = extract_vs_data_from_text(surrounding_text)
+                            if vs_data and "vs" not in hltb_data:
+                                hltb_data["vs"] = vs_data
+                                log_message(f"🎯 Найдены Vs. данные в отдельном блоке: {vs_data}")
+                    except Exception as e:
+                        log_message(f"⚠️ Ошибка обработки Vs. блока {i}: {e}")
+                        continue
+        except Exception as e:
+            log_message(f"⚠️ Ошибка поиска Vs. блоков: {e}")
         
         # Собираем ссылки на магазины
         store_links = extract_store_links(page)
@@ -483,6 +586,160 @@ def extract_store_links(page):
         
     except Exception as e:
         log_message(f"❌ Ошибка извлечения ссылок на магазины: {e}")
+        return None
+
+def extract_hltb_row_data(row_text):
+    """Извлекает данные из строки таблицы HLTB (новый формат)"""
+    try:
+        import re
+        
+        # Ищем количество голосов (число после названия категории)
+        # Пример: "Main Story 54 660h 37m" -> 54
+        polled_match = re.search(r'^[A-Za-z\s]+\s+(\d+)\s+', row_text)
+        polled = int(polled_match.group(1)) if polled_match else None
+        
+        # Ищем времена в разных форматах
+        times = []
+        
+        # Формат "660h 37m" или "2853 Hours"
+        time_patterns = [
+            r'(\d+h\s*\d*m)',  # 660h 37m
+            r'(\d+\s*Hours?)',  # 2853 Hours
+        ]
+        
+        for pattern in time_patterns:
+            matches = re.findall(pattern, row_text)
+            for match in matches:
+                times.append(match.strip())
+        
+        if len(times) < 1:
+            return None
+        
+        # Определяем тип данных по названию строки
+        is_single_player = any(keyword in row_text for keyword in ["Main Story", "Main + Extras", "Completionist"])
+        is_multi_player = any(keyword in row_text for keyword in ["Co-Op", "Competitive"])
+        
+        result = {}
+        
+        # Берем первые два времени (Average и Median)
+        average_time = times[0] if len(times) > 0 else None
+        median_time = times[1] if len(times) > 1 else None
+        
+        # Вычисляем среднее между Average и Median
+        final_time = calculate_average_time(average_time, median_time)
+        result["t"] = final_time
+        
+        if polled:
+            result["p"] = polled
+        
+        # Добавляем дополнительные времена в зависимости от типа
+        if is_single_player and len(times) >= 4:
+            # Single-Player: Average, Median, Rushed, Leisure
+            result["r"] = round_time(times[2])  # Rushed (сокращенно и округлено)
+            result["l"] = round_time(times[3])  # Leisure (сокращенно и округлено)
+            log_message(f"📊 Single-Player данные: Average={final_time}, Rushed={result['r']}, Leisure={result['l']}")
+            
+        elif is_multi_player and len(times) >= 4:
+            # Multi-Player: Average, Median, Least, Most
+            result["min"] = round_time(times[2])  # Least (сокращенно и округлено)
+            result["max"] = round_time(times[3])  # Most (сокращенно и округлено)
+            log_message(f"📊 Multi-Player данные: Average={final_time}, Least={result['min']}, Most={result['max']}")
+            
+        return result
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения данных из строки: {e}")
+        return None
+
+def calculate_average_time(time1_str, time2_str):
+    """Вычисляет среднее время между двумя временными значениями"""
+    try:
+        def parse_time_to_minutes(time_str):
+            if not time_str:
+                return 0
+            
+            # Убираем "Hours" если есть
+            time_str = time_str.replace("Hours", "").strip()
+            
+            total_minutes = 0
+            
+            # Парсим часы и минуты
+            if "h" in time_str and "m" in time_str:
+                # Формат "660h 37m"
+                import re
+                hours_match = re.search(r'(\d+)h', time_str)
+                minutes_match = re.search(r'(\d+)m', time_str)
+                
+                if hours_match:
+                    total_minutes += int(hours_match.group(1)) * 60
+                if minutes_match:
+                    total_minutes += int(minutes_match.group(1))
+                    
+            elif "h" in time_str:
+                # Только часы "660h"
+                import re
+                hours_match = re.search(r'(\d+)h', time_str)
+                if hours_match:
+                    total_minutes = int(hours_match.group(1)) * 60
+                    
+            elif time_str.replace(".", "").isdigit():
+                # Только число (часы)
+                total_minutes = float(time_str) * 60
+                
+            return total_minutes
+        
+        minutes1 = parse_time_to_minutes(time1_str)
+        minutes2 = parse_time_to_minutes(time2_str)
+        
+        if minutes1 == 0 and minutes2 == 0:
+            return time1_str or time2_str
+        
+        if minutes2 == 0:
+            return time1_str
+        
+        # Вычисляем среднее
+        avg_minutes = (minutes1 + minutes2) / 2
+        
+        # Конвертируем обратно в часы
+        hours = avg_minutes / 60
+        
+        if hours >= 1:
+            if hours == int(hours):
+                return f"{int(hours)}h"
+            else:
+                return f"{hours:.1f}h"
+        else:
+            return f"{int(avg_minutes)}m"
+            
+    except Exception as e:
+        log_message(f"❌ Ошибка вычисления среднего времени: {e}")
+        return time1_str or time2_str
+
+def extract_vs_data_from_text(text):
+    """Извлекает Vs. данные из текста"""
+    try:
+        import re
+        
+        # Ищем время после "Vs." в формате "Vs. | 1767 Hours"
+        vs_match = re.search(r'Vs\.\s*\|\s*(\d+(?:\.\d+)?)\s*Hours?', text)
+        if vs_match:
+            time_str = vs_match.group(1)
+            hours = float(time_str)
+            
+            if hours >= 1:
+                if hours == int(hours):
+                    formatted_time = f"{int(hours)}h"
+                else:
+                    formatted_time = f"{hours:.1f}h"
+            else:
+                formatted_time = f"{int(hours * 60)}m"
+            
+            return {"t": formatted_time}
+        
+        return None
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения Vs. данных: {e}")
         return None
 
 def extract_time_and_polled_from_row(row_text):
