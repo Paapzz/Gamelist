@@ -603,27 +603,41 @@ def extract_hltb_row_data(row_text):
     try:
         import re
         
-        # Ищем количество голосов (первое число в строке после названия категории)
-        # Примеры: "Main Story 54 660h 37m" -> 54, "Co-Op 781 10 Hours" -> 781
-        polled_match = re.search(r'^[A-Za-z\s/]+\s+(\d+)\s+', row_text)
+        # Ищем количество голосов (поддерживаем K формат)
+        # Примеры: "Main Story 54 660h 37m" -> 54, "Main Story 3.6K 12h 13m" -> 3600
+        polled_match = re.search(r'^[A-Za-z\s/\+]+\s+(\d+(?:\.\d+)?[Kk]?)\s+', row_text)
         if not polled_match:
             # Альтернативный поиск: число перед первым временем
-            polled_match = re.search(r'(\d+)\s+(?:\d+h|\d+\s*Hours?)', row_text)
-        polled = int(polled_match.group(1)) if polled_match else None
+            polled_match = re.search(r'(\d+(?:\.\d+)?[Kk]?)\s+(?:\d+h|\d+\s*Hours?)', row_text)
         
-        # Ищем времена в разных форматах
+        polled = None
+        if polled_match:
+            polled_str = polled_match.group(1)
+            if 'K' in polled_str.upper():
+                # Конвертируем K в тысячи
+                number = float(polled_str.replace('K', '').replace('k', ''))
+                polled = int(number * 1000)
+            else:
+                polled = int(float(polled_str))
+        
+        # Ищем времена в правильном порядке
         times = []
         
-        # Формат "660h 37m" или "2853 Hours"
-        time_patterns = [
-            r'(\d+h\s*\d*m)',  # 660h 37m
-            r'(\d+\s*Hours?)',  # 2853 Hours
-        ]
+        # Убираем название категории и количество голосов из начала строки
+        # Пример: "Main Story 707 5h 7m 5h 2h 45m 9h 1m" -> "5h 7m 5h 2h 45m 9h 1m"
+        time_part = re.sub(r'^[A-Za-z\s/\+]+\s+\d+(?:\.\d+)?[Kk]?\s+', '', row_text)
         
-        for pattern in time_patterns:
-            matches = re.findall(pattern, row_text)
-            for match in matches:
-                times.append(match.strip())
+        # Парсим времена в правильном порядке: Average, Median, Rushed, Leisure
+        # Формат: "5h 7m 5h 2h 45m 9h 1m"
+        
+        # Используем более точный подход - ищем все времена по порядку их появления
+        # Объединенный паттерн для всех форматов времени
+        combined_pattern = r'(\d+h\s*\d+m|\d+(?:\.\d+)?[½]?\s*Hours?|\d+h)'
+        
+        # Ищем все времена в порядке их появления в строке
+        matches = re.findall(combined_pattern, time_part)
+        for match in matches:
+            times.append(match.strip())
         
         if len(times) < 1:
             return None
