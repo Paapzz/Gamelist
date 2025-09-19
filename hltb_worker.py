@@ -230,8 +230,8 @@ def search_game_single_attempt(page, game_title):
         search_url = f"{BASE_URL}/?q={safe_title}"
         
         # Переходим на страницу поиска
-        page.goto(search_url, timeout=15000)
-        page.wait_for_load_state("domcontentloaded", timeout=10000)
+        page.goto(search_url, timeout=20000)
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
         
         # Проверяем на блокировку после перехода
         page_content = page.content()
@@ -258,6 +258,12 @@ def search_game_single_attempt(page, game_title):
             random_delay(2, 4)  # Случайная задержка 2-4 секунды
             found_count = game_links.count()
         
+        # Если много результатов, ждем дольше для полной загрузки
+        if found_count > 10:
+            log_message(f"📊 Найдено {found_count} результатов, ждем дополнительную загрузку...")
+            random_delay(5, 8)  # Дополнительная задержка для большого количества результатов
+            found_count = game_links.count()  # Пересчитываем после ожидания
+        
         if found_count == 0:
             return None
         
@@ -270,8 +276,8 @@ def search_game_single_attempt(page, game_title):
         game_url = best_match.get_attribute("href")
         full_url = f"{BASE_URL}{game_url}"
         
-        page.goto(full_url, timeout=15000)
-        page.wait_for_load_state("domcontentloaded", timeout=10000)
+        page.goto(full_url, timeout=20000)
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
         
         # Проверяем на блокировку на странице игры
         page_content = page.content()
@@ -287,7 +293,7 @@ def search_game_single_attempt(page, game_title):
                 return None
         
         # Ждем загрузки данных игры (React контент)
-        random_delay(2, 3)  # Случайная задержка 2-3 секунды
+        random_delay(3, 5)  # Увеличена задержка для стабильности
         
         # Извлекаем данные из таблицы
         hltb_data = extract_hltb_data_from_page(page)
@@ -455,6 +461,17 @@ def extract_store_links(page):
                 if link_element.count() > 0:
                     href = link_element.get_attribute("href")
                     if href:
+                        # Очищаем реферальные ссылки для GOG
+                        if store_name == "gog" and "adtraction.com" in href:
+                            # Извлекаем прямую ссылку из реферальной
+                            import re
+                            match = re.search(r'url=([^&]+)', href)
+                            if match:
+                                href = match.group(1)
+                                # Декодируем URL
+                                from urllib.parse import unquote
+                                href = unquote(href)
+                        
                         store_links[store_name] = href
             except:
                 continue
