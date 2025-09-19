@@ -57,8 +57,19 @@ def extract_games_list(html_file):
         if start == -1:
             raise ValueError("Не найден const gamesList в HTML файле")
         
-        end = content.find('];', start) + 2
-        if end == 1:
+        # Ищем закрывающую скобку массива
+        bracket_count = 0
+        end = start
+        for i, char in enumerate(content[start:], start):
+            if char == '[':
+                bracket_count += 1
+            elif char == ']':
+                bracket_count -= 1
+                if bracket_count == 0:
+                    end = i + 1
+                    break
+        
+        if bracket_count != 0:
             raise ValueError("Не найден конец массива gamesList")
         
         # Извлекаем JSON
