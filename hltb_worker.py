@@ -146,11 +146,11 @@ def parse_time_to_hours(time_str):
     # Убираем "Hours" если есть
     time_str = time_str.replace("Hours", "").strip()
     
-    # Ищем часы и минуты
-    hours_match = re.search(r'(\d+)h', time_str)
+    # Ищем часы и минуты (поддерживаем дробные часы)
+    hours_match = re.search(r'(\d+(?:\.\d+)?)h', time_str)
     minutes_match = re.search(r'(\d+)m', time_str)
     
-    hours = int(hours_match.group(1)) if hours_match else 0
+    hours = float(hours_match.group(1)) if hours_match else 0
     minutes = int(minutes_match.group(1)) if minutes_match else 0
     
     # Если нет "h" и "m", но есть только число (часы)
@@ -162,6 +162,11 @@ def parse_time_to_hours(time_str):
             if hours != int(hours):
                 minutes = int((hours - int(hours)) * 60)
                 hours = int(hours)
+    
+    # Если часы дробные, конвертируем дробную часть в минуты
+    if hours != int(hours):
+        minutes += int((hours - int(hours)) * 60)
+        hours = int(hours)
     
     return hours, minutes
 
