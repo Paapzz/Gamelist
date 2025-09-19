@@ -25,13 +25,12 @@ jobs:
       
       - name: Install dependencies
         run: |
-          cd scrapper/HLTBscrapper
           pip install playwright requests
           playwright install chromium
       
       - name: Run HLTB scraper
         run: |
-          python scrapper/HLTBscrapper/hltb_worker.py
+          python hltb_worker.py
         continue-on-error: true
       
       - name: Generate report
