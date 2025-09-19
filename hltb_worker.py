@@ -36,8 +36,10 @@ OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
 PROGRESS_FILE = "progress.json"
 
 # Задержки (убрана вежливая задержка между играми)
-BREAK_INTERVAL = 6 * 60  # 6 минут в секундах
-BREAK_DURATION = 2 * 60  # 2 минуты в секундах
+BREAK_INTERVAL_MIN = 8 * 60  # 8 минут в секундах
+BREAK_INTERVAL_MAX = 10 * 60  # 10 минут в секундах
+BREAK_DURATION_MIN = 40  # 40 секунд
+BREAK_DURATION_MAX = 80  # 80 секунд
 
 def setup_directories():
     """Настройка директорий"""
@@ -61,19 +63,29 @@ def log_message(message):
 
 def count_hltb_data(hltb_data):
     """Подсчитывает количество данных HLTB по категориям"""
-    categories = {"ms": 0, "mpe": 0, "comp": 0, "all": 0}
-    total_polled = {"ms": 0, "mpe": 0, "comp": 0, "all": 0}
+    categories = {"ms": 0, "mpe": 0, "comp": 0, "all": 0, "coop": 0, "vs": 0}
+    total_polled = {"ms": 0, "mpe": 0, "comp": 0, "all": 0, "coop": 0, "vs": 0}
+    na_count = 0
     
     for game in hltb_data:
         if "hltb" in game:
+            # Проверяем, не является ли это N/A записью
+            if (isinstance(game["hltb"], dict) and 
+                game["hltb"].get("ms") == "N/A" and 
+                game["hltb"].get("mpe") == "N/A" and 
+                game["hltb"].get("comp") == "N/A" and 
+                game["hltb"].get("all") == "N/A"):
+                na_count += 1
+                continue
+            
             for category in categories:
-                if category in game["hltb"] and game["hltb"][category]:
+                if category in game["hltb"] and game["hltb"][category] and game["hltb"][category] != "N/A":
                     categories[category] += 1
                     # Подсчитываем общее количество голосов
                     if isinstance(game["hltb"][category], dict) and "p" in game["hltb"][category]:
                         total_polled[category] += game["hltb"][category]["p"]
     
-    return categories, total_polled
+    return categories, total_polled, na_count
 
 def extract_games_list(html_file):
     """Извлекает список игр из HTML файла"""
@@ -163,9 +175,14 @@ def check_break_time(start_time, games_processed):
     """Проверяет, нужен ли перерыв"""
     elapsed_seconds = time.time() - start_time
     
-    if elapsed_seconds >= BREAK_INTERVAL:
-        log_message(f"⏸️  Перерыв 2 минуты... (обработано {games_processed} игр)")
-        time.sleep(BREAK_DURATION)
+    # Рандомный интервал между перерывами
+    break_interval = random.randint(BREAK_INTERVAL_MIN, BREAK_INTERVAL_MAX)
+    
+    if elapsed_seconds >= break_interval:
+        # Рандомная длительность перерыва
+        break_duration = random.randint(BREAK_DURATION_MIN, BREAK_DURATION_MAX)
+        log_message(f"⏸️  Перерыв {break_duration} секунд... (обработано {games_processed} игр)")
+        time.sleep(break_duration)
         return time.time()  # Обновляем время начала
     
     return start_time
@@ -204,8 +221,12 @@ def search_game_on_hltb(page, game_title):
 def search_game_single_attempt(page, game_title):
     """Одна попытка поиска игры на HLTB"""
     try:
+        # Извлекаем основное название
+        primary_title = extract_primary_title(game_title)
+        log_message(f"🔍 Ищем: '{primary_title}' (оригинал: '{game_title}')")
+        
         # Кодируем название для URL
-        safe_title = quote(game_title, safe="")
+        safe_title = quote(primary_title, safe="")
         search_url = f"{BASE_URL}/?q={safe_title}"
         
         # Переходим на страницу поиска
@@ -324,6 +345,19 @@ def clean_title_for_comparison(title):
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
     return cleaned
 
+def extract_primary_title(game_title):
+    """Извлекает основное название игры из названия с альтернативными вариантами"""
+    if not game_title:
+        return game_title
+    
+    # Если есть "/", берем только первую часть
+    if "/" in game_title:
+        primary = game_title.split("/")[0].strip()
+        log_message(f"📝 Извлекаем основное название: '{game_title}' -> '{primary}'")
+        return primary
+    
+    return game_title
+
 def calculate_title_similarity(title1, title2):
     """Вычисляет схожесть между двумя названиями игр"""
     try:
@@ -379,11 +413,59 @@ def extract_hltb_data_from_page(page):
                 hltb_data["comp"] = extract_time_and_polled_from_row(row_text)
             elif "All PlayStyles" in row_text:
                 hltb_data["all"] = extract_time_and_polled_from_row(row_text)
+            elif "Co-Op" in row_text:
+                hltb_data["coop"] = extract_time_and_polled_from_row(row_text)
+            elif "Vs." in row_text:
+                hltb_data["vs"] = extract_time_and_polled_from_row(row_text)
+        
+        # Собираем ссылки на магазины
+        store_links = extract_store_links(page)
+        if store_links:
+            hltb_data["stores"] = store_links
         
         return hltb_data if hltb_data else None
         
     except Exception as e:
         log_message(f"❌ Ошибка извлечения данных со страницы: {e}")
+        return None
+
+def extract_store_links(page):
+    """Извлекает ссылки на магазины со страницы игры"""
+    try:
+        store_links = {}
+        
+        # Ищем ссылки на популярные магазины
+        store_selectors = {
+            "steam": "a[href*='store.steampowered.com']",
+            "epic": "a[href*='epicgames.com']",
+            "gog": "a[href*='gog.com']",
+            "humble": "a[href*='humblebundle.com']",
+            "itch": "a[href*='itch.io']",
+            "origin": "a[href*='origin.com']",
+            "uplay": "a[href*='uplay.com']",
+            "battlenet": "a[href*='battle.net']",
+            "psn": "a[href*='playstation.com']",
+            "xbox": "a[href*='xbox.com']",
+            "nintendo": "a[href*='nintendo.com']"
+        }
+        
+        for store_name, selector in store_selectors.items():
+            try:
+                link_element = page.locator(selector).first
+                if link_element.count() > 0:
+                    href = link_element.get_attribute("href")
+                    if href:
+                        store_links[store_name] = href
+            except:
+                continue
+        
+        if store_links:
+            log_message(f"🛒 Найдены ссылки на магазины: {list(store_links.keys())}")
+        
+        return store_links if store_links else None
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения ссылок на магазины: {e}")
         return None
 
 def extract_time_and_polled_from_row(row_text):
@@ -475,13 +557,15 @@ def save_results(games_data):
                 json.dump(game, f, separators=(',', ':'), ensure_ascii=False)
         
         # Подсчитываем статистику
-        categories, total_polled = count_hltb_data(games_data)
+        categories, total_polled, na_count = count_hltb_data(games_data)
         successful = len([g for g in games_data if "hltb" in g])
         
         log_message(f"💾 Результаты сохранены в {OUTPUT_FILE}")
         log_message(f"📊 Статистика: {successful}/{len(games_data)} игр с данными HLTB")
         log_message(f"📊 Main Story: {categories['ms']} ({total_polled['ms']} голосов), Main+Extras: {categories['mpe']} ({total_polled['mpe']} голосов)")
         log_message(f"📊 Completionist: {categories['comp']} ({total_polled['comp']} голосов), All: {categories['all']} ({total_polled['all']} голосов)")
+        log_message(f"📊 Co-Op: {categories['coop']} ({total_polled['coop']} голосов), Vs: {categories['vs']} ({total_polled['vs']} голосов)")
+        log_message(f"📊 N/A (не найдено): {na_count} игр")
         
     except Exception as e:
         log_message(f"❌ Ошибка сохранения результатов: {e}")
@@ -634,7 +718,9 @@ def main():
                     blocked_count = 0  # Сбрасываем счетчик блокировок при успехе
                     log_message(f"✅ Найдены данные: {hltb_data}")
                 else:
-                    log_message(f"⚠️  Данные не найдены для: {game_title}")
+                    # Записываем N/A если данные не найдены
+                    game["hltb"] = {"ms": "N/A", "mpe": "N/A", "comp": "N/A", "all": "N/A"}
+                    log_message(f"⚠️  Данные не найдены для: {game_title} - записано N/A")
                     
                     # Проверяем, не было ли блокировки
                     page_content = page.content()
