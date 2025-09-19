@@ -1,13 +1,32 @@
 #!/usr/bin/env python3
 
+print("🚀 HLTB Worker запускается...")
+print("📦 Импортируем модули...")
+
 import json
+print("✅ json импортирован")
+
 import time
+print("✅ time импортирован")
+
 import random
+print("✅ random импортирован")
+
 import re
+print("✅ re импортирован")
+
 import os
+print("✅ os импортирован")
+
 from datetime import datetime
+print("✅ datetime импортирован")
+
 from urllib.parse import quote
+print("✅ urllib.parse импортирован")
+
+print("📦 Импортируем Playwright...")
 from playwright.sync_api import sync_playwright
+print("✅ Playwright импортирован")
 
 # Конфигурация
 BASE_URL = "https://howlongtobeat.com"
@@ -22,13 +41,23 @@ BREAK_DURATION = 2 * 60  # 2 минуты в секундах
 
 def setup_directories():
     """Настройка директорий"""
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    print(f"📁 Создаем директорию: {OUTPUT_DIR}")
+    try:
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        print(f"✅ Директория {OUTPUT_DIR} создана/существует")
+    except Exception as e:
+        print(f"❌ Ошибка создания директории: {e}")
+        raise
     
 def log_message(message):
     """Логирование только в консоль"""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_entry = f"[{timestamp}] {message}"
-    print(log_entry)
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entry = f"[{timestamp}] {message}"
+        print(log_entry)
+    except Exception as e:
+        print(f"Ошибка логирования: {e}")
+        print(f"Сообщение: {message}")
 
 def count_hltb_data(hltb_data):
     """Подсчитывает количество данных HLTB по категориям"""
@@ -499,6 +528,7 @@ def update_html_with_hltb(html_file, hltb_data):
 
 def main():
     """Основная функция воркера"""
+    print("🔧 Функция main() вызвана")
     log_message("🚀 Запуск HLTB Worker")
     log_message(f"📁 Рабочая директория: {os.getcwd()}")
     log_message(f"📄 Ищем файл: {GAMES_LIST_FILE}")
@@ -649,4 +679,12 @@ def main():
         raise
 
 if __name__ == "__main__":
-    main()
+    print("🎯 Запускаем main()...")
+    try:
+        main()
+        print("✅ main() завершен успешно")
+    except Exception as e:
+        print(f"💥 Критическая ошибка в main(): {e}")
+        import traceback
+        traceback.print_exc()
+        raise
