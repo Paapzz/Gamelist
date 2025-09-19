@@ -60,7 +60,7 @@ jobs:
                   'successful_games': successful,
                   'failed_games': total_games - successful,
                   'success_rate': f'{success_rate:.1f}%',
-                  'test_mode': 'false'
+                  'test_mode': 'true'
               }
               
               with open('scraping_report.json', 'w', encoding='utf-8') as f:
