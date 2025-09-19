@@ -612,9 +612,12 @@ def extract_hltb_row_data(row_text):
     try:
         import re
         
-        # Ищем количество голосов (поддерживаем K формат)
-        # Примеры: "Main Story 54 660h 37m" -> 54, "Main Story 3.6K 12h 13m" -> 3600
+        # Ищем количество голосов (поддерживаем K формат и табы)
+        # Примеры: "Main Story 54 660h 37m" -> 54, "Main Story	1.7K	15h 31m" -> 1700
         polled_match = re.search(r'^[A-Za-z\s/\+]+\s+(\d+(?:\.\d+)?[Kk]?)\s+', row_text)
+        if not polled_match:
+            # Альтернативный поиск с табами: "Main Story	1.7K	15h 31m"
+            polled_match = re.search(r'^[A-Za-z\s/\+]+\t+(\d+(?:\.\d+)?[Kk]?)\t+', row_text)
         if not polled_match:
             # Альтернативный поиск: число перед первым временем
             polled_match = re.search(r'(\d+(?:\.\d+)?[Kk]?)\s+(?:\d+h|\d+\s*Hours?)', row_text)
@@ -634,19 +637,24 @@ def extract_hltb_row_data(row_text):
         
         # Убираем название категории и количество голосов из начала строки
         # Пример: "Main Story 707 5h 7m 5h 2h 45m 9h 1m" -> "5h 7m 5h 2h 45m 9h 1m"
+        # Или: "Main Story	1.7K	15h 31m	15h	11h 37m	25h 37m" -> "15h 31m	15h	11h 37m	25h 37m"
         time_part = re.sub(r'^[A-Za-z\s/\+]+\s+\d+(?:\.\d+)?[Kk]?\s+', '', row_text)
+        if time_part == row_text:  # Если не сработало, пробуем с табами
+            time_part = re.sub(r'^[A-Za-z\s/\+]+\t+\d+(?:\.\d+)?[Kk]?\t+', '', row_text)
         
         # Парсим времена в правильном порядке: Average, Median, Rushed, Leisure
         # Формат: "5h 7m 5h 2h 45m 9h 1m"
         
         # Используем более точный подход - ищем все времена по порядку их появления
-        # Объединенный паттерн для всех форматов времени
+        # Объединенный паттерн для всех форматов времени (поддерживаем табы и пробелы)
         combined_pattern = r'(\d+h\s*\d+m|\d+(?:\.\d+)?[½]?\s*Hours?|\d+h)'
         
         # Ищем все времена в порядке их появления в строке
         matches = re.findall(combined_pattern, time_part)
         for match in matches:
-            times.append(match.strip())
+            # Убираем лишние пробелы и табы
+            clean_match = re.sub(r'\s+', ' ', match.strip())
+            times.append(clean_match)
         
         if len(times) < 1:
             return None
