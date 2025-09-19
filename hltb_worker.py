@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-"""
-HLTB Worker - Вежливый скраппер для HowLongToBeat.com
-Собирает данные о времени прохождения игр с задержками и перерывами
-Включает автоматическое обновление HTML файла
-"""
-
 import json
 import time
 import random
