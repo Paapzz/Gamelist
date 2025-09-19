@@ -183,6 +183,19 @@ def search_game_single_attempt(page, game_title):
         page.goto(search_url, timeout=15000)
         page.wait_for_load_state("domcontentloaded", timeout=10000)
         
+        # Проверяем на блокировку после перехода
+        page_content = page.content()
+        if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+            log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
+            return None
+        elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
+            log_message("⚠️ Cloudflare проверка при поиске - ждем...")
+            time.sleep(5)
+            page_content = page.content()
+            if "checking your browser" in page_content.lower():
+                log_message("❌ Cloudflare блокирует поиск")
+                return None
+        
         # Ждем загрузки результатов поиска (React контент)
         random_delay(3, 5)  # Случайная задержка 3-5 секунд
         
@@ -209,6 +222,19 @@ def search_game_single_attempt(page, game_title):
         
         page.goto(full_url, timeout=15000)
         page.wait_for_load_state("domcontentloaded", timeout=10000)
+        
+        # Проверяем на блокировку на странице игры
+        page_content = page.content()
+        if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+            log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
+            return None
+        elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
+            log_message("⚠️ Cloudflare проверка на странице игры - ждем...")
+            time.sleep(5)
+            page_content = page.content()
+            if "checking your browser" in page_content.lower():
+                log_message("❌ Cloudflare блокирует страницу игры")
+                return None
         
         # Ждем загрузки данных игры (React контент)
         random_delay(2, 3)  # Случайная задержка 2-3 секунды
@@ -520,10 +546,47 @@ def main():
             
             log_message("📄 Создаем новую страницу...")
             page = context.new_page()
-            log_message("✅ Страница создана, начинаем обработку игр")
+            log_message("✅ Страница создана")
+            
+            # Проверяем доступность сайта и возможный бан IP
+            log_message("🔍 Проверяем доступность HowLongToBeat.com...")
+            try:
+                page.goto(BASE_URL, timeout=15000)
+                page.wait_for_load_state("domcontentloaded", timeout=10000)
+                
+                # Проверяем заголовок страницы
+                title = page.title()
+                log_message(f"📄 Заголовок страницы: {title}")
+                
+                # Проверяем наличие основных элементов
+                search_box = page.locator('input[type="search"], input[name="q"]')
+                if search_box.count() > 0:
+                    log_message("✅ Поисковая строка найдена - сайт доступен")
+                else:
+                    log_message("⚠️ Поисковая строка не найдена - возможны проблемы")
+                
+                # Проверяем на блокировку
+                page_content = page.content()
+                if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+                    log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP! Сайт заблокировал доступ")
+                    return
+                elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
+                    log_message("⚠️ Cloudflare проверка браузера - ждем...")
+                    time.sleep(5)
+                    page_content = page.content()
+                    if "checking your browser" in page_content.lower():
+                        log_message("❌ Cloudflare блокирует доступ")
+                        return
+                
+                log_message("✅ Сайт доступен, начинаем обработку игр")
+                
+            except Exception as e:
+                log_message(f"❌ Ошибка проверки доступности сайта: {e}")
+                log_message("⚠️ Продолжаем работу, но возможны проблемы...")
             
             start_time = time.time()
             processed_count = 0
+            blocked_count = 0  # Счетчик блокировок
             
             # Обрабатываем игры
             for i in range(start_index, total_games):
@@ -538,9 +601,22 @@ def main():
                 if hltb_data:
                     game["hltb"] = hltb_data
                     processed_count += 1
+                    blocked_count = 0  # Сбрасываем счетчик блокировок при успехе
                     log_message(f"✅ Найдены данные: {hltb_data}")
                 else:
                     log_message(f"⚠️  Данные не найдены для: {game_title}")
+                    
+                    # Проверяем, не было ли блокировки
+                    page_content = page.content()
+                    if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+                        blocked_count += 1
+                        log_message(f"🚫 Блокировка #{blocked_count}")
+                        
+                        # Если много блокировок подряд - останавливаемся
+                        if blocked_count >= 3:
+                            log_message("💥 Слишком много блокировок подряд! Останавливаем работу.")
+                            log_message("🔄 Рекомендуется подождать и попробовать позже.")
+                            break
                 
                 # Вежливая задержка убрана - достаточно задержек в процессе поиска
                 
