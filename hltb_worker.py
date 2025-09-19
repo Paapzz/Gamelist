@@ -49,15 +49,22 @@ def count_hltb_data(hltb_data):
 def extract_games_list(html_file):
     """Извлекает список игр из HTML файла"""
     try:
+        log_message(f"📖 Читаем файл {html_file}...")
         with open(html_file, 'r', encoding='utf-8') as f:
             content = f.read()
         
+        log_message(f"📄 Файл прочитан, размер: {len(content)} символов")
+        
         # Находим начало и конец массива gamesList
+        log_message("🔍 Ищем 'const gamesList = ['...")
         start = content.find('const gamesList = [')
         if start == -1:
             raise ValueError("Не найден const gamesList в HTML файле")
         
+        log_message(f"✅ Найден const gamesList на позиции {start}")
+        
         # Ищем закрывающую скобку массива
+        log_message("🔍 Ищем закрывающую скобку массива...")
         bracket_count = 0
         end = start
         for i, char in enumerate(content[start:], start):
@@ -72,9 +79,15 @@ def extract_games_list(html_file):
         if bracket_count != 0:
             raise ValueError("Не найден конец массива gamesList")
         
+        log_message(f"✅ Найден конец массива на позиции {end}")
+        
         # Извлекаем JSON
+        log_message("✂️ Извлекаем JSON...")
         games_json = content[start:end]
         games_json = games_json.replace('const gamesList = ', '')
+        
+        log_message(f"📝 JSON извлечен, размер: {len(games_json)} символов")
+        log_message("🔄 Парсим JSON...")
         
         games_list = json.loads(games_json)
         log_message(f"✅ Извлечено {len(games_list)} игр из HTML файла")
@@ -460,13 +473,26 @@ def update_html_with_hltb(html_file, hltb_data):
 
 def main():
     """Основная функция воркера"""
-    setup_directories()
     log_message("🚀 Запуск HLTB Worker")
+    log_message(f"📁 Рабочая директория: {os.getcwd()}")
+    log_message(f"📄 Ищем файл: {GAMES_LIST_FILE}")
+    
+    # Проверяем существование файла
+    if not os.path.exists(GAMES_LIST_FILE):
+        log_message(f"❌ Файл {GAMES_LIST_FILE} не найден!")
+        return
+    
+    log_message(f"✅ Файл {GAMES_LIST_FILE} найден, размер: {os.path.getsize(GAMES_LIST_FILE)} байт")
+    
+    setup_directories()
+    log_message("📁 Директории настроены")
     
     try:
+        log_message("🔍 Начинаем извлечение списка игр...")
         # Извлекаем список игр
         games_list = extract_games_list(GAMES_LIST_FILE)
         total_games = len(games_list)
+        log_message(f"✅ Извлечено {total_games} игр")
         
         # Загружаем существующий прогресс, если есть
         if os.path.exists(PROGRESS_FILE):
@@ -478,14 +504,23 @@ def main():
             start_index = 0
         
         # Запускаем браузер
+        log_message("🌐 Запускаем Playwright...")
         with sync_playwright() as p:
+            log_message("🚀 Запускаем Chromium...")
             browser = p.chromium.launch(headless=True)
+            log_message("✅ Chromium запущен")
+            
+            log_message("🔧 Создаем контекст браузера...")
             context = browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
                 viewport={"width": 1280, "height": 800},
                 locale="en-US"
             )
+            log_message("✅ Контекст создан")
+            
+            log_message("📄 Создаем новую страницу...")
             page = context.new_page()
+            log_message("✅ Страница создана, начинаем обработку игр")
             
             start_time = time.time()
             processed_count = 0
