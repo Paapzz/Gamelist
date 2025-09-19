@@ -485,16 +485,16 @@ def extract_hltb_data_from_page(page):
                         try:
                             row_text = rows.nth(row_idx).inner_text().strip()
                             
-                            # Парсим строки с данными
-                            if "Main Story" in row_text:
+                            # Парсим строки с данными (только если еще не найдены)
+                            if "Main Story" in row_text and "ms" not in hltb_data:
                                 hltb_data["ms"] = extract_hltb_row_data(row_text)
-                            elif "Main + Extras" in row_text:
+                            elif "Main + Extras" in row_text and "mpe" not in hltb_data:
                                 hltb_data["mpe"] = extract_hltb_row_data(row_text)
-                            elif "Completionist" in row_text:
+                            elif "Completionist" in row_text and "comp" not in hltb_data:
                                 hltb_data["comp"] = extract_hltb_row_data(row_text)
-                            elif "Co-Op" in row_text:
+                            elif "Co-Op" in row_text and "coop" not in hltb_data:
                                 hltb_data["coop"] = extract_hltb_row_data(row_text)
-                            elif "Competitive" in row_text:
+                            elif "Competitive" in row_text and "vs" not in hltb_data:
                                 hltb_data["vs"] = extract_hltb_row_data(row_text)
                                 
                         except Exception as e:
@@ -692,10 +692,12 @@ def calculate_average_time(time1_str, time2_str):
         minutes2 = parse_time_to_minutes(time2_str)
         
         if minutes1 == 0 and minutes2 == 0:
-            return time1_str or time2_str
+            # Если оба времени равны 0, возвращаем первое доступное, но обработанное
+            return round_time(time1_str or time2_str) if (time1_str or time2_str) else None
         
         if minutes2 == 0:
-            return time1_str
+            # Если нет второго времени, возвращаем первое, но обработанное
+            return round_time(time1_str) if time1_str else None
         
         # Вычисляем среднее
         avg_minutes = (minutes1 + minutes2) / 2
