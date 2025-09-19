@@ -82,7 +82,6 @@ jobs:
             hltb_data/hltb_data.json
             scraping_report.json
           retention-days: 30
-        if-no-files-found: warn
       
       - name: Commit and push results
         run: |
