@@ -704,6 +704,7 @@ def extract_hltb_row_data(row_text):
 def calculate_average_time(time1_str, time2_str):
     """Вычисляет среднее время между двумя временными значениями"""
     try:
+        log_message(f"   Вычисляем среднее: '{time1_str}' + '{time2_str}'")
         def parse_time_to_minutes(time_str):
             if not time_str:
                 return 0
@@ -741,6 +742,8 @@ def calculate_average_time(time1_str, time2_str):
         minutes1 = parse_time_to_minutes(time1_str)
         minutes2 = parse_time_to_minutes(time2_str)
         
+        log_message(f"   Минуты: {minutes1} + {minutes2}")
+        
         if minutes1 == 0 and minutes2 == 0:
             # Если оба времени равны 0, возвращаем первое доступное, но обработанное
             return round_time(time1_str or time2_str) if (time1_str or time2_str) else None
@@ -755,14 +758,19 @@ def calculate_average_time(time1_str, time2_str):
         # Конвертируем обратно в часы
         hours = avg_minutes / 60
         
+        log_message(f"   Среднее: {avg_minutes} минут = {hours} часов")
+        
         # Применяем умное округление
         if hours >= 1:
             if hours == int(hours):
-                return f"{int(hours)}h"
+                result = f"{int(hours)}h"
             else:
-                return f"{hours:.1f}h"
+                result = f"{hours:.1f}h"
         else:
-            return f"{int(avg_minutes)}m"
+            result = f"{int(avg_minutes)}m"
+        
+        log_message(f"   Результат: {result}")
+        return result
             
     except Exception as e:
         log_message(f"❌ Ошибка вычисления среднего времени: {e}")
