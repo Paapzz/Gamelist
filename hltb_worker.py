@@ -247,7 +247,12 @@ def search_game_on_hltb(page, game_title, game_year=None):
                         clean_title_for_comparison(found_title) if found_title else clean_title_for_comparison(alt_title)
                     )
                     
-                    if score > best_score:
+                    # Проверяем, что найденное название точно соответствует тому, что мы ищем
+                    if found_title and found_title.lower() == alt_title.lower():
+                        # Точное соответствие - это лучший результат
+                        log_message(f"🎯 Найдено точное соответствие: '{found_title}'")
+                        return hltb_data
+                    elif score > best_score:
                         best_score = score
                         best_result = hltb_data
                         best_title = alt_title
@@ -334,11 +339,29 @@ def search_game_single_attempt(page, game_title, game_year=None):
                 log_message(f"⚠️ Низкая схожесть ({similarity:.2f}) для '{title}', пропускаем")
                 continue
             
+            # Проверяем точное соответствие названия
+            if similarity < 1.0:
+                # Если схожесть не идеальная, проверяем, не является ли это более короткой версией
+                if len(title) < len(game_title) and title.lower() in game_title.lower():
+                    log_message(f"⚠️ Найдено более короткое название '{title}' вместо '{game_title}', пропускаем")
+                    continue
+                # Также проверяем, не является ли это более длинной версией
+                elif len(title) > len(game_title) and game_title.lower() in title.lower():
+                    log_message(f"⚠️ Найдено более длинное название '{title}' вместо '{game_title}', пропускаем")
+                    continue
+            
             # Логируем попытку
             log_message(f"🎯 Проверяем: '{title}' (схожесть: {similarity:.2f})")
             
             # Сохраняем данные выбранной игры
-            game_url = match.get_attribute("href")
+            try:
+                game_url = match.get_attribute("href")
+                if not game_url:
+                    log_message(f"⚠️ Не удалось получить URL для '{title}', пропускаем")
+                    continue
+            except Exception as e:
+                log_message(f"⚠️ Ошибка получения URL для '{title}': {e}, пропускаем")
+                continue
             
             # Переходим на страницу выбранной игры
             full_url = f"{BASE_URL}{game_url}"
@@ -349,15 +372,15 @@ def search_game_single_attempt(page, game_title, game_year=None):
             # Проверяем на блокировку на странице игры
             page_content = page.content()
             if "blocked" in page_content.lower() or "access denied" in page_content.lower():
-                log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
-                return None
+                log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры, пробуем следующий результат")
+                continue  # Пробуем следующий результат
             elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
                 log_message("⚠️ Cloudflare проверка на странице игры - ждем...")
                 time.sleep(5)
                 page_content = page.content()
                 if "checking your browser" in page_content.lower():
-                    log_message("❌ Cloudflare блокирует страницу игры")
-                    return None
+                    log_message("❌ Cloudflare блокирует страницу игры, пробуем следующий результат")
+                    continue  # Пробуем следующий результат
             
             # Ждем загрузки данных игры (React контент)
             random_delay(3, 5)  # Увеличена задержка для стабильности
@@ -624,6 +647,25 @@ def generate_alternative_titles(game_title):
         if with_ampersand != game_title and with_ampersand not in alternatives:
             alternatives.append(with_ampersand)
     
+    # Добавляем варианты с подзаголовками для игр с римскими цифрами
+    # Например: "Doom II" -> "Doom II: Hell on Earth"
+    if re.search(r'\b(II|III|IV|V|VI|VII|VIII|IX|X)\b', game_title):
+        # Добавляем варианты с подзаголовками
+        base_name = re.sub(r'\s+(II|III|IV|V|VI|VII|VIII|IX|X)\b', '', game_title)
+        roman_num = re.search(r'\b(II|III|IV|V|VI|VII|VIII|IX|X)\b', game_title)
+        if roman_num:
+            roman = roman_num.group(1)
+            # Добавляем варианты с подзаголовками
+            subtitle_variants = [
+                f"{base_name} {roman}: Hell on Earth",
+                f"{base_name} {roman}: The Reckoning",
+                f"{base_name} {roman}: Resurrection",
+                f"{base_name} {roman}: Final Doom"
+            ]
+            for variant in subtitle_variants:
+                if variant not in alternatives:
+                    alternatives.append(variant)
+    
     return alternatives
 
 def calculate_title_similarity(title1, title2):
@@ -651,9 +693,18 @@ def calculate_title_similarity(title1, title2):
         if normalized1 == normalized2:
             return 1.0
         
-        # Бонус за включение одного в другое
+        # Бонус за включение одного в другое (только если разница в длине не слишком большая)
         if normalized1 in normalized2 or normalized2 in normalized1:
-            word_similarity += 0.2
+            # Проверяем, что разница в длине не слишком большая
+            len_diff = abs(len(normalized1) - len(normalized2))
+            shorter_len = min(len(normalized1), len(normalized2))
+            
+            # Если разница в длине меньше 50% от более короткого названия, даем бонус
+            if len_diff < shorter_len * 0.5:
+                word_similarity += 0.2
+            else:
+                # Если разница большая, это скорее всего разные игры
+                word_similarity -= 0.1
         
         # Бонус за общие длинные слова (более 4 символов)
         long_common = [w for w in common_words if len(w) > 4]
@@ -1054,8 +1105,8 @@ def extract_vs_data_from_text(text):
         
         # Проверяем, есть ли "Vs. --" (нет данных)
         if re.search(r'Vs\.\s*--', text):
-            log_message("ℹ️ Vs. данные отсутствуют (Vs. --)")
-            return None
+            log_message("ℹ️ Vs. данные отсутствуют (Vs. --), ищем альтернативные данные...")
+            # Не возвращаем None, продолжаем поиск альтернативных данных
         
         # Ищем различные форматы Vs. данных
         vs_patterns = [
@@ -1457,8 +1508,10 @@ def main():
         
         # Обновляем HTML файл с новыми данными
         log_message("🔄 Обновление HTML файла с данными HLTB...")
+        log_message(f"📝 Записываем {len(games_list)} игр с HLTB данными в {GAMES_LIST_FILE}")
         if update_html_with_hltb(GAMES_LIST_FILE, games_list):
             log_message("✅ HTML файл успешно обновлен!")
+            log_message("🎯 Индекс теперь содержит HLTB данные для всех игр")
         else:
             log_message("❌ Не удалось обновить HTML файл")
         
