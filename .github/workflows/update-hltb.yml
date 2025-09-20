@@ -30,10 +30,16 @@ jobs:
       
       - name: Run HLTB scraper
         run: |
+          # Создаем папку hltb_data если её нет
+          mkdir -p hltb_data
+          echo "📁 Создана папка hltb_data"
+          
+          # Запускаем воркер
           python hltb_worker.py
         continue-on-error: true
       
       - name: Generate report
+        if: always()
         run: |
           # Создаем отчет
           python -c "
@@ -60,7 +66,7 @@ jobs:
                   'successful_games': successful,
                   'failed_games': total_games - successful,
                   'success_rate': f'{success_rate:.1f}%',
-                  'test_mode': 'true'
+                  'test_mode': 'false'
               }
               
               with open('scraping_report.json', 'w', encoding='utf-8') as f:
@@ -75,6 +81,7 @@ jobs:
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: hltb-data-${{ github.run_number }}
           path: |
@@ -83,15 +90,33 @@ jobs:
           retention-days: 30
       
       - name: Commit and push results
+        if: always()
         run: |
           # Настраиваем git
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          # Добавляем файлы
-          git add hltb_data/hltb_data.json
-          git add scraping_report.json
-          git add index111.html
+          # Добавляем файлы только если они существуют
+          if [ -f "hltb_data/hltb_data.json" ]; then
+            git add hltb_data/hltb_data.json
+            echo "✅ Добавлен hltb_data/hltb_data.json"
+          else
+            echo "⚠️ Файл hltb_data/hltb_data.json не найден"
+          fi
+          
+          if [ -f "scraping_report.json" ]; then
+            git add scraping_report.json
+            echo "✅ Добавлен scraping_report.json"
+          else
+            echo "⚠️ Файл scraping_report.json не найден"
+          fi
+          
+          if [ -f "index111.html" ]; then
+            git add index111.html
+            echo "✅ Добавлен index111.html"
+          else
+            echo "⚠️ Файл index111.html не найден"
+          fi
           
           # Защита от конфликтов - синхронизируем с удаленным репозиторием
           git pull --rebase origin main
@@ -107,6 +132,7 @@ jobs:
       
       
       - name: Create summary
+        if: always()
         run: |
           # Создаем краткое резюме
           if [ -f "scraping_report.json" ]; then
