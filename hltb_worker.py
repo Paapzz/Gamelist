@@ -901,6 +901,7 @@ def extract_hltb_data_from_page(page):
         # Ищем все таблицы на странице
         tables = page.locator("table")
         table_count = tables.count()
+        log_message(f"📊 Найдено таблиц на странице: {table_count}")
         
         for table_idx in range(table_count):
             try:
@@ -908,32 +909,38 @@ def extract_hltb_data_from_page(page):
                 table_text = table.inner_text()
                 
                 # Проверяем, содержит ли таблица нужные ключевые слова
-                if any(keyword in table_text for keyword in ["Main Story", "Main + Extras", "Completionist", "Co-Op", "Competitive", "Vs."]):
-                    log_message(f"📊 Обрабатываем таблицу {table_idx + 1}")
+                keywords_found = [keyword for keyword in ["Main Story", "Main + Extras", "Completionist", "Co-Op", "Competitive", "Vs."] if keyword in table_text]
+                if keywords_found:
+                    log_message(f"📊 Обрабатываем таблицу {table_idx + 1}, найдены ключевые слова: {keywords_found}")
+                else:
+                    log_message(f"📊 Таблица {table_idx + 1} не содержит нужных ключевых слов, пропускаем")
+                    continue
                     
-                    # Получаем все строки таблицы
-                    rows = table.locator("tr")
-                    row_count = rows.count()
-                    
-                    for row_idx in range(row_count):
-                        try:
-                            row_text = rows.nth(row_idx).inner_text().strip()
+                # Получаем все строки таблицы
+                rows = table.locator("tr")
+                row_count = rows.count()
+                log_message(f"📊 В таблице {table_idx + 1} найдено строк: {row_count}")
+                
+                for row_idx in range(row_count):
+                    try:
+                        row_text = rows.nth(row_idx).inner_text().strip()
+                        log_message(f"📊 Строка {row_idx + 1}: '{row_text[:100]}...'")
+                        
+                        # Парсим строки с данными (только если еще не найдены)
+                        if "Main Story" in row_text and "ms" not in hltb_data:
+                            hltb_data["ms"] = extract_hltb_row_data(row_text)
+                        elif "Main + Extras" in row_text and "mpe" not in hltb_data:
+                            hltb_data["mpe"] = extract_hltb_row_data(row_text)
+                        elif "Completionist" in row_text and "comp" not in hltb_data:
+                            hltb_data["comp"] = extract_hltb_row_data(row_text)
+                        elif "Co-Op" in row_text and "coop" not in hltb_data:
+                            hltb_data["coop"] = extract_hltb_row_data(row_text)
+                        elif "Competitive" in row_text and "vs" not in hltb_data:
+                            hltb_data["vs"] = extract_hltb_row_data(row_text)
                             
-                            # Парсим строки с данными (только если еще не найдены)
-                            if "Main Story" in row_text and "ms" not in hltb_data:
-                                hltb_data["ms"] = extract_hltb_row_data(row_text)
-                            elif "Main + Extras" in row_text and "mpe" not in hltb_data:
-                                hltb_data["mpe"] = extract_hltb_row_data(row_text)
-                            elif "Completionist" in row_text and "comp" not in hltb_data:
-                                hltb_data["comp"] = extract_hltb_row_data(row_text)
-                            elif "Co-Op" in row_text and "coop" not in hltb_data:
-                                hltb_data["coop"] = extract_hltb_row_data(row_text)
-                            elif "Competitive" in row_text and "vs" not in hltb_data:
-                                hltb_data["vs"] = extract_hltb_row_data(row_text)
-                                
-                        except Exception as e:
-                            log_message(f"⚠️ Ошибка обработки строки {row_idx}: {e}")
-                            continue
+                    except Exception as e:
+                        log_message(f"⚠️ Ошибка обработки строки {row_idx}: {e}")
+                        continue
                             
             except Exception as e:
                 log_message(f"⚠️ Ошибка обработки таблицы {table_idx}: {e}")
@@ -1008,6 +1015,8 @@ def extract_hltb_data_from_page(page):
                     categories.append(f"{key}: {value['t']}")
             if categories:
                 log_message(f"📊 Найдены категории: {', '.join(categories)}")
+        else:
+            log_message("❌ Данные HLTB не найдены на странице")
         
         return hltb_data if hltb_data else None
         
