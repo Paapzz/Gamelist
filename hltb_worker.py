@@ -1110,6 +1110,14 @@ def extract_hltb_data_alternative(page):
             # Ищем паттерны времени в тексте
             import re
             time_patterns = [
+                # Паттерны для формата "Xh Ym" (например, "4h 12m")
+                r'Main Story.*?(\d+)\s*h\s*(\d+)\s*m',
+                r'Main \+ Extras.*?(\d+)\s*h\s*(\d+)\s*m',
+                r'Completionist.*?(\d+)\s*h\s*(\d+)\s*m',
+                r'Co-Op.*?(\d+)\s*h\s*(\d+)\s*m',
+                r'Competitive.*?(\d+)\s*h\s*(\d+)\s*m',
+                
+                # Паттерны для формата "X.Yh" (например, "4.2h")
                 r'Main Story.*?(\d+(?:\.\d+)?)\s*h(?:ours?)?',
                 r'Main \+ Extras.*?(\d+(?:\.\d+)?)\s*h(?:ours?)?',
                 r'Completionist.*?(\d+(?:\.\d+)?)\s*h(?:ours?)?',
@@ -1120,27 +1128,56 @@ def extract_hltb_data_alternative(page):
             for pattern in time_patterns:
                 matches = re.findall(pattern, page_text, re.IGNORECASE)
                 if matches:
-                    time_str = matches[0]
-                    hours = float(time_str)
+                    match = matches[0]
                     
-                    if hours >= 1:
-                        if hours == int(hours):
-                            formatted_time = f"{int(hours)}h"
+                    # Обрабатываем формат "Xh Ym" (два числа)
+                    if isinstance(match, tuple) and len(match) == 2:
+                        hours_part = int(match[0])
+                        minutes_part = int(match[1])
+                        total_hours = hours_part + (minutes_part / 60)
+                        
+                        if total_hours >= 1:
+                            if total_hours == int(total_hours):
+                                formatted_time = f"{int(total_hours)}h"
+                            else:
+                                formatted_time = f"{total_hours:.1f}h"
                         else:
-                            formatted_time = f"{hours:.1f}h"
+                            formatted_time = f"{int(total_hours * 60)}m"
+                        
+                        # Применяем умное округление
+                        formatted_time = round_time(formatted_time)
                     else:
-                        formatted_time = f"{int(hours * 60)}m"
+                        # Обрабатываем формат "X.Yh" (одно число)
+                        time_str = match if isinstance(match, str) else str(match)
+                        hours = float(time_str)
+                        
+                        if hours >= 1:
+                            if hours == int(hours):
+                                formatted_time = f"{int(hours)}h"
+                            else:
+                                formatted_time = f"{hours:.1f}h"
+                        else:
+                            formatted_time = f"{int(hours * 60)}m"
+                        
+                        # Применяем умное округление
+                        formatted_time = round_time(formatted_time)
                     
+                    # Определяем категорию по паттерну
                     if "Main Story" in pattern and "ms" not in hltb_data:
                         hltb_data["ms"] = {"t": formatted_time}
+                        log_message(f"📊 Найден Main Story: {formatted_time}")
                     elif "Main + Extras" in pattern and "mpe" not in hltb_data:
                         hltb_data["mpe"] = {"t": formatted_time}
+                        log_message(f"📊 Найден Main + Extras: {formatted_time}")
                     elif "Completionist" in pattern and "comp" not in hltb_data:
                         hltb_data["comp"] = {"t": formatted_time}
+                        log_message(f"📊 Найден Completionist: {formatted_time}")
                     elif "Co-Op" in pattern and "coop" not in hltb_data:
                         hltb_data["coop"] = {"t": formatted_time}
+                        log_message(f"📊 Найден Co-Op: {formatted_time}")
                     elif "Competitive" in pattern and "vs" not in hltb_data:
                         hltb_data["vs"] = {"t": formatted_time}
+                        log_message(f"📊 Найден Competitive: {formatted_time}")
         
         return hltb_data if hltb_data else None
         
