@@ -226,13 +226,30 @@ def search_game_on_hltb(page, game_title):
                     log_message(f"⏳ Пауза {delays[attempt]} секунд...")
                     time.sleep(delays[attempt])
             
-            # Пробуем все альтернативные названия
+            # Пробуем все альтернативные названия и выбираем лучший результат
+            best_result = None
+            best_score = 0
+            best_title = ""
+            
             for alt_title in alternative_titles:
                 result = search_game_single_attempt(page, alt_title)
                 if result is not None:
-                    if attempt > 0:
-                        log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
-                    return result
+                    # Вычисляем схожесть для выбора лучшего результата
+                    score = calculate_title_similarity(
+                        clean_title_for_comparison(game_title),
+                        clean_title_for_comparison(alt_title)
+                    )
+                    
+                    if score > best_score:
+                        best_score = score
+                        best_result = result
+                        best_title = alt_title
+            
+            if best_result is not None:
+                if attempt > 0:
+                    log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
+                log_message(f"🏆 Лучший результат: '{best_title}' (схожесть: {best_score:.2f})")
+                return best_result
             
         except Exception as e:
             log_message(f"❌ Ошибка попытки {attempt + 1} для '{game_title}': {e}")
@@ -245,12 +262,10 @@ def search_game_on_hltb(page, game_title):
 def search_game_single_attempt(page, game_title):
     """Одна попытка поиска игры на HLTB"""
     try:
-        # Извлекаем основное название
-        primary_title = extract_primary_title(game_title)
-        log_message(f"🔍 Ищем: '{primary_title}' (оригинал: '{game_title}')")
+        log_message(f"🔍 Ищем: '{game_title}'")
         
         # Кодируем название для URL
-        safe_title = quote(primary_title, safe="")
+        safe_title = quote(game_title, safe="")
         search_url = f"{BASE_URL}/?q={safe_title}"
         
         # Переходим на страницу поиска
@@ -478,7 +493,7 @@ def generate_alternative_titles(game_title):
             if part and part not in alternatives:
                 alternatives.append(part)
         
-        # Для случаев типа "Pokémon Red/Blue/Yellow" добавляем "Pokémon Red and Blue"
+        # Для случаев типа "Pokémon Red/Blue/Yellow" добавляем варианты с пробелами
         if len(parts) >= 2:
             first_part = parts[0]
             if " " in first_part:
@@ -487,11 +502,27 @@ def generate_alternative_titles(game_title):
                 if len(words) >= 2:
                     base = " ".join(words[:-1])
                     last_word = words[-1]
-                    # Добавляем "and" + вторую часть
+                    
+                    # Вариант 1: с "and" (как было раньше)
                     if len(parts) >= 2:
                         second_part = parts[1].split()[0] if " " in parts[1] else parts[1]
-                        combined = f"{base} {last_word} and {second_part}"
-                        alternatives.append(combined)
+                        combined_with_and = f"{base} {last_word} and {second_part}"
+                        alternatives.append(combined_with_and)
+                    
+                    # Вариант 2: без "and", просто с пробелами
+                    # "Pokémon Red/Blue/Yellow" -> "Pokémon Red Blue Yellow"
+                    all_parts_with_spaces = []
+                    for part in parts:
+                        if " " in part:
+                            # Если часть содержит пробел, берем только последнее слово
+                            part_words = part.split()
+                            all_parts_with_spaces.append(part_words[-1])
+                        else:
+                            # Если часть без пробела, берем целиком
+                            all_parts_with_spaces.append(part)
+                    
+                    combined_with_spaces = f"{base} {' '.join(all_parts_with_spaces)}"
+                    alternatives.append(combined_with_spaces)
     
     return alternatives
 
