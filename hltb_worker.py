@@ -483,6 +483,13 @@ def process_single_match(page, match, title, similarity, game_title, game_year):
                 return None
             elif hltb_year is not None:
                 log_message(f"✅ Год совпадает: {hltb_year}")
+            else:
+                # Если год не найден на странице, но название точно совпадает, пропускаем проверку года
+                if similarity >= 1.0:
+                    log_message(f"⚠️ Год не найден на странице, но название точно совпадает - пропускаем проверку года")
+                else:
+                    log_message(f"⚠️ Год не найден на странице и название не точное - пропускаем")
+                    return None
         
         # Извлекаем данные из таблицы
         hltb_data = extract_hltb_data_from_page(page)
@@ -836,12 +843,16 @@ def extract_year_from_hltb_page(page):
         # Получаем весь текст страницы
         page_text = page.content()
         
-        # Ищем все годы в тексте
+        # Ищем все годы в тексте с более широкими паттернами
         year_patterns = [
             r'\b(19|20)\d{2}\b',  # Простые годы
             r'(?:NA|EU|JP|US|UK|Worldwide)[:\s]*\w+\s+\d{1,2}(?:st|nd|rd|th)?,\s*(19|20)\d{2}',  # Даты с регионами
             r'(?:Release|Published|Launched)[:\s]*\w+\s+\d{1,2}(?:st|nd|rd|th)?,\s*(19|20)\d{2}',  # Даты с Release/Published
             r'\w+\s+\d{1,2}(?:st|nd|rd|th)?,\s*(19|20)\d{2}',  # Месяц день, год
+            r'(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?,\s*(19|20)\d{2}',  # Полные названия месяцев
+            r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}(?:st|nd|rd|th)?,\s*(19|20)\d{2}',  # Сокращенные месяцы
+            r'(?:Q1|Q2|Q3|Q4)\s*(19|20)\d{2}',  # Кварталы
+            r'(?:Spring|Summer|Fall|Autumn|Winter)\s*(19|20)\d{2}',  # Сезоны
         ]
         
         all_years = []
@@ -865,6 +876,15 @@ def extract_year_from_hltb_page(page):
             min_year = min(all_years)
             log_message(f"📅 Найден минимальный год на HLTB: {min_year} (из {sorted(set(all_years))})")
             return min_year
+        
+        # Если не нашли через паттерны, попробуем найти любые 4-значные числа
+        simple_years = re.findall(r'\b(19|20)\d{2}\b', page_text)
+        if simple_years:
+            years = [int(year) for year in simple_years if 1900 <= int(year) <= 2030]
+            if years:
+                min_year = min(years)
+                log_message(f"📅 Найден год простым поиском: {min_year} (из {sorted(set(years))})")
+                return min_year
         
         log_message("⚠️ Год не найден на странице HLTB")
         return None
