@@ -473,7 +473,14 @@ def process_single_match(page, match, title, similarity, game_title, game_year):
                 return None
         
         # Ждем загрузки данных игры (React контент)
-        random_delay(3, 5)  # Увеличена задержка для стабильности
+        random_delay(5, 8)  # Увеличена задержка для стабильности
+        
+        # Дополнительно ждем загрузки таблиц
+        try:
+            page.wait_for_selector("table", timeout=10000)
+            log_message("✅ Таблицы загружены")
+        except Exception:
+            log_message("⚠️ Таблицы не найдены, продолжаем без ожидания")
         
         # Проверяем год игры, если он указан
         if game_year is not None:
@@ -1007,6 +1014,11 @@ def extract_hltb_data_from_page(page):
         if store_links:
             hltb_data["stores"] = store_links
         
+        # Если данные не найдены в таблицах, пробуем альтернативные селекторы
+        if not hltb_data:
+            log_message("🔍 Пробуем альтернативные селекторы...")
+            hltb_data = extract_hltb_data_alternative(page)
+        
         # Логируем итоговые результаты
         if hltb_data:
             categories = []
@@ -1022,6 +1034,118 @@ def extract_hltb_data_from_page(page):
         
     except Exception as e:
         log_message(f"❌ Ошибка извлечения данных со страницы: {e}")
+        return None
+
+def extract_hltb_data_alternative(page):
+    """Альтернативный способ извлечения данных HLTB (если таблицы не найдены)"""
+    try:
+        hltb_data = {}
+        
+        # Пробуем найти данные в div-ах или других элементах
+        alternative_selectors = [
+            # Селекторы для div-ов с данными
+            'div[class*="time"]',
+            'div[class*="hours"]',
+            'div[class*="main"]',
+            'div[class*="story"]',
+            'div[class*="completionist"]',
+            'div[class*="extras"]',
+            'div[class*="coop"]',
+            'div[class*="competitive"]',
+            'div[class*="vs"]',
+            
+            # Селекторы для span-ов
+            'span[class*="time"]',
+            'span[class*="hours"]',
+            
+            # Селекторы для p-ов
+            'p[class*="time"]',
+            'p[class*="hours"]',
+            
+            # Общие селекторы
+            '[data-testid*="time"]',
+            '[data-testid*="hours"]',
+            '[data-testid*="main"]',
+            '[data-testid*="story"]',
+        ]
+        
+        for selector in alternative_selectors:
+            try:
+                elements = page.locator(selector)
+                count = elements.count()
+                if count > 0:
+                    log_message(f"🔍 Найдено {count} элементов с селектором: {selector}")
+                    
+                    for i in range(min(count, 10)):  # Проверяем первые 10 элементов
+                        try:
+                            element = elements.nth(i)
+                            text = element.inner_text().strip()
+                            
+                            if text and any(keyword in text for keyword in ["Main Story", "Main + Extras", "Completionist", "Co-Op", "Competitive", "Vs.", "Hours"]):
+                                log_message(f"📊 Найден элемент с данными: '{text[:100]}...'")
+                                
+                                # Пробуем извлечь данные из текста
+                                if "Main Story" in text and "ms" not in hltb_data:
+                                    hltb_data["ms"] = extract_hltb_row_data(text)
+                                elif "Main + Extras" in text and "mpe" not in hltb_data:
+                                    hltb_data["mpe"] = extract_hltb_row_data(text)
+                                elif "Completionist" in text and "comp" not in hltb_data:
+                                    hltb_data["comp"] = extract_hltb_row_data(text)
+                                elif "Co-Op" in text and "coop" not in hltb_data:
+                                    hltb_data["coop"] = extract_hltb_row_data(text)
+                                elif "Competitive" in text and "vs" not in hltb_data:
+                                    hltb_data["vs"] = extract_hltb_row_data(text)
+                                    
+                        except Exception as e:
+                            continue
+                            
+            except Exception:
+                continue
+        
+        # Если все еще не найдено, пробуем поиск по всему тексту страницы
+        if not hltb_data:
+            log_message("🔍 Пробуем поиск по всему тексту страницы...")
+            page_text = page.content()
+            
+            # Ищем паттерны времени в тексте
+            import re
+            time_patterns = [
+                r'Main Story.*?(\d+(?:\.\d+)?)\s*h(?:ours?)?',
+                r'Main \+ Extras.*?(\d+(?:\.\d+)?)\s*h(?:ours?)?',
+                r'Completionist.*?(\d+(?:\.\d+)?)\s*h(?:ours?)?',
+                r'Co-Op.*?(\d+(?:\.\d+)?)\s*h(?:ours?)?',
+                r'Competitive.*?(\d+(?:\.\d+)?)\s*h(?:ours?)?',
+            ]
+            
+            for pattern in time_patterns:
+                matches = re.findall(pattern, page_text, re.IGNORECASE)
+                if matches:
+                    time_str = matches[0]
+                    hours = float(time_str)
+                    
+                    if hours >= 1:
+                        if hours == int(hours):
+                            formatted_time = f"{int(hours)}h"
+                        else:
+                            formatted_time = f"{hours:.1f}h"
+                    else:
+                        formatted_time = f"{int(hours * 60)}m"
+                    
+                    if "Main Story" in pattern and "ms" not in hltb_data:
+                        hltb_data["ms"] = {"t": formatted_time}
+                    elif "Main + Extras" in pattern and "mpe" not in hltb_data:
+                        hltb_data["mpe"] = {"t": formatted_time}
+                    elif "Completionist" in pattern and "comp" not in hltb_data:
+                        hltb_data["comp"] = {"t": formatted_time}
+                    elif "Co-Op" in pattern and "coop" not in hltb_data:
+                        hltb_data["coop"] = {"t": formatted_time}
+                    elif "Competitive" in pattern and "vs" not in hltb_data:
+                        hltb_data["vs"] = {"t": formatted_time}
+        
+        return hltb_data if hltb_data else None
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка альтернативного извлечения данных: {e}")
         return None
 
 def extract_store_links(page):
