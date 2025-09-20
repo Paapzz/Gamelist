@@ -234,7 +234,7 @@ def search_game_on_hltb(page, game_title):
             for alt_title in alternative_titles:
                 result = search_game_single_attempt(page, alt_title)
                 if result is not None:
-                    # Вычисляем схожесть для выбора лучшего результата
+                    # Вычисляем схожесть между оригинальным названием и альтернативным
                     score = calculate_title_similarity(
                         clean_title_for_comparison(game_title),
                         clean_title_for_comparison(alt_title)
@@ -488,10 +488,9 @@ def generate_alternative_titles(game_title):
     if "/" in game_title:
         parts = [part.strip() for part in game_title.split("/")]
         
-        # Добавляем каждую часть отдельно
-        for part in parts:
-            if part and part not in alternatives:
-                alternatives.append(part)
+        # Добавляем только первую часть (основное название)
+        if parts[0] and parts[0] not in alternatives:
+            alternatives.append(parts[0])
         
         # Для случаев типа "Pokémon Red/Blue/Yellow" добавляем варианты с пробелами
         if len(parts) >= 2:
@@ -529,9 +528,13 @@ def generate_alternative_titles(game_title):
 def calculate_title_similarity(title1, title2):
     """Вычисляет схожесть между двумя названиями игр"""
     try:
+        # Нормализуем названия для сравнения (конвертируем римские цифры в арабские)
+        normalized1 = normalize_title_for_comparison(title1)
+        normalized2 = normalize_title_for_comparison(title2)
+        
         # Простой алгоритм схожести на основе общих слов
-        words1 = set(title1.split())
-        words2 = set(title2.split())
+        words1 = set(normalized1.split())
+        words2 = set(normalized2.split())
         
         if not words1 or not words2:
             return 0.0
@@ -544,11 +547,11 @@ def calculate_title_similarity(title1, title2):
         word_similarity = len(common_words) / len(total_words)
         
         # Бонус за точное совпадение
-        if title1 == title2:
+        if normalized1 == normalized2:
             return 1.0
         
         # Бонус за включение одного в другое
-        if title1 in title2 or title2 in title1:
+        if normalized1 in normalized2 or normalized2 in normalized1:
             word_similarity += 0.2
         
         # Бонус за общие длинные слова (более 4 символов)
@@ -561,6 +564,30 @@ def calculate_title_similarity(title1, title2):
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
         return 0.0
+
+def normalize_title_for_comparison(title):
+    """Нормализует название для сравнения, конвертируя римские цифры в арабские"""
+    try:
+        import re
+        
+        # Словарь для конвертации римских цифр в арабские
+        roman_to_arabic = {
+            'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
+            'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10'
+        }
+        
+        # Заменяем римские цифры на арабские
+        normalized = title
+        for roman, arabic in roman_to_arabic.items():
+            # Ищем римские цифры как отдельные слова
+            pattern = r'\b' + roman + r'\b'
+            normalized = re.sub(pattern, arabic, normalized)
+        
+        return normalized
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка нормализации названия: {e}")
+        return title
 
 def extract_hltb_data_from_page(page):
     """Извлекает данные HLTB со страницы игры"""
@@ -866,22 +893,38 @@ def extract_vs_data_from_text(text):
     try:
         import re
         
-        # Ищем время после "Vs." в формате "Vs. | 1767 Hours"
-        vs_match = re.search(r'Vs\.\s*\|\s*(\d+(?:\.\d+)?)\s*Hours?', text)
-        if vs_match:
-            time_str = vs_match.group(1)
-            hours = float(time_str)
-            
-            if hours >= 1:
-                if hours == int(hours):
-                    formatted_time = f"{int(hours)}h"
-                else:
-                    formatted_time = f"{hours:.1f}h"
-            else:
-                formatted_time = f"{int(hours * 60)}m"
-            
-            return {"t": formatted_time}
+        log_message(f"🔍 Ищем Vs. данные в тексте: '{text[:200]}...'")
         
+        # Ищем различные форматы Vs. данных
+        patterns = [
+            r'Vs\.\s*\|\s*(\d+(?:\.\d+)?)\s*Hours?',  # "Vs. | 1767 Hours"
+            r'Vs\.\s+(\d+(?:\.\d+)?)\s*Hours?',        # "Vs. 1767 Hours"
+            r'Vs\.\s*(\d+(?:\.\d+)?)\s*Hours?',        # "Vs.1767 Hours"
+            r'Vs\.\s*(\d+(?:\.\d+)?[½]?)\s*Hours?',    # "Vs. 1767½ Hours"
+        ]
+        
+        for pattern in patterns:
+            vs_match = re.search(pattern, text)
+            if vs_match:
+                time_str = vs_match.group(1)
+                # Обрабатываем дробные часы с ½
+                if '½' in time_str:
+                    time_str = time_str.replace('½', '.5')
+                
+                hours = float(time_str)
+                
+                if hours >= 1:
+                    if hours == int(hours):
+                        formatted_time = f"{int(hours)}h"
+                    else:
+                        formatted_time = f"{hours:.1f}h"
+                else:
+                    formatted_time = f"{int(hours * 60)}m"
+                
+                log_message(f"✅ Найдены Vs. данные: {formatted_time}")
+                return {"t": formatted_time}
+        
+        log_message("❌ Vs. данные не найдены")
         return None
         
     except Exception as e:
