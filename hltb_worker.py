@@ -177,6 +177,9 @@ def round_time(time_str):
     
     hours, minutes = parse_time_to_hours(time_str)
     
+    # Убеждаемся, что hours - целое число
+    hours = int(hours)
+    
     if minutes <= 14:
         return f"{hours}h"           # 0-14 мин → целый час
     elif minutes <= 44:
@@ -249,6 +252,11 @@ def search_game_on_hltb(page, game_title):
                         best_result = hltb_data
                         best_title = alt_title
                         best_found_title = found_title
+                    
+                    # Если нашли идеальное совпадение (100%), прекращаем поиск
+                    if score >= 1.0:
+                        log_message(f"🎯 Найдено идеальное совпадение! Прекращаем поиск.")
+                        break
             
             if best_result is not None:
                 if attempt > 0:
@@ -476,18 +484,34 @@ def generate_alternative_titles(game_title):
     """Генерирует альтернативные варианты названия для поиска"""
     alternatives = [game_title]
     
-    # Добавляем варианты с римскими цифрами
+    # Добавляем варианты с римскими цифрами (только для целых чисел)
     import re
-    # Ищем арабские цифры в конце названия или после пробела
+    # Ищем арабские цифры в конце названия или после пробела, но НЕ в составе дробных чисел
     arabic_pattern = r'(\b\d+\b)'
     matches = re.findall(arabic_pattern, game_title)
     
     for match in matches:
-        roman = convert_arabic_to_roman(match)
-        if roman != match:
-            # Заменяем арабскую цифру на римскую
-            alt_title = re.sub(r'\b' + match + r'\b', roman, game_title)
-            alternatives.append(alt_title)
+        # Проверяем, что это не часть дробного числа (например, "1.6")
+        # Ищем контекст вокруг цифры
+        context_pattern = r'(\b' + match + r'\b)'
+        context_matches = re.finditer(context_pattern, game_title)
+        
+        for context_match in context_matches:
+            start_pos = context_match.start()
+            end_pos = context_match.end()
+            
+            # Проверяем, что перед и после цифры нет точки
+            before_char = game_title[start_pos - 1] if start_pos > 0 else ''
+            after_char = game_title[end_pos] if end_pos < len(game_title) else ''
+            
+            # Если это не часть дробного числа, преобразуем в римские
+            if before_char != '.' and after_char != '.':
+                roman = convert_arabic_to_roman(match)
+                if roman != match:
+                    # Заменяем арабскую цифру на римскую
+                    alt_title = re.sub(r'\b' + match + r'\b', roman, game_title)
+                    alternatives.append(alt_title)
+                break  # Прерываем после первого подходящего совпадения
     
     # Для названий с "/" добавляем варианты поиска по частям
     if "/" in game_title:
@@ -804,7 +828,7 @@ def extract_hltb_row_data(row_text):
         
         # Вычисляем среднее между Average и Median
         final_time = calculate_average_time(average_time, median_time)
-        result["t"] = round_time(final_time) if final_time else None
+        result["t"] = final_time if final_time else None
         
         if polled:
             result["p"] = polled
@@ -898,7 +922,9 @@ def extract_vs_data_from_text(text):
     try:
         import re
         
-        log_message(f"🔍 Ищем Vs. данные в тексте: '{text[:200]}...'")
+        # Убираем переносы строк для читаемого лога
+        clean_text = text.replace('\n', ' ').replace('\r', ' ')
+        log_message(f"🔍 Ищем Vs. данные в тексте: '{clean_text[:200]}...'")
         
         # Ищем различные форматы Vs. данных
         patterns = [
