@@ -210,8 +210,9 @@ def search_game_on_hltb(page, game_title):
     max_attempts = 3
     delays = [0, (15, 18), (65, 70)]  # Паузы между попытками в секундах
     
-    # Получаем альтернативное название
-    alternative_title = extract_alternative_title(game_title)
+    # Генерируем все альтернативные названия
+    alternative_titles = generate_alternative_titles(game_title)
+    log_message(f"🔄 Альтернативные названия для '{game_title}': {alternative_titles}")
     
     for attempt in range(max_attempts):
         try:
@@ -225,20 +226,13 @@ def search_game_on_hltb(page, game_title):
                     log_message(f"⏳ Пауза {delays[attempt]} секунд...")
                     time.sleep(delays[attempt])
             
-            # Пробуем основное название
-            result = search_game_single_attempt(page, game_title)
-            if result is not None:
-                if attempt > 0:
-                    log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
-                return result
-            
-            # Если схожесть меньше 0.6 и есть альтернативное название, пробуем его
-            if alternative_title and attempt == 0:
-                log_message(f"🔄 Пробуем альтернативное название: '{alternative_title}'")
-                alt_result = search_game_single_attempt(page, alternative_title)
-                if alt_result is not None:
-                    log_message(f"✅ Найдено по альтернативному названию")
-                    return alt_result
+            # Пробуем все альтернативные названия
+            for alt_title in alternative_titles:
+                result = search_game_single_attempt(page, alt_title)
+                if result is not None:
+                    if attempt > 0:
+                        log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
+                    return result
             
         except Exception as e:
             log_message(f"❌ Ошибка попытки {attempt + 1} для '{game_title}': {e}")
@@ -429,6 +423,78 @@ def extract_alternative_title(game_title):
     
     return None
 
+def convert_arabic_to_roman(num_str):
+    """Конвертирует арабские цифры в римские"""
+    try:
+        num = int(num_str)
+        if num == 1:
+            return "I"
+        elif num == 2:
+            return "II"
+        elif num == 3:
+            return "III"
+        elif num == 4:
+            return "IV"
+        elif num == 5:
+            return "V"
+        elif num == 6:
+            return "VI"
+        elif num == 7:
+            return "VII"
+        elif num == 8:
+            return "VIII"
+        elif num == 9:
+            return "IX"
+        elif num == 10:
+            return "X"
+        else:
+            return num_str
+    except:
+        return num_str
+
+def generate_alternative_titles(game_title):
+    """Генерирует альтернативные варианты названия для поиска"""
+    alternatives = [game_title]
+    
+    # Добавляем варианты с римскими цифрами
+    import re
+    # Ищем арабские цифры в конце названия или после пробела
+    arabic_pattern = r'(\b\d+\b)'
+    matches = re.findall(arabic_pattern, game_title)
+    
+    for match in matches:
+        roman = convert_arabic_to_roman(match)
+        if roman != match:
+            # Заменяем арабскую цифру на римскую
+            alt_title = re.sub(r'\b' + match + r'\b', roman, game_title)
+            alternatives.append(alt_title)
+    
+    # Для названий с "/" добавляем варианты поиска по частям
+    if "/" in game_title:
+        parts = [part.strip() for part in game_title.split("/")]
+        
+        # Добавляем каждую часть отдельно
+        for part in parts:
+            if part and part not in alternatives:
+                alternatives.append(part)
+        
+        # Для случаев типа "Pokémon Red/Blue/Yellow" добавляем "Pokémon Red and Blue"
+        if len(parts) >= 2:
+            first_part = parts[0]
+            if " " in first_part:
+                # Берем все слова кроме последнего
+                words = first_part.split()
+                if len(words) >= 2:
+                    base = " ".join(words[:-1])
+                    last_word = words[-1]
+                    # Добавляем "and" + вторую часть
+                    if len(parts) >= 2:
+                        second_part = parts[1].split()[0] if " " in parts[1] else parts[1]
+                        combined = f"{base} {last_word} and {second_part}"
+                        alternatives.append(combined)
+    
+    return alternatives
+
 def calculate_title_similarity(title1, title2):
     """Вычисляет схожесть между двумя названиями игр"""
     try:
@@ -532,6 +598,14 @@ def extract_hltb_data_from_page(page):
                         continue
         except Exception as e:
             log_message(f"⚠️ Ошибка поиска Vs. блоков: {e}")
+        
+        # Если найдены только Vs. данные (чисто мультиплеерные игры), добавляем их как основную категорию
+        if hltb_data and "vs" in hltb_data and len(hltb_data) == 1:
+            log_message("🎮 Обнаружена чисто мультиплеерная игра, добавляем Vs. как основную категорию")
+            # Не добавляем дополнительных категорий, оставляем только vs
+        elif hltb_data and "vs" in hltb_data and len(hltb_data) == 2 and "stores" in hltb_data:
+            log_message("🎮 Обнаружена чисто мультиплеерная игра с магазинами")
+            # Не добавляем дополнительных категорий, оставляем только vs и stores
         
         # Собираем ссылки на магазины
         store_links = extract_store_links(page)
