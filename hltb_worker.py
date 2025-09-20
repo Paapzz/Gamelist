@@ -828,7 +828,8 @@ def extract_hltb_row_data(row_text):
         
         # Вычисляем среднее между Average и Median
         final_time = calculate_average_time(average_time, median_time)
-        result["t"] = final_time if final_time else None
+        # Применяем округление к результату
+        result["t"] = round_time(final_time) if final_time else None
         
         if polled:
             result["p"] = polled
@@ -904,12 +905,18 @@ def calculate_average_time(time1_str, time2_str):
         # Конвертируем обратно в часы
         hours = avg_minutes / 60
         
-        # Применяем умное округление
+        # Возвращаем время в формате "Xh Ym" для дальнейшего округления
         if hours >= 1:
             if hours == int(hours):
                 return f"{int(hours)}h"
             else:
-                return f"{hours:.1f}h"
+                # Конвертируем дробные часы в часы и минуты
+                int_hours = int(hours)
+                remaining_minutes = int((hours - int_hours) * 60)
+                if remaining_minutes > 0:
+                    return f"{int_hours}h {remaining_minutes}m"
+                else:
+                    return f"{int_hours}h"
         else:
             return f"{int(avg_minutes)}m"
             
