@@ -847,22 +847,48 @@ def extract_hltb_data_from_page(page):
                         # Если это не таблица и содержит время, извлекаем данные
                         if "Hours" in surrounding_text and "table" not in str(vs_element.locator("..").get_attribute("tagName")).lower():
                             vs_data = extract_vs_data_from_text(surrounding_text)
-                            if vs_data and "vs" not in hltb_data:
-                                hltb_data["vs"] = vs_data
-                                log_message(f"🎯 Найдены Vs. данные в отдельном блоке: {vs_data}")
+                            if vs_data:
+                                # Проверяем, какой тип данных найден
+                                if "category" in vs_data:
+                                    category = vs_data["category"]
+                                    data = vs_data["data"]
+                                    
+                                    # Записываем в правильную категорию
+                                    if category == "coop" and "coop" not in hltb_data:
+                                        hltb_data["coop"] = data
+                                        log_message(f"🎯 Найдены Co-Op данные в отдельном блоке: {data}")
+                                    elif category == "single_player" and "ms" not in hltb_data:
+                                        hltb_data["ms"] = data
+                                        log_message(f"🎯 Найдены Single-Player данные в отдельном блоке: {data}")
+                                    elif category == "multi_player" and "vs" not in hltb_data:
+                                        hltb_data["vs"] = data
+                                        log_message(f"🎯 Найдены Multi-Player данные в отдельном блоке: {data}")
+                                else:
+                                    # Старый формат (только Vs. данные)
+                                    if "vs" not in hltb_data:
+                                        hltb_data["vs"] = vs_data
+                                        log_message(f"🎯 Найдены Vs. данные в отдельном блоке: {vs_data}")
                     except Exception as e:
                         log_message(f"⚠️ Ошибка обработки Vs. блока {i}: {e}")
                         continue
         except Exception as e:
             log_message(f"⚠️ Ошибка поиска Vs. блоков: {e}")
         
-        # Если найдены только Vs. данные (чисто мультиплеерные игры), добавляем их как основную категорию
-        if hltb_data and "vs" in hltb_data and len(hltb_data) == 1:
-            log_message("🎮 Обнаружена чисто мультиплеерная игра, добавляем Vs. как основную категорию")
-            # Не добавляем дополнительных категорий, оставляем только vs
-        elif hltb_data and "vs" in hltb_data and len(hltb_data) == 2 and "stores" in hltb_data:
-            log_message("🎮 Обнаружена чисто мультиплеерная игра с магазинами")
-            # Не добавляем дополнительных категорий, оставляем только vs и stores
+        # Если найдены только альтернативные данные (чисто мультиплеерные игры), добавляем их как основную категорию
+        if hltb_data and len(hltb_data) == 1:
+            if "vs" in hltb_data:
+                log_message("🎮 Обнаружена чисто мультиплеерная игра, добавляем Vs. как основную категорию")
+            elif "coop" in hltb_data:
+                log_message("🎮 Обнаружена чисто кооперативная игра, добавляем Co-Op как основную категорию")
+            elif "ms" in hltb_data:
+                log_message("🎮 Обнаружена чисто одиночная игра, добавляем Single-Player как основную категорию")
+        elif hltb_data and len(hltb_data) == 2 and "stores" in hltb_data:
+            if "vs" in hltb_data:
+                log_message("🎮 Обнаружена чисто мультиплеерная игра с магазинами")
+            elif "coop" in hltb_data:
+                log_message("🎮 Обнаружена чисто кооперативная игра с магазинами")
+            elif "ms" in hltb_data:
+                log_message("🎮 Обнаружена чисто одиночная игра с магазинами")
         
         # Собираем ссылки на магазины
         store_links = extract_store_links(page)
@@ -1161,7 +1187,7 @@ def extract_vs_data_from_text(text):
                     formatted_time = f"{int(hours * 60)}m"
                 
                 log_message(f"✅ Найдены Co-Op данные: {formatted_time}")
-                return {"t": formatted_time}
+                return {"category": "coop", "data": {"t": formatted_time}}
         
         # Ищем Single-Player данные
         sp_patterns = [
@@ -1184,7 +1210,7 @@ def extract_vs_data_from_text(text):
                     formatted_time = f"{int(hours * 60)}m"
                 
                 log_message(f"✅ Найдены Single-Player данные: {formatted_time}")
-                return {"t": formatted_time}
+                return {"category": "single_player", "data": {"t": formatted_time}}
         
         # Ищем Multi-Player данные
         mp_patterns = [
@@ -1207,7 +1233,7 @@ def extract_vs_data_from_text(text):
                     formatted_time = f"{int(hours * 60)}m"
                 
                 log_message(f"✅ Найдены Multi-Player данные: {formatted_time}")
-                return {"t": formatted_time}
+                return {"category": "multi_player", "data": {"t": formatted_time}}
         
         log_message("❌ Vs. данные не найдены")
         return None
