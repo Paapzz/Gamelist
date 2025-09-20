@@ -208,7 +208,7 @@ def check_break_time(start_time, games_processed):
     
     return start_time
 
-def search_game_on_hltb(page, game_title):
+def search_game_on_hltb(page, game_title, game_year=None):
     """Ищет игру на HLTB и возвращает данные с повторными попытками"""
     max_attempts = 3
     delays = [0, (15, 18), (65, 70)]  # Паузы между попытками в секундах
@@ -236,7 +236,7 @@ def search_game_on_hltb(page, game_title):
             best_found_title = ""
             
             for alt_title in alternative_titles:
-                result_data = search_game_single_attempt(page, alt_title)
+                result_data = search_game_single_attempt(page, alt_title, game_year)
                 if result_data is not None:
                     # result_data теперь содержит (hltb_data, found_title)
                     hltb_data, found_title = result_data
@@ -272,7 +272,7 @@ def search_game_on_hltb(page, game_title):
     
     return None
 
-def search_game_single_attempt(page, game_title):
+def search_game_single_attempt(page, game_title, game_year=None):
     """Одна попытка поиска игры на HLTB"""
     try:
         log_message(f"🔍 Ищем: '{game_title}'")
@@ -319,51 +319,101 @@ def search_game_single_attempt(page, game_title):
         if found_count == 0:
             return None
         
-        # Выбираем наиболее подходящий результат
-        best_match, best_title, similarity = find_best_match(page, game_links, game_title)
-        if not best_match:
+        # Перебираем все результаты по порядку, начиная с лучшего по схожести
+        matches_with_scores = find_all_matches_with_scores(page, game_links, game_title)
+        if not matches_with_scores:
             return None
         
-        # Сохраняем данные выбранной игры
-        best_url = best_match.get_attribute("href")
+        # Сортируем по схожести (лучшие сначала)
+        matches_with_scores.sort(key=lambda x: x[2], reverse=True)
         
-        # Логируем выбор
-        log_message(f"🎯 Выбрано: '{best_title}' (схожесть: {similarity:.2f})")
-        
-        # Если схожесть меньше 0.6, возвращаем None для попытки альтернативного названия
-        if similarity < 0.6:
-            log_message(f"⚠️  Низкая схожесть ({similarity:.2f}), пробуем альтернативное название")
-            return None
-        
-        # Переходим на страницу выбранной игры
-        full_url = f"{BASE_URL}{best_url}"
-        
-        page.goto(full_url, timeout=20000)
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
-        
-        # Проверяем на блокировку на странице игры
-        page_content = page.content()
-        if "blocked" in page_content.lower() or "access denied" in page_content.lower():
-            log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
-            return None
-        elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
-            log_message("⚠️ Cloudflare проверка на странице игры - ждем...")
-            time.sleep(5)
+        # Перебираем результаты по порядку
+        for match, title, similarity in matches_with_scores:
+            # Если схожесть меньше 0.6, пропускаем
+            if similarity < 0.6:
+                log_message(f"⚠️ Низкая схожесть ({similarity:.2f}) для '{title}', пропускаем")
+                continue
+            
+            # Логируем попытку
+            log_message(f"🎯 Проверяем: '{title}' (схожесть: {similarity:.2f})")
+            
+            # Сохраняем данные выбранной игры
+            game_url = match.get_attribute("href")
+            
+            # Переходим на страницу выбранной игры
+            full_url = f"{BASE_URL}{game_url}"
+            
+            page.goto(full_url, timeout=20000)
+            page.wait_for_load_state("domcontentloaded", timeout=15000)
+            
+            # Проверяем на блокировку на странице игры
             page_content = page.content()
-            if "checking your browser" in page_content.lower():
-                log_message("❌ Cloudflare блокирует страницу игры")
+            if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+                log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
                 return None
+            elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
+                log_message("⚠️ Cloudflare проверка на странице игры - ждем...")
+                time.sleep(5)
+                page_content = page.content()
+                if "checking your browser" in page_content.lower():
+                    log_message("❌ Cloudflare блокирует страницу игры")
+                    return None
+            
+            # Ждем загрузки данных игры (React контент)
+            random_delay(3, 5)  # Увеличена задержка для стабильности
+            
+            # Проверяем год игры, если он указан
+            if game_year is not None:
+                hltb_year = extract_year_from_hltb_page(page)
+                if hltb_year is not None and hltb_year != game_year:
+                    log_message(f"⚠️ Несоответствие года: ожидался {game_year}, найден {hltb_year}, пробуем следующий результат")
+                    continue  # Пробуем следующий результат
+                elif hltb_year is not None:
+                    log_message(f"✅ Год совпадает: {hltb_year}")
+            
+            # Извлекаем данные из таблицы
+            hltb_data = extract_hltb_data_from_page(page)
+            if hltb_data:
+                log_message(f"✅ Найдены данные для: '{title}'")
+                return (hltb_data, title)
+            else:
+                log_message(f"⚠️ Данные не найдены для: '{title}', пробуем следующий результат")
+                continue
         
-        # Ждем загрузки данных игры (React контент)
-        random_delay(3, 5)  # Увеличена задержка для стабильности
-        
-        # Извлекаем данные из таблицы
-        hltb_data = extract_hltb_data_from_page(page)
-        return (hltb_data, best_title) if hltb_data else None
+        # Если дошли сюда, значит ни один результат не подошел
+        log_message("❌ Ни один результат не подошел по критериям")
+        return None
         
     except Exception as e:
         log_message(f"❌ Ошибка поиска игры '{game_title}': {e}")
         return None
+
+def find_all_matches_with_scores(page, game_links, original_title):
+    """Находит все результаты с их схожестью"""
+    try:
+        matches_with_scores = []
+        
+        # Очищаем оригинальное название для сравнения
+        original_clean = clean_title_for_comparison(original_title)
+        
+        for i in range(min(game_links.count(), 10)):  # Проверяем первые 10 результатов
+            link = game_links.nth(i)
+            link_text = link.inner_text().strip()
+            
+            if link_text:
+                # Очищаем найденное название
+                found_clean = clean_title_for_comparison(link_text)
+                
+                # Вычисляем схожесть
+                score = calculate_title_similarity(original_clean, found_clean)
+                
+                matches_with_scores.append((link, link_text, score))
+        
+        return matches_with_scores
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка поиска совпадений: {e}")
+        return []
 
 def find_best_match(page, game_links, original_title):
     """Находит наиболее подходящий результат из списка найденных игр"""
@@ -517,9 +567,13 @@ def generate_alternative_titles(game_title):
     if "/" in game_title:
         parts = [part.strip() for part in game_title.split("/")]
         
-        # Добавляем только первую часть (основное название)
+        # Добавляем первую часть (основное название)
         if parts[0] and parts[0] not in alternatives:
             alternatives.append(parts[0])
+        
+        # Добавляем вторую часть, если она есть
+        if len(parts) >= 2 and parts[1] and parts[1] not in alternatives:
+            alternatives.append(parts[1])
         
         # Для случаев типа "Pokémon Red/Blue/Yellow" добавляем варианты с пробелами
         if len(parts) >= 2:
@@ -551,6 +605,24 @@ def generate_alternative_titles(game_title):
                     
                     combined_with_spaces = f"{base} {' '.join(all_parts_with_spaces)}"
                     alternatives.append(combined_with_spaces)
+    
+    # Добавляем короткие названия (до двоеточия)
+    if ":" in game_title:
+        short_name = game_title.split(":")[0].strip()
+        if short_name and short_name not in alternatives:
+            alternatives.append(short_name)
+    
+    # Добавляем варианты без скобок
+    if "(" in game_title and ")" in game_title:
+        # Убираем содержимое в скобках
+        no_parentheses = re.sub(r'\s*\([^)]*\)', '', game_title).strip()
+        if no_parentheses and no_parentheses not in alternatives:
+            alternatives.append(no_parentheses)
+        
+        # Заменяем скобки на "&" для случаев типа "(& Knuckles)"
+        with_ampersand = re.sub(r'\s*\(\s*&\s*([^)]+)\s*\)', r' & \1', game_title)
+        if with_ampersand != game_title and with_ampersand not in alternatives:
+            alternatives.append(with_ampersand)
     
     return alternatives
 
@@ -617,6 +689,53 @@ def normalize_title_for_comparison(title):
     except Exception as e:
         log_message(f"❌ Ошибка нормализации названия: {e}")
         return title
+
+def extract_year_from_hltb_page(page):
+    """Извлекает год игры со страницы HLTB"""
+    try:
+        # Ищем год в различных местах на странице
+        year_selectors = [
+            'text=/\\b(19|20)\\d{2}\\b/',  # Ищем 4-значные годы
+            '[data-testid*="year"]',
+            '.game-year',
+            '.release-year',
+            'text=/Release.*(19|20)\\d{2}/',
+            'text=/Published.*(19|20)\\d{2}/',
+            'text=/November.*\\d{1,2}(st|nd|rd|th),\\s*(19|20)\\d{2}/',
+            'text=/January.*\\d{1,2}(st|nd|rd|th),\\s*(19|20)\\d{2}/',
+            'text=/February.*\\d{1,2}(st|nd|rd|th),\\s*(19|20)\\d{2}/',
+            'text=/March.*\\d{1,2}(st|nd|rd|th),\\s*(19|20)\\d{2}/',
+            'text=/April.*\\d{1,2}(st|nd|rd|th),\\s*(19|20)\\d{2}/',
+            'text=/May.*\\d{1,2}(st|nd|rd|th),\\s*(19|20)\\d{2}/',
+            'text=/June.*\\d{1,2}(st|nd|rd|th),\\s*(19|20)\\d{2}/',
+            'text=/July.*\\d{1,2}(st|nd|rd|th),\\s*(19|20)\\d{2}/',
+            'text=/August.*\\d{1,2}(st|nd|rd|th),\\s*(19|20)\\d{2}/',
+            'text=/September.*\\d{1,2}(st|nd|rd|th),\\s*(19|20)\\d{2}/',
+            'text=/October.*\\d{1,2}(st|nd|rd|th),\\s*(19|20)\\d{2}/',
+            'text=/December.*\\d{1,2}(st|nd|rd|th),\\s*(19|20)\\d{2}/'
+        ]
+        
+        for selector in year_selectors:
+            try:
+                element = page.locator(selector).first
+                if element.count() > 0:
+                    text = element.inner_text().strip()
+                    # Извлекаем год из текста
+                    import re
+                    year_match = re.search(r'\b(19|20)\d{2}\b', text)
+                    if year_match:
+                        year = int(year_match.group())
+                        log_message(f"📅 Найден год на HLTB: {year}")
+                        return year
+            except Exception:
+                continue
+        
+        log_message("⚠️ Год не найден на странице HLTB")
+        return None
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения года: {e}")
+        return None
 
 def extract_hltb_data_from_page(page):
     """Извлекает данные HLTB со страницы игры"""
@@ -925,7 +1044,7 @@ def calculate_average_time(time1_str, time2_str):
         return time1_str or time2_str
 
 def extract_vs_data_from_text(text):
-    """Извлекает Vs. данные из текста"""
+    """Извлекает Vs. данные из текста или альтернативные данные если Vs. нет"""
     try:
         import re
         
@@ -933,15 +1052,20 @@ def extract_vs_data_from_text(text):
         clean_text = text.replace('\n', ' ').replace('\r', ' ')
         log_message(f"🔍 Ищем Vs. данные в тексте: '{clean_text[:200]}...'")
         
+        # Проверяем, есть ли "Vs. --" (нет данных)
+        if re.search(r'Vs\.\s*--', text):
+            log_message("ℹ️ Vs. данные отсутствуют (Vs. --)")
+            return None
+        
         # Ищем различные форматы Vs. данных
-        patterns = [
+        vs_patterns = [
             r'Vs\.\s*\|\s*(\d+(?:\.\d+)?)\s*Hours?',  # "Vs. | 1767 Hours"
             r'Vs\.\s+(\d+(?:\.\d+)?)\s*Hours?',        # "Vs. 1767 Hours"
             r'Vs\.\s*(\d+(?:\.\d+)?)\s*Hours?',        # "Vs.1767 Hours"
             r'Vs\.\s*(\d+(?:\.\d+)?[½]?)\s*Hours?',    # "Vs. 1767½ Hours"
         ]
         
-        for pattern in patterns:
+        for pattern in vs_patterns:
             vs_match = re.search(pattern, text)
             if vs_match:
                 time_str = vs_match.group(1)
@@ -960,6 +1084,78 @@ def extract_vs_data_from_text(text):
                     formatted_time = f"{int(hours * 60)}m"
                 
                 log_message(f"✅ Найдены Vs. данные: {formatted_time}")
+                return {"t": formatted_time}
+        
+        # Если Vs. данных нет, ищем альтернативные данные (Co-Op, Single-Player и т.п.)
+        log_message("🔍 Vs. данных нет, ищем альтернативные данные...")
+        
+        # Ищем Co-Op данные
+        coop_patterns = [
+            r'Co-Op\s+(\d+(?:\.\d+)?)\s*Hours?',        # "Co-Op 634 Hours"
+            r'Co-Op\s*\|\s*(\d+(?:\.\d+)?)\s*Hours?',   # "Co-Op | 634 Hours"
+        ]
+        
+        for pattern in coop_patterns:
+            coop_match = re.search(pattern, text)
+            if coop_match:
+                time_str = coop_match.group(1)
+                hours = float(time_str)
+                
+                if hours >= 1:
+                    if hours == int(hours):
+                        formatted_time = f"{int(hours)}h"
+                    else:
+                        formatted_time = f"{hours:.1f}h"
+                else:
+                    formatted_time = f"{int(hours * 60)}m"
+                
+                log_message(f"✅ Найдены Co-Op данные: {formatted_time}")
+                return {"t": formatted_time}
+        
+        # Ищем Single-Player данные
+        sp_patterns = [
+            r'Single-Player\s+(\d+(?:\.\d+)?)\s*Hours?',        # "Single-Player 480 Hours"
+            r'Single-Player\s*\|\s*(\d+(?:\.\d+)?)\s*Hours?',   # "Single-Player | 480 Hours"
+        ]
+        
+        for pattern in sp_patterns:
+            sp_match = re.search(pattern, text)
+            if sp_match:
+                time_str = sp_match.group(1)
+                hours = float(time_str)
+                
+                if hours >= 1:
+                    if hours == int(hours):
+                        formatted_time = f"{int(hours)}h"
+                    else:
+                        formatted_time = f"{hours:.1f}h"
+                else:
+                    formatted_time = f"{int(hours * 60)}m"
+                
+                log_message(f"✅ Найдены Single-Player данные: {formatted_time}")
+                return {"t": formatted_time}
+        
+        # Ищем Multi-Player данные
+        mp_patterns = [
+            r'Multi-Player\s+(\d+(?:\.\d+)?)\s*Hours?',        # "Multi-Player 480 Hours"
+            r'Multi-Player\s*\|\s*(\d+(?:\.\d+)?)\s*Hours?',   # "Multi-Player | 480 Hours"
+        ]
+        
+        for pattern in mp_patterns:
+            mp_match = re.search(pattern, text)
+            if mp_match:
+                time_str = mp_match.group(1)
+                hours = float(time_str)
+                
+                if hours >= 1:
+                    if hours == int(hours):
+                        formatted_time = f"{int(hours)}h"
+                    else:
+                        formatted_time = f"{hours:.1f}h"
+                else:
+                    formatted_time = f"{int(hours * 60)}m"
+                
+                log_message(f"✅ Найдены Multi-Player данные: {formatted_time}")
                 return {"t": formatted_time}
         
         log_message("❌ Vs. данные не найдены")
@@ -1210,8 +1406,13 @@ def main():
                 
                 log_message(f"🎮 Обрабатываю {i+1}/{total_games}: {game_title}")
                 
+                # Извлекаем год из данных игры
+                game_year = game.get("year")
+                if game_year:
+                    log_message(f"📅 Год игры: {game_year}")
+                
                 # Ищем данные на HLTB
-                hltb_data = search_game_on_hltb(page, game_title)
+                hltb_data = search_game_on_hltb(page, game_title, game_year)
                 
                 if hltb_data:
                     game["hltb"] = hltb_data
