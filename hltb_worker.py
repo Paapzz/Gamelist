@@ -230,25 +230,30 @@ def search_game_on_hltb(page, game_title):
             best_result = None
             best_score = 0
             best_title = ""
+            best_found_title = ""
             
             for alt_title in alternative_titles:
-                result = search_game_single_attempt(page, alt_title)
-                if result is not None:
-                    # Вычисляем схожесть между оригинальным названием и альтернативным
+                result_data = search_game_single_attempt(page, alt_title)
+                if result_data is not None:
+                    # result_data теперь содержит (hltb_data, found_title)
+                    hltb_data, found_title = result_data
+                    
+                    # Вычисляем схожесть между оригинальным названием и найденным результатом
                     score = calculate_title_similarity(
                         clean_title_for_comparison(game_title),
-                        clean_title_for_comparison(alt_title)
+                        clean_title_for_comparison(found_title) if found_title else clean_title_for_comparison(alt_title)
                     )
                     
                     if score > best_score:
                         best_score = score
-                        best_result = result
+                        best_result = hltb_data
                         best_title = alt_title
+                        best_found_title = found_title
             
             if best_result is not None:
                 if attempt > 0:
                     log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
-                log_message(f"🏆 Лучший результат: '{best_title}' (схожесть: {best_score:.2f})")
+                log_message(f"🏆 Лучший результат: '{best_found_title}' (схожесть: {best_score:.2f})")
                 return best_result
             
         except Exception as e:
@@ -346,7 +351,7 @@ def search_game_single_attempt(page, game_title):
         
         # Извлекаем данные из таблицы
         hltb_data = extract_hltb_data_from_page(page)
-        return hltb_data
+        return (hltb_data, best_title) if hltb_data else None
         
     except Exception as e:
         log_message(f"❌ Ошибка поиска игры '{game_title}': {e}")
