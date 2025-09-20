@@ -178,6 +178,10 @@ button:hover {
 <script>
 // Тестовый список игр (первые 10)
 const gamesList = [
+    {"number": 124, "title": "Assassin's Creed 2", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co1rcf.jpg", "year": 2009, "genres": ["Action", "Adventure", "Open world", "Platform", "Sandbox", "Stealth"], "platforms": ["PlayStation 3", "Windows PC", "Xbox 360"]},
+    {"number": 114, "title": "Team Fortress 2", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co6rzl.jpg", "year": 2007, "genres": ["Action", "Shooter"], "platforms": ["PlayStation 3", "Windows PC", "Xbox 360"]},
+    {"number": 64, "title": "Pokémon Red/Blue/Yellow", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co5pi4.jpg", "year": 1996, "genres": ["Action", "Adventure", "Open world", "Role-playing (RPG)", "Turn-based strategy (TBS)"], "platforms": ["Game Boy"]},
+    {"number": 61, "title": "Overwatch", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co1rcb.jpg", "year": 2016, "genres": ["Action", "Shooter", "Strategy"], "platforms": ["PlayStation 4", "Windows PC", "Xbox One"]},
 {"number": 1, "title": "The Legend of Zelda: Breath of the Wild", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co3p2d.jpg", "year": 2017, "genres": ["Action", "Adventure", "Open world", "Puzzle", "Role-playing (RPG)", "Sandbox", "Survival"], "platforms": ["Nintendo Switch", "Nintendo Wii U"]},
 {"number": 2, "title": "Tetris", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co6n9j.jpg", "year": 1985, "genres": ["Arcade", "Puzzle"], "platforms": ["DOS", "Electronika 60", "Game Boy", "Nintendo Entertainment System"]},
 {"number": 3, "title": "The Last of Us", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co1r7f.jpg", "year": 2013, "genres": ["Action", "Adventure", "Horror", "Shooter", "Stealth", "Survival"], "platforms": ["PlayStation 3", "PlayStation 4"]},
@@ -238,10 +242,8 @@ const gamesList = [
 {"number": 58, "title": "Grand Theft Auto IV", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2lbv.jpg", "year": 2008, "genres": ["Action", "Adventure", "Open world", "Racing", "Shooter"], "platforms": ["PlayStation 3", "Windows PC", "Xbox 360"]},
 {"number": 59, "title": "The Legend of Zelda: Tears of the Kingdom", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co5vmg.jpg", "year": 2023, "genres": ["Action", "Adventure", "Open world", "Role-playing (RPG)", "Sandbox"], "platforms": ["Nintendo Switch"]},
 {"number": 60, "title": "Tomb Raider", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co3hfx.jpg", "year": 1996, "genres": ["Action", "Adventure", "Platform", "Puzzle", "Sandbox", "Shooter", "Survival"], "platforms": ["DOS", "PlayStation", "Sega Saturn"]},
-{"number": 61, "title": "Overwatch", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co1rcb.jpg", "year": 2016, "genres": ["Action", "Shooter", "Strategy"], "platforms": ["PlayStation 4", "Windows PC", "Xbox One"]},
 {"number": 62, "title": "Baldur's Gate 3", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co670h.jpg", "year": 2023, "genres": ["Action", "Adventure", "Role-playing (RPG)", "Strategy", "Tactical", "Turn-based strategy (TBS)"], "platforms": ["Apple Macintosh", "PlayStation 5", "Windows PC", "Xbox Series X/S"]},
 {"number": 63, "title": "The Legend of Zelda: The Wind Waker", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co3ohz.jpg", "year": 2002, "genres": ["Action", "Adventure", "Puzzle", "Role-playing (RPG)"], "platforms": ["Nintendo GameCube"]},
-{"number": 64, "title": "Pokémon Red/Blue/Yellow", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co5pi4.jpg", "year": 1996, "genres": ["Action", "Adventure", "Open world", "Role-playing (RPG)", "Turn-based strategy (TBS)"], "platforms": ["Game Boy"]},
 {"number": 65, "title": "Outer Wilds", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co65ac.jpg", "year": 2019, "genres": ["Action", "Adventure", "Indie", "Open world", "Puzzle", "Simulator"], "platforms": ["PlayStation 4", "Windows PC", "Xbox One"]},
 {"number": 66, "title": "Ōkami", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co3mpk.jpg", "year": 2006, "genres": ["Action", "Adventure", "Puzzle", "Role-playing (RPG)"], "platforms": ["Nintendo Wii", "PlayStation 2"]},
 {"number": 67, "title": "Counter-Strike / Counter-Strike 1.6", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co81pl.jpg", "year": 2000, "genres": ["Action", "Shooter"], "platforms": ["Windows PC"]},
@@ -291,7 +293,6 @@ const gamesList = [
 {"number": 111, "title": "Lemmings", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co25u8.jpg", "year": 1991, "genres": ["Action", "Puzzle"], "platforms": ["Amiga", "Apple Macintosh", "Atari ST/STE", "DOS", "FM Towns", "PC-9800", "TurboGrafx-16 / PC Engine", "ZX Spectrum"]},
 {"number": 112, "title": "X-COM: UFO Defense / UFO: Enemy Unknown", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co6ypb.jpg", "year": 1994, "genres": ["Horror", "Strategy", "Tactical", "Turn-based strategy (TBS)"], "platforms": ["Amiga", "DOS", "PlayStation"]},
 {"number": 113, "title": "Left 4 Dead", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co1qrm.jpg", "year": 2008, "genres": ["Action", "Horror", "Shooter", "Survival"], "platforms": ["Windows PC", "Xbox 360"]},
-{"number": 114, "title": "Team Fortress 2", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co6rzl.jpg", "year": 2007, "genres": ["Action", "Shooter"], "platforms": ["PlayStation 3", "Windows PC", "Xbox 360"]},
 {"number": 115, "title": "Titanfall 2", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/fhbeilnghyhhmjqhinqa.jpg", "year": 2016, "genres": ["Action", "Adventure", "Shooter"], "platforms": ["PlayStation 4", "Windows PC", "Xbox One"]},
 {"number": 116, "title": "Sid Meier's Civilization II", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co6yhe.jpg", "year": 1996, "genres": ["4X (explore, expand, exploit, and exterminate)", "Strategy", "Turn-based strategy (TBS)"], "platforms": ["Apple Macintosh", "Windows PC"]},
 {"number": 117, "title": "Mario Kart 8 / Mario Kart 8 Deluxe", "image_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co213p.jpg", "year": 2014, "genres": ["Action", "Arcade", "Party", "Racing"], "platforms": ["Nintendo Switch", "Nintendo Wii U"]},
@@ -1257,3 +1258,4 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 </body>
 </html>
+
