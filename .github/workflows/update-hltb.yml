@@ -1,4 +1,4 @@
-name: update-hltb (minimal)
+name: update-hltb (minimal, corrected)
 
 on:
   workflow_dispatch:
@@ -31,11 +31,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install minimal Python deps
+      - name: Install minimal Python deps (playwright + requests)
         run: |
           python -m pip install --upgrade pip
-          pip install --no-deps playwright requests
-      # install only browser binaries (no --with-deps)
+          pip install playwright requests
+
       - name: Install Playwright browser (chromium only)
         run: |
           python -m playwright install chromium
