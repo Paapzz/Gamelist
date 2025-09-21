@@ -1,8 +1,5 @@
 # hltb_worker.py
-# Исправленная и улучшенная версия вашего скраппера (исходный: загруженный файл). :contentReference[oaicite:1]{index=1}
-
-print("🚀 HLTB Worker запускается...")
-
+# Обновлённая версия с улучшенной логикой выбора совпадений (Doom II, Pokémon, Tetris, Half-Life 2 и т.д.)
 import json
 import time
 import random
@@ -18,7 +15,6 @@ OUTPUT_DIR = "hltb_data"
 OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
 PROGRESS_FILE = "progress.json"
 
-# Таймауты и интервалы (увеличены для надёжности)
 PAGE_GOTO_TIMEOUT = 30000
 PAGE_LOAD_TIMEOUT = 20000
 
@@ -27,126 +23,45 @@ BREAK_INTERVAL_MAX = 10 * 60
 BREAK_DURATION_MIN = 40
 BREAK_DURATION_MAX = 80
 
-def setup_directories():
-    """Настройка директорий"""
-    print(f"📁 Создаем директорию: {OUTPUT_DIR}")
-    try:
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        print(f"✅ Директория {OUTPUT_DIR} создана/существует")
-    except Exception as e:
-        print(f"❌ Ошибка создания директории: {e}")
-        raise
-
 def log_message(message):
-    """Логирование только в консоль"""
-    try:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        log_entry = f"[{timestamp}] {message}"
-        print(log_entry)
-    except Exception as e:
-        print(f"Ошибка логирования: {e}")
-        print(f"Сообщение: {message}")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] {message}")
+
+def setup_directories():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def extract_games_list(html_file):
-    """Извлекает список игр из HTML файла"""
-    try:
-        log_message(f"📖 Читаем файл {html_file}...")
-        with open(html_file, 'r', encoding='utf-8') as f:
-            content = f.read()
+    with open(html_file, 'r', encoding='utf-8') as f:
+        content = f.read()
+    start = content.find('const gamesList = ')
+    if start == -1:
+        raise ValueError("Не найден const gamesList в HTML файле")
+    start = content.find('[', start)
+    # находим соответствующую закрывающую скобку
+    bracket_count = 0
+    end = start
+    for i, ch in enumerate(content[start:], start):
+        if ch == '[':
+            bracket_count += 1
+        elif ch == ']':
+            bracket_count -= 1
+            if bracket_count == 0:
+                end = i + 1
+                break
+    games_json = content[start:end]
+    games_list = json.loads(games_json)
+    return games_list
 
-        log_message(f"📄 Файл прочитан, размер: {len(content)} символов")
-
-        log_message("🔍 Ищем 'const gamesList = ['...")
-        start = content.find('const gamesList = [')
-        if start == -1:
-            raise ValueError("Не найден const gamesList в HTML файле")
-
-        log_message(f"✅ Найден const gamesList на позиции {start}")
-
-        log_message("🔍 Ищем закрывающую скобку массива...")
-        bracket_count = 0
-        end = start
-        for i, char in enumerate(content[start:], start):
-            if char == '[':
-                bracket_count += 1
-            elif char == ']':
-                bracket_count -= 1
-                if bracket_count == 0:
-                    end = i + 1
-                    break
-
-        if bracket_count != 0:
-            raise ValueError("Не найден конец массива gamesList")
-
-        log_message(f"✅ Найден конец массива на позиции {end}")
-
-        log_message("✂️ Извлекаем JSON...")
-        games_json = content[start:end]
-        games_json = games_json.replace('const gamesList = ', '')
-
-        log_message(f"📝 JSON извлечен, размер: {len(games_json)} символов")
-        log_message("🔄 Парсим JSON...")
-
-        games_list = json.loads(games_json)
-        log_message(f"✅ Извлечено {len(games_list)} игр из HTML файла")
-        return games_list
-
-    except Exception as e:
-        log_message(f"❌ Ошибка извлечения списка игр: {e}")
-        raise
-
-# -------------------------- Вспомогательные функции времени --------------------------
-
-def parse_time_to_hours(time_str):
-    """Парсит время в формате 'Xh Ym' или 'X Hours' в часы и минуты"""
-    if not time_str or time_str == "N/A":
-        return 0, 0
-
-    s = time_str.replace("Hours", "").replace("hours", "").strip()
-
-    hours_match = re.search(r'(\d+(?:\.\d+)?)h', s)
-    minutes_match = re.search(r'(\d+)m', s)
-
-    hours = float(hours_match.group(1)) if hours_match else 0
-    minutes = int(minutes_match.group(1)) if minutes_match else 0
-
-    if hours == 0 and minutes == 0:
-        number_match = re.search(r'(\d+(?:\.\d+)?)', s)
-        if number_match:
-            hours = float(number_match.group(1))
-            if hours != int(hours):
-                minutes = int((hours - int(hours)) * 60)
-                hours = int(hours)
-
-    if hours != int(hours):
-        minutes += int((hours - int(hours)) * 60)
-        hours = int(hours)
-
-    return hours, minutes
-
-def round_time(time_str):
-    """Округляет время к ближайшему значению"""
-    if not time_str or time_str == "N/A":
-        return None
-
-    hours, minutes = parse_time_to_hours(time_str)
-
-    hours = int(hours)
-
-    if minutes <= 14:
-        return f"{hours}h"
-    elif minutes <= 44:
-        return f"{hours}.5h"
-    else:
-        return f"{hours + 1}h"
-
-# -------------------------- Вспомогательное сравнение названий --------------------------
+# ------------------ Вспомогательные парсеры названий/времени ------------------
 
 def clean_title_for_comparison(title):
-    """Очищает название игры для сравнения"""
-    cleaned = re.sub(r'[^\w\s]', '', title.lower())
-    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-    return cleaned
+    if not title:
+        return ""
+    s = title.lower()
+    s = re.sub(r'[\u2018\u2019\u201c\u201d]', "'", s)  # normalize quotes
+    s = re.sub(r'[^\w\s]', ' ', s)
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s
 
 def convert_arabic_to_roman(num_str):
     try:
@@ -165,22 +80,18 @@ def convert_roman_to_arabic(roman_str):
         return roman_str
 
 def normalize_title_for_comparison(title):
-    """Нормализация: заменяем римские цифры на арабские, убираем лишние пробелы"""
-    try:
-        roman_to_arabic = {
-            ' I ': ' 1 ', ' II ': ' 2 ', ' III ': ' 3 ', ' IV ': ' 4 ', ' V ': ' 5 ',
-            ' VI ': ' 6 ', ' VII ': ' 7 ', ' VIII ': ' 8 ', ' IX ': ' 9 ', ' X ': ' 10 '
-        }
-        s = f" {title} "
-        for r,a in roman_to_arabic.items():
-            s = s.replace(r, a)
-        return s.strip()
-    except Exception as e:
-        log_message(f"❌ Ошибка нормализации названия: {e}")
-        return title
+    if not title:
+        return ""
+    s = f" {title} "
+    roman_to_arabic = {
+        ' I ': ' 1 ', ' II ': ' 2 ', ' III ': ' 3 ', ' IV ': ' 4 ', ' V ': ' 5 ',
+        ' VI ': ' 6 ', ' VII ': ' 7 ', ' VIII ': ' 8 ', ' IX ': ' 9 ', ' X ': ' 10 '
+    }
+    for r,a in roman_to_arabic.items():
+        s = s.replace(r, a)
+    return s.strip()
 
 def lcs_length(a_tokens, b_tokens):
-    """LCS для токенов"""
     n, m = len(a_tokens), len(b_tokens)
     if n == 0 or m == 0:
         return 0
@@ -194,108 +105,70 @@ def lcs_length(a_tokens, b_tokens):
     return dp[n][m]
 
 def calculate_title_similarity(original, candidate):
-    """
-    Улучшённая метрика схожести:
-    - преобразования рим↔араб
-    - прямые совпадения части -> 1.0
-    - совпадение базовой части (до ':') -> 0.9
-    - в остальных случаях комбинированная оценка recall/precision/LCS
-    """
-    def _sim(a, b):
-        a_clean = clean_title_for_comparison(normalize_title_for_comparison(a))
-        b_clean = clean_title_for_comparison(normalize_title_for_comparison(b))
-        if a_clean == b_clean:
-            return 1.0
-        a_tokens = a_clean.split()
-        b_tokens = b_clean.split()
-        if not a_tokens or not b_tokens:
-            return 0.0
-        common = set(a_tokens).intersection(set(b_tokens))
-        precision = len(common) / len(b_tokens)
-        recall = len(common) / len(a_tokens)
-        lcs_len = lcs_length(a_tokens, b_tokens)
-        seq = (lcs_len / len(a_tokens)) if len(a_tokens) > 0 else 0.0
-        score = 0.65 * recall + 0.2 * precision + 0.15 * seq
-        return max(0.0, min(1.0, score))
-
+    if not original or not candidate:
+        return 0.0
     try:
-        if not original or not candidate:
-            return 0.0
-
-        cand_clean = clean_title_for_comparison(normalize_title_for_comparison(candidate))
-
-        if "/" in original:
-            parts = [p.strip() for p in (original.replace(" / ", "/")).split("/")]
-            # генерируем нормализованные формы части и их баз
-            for part in parts:
-                part_clean = clean_title_for_comparison(normalize_title_for_comparison(part))
-                base = part.split(":",1)[0].strip()
-                base_clean = clean_title_for_comparison(normalize_title_for_comparison(base))
-                # вариации араб<->рим
-                arabic_match = re.search(r'\b(\d+)\b', part)
-                if arabic_match:
-                    roman = convert_arabic_to_roman(arabic_match.group(1))
-                    if roman:
-                        if cand_clean == clean_title_for_comparison(normalize_title_for_comparison(re.sub(r'\b' + re.escape(arabic_match.group(1)) + r'\b', roman, part))):
-                            return 1.0
-                # рим -> араб
-                roman_match = re.search(r'\b(I{1,3}|IV|V|VI{0,3}|IX|X)\b', part)
-                if roman_match:
-                    arab = convert_roman_to_arabic(roman_match.group(1))
-                    if arab:
-                        if cand_clean == clean_title_for_comparison(normalize_title_for_comparison(re.sub(r'\b' + re.escape(roman_match.group(1)) + r'\b', arab, part))):
-                            return 1.0
-
-                if cand_clean == part_clean:
-                    return 1.0
-                if cand_clean == base_clean:
-                    return 0.9
-
-            # иначе максимальная симметрия по частям
-            best = 0.0
-            for part in parts:
-                best = max(best, _sim(part, candidate))
-            best = max(best, _sim(original, candidate))
-            return float(best)
-
-        orig_clean = clean_title_for_comparison(normalize_title_for_comparison(original))
-        if orig_clean == cand_clean:
+        def sim(a, b):
+            a_c = clean_title_for_comparison(normalize_title_for_comparison(a))
+            b_c = clean_title_for_comparison(normalize_title_for_comparison(b))
+            if a_c == b_c:
+                return 1.0
+            a_tokens = a_c.split()
+            b_tokens = b_c.split()
+            if not a_tokens or not b_tokens:
+                return 0.0
+            common = set(a_tokens).intersection(set(b_tokens))
+            precision = len(common) / len(b_tokens)
+            recall = len(common) / len(a_tokens)
+            lcs = lcs_length(a_tokens, b_tokens)
+            seq = lcs / len(a_tokens) if len(a_tokens) > 0 else 0
+            score = 0.6 * recall + 0.25 * precision + 0.15 * seq
+            return max(0.0, min(1.0, score))
+        # direct exact (ignore punctuation)
+        if clean_title_for_comparison(original) == clean_title_for_comparison(candidate):
             return 1.0
-
-        return float(_sim(original, candidate))
-    except Exception as e:
-        log_message(f"❌ Ошибка вычисления схожести: {e}")
+        # try roman/arabic swaps
+        arab = re.search(r'\b(\d+)\b', original)
+        if arab:
+            roman = convert_arabic_to_roman(arab.group(1))
+            if roman and clean_title_for_comparison(re.sub(r'\b'+re.escape(arab.group(1))+r'\b', roman, original)) == clean_title_for_comparison(candidate):
+                return 1.0
+        rom = re.search(r'\b(I{1,3}|IV|V|VI{0,3}|IX|X)\b', original)
+        if rom:
+            arabic = convert_roman_to_arabic(rom.group(1))
+            if arabic and clean_title_for_comparison(re.sub(r'\b'+re.escape(rom.group(1))+r'\b', arabic, original)) == clean_title_for_comparison(candidate):
+                return 1.0
+        return float(sim(original, candidate))
+    except Exception:
         return 0.0
 
 def generate_alternative_titles(game_title):
-    """Генерация альтернатив (сохранена оригинальная логика, немного упрощена)"""
     if not game_title:
         return []
-
-    alternatives = []
     seen = set()
-    def add(a):
-        if not a: return
-        a = re.sub(r'\s+', ' ', a).strip()
-        if a and a not in seen:
-            seen.add(a); alternatives.append(a)
-
+    out = []
+    def add(s):
+        if not s: return
+        s2 = re.sub(r'\s+', ' ', s).strip()
+        if s2 and s2 not in seen:
+            seen.add(s2); out.append(s2)
     add(game_title)
-
-    if "/" in game_title:
-        parts = [p.strip() for p in game_title.replace(" / ", "/").split("/")]
-        is_enum = all(len(p.split()) == 1 and ":" not in p for p in parts)
-        if not is_enum:
-            for p in parts:
-                add(p)
-        else:
-            for p in parts:
-                add(p)
-            if len(parts) >= 2:
-                add(f"{parts[0]} and {parts[1]}")
-                add(f"{parts[0]} & {parts[1]}")
+    # if slash-separated, generate combinations
+    if '/' in game_title:
+        parts = [p.strip() for p in re.split(r'[\/,]', game_title) if p.strip()]
+        # generate single parts, pairwise "and" and all
+        for p in parts:
+            add(p)
+        if len(parts) >= 2:
+            add(f"{parts[0]} and {parts[1]}")
+            add(f"{parts[0]} & {parts[1]}")
+        if len(parts) >= 3:
+            add(f"{parts[0]} and {parts[1]} and {parts[2]}")
+            add(f"{parts[0]} & {parts[1]} & {parts[2]}")
+        # also the base before colon
+        base = game_title.split(":",1)[0].strip()
+        add(base)
     else:
-        # вариации с рим/араб и без двоеточия
         add(game_title.split(":",1)[0].strip())
         m = re.search(r'\b(\d+)\b', game_title)
         if m:
@@ -307,27 +180,18 @@ def generate_alternative_titles(game_title):
             a = convert_roman_to_arabic(rm.group(1))
             if a and a != rm.group(1):
                 add(re.sub(r'\b'+re.escape(rm.group(1))+r'\b', a, game_title))
+    return out
 
-    # сортировка по длине (короткие в конце) чтобы длинные точные варианты первыми
-    alternatives = sorted(alternatives, key=lambda s: len(s.split()), reverse=True)
-    return alternatives
-
-# -------------------------- Поиск и выбор лучшего результата --------------------------
+# ------------------ Поиск и выбор лучшего результата ------------------
 
 def get_year_from_search_context(link):
-    """
-    Пытаемся извлечь год из контекста элемента ссылки (без перехода на страницу).
-    Возвращаем int год или None.
-    """
     try:
-        # Получаем ближайший контейнерный текст — это дешевле, чем переход по ссылке
         context_text = link.evaluate("""(el) => {
             const p = el.closest('li') || el.closest('div') || el.parentElement;
             return p ? p.innerText : el.innerText;
         }""")
         if not context_text:
             return None
-        # ищем 4-значные года
         matches = re.findall(r'(\b19\d{2}\b|\b20\d{2}\b)', context_text)
         if matches:
             years = [int(m) for m in matches]
@@ -338,37 +202,56 @@ def get_year_from_search_context(link):
 
 def find_best_match_with_year(page, game_links, original_title, game_year=None):
     """
-    Находит наиболее подходящий результат из списка найденных игр с учётом названия.
-    НЕ делает навигацию по каждой ссылке (экономим переходы).
-    Возвращает (link_element, link_title, score).
+    Возвращает (link_element, link_title, score) или (None, "", 0.0)
+    Улучшенная логика:
+    - Если original содержит '/', требуем совпадение нескольких частей
+    - При наличии game_year год весит сильнее
+    - Если best_score невысок, но найден кандидат с точным совпадением базового названия + годом, выбираем его
     """
     try:
         best_match = None
         best_score = -1.0
         best_title = ""
-        limit = min(game_links.count(), 20)  # расширил до 20, но без навигации
+        limit = min(game_links.count(), 30)
         orig_clean = clean_title_for_comparison(normalize_title_for_comparison(original_title))
         orig_tokens = set(orig_clean.split())
 
+        is_slash = ('/' in original_title) or (',' in original_title and len(original_title.split(','))>1)
+        slash_parts = []
+        if is_slash:
+            # extract meaningful words from parts (remove 'Pokémon' repeated)
+            raw_parts = [p.strip() for p in re.split(r'[\/,]', original_title) if p.strip()]
+            # remove common prefix tokens like 'Pokémon' to focus on parts
+            for p in raw_parts:
+                p_clean = clean_title_for_comparison(p)
+                # keep last word(s)
+                slash_parts.append(p_clean)
+            min_required_parts = min(2, len(slash_parts))
+        else:
+            min_required_parts = 0
+
+        # iterate candidates
+        candidates_info = []
         for i in range(limit):
             link = game_links.nth(i)
-            link_text = link.inner_text().strip()
+            link_text = ""
+            try:
+                link_text = link.inner_text().strip()
+            except Exception:
+                continue
             if not link_text:
                 continue
-
             title_score = calculate_title_similarity(original_title, link_text)
 
-            # попытка получить год из контейнера результата (без перехода)
+            # year from context
             hltb_year = None
-            if game_year:
-                try:
-                    hltb_year = get_year_from_search_context(link)
-                except:
-                    hltb_year = None
+            try:
+                hltb_year = get_year_from_search_context(link)
+            except:
+                hltb_year = None
 
             year_score = 0.0
             if game_year and hltb_year:
-                # простая оценка: совпадение == 1, близость ±2 года => 0.8 и т.д.
                 if hltb_year == game_year:
                     year_score = 1.0
                 else:
@@ -380,376 +263,294 @@ def find_best_match_with_year(page, game_links, original_title, game_year=None):
                     else:
                         year_score = 0.1
 
-            # boost если ссылка содержит все важные токены оригинала
+            # token overlap
             tokens = set(clean_title_for_comparison(link_text).split())
             token_overlap = len(orig_tokens.intersection(tokens)) / (len(orig_tokens) or 1)
             boost = 0.0
             if token_overlap >= 0.75:
-                boost += 0.15
+                boost += 0.12
             if clean_title_for_comparison(link_text) == orig_clean:
-                boost += 0.2
+                boost += 0.25
+            # if candidate contains base before colon of original -> boost
+            base = original_title.split(":",1)[0].strip()
+            if base and base.lower() in link_text.lower():
+                boost += 0.12
 
-            combined = title_score * 0.75 + year_score * 0.25 + boost
+            # special handling for slash titles: count how many parts matched
+            parts_matched = 0
+            if is_slash:
+                lc = clean_title_for_comparison(link_text)
+                for p in slash_parts:
+                    # require meaningful token match
+                    if p and all(tok in lc for tok in p.split()):
+                        parts_matched += 1
+
+            # weighting: give year more weight when provided
+            if game_year:
+                combined = title_score * 0.30 + year_score * 0.55 + boost
+            else:
+                combined = title_score * 0.75 + year_score * 0.25 + boost
+
+            # penalize slash-names that don't include enough parts
+            if is_slash and parts_matched < min_required_parts:
+                combined -= 0.45  # strong penalty so ROMhacks with single part won't win
+
+            candidates_info.append((combined, link, link_text, title_score, year_score, parts_matched, hltb_year))
+
             if combined > best_score:
                 best_score = combined
                 best_match = link
                 best_title = link_text
 
+        # if best_score low, attempt fallback: prefer candidate with exact base + year match
+        if (not best_match or best_score < 0.25) and game_links.count() > 0:
+            for i in range(min(game_links.count(), 60)):
+                link = game_links.nth(i)
+                try:
+                    lt = link.inner_text().strip()
+                except:
+                    continue
+                lc = clean_title_for_comparison(lt)
+                base = clean_title_for_comparison(original_title.split(":",1)[0])
+                if base and base in lc:
+                    y = get_year_from_search_context(link)
+                    if game_year and y == game_year:
+                        log_message(f"🎯 Fallback: выбран кандидат по базовому названию + году: '{lt}' (год: {y})")
+                        return link, lt, 1.0
+        # final threshold
         if best_match and best_score >= 0.25:
             if game_year:
                 log_message(f"🎯 Выбрано: '{best_title}' (схожесть: {best_score:.2f}, ожидаемый год: {game_year})")
             else:
                 log_message(f"🎯 Выбрано: '{best_title}' (схожесть: {best_score:.2f})")
             return best_match, best_title, best_score
-        else:
-            return None, "", 0.0
+        return None, "", 0.0
 
     except Exception as e:
         log_message(f"❌ Ошибка выбора лучшего совпадения: {e}")
         return None, "", 0.0
 
-# -------------------------- Извлечение данных со страницы игры --------------------------
+# ------------------ Извлечение данных со страницы (как раньше, с fallback) ------------------
+
+def round_time(time_str):
+    if not time_str or time_str == "N/A":
+        return None
+    try:
+        s = time_str.replace('½', '.5')
+        # Try to extract hours first
+        m = re.search(r'(\d+(?:\.\d+)?)\s*h', s)
+        if m:
+            val = float(m.group(1))
+            return f"{int(val)}h" if val == int(val) else f"{val:.1f}h"
+        m2 = re.search(r'(\d+(?:\.\d+)?)\s*Hours?', s, flags=re.IGNORECASE)
+        if m2:
+            val = float(m2.group(1))
+            return f"{int(val)}h" if val == int(val) else f"{val:.1f}h"
+        m3 = re.search(r'(\d+)\s*m', s)
+        if m3:
+            return f"{int(m3.group(1))}m"
+        # fallback numeric
+        num = re.search(r'(\d+(?:\.\d+)?)', s)
+        if num:
+            v = float(num.group(1))
+            if v >= 1:
+                return f"{int(v)}h" if v == int(v) else f"{v:.1f}h"
+            else:
+                return f"{int(v*60)}m"
+    except Exception:
+        pass
+    return None
+
+def extract_hltb_row_data(row_text):
+    try:
+        polled = None
+        pm = re.search(r'(\d+(?:\.\d+)?[Kk]?)\s*(?:Polled|polled)?', row_text)
+        if pm:
+            s = pm.group(1)
+            if 'k' in s.lower():
+                polled = int(float(s.lower().replace('k','')) * 1000)
+            else:
+                polled = int(float(s))
+        time_pat = r'(\d+h\s*\d+m|\d+h|\d+(?:\.\d+)?\s*Hours?|\d+(?:\.\d+)?[½]?)'
+        matches = re.findall(time_pat, row_text)
+        times = [m.strip() for m in matches] if matches else []
+        result = {}
+        if times:
+            result["t"] = round_time(times[0])
+        if polled:
+            result["p"] = polled
+        return result if result else None
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения строки: {e}")
+        return None
+
+def extract_store_links(page):
+    try:
+        store_links = {}
+        map_sel = {
+            "steam":"a[href*='store.steampowered.com']",
+            "gog":"a[href*='gog.com']",
+            "epic":"a[href*='epicgames.com']",
+        }
+        for name, sel in map_sel.items():
+            loc = page.locator(sel)
+            if loc.count() > 0:
+                href = loc.first.get_attribute("href")
+                if href:
+                    store_links[name] = href
+        return store_links if store_links else None
+    except Exception:
+        return None
 
 def extract_hltb_data_from_page(page):
-    """
-    Извлекает данные HLTB со страницы игры.
-    Алгоритм:
-      1) Парсим таблицы (как раньше)
-      2) Ищем текстовые блоки 'Vs.', 'Co-Op', 'Single-Player'
-      3) Fallback: regex по page.content()
-    """
     try:
         hltb_data = {}
-        page_content = page.content()
-
-        # 1) Таблицы (сохранена ваша логика, но защита от исключений)
+        # try tables first
         try:
             tables = page.locator("table")
-            table_count = tables.count()
-            for table_idx in range(table_count):
+            for ti in range(tables.count()):
                 try:
-                    table = tables.nth(table_idx)
-                    table_text = table.inner_text()
-                    if any(keyword in table_text for keyword in ["Main Story", "Main + Extras", "Completionist", "Co-Op", "Competitive", "Vs."]):
+                    table = tables.nth(ti)
+                    txt = table.inner_text()
+                    if any(k in txt for k in ["Main Story","Main + Extras","Completionist","Co-Op","Vs.","Competitive","Single-Player"]):
                         rows = table.locator("tr")
-                        row_count = rows.count()
-                        for row_idx in range(row_count):
-                            try:
-                                row_text = rows.nth(row_idx).inner_text().strip()
-                                if "Main Story" in row_text and "ms" not in hltb_data:
-                                    d = extract_hltb_row_data(row_text)
-                                    if d: hltb_data["ms"] = d
-                                elif "Main + Extras" in row_text and "mpe" not in hltb_data:
-                                    d = extract_hltb_row_data(row_text)
-                                    if d: hltb_data["mpe"] = d
-                                elif "Completionist" in row_text and "comp" not in hltb_data:
-                                    d = extract_hltb_row_data(row_text)
-                                    if d: hltb_data["comp"] = d
-                                elif "Co-Op" in row_text and "coop" not in hltb_data:
-                                    d = extract_hltb_row_data(row_text)
-                                    if d: hltb_data["coop"] = d
-                                elif "Competitive" in row_text and "vs" not in hltb_data:
-                                    d = extract_hltb_row_data(row_text)
-                                    if d: hltb_data["vs"] = d
-                            except Exception as e:
-                                log_message(f"⚠️ Ошибка обработки строки таблицы {row_idx}: {e}")
-                                continue
-                except Exception as e:
-                    log_message(f"⚠️ Ошибка обработки таблицы {table_idx}: {e}")
+                        for ri in range(rows.count()):
+                            rtxt = rows.nth(ri).inner_text()
+                            if "Main Story" in rtxt or "Single-Player" in rtxt:
+                                d = extract_hltb_row_data(rtxt)
+                                if d: hltb_data["ms"] = d
+                            if "Main + Extras" in rtxt:
+                                d = extract_hltb_row_data(rtxt)
+                                if d: hltb_data["mpe"] = d
+                            if "Completionist" in rtxt:
+                                d = extract_hltb_row_data(rtxt)
+                                if d: hltb_data["comp"] = d
+                            if "Co-Op" in rtxt:
+                                d = extract_hltb_row_data(rtxt)
+                                if d: hltb_data["coop"] = d
+                            if "Vs." in rtxt or "Competitive" in rtxt:
+                                d = extract_hltb_row_data(rtxt)
+                                if d: hltb_data["vs"] = d
+                except Exception:
                     continue
-        except Exception as e:
-            log_message(f"⚠️ Ошибка перебора таблиц: {e}")
+        except Exception:
+            pass
 
-        # 2) Ищем отдельные блоки 'Vs.', 'Co-Op', 'Single-Player'
+        # blocks search
         try:
-            for keyword, keyname in [("Vs.", "vs"), ("Co-Op", "coop"), ("Single-Player", "ms")]:
-                elems = page.locator(f"text={keyword}")
-                cnt = elems.count()
-                for i in range(min(cnt, 10)):
+            for key, sel in [("vs", "Vs."), ("coop", "Co-Op"), ("ms", "Single-Player")]:
+                elems = page.locator(f"text={sel}")
+                for i in range(min(elems.count(), 6)):
                     try:
                         el = elems.nth(i)
-                        surrounding_text = el.evaluate("(e) => (e.closest('div') || e.parentElement || e).innerText")
-                        if keyword == "Vs." and "vs" not in hltb_data:
-                            vs_data = extract_vs_data_from_text(surrounding_text)
-                            if vs_data:
-                                hltb_data["vs"] = vs_data
-                        elif keyword == "Co-Op" and "coop" not in hltb_data:
-                            coop_data = extract_coop_data_from_text(surrounding_text)
-                            if coop_data:
-                                hltb_data["coop"] = coop_data
-                        elif keyword == "Single-Player" and "ms" not in hltb_data:
-                            sp_data = extract_single_player_data_from_text(surrounding_text)
-                            if sp_data:
-                                hltb_data["ms"] = sp_data
-                    except Exception as e:
-                        log_message(f"⚠️ Ошибка обработки блока {keyword} #{i}: {e}")
+                        s = el.evaluate("(e) => (e.closest('div') || e.parentElement || e).innerText")
+                        if key == "vs" and "vs" not in hltb_data:
+                            pat = r'(?:Vs\.|Versus)[^\d]{0,20}(\d+(?:\.\d+)?(?:½)?)'
+                            m = re.search(pat, s, flags=re.IGNORECASE)
+                            if m:
+                                hltb_data["vs"] = {"t": round_time(m.group(1))}
+                        if key == "coop" and "coop" not in hltb_data:
+                            m = re.search(r'Co-Op[^\d]{0,20}(\d+(?:\.\d+)?(?:½)?)', s, flags=re.IGNORECASE)
+                            if m:
+                                hltb_data["coop"] = {"t": round_time(m.group(1))}
+                        if key == "ms" and "ms" not in hltb_data:
+                            m = re.search(r'(?:Single-Player|Main Story)[^\d]{0,20}(\d+(?:\.\d+)?(?:½)?)', s, flags=re.IGNORECASE)
+                            if m:
+                                hltb_data["ms"] = {"t": round_time(m.group(1))}
+                    except Exception:
                         continue
-        except Exception as e:
-            log_message(f"⚠️ Ошибка поиска мультиплеерных блоков: {e}")
+        except Exception:
+            pass
 
-        # 3) Fallback: регексп по page_content, на случай нестандартной вёрстки
+        # fallback regex over entire page content
         if not hltb_data:
-            try:
-                # шаблоны для разных категорий
-                patterns = {
-                    "ms": r'(?:Main Story|Single-Player)[^\n\r]{0,160}?(\d+h(?:\s*\d+m)?|\d+(?:\.\d+)?\s*Hours?)',
-                    "mpe": r'(?:Main \+ Extras|Main \+ Extras)[^\n\r]{0,160}?(\d+h(?:\s*\d+m)?|\d+(?:\.\d+)?\s*Hours?)',
-                    "comp": r'(?:Completionist)[^\n\r]{0,160}?(\d+h(?:\s*\d+m)?|\d+(?:\.\d+)?\s*Hours?)',
-                    "coop": r'(?:Co-Op)[^\n\r]{0,160}?(\d+h(?:\s*\d+m)?|\d+(?:\.\d+)?\s*Hours?)',
-                    "vs": r'(?:Vs\.|Versus)[^\n\r]{0,160}?(\d+(?:\.\d+)?[½]?|\d+h(?:\s*\d+m)?|\d+(?:\.\d+)?\s*Hours?)'
-                }
-                for k, pat in patterns.items():
-                    m = re.search(pat, page_content, flags=re.IGNORECASE)
-                    if m:
-                        tstr = m.group(1)
-                        if '½' in tstr:
-                            tstr = tstr.replace('½', '.5')
-                        # форматируем похожим образом
-                        try:
-                            hours = float(re.sub(r'[^\d\.]', '', tstr))
-                            if hours >= 1:
-                                formatted = f"{int(hours)}h" if hours == int(hours) else f"{hours:.1f}h"
-                            else:
-                                formatted = f"{int(hours*60)}m"
-                        except:
-                            formatted = round_time(tstr)
-                        hltb_data[k] = {"t": formatted}
-                if hltb_data:
-                    log_message("🎯 Данные найдены через fallback-регексп по содержимому страницы")
-            except Exception as e:
-                log_message(f"⚠️ Ошибка fallback-парсинга: {e}")
+            content = page.content()
+            patterns = {
+                "ms": r'(?:Main Story|Single-Player)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)',
+                "mpe": r'(?:Main \+ Extras)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)',
+                "comp": r'(?:Completionist)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)',
+                "coop": r'(?:Co-Op)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)',
+                "vs": r'(?:Vs\.|Versus)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)'
+            }
+            for k, p in patterns.items():
+                m = re.search(p, content, flags=re.IGNORECASE)
+                if m:
+                    hltb_data[k] = {"t": round_time(m.group(1))}
 
-        # store links
-        store_links = extract_store_links(page)
-        if store_links:
-            hltb_data["stores"] = store_links
+        stores = extract_store_links(page)
+        if stores:
+            hltb_data["stores"] = stores
 
         return hltb_data if hltb_data else None
-
     except Exception as e:
         log_message(f"❌ Ошибка извлечения данных со страницы: {e}")
         return None
 
-def extract_store_links(page):
-    """Извлекает ссылки на магазины со страницы игры"""
-    try:
-        store_links = {}
-        store_selectors = {
-            "steam": "a[href*='store.steampowered.com']",
-            "epic": "a[href*='epicgames.com']",
-            "gog": "a[href*='gog.com']",
-            "humble": "a[href*='humblebundle.com']",
-            "itch": "a[href*='itch.io']",
-            "battlenet": "a[href*='battle.net']",
-            "psn": "a[href*='playstation.com']",
-            "xbox": "a[href*='xbox.com']",
-            "nintendo": "a[href*='nintendo.com']"
-        }
-        for store_name, selector in store_selectors.items():
-            try:
-                el = page.locator(selector).first
-                if el.count() > 0:
-                    href = el.get_attribute("href")
-                    if href:
-                        # GOG через adtraction
-                        if store_name == "gog" and "adtraction.com" in href:
-                            match = re.search(r'url=([^&]+)', href)
-                            if match:
-                                href = unquote(match.group(1))
-                        store_links[store_name] = href
-            except Exception:
-                continue
-        if store_links:
-            log_message(f"🛒 Найдены ссылки на магазины: {list(store_links.keys())}")
-        return store_links if store_links else None
-    except Exception as e:
-        log_message(f"❌ Ошибка извлечения ссылок на магазины: {e}")
-        return None
+# ------------------ Поиск одной попытки и ретраи ------------------
 
-# -------------------------- Парсинг строк таблицы (оставил вашу логику и немного упростил) --------------------------
-
-def extract_hltb_row_data(row_text):
-    """Извлекает данные из строки таблицы HLTB (новый формат)"""
-    try:
-        polled = None
-        # Пытаемся найти число опрошенных
-        polled_match = re.search(r'(\d+(?:\.\d+)?[Kk]?)\s*(?:Polled|polled)?', row_text)
-        if polled_match:
-            polled_str = polled_match.group(1)
-            if 'K' in polled_str.upper():
-                number = float(polled_str.replace('K','').replace('k',''))
-                polled = int(number * 1000)
-            else:
-                polled = int(float(polled_str))
-
-        # Ищем временные блоки
-        combined_pattern = r'(\d+h\s*\d+m|\d+h|\d+(?:\.\d+)?\s*Hours?|\d+(?:\.\d+)?[½]?)'
-        matches = re.findall(combined_pattern, row_text)
-        times = [re.sub(r'\s+', ' ', m.strip()) for m in matches] if matches else []
-
-        if not times and polled is None:
-            return None
-
-        result = {}
-        if times:
-            avg = times[0]
-            # при необходимости используем median в times[1]
-            result["t"] = round_time(avg)
-        if polled:
-            result["p"] = polled
-
-        # доп. поля для single/multi если есть
-        if "Main Story" in row_text or "Single-Player" in row_text:
-            if len(times) >= 4:
-                result["r"] = round_time(times[2])
-                result["l"] = round_time(times[3])
-        elif "Co-Op" in row_text or "Competitive" in row_text or "Vs." in row_text:
-            if len(times) >= 4:
-                result["min"] = round_time(times[2])
-                result["max"] = round_time(times[3])
-
-        return result if result else None
-    except Exception as e:
-        log_message(f"❌ Ошибка извлечения данных из строки: {e}")
-        return None
-
-# -------------------------- Разные extract_* для текста (как раньше) --------------------------
-
-def extract_vs_data_from_text(text):
-    try:
-        clean_text = text.replace('\n',' ').replace('\r',' ')
-        patterns = [
-            r'Vs\.\s*\|\s*(\d+(?:\.\d+)?)\s*Hours?',
-            r'Vs\.\s+(\d+(?:\.\d+)?)\s*Hours?',
-            r'Versus[^\d]*(\d+(?:\.\d+)?)\s*Hours?'
-        ]
-        for pat in patterns:
-            m = re.search(pat, clean_text, flags=re.IGNORECASE)
-            if m:
-                tstr = m.group(1).replace('½', '.5')
-                try:
-                    hours = float(tstr)
-                    formatted = f"{int(hours)}h" if hours == int(hours) else f"{hours:.1f}h"
-                except:
-                    formatted = round_time(tstr)
-                log_message(f"✅ Найдены Vs. данные: {formatted}")
-                return {"t": formatted}
-        return None
-    except Exception as e:
-        log_message(f"❌ Ошибка извлечения Vs. данных: {e}")
-        return None
-
-def extract_coop_data_from_text(text):
-    try:
-        clean_text = text.replace('\n',' ').replace('\r',' ')
-        patterns = [r'Co-Op[^\d]*(\d+(?:\.\d+)?)\s*Hours?', r'Co-Op\s*\|\s*(\d+(?:\.\d+)?)']
-        for pat in patterns:
-            m = re.search(pat, clean_text, flags=re.IGNORECASE)
-            if m:
-                tstr = m.group(1).replace('½', '.5')
-                try:
-                    hours = float(tstr)
-                    formatted = f"{int(hours)}h" if hours == int(hours) else f"{hours:.1f}h"
-                except:
-                    formatted = round_time(tstr)
-                log_message(f"✅ Найдены Co-Op данные: {formatted}")
-                return {"t": formatted}
-        return None
-    except Exception as e:
-        log_message(f"❌ Ошибка извлечения Co-Op данных: {e}")
-        return None
-
-def extract_single_player_data_from_text(text):
-    try:
-        clean_text = text.replace('\n',' ').replace('\r',' ')
-        patterns = [r'Single-Player[^\d]*(\d+(?:\.\d+)?)\s*Hours?', r'Main Story[^\d]*(\d+(?:\.\d+)?)']
-        for pat in patterns:
-            m = re.search(pat, clean_text, flags=re.IGNORECASE)
-            if m:
-                tstr = m.group(1).replace('½', '.5')
-                try:
-                    hours = float(tstr)
-                    formatted = f"{int(hours)}h" if hours == int(hours) else f"{hours:.1f}h"
-                except:
-                    formatted = round_time(tstr)
-                log_message(f"✅ Найдены Single-Player данные: {formatted}")
-                return {"t": formatted}
-        return None
-    except Exception as e:
-        log_message(f"❌ Ошибка извлечения Single-Player данных: {e}")
-        return None
-
-# -------------------------- Поиск одной попытки и основной поиск с ретраями --------------------------
+def random_delay(min_s, max_s):
+    time.sleep(random.uniform(min_s, max_s))
 
 def search_game_single_attempt(page, game_title, game_year=None):
-    """Одна попытка поиска игры на HLTB (без излишних переходов)"""
     try:
         log_message(f"🔍 Ищем: '{game_title}'")
         safe_title = quote(game_title, safe="")
         search_url = f"{BASE_URL}/?q={safe_title}"
-
         page.goto(search_url, timeout=PAGE_GOTO_TIMEOUT)
         page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
+        random_delay(0.8, 1.8)
 
         page_content = page.content()
         if "blocked" in page_content.lower() or "access denied" in page_content.lower():
-            log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
+            log_message("❌ Возможно блокировка при поиске")
             return None
-        elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
-            log_message("⚠️ Cloudflare проверка при поиске - ждем...")
-            time.sleep(3)
-            page_content = page.content()
-            if "checking your browser" in page_content.lower():
-                log_message("❌ Cloudflare блокирует поиск")
-                return None
-
-        random_delay(1.5, 3.0)
 
         game_links = page.locator('a[href^="/game/"]')
         found_count = game_links.count()
 
-        # если слишком много результатов, попробуем точный запрос в кавычках
         if found_count > 30:
             log_message(f"⚠️  Слишком много результатов ({found_count}), пробуем точный поиск в кавычках")
-            quoted_title = f'"{game_title}"'
-            quoted_url = f"{BASE_URL}/?q={quote(quoted_title, safe='')}"
-            page.goto(quoted_url, timeout=PAGE_GOTO_TIMEOUT)
+            quoted = f'"{game_title}"'
+            page.goto(f"{BASE_URL}/?q={quote(quoted, safe='')}", timeout=PAGE_GOTO_TIMEOUT)
             page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
-            random_delay(1.5, 3.0)
+            random_delay(0.8, 1.8)
             game_links = page.locator('a[href^="/game/"]')
             found_count = game_links.count()
 
         if found_count == 0:
             return None
 
-        # выбираем лучший кандидат (без перехода по каждому)
         best_match, best_title, similarity = find_best_match_with_year(page, game_links, game_title, game_year)
+        # fallback: if not selected, try a direct scan for base+year
+        if not best_match:
+            base = clean_title_for_comparison(game_title.split(":",1)[0])
+            for i in range(min(game_links.count(), 60)):
+                link = game_links.nth(i)
+                try:
+                    lt = link.inner_text().strip()
+                except:
+                    continue
+                lc = clean_title_for_comparison(lt)
+                if base and base in lc:
+                    y = get_year_from_search_context(link)
+                    if game_year and y == game_year:
+                        log_message(f"🎯 Fallback: выбрали '{lt}' по базе + году")
+                        best_match = link
+                        best_title = lt
+                        similarity = 1.0
+                        break
+
         if not best_match:
             return None
 
-        best_url = best_match.get_attribute("href")
-        if not best_url:
+        href = best_match.get_attribute("href")
+        if not href:
             return None
-
-        # если слабая схожесть и нет года — пропускаем
-        if similarity < 0.5 and not game_year:
-            log_message(f"⚠️  Низкая схожесть ({similarity:.2f}), пробуем альтернативное название")
-            return None
-
-        full_url = f"{BASE_URL}{best_url}"
-        # Переходим один раз на страницу лучшего кандидата и парсим данные
-        page.goto(full_url, timeout=PAGE_GOTO_TIMEOUT)
+        full = f"{BASE_URL}{href}"
+        page.goto(full, timeout=PAGE_GOTO_TIMEOUT)
         page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
-        random_delay(1.5, 3.0)
-
-        # проверяем наличие блокировки после перехода
-        page_content = page.content()
-        if "blocked" in page_content.lower() or "access denied" in page_content.lower():
-            log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
-            return None
-
+        random_delay(0.9, 2.1)
         hltb_data = extract_hltb_data_from_page(page)
-        # если получили данные — возвращаем их с найденным названием
         return (hltb_data, best_title) if hltb_data else None
 
     except Exception as e:
@@ -757,317 +558,171 @@ def search_game_single_attempt(page, game_title, game_year=None):
         return None
 
 def search_game_on_hltb(page, game_title, game_year=None):
-    """Ищет игру на HLTB и возвращает данные с повторными попытками"""
     max_attempts = 3
     delays = [0, (15, 18), (65, 70)]
 
-    good_result = None
-    good_score = 0
-    good_title = None
-
     log_message(f"🔍 Ищем оригинальное название: '{game_title}' (год: {game_year})")
-    result_data = search_game_single_attempt(page, game_title, game_year)
-
-    if result_data is not None:
-        hltb_data, found_title = result_data
+    result = search_game_single_attempt(page, game_title, game_year)
+    if result is not None:
+        hltb_data, found_title = result
         score = calculate_title_similarity(game_title, found_title) if found_title else 0
-
         if score >= 1.0:
-            log_message(f"🎯 Найдено идеальное совпадение: '{found_title}' (схожесть: {score:.2f})")
             return hltb_data
-
-        log_message(f"📝 Сохраняем результат: '{found_title}' (схожесть: {score:.2f})")
-        good_result = hltb_data
-        good_score = score
-        good_title = found_title
+        best_result = hltb_data
+        best_score = score
+        best_title = found_title
     else:
         log_message("❌ Оригинальное название не найдено, пробуем альтернативы...")
+        best_result = None
+        best_score = 0.0
+        best_title = None
 
-    alternative_titles = generate_alternative_titles(game_title)
-
+    # альтернативы
+    alts = generate_alternative_titles(game_title)
     for attempt in range(max_attempts):
-        try:
-            if attempt > 0:
-                log_message(f"🔄 Попытка {attempt + 1}/{max_attempts} для '{game_title}'")
-                if isinstance(delays[attempt], tuple):
-                    min_delay, max_delay = delays[attempt]
-                    log_message(f"⏳ Пауза {min_delay}-{max_delay} секунд...")
-                    random_delay(min_delay, max_delay)
-                else:
-                    log_message(f"⏳ Пауза {delays[attempt]} секунд...")
-                    time.sleep(delays[attempt])
+        if attempt > 0:
+            log_message(f"🔄 Попытка {attempt+1}/{max_attempts} для '{game_title}'")
+            if isinstance(delays[attempt], tuple):
+                mn, mx = delays[attempt]
+                log_message(f"⏳ Пауза {mn}-{mx} сек...")
+                random_delay(mn, mx)
+            else:
+                time.sleep(delays[attempt])
 
-            best_result = good_result
-            best_score = good_score
-            best_title = good_title
-
-            for alt_title in alternative_titles:
-                if alt_title == game_title:
-                    continue
-                result_data = search_game_single_attempt(page, alt_title, game_year)
-                if result_data is not None:
-                    hltb_data, found_title = result_data
-                    score = calculate_title_similarity(game_title, found_title if found_title else alt_title)
-                    if score >= 1.0:
-                        log_message(f"🎯 Найден идеальный результат: '{found_title}' (схожесть: {score:.2f})")
-                        return hltb_data
-                    if score > best_score:
-                        best_score = score
-                        best_result = hltb_data
-                        best_title = found_title
-
-            if best_result is not None:
-                log_message(f"🏆 Лучший результат: '{best_title}' (схожесть: {best_score:.2f})")
-                return best_result
-
-        except Exception as e:
-            log_message(f"❌ Ошибка попытки {attempt + 1} для '{game_title}': {e}")
-            if attempt == max_attempts - 1:
-                log_message(f"💥 Все попытки исчерпаны для '{game_title}'")
-                return None
-
-    return None
-
-# -------------------------- Остальные утилиты и main --------------------------
-
-def random_delay(min_seconds, max_seconds):
-    delay = random.uniform(min_seconds, max_seconds)
-    time.sleep(delay)
-
-def check_break_time(start_time, games_processed):
-    elapsed_seconds = time.time() - start_time
-    break_interval = random.randint(BREAK_INTERVAL_MIN, BREAK_INTERVAL_MAX)
-    if elapsed_seconds >= break_interval:
-        break_duration = random.randint(BREAK_DURATION_MIN, BREAK_DURATION_MAX)
-        log_message(f"⏸️  Перерыв {break_duration} секунд... (обработано {games_processed} игр)")
-        time.sleep(break_duration)
-        return time.time()
-    return start_time
-
-def count_hltb_data(hltb_data):
-    categories = {"ms": 0, "mpe": 0, "comp": 0, "all": 0, "coop": 0, "vs": 0}
-    total_polled = {"ms": 0, "mpe": 0, "comp": 0, "all": 0, "coop": 0, "vs": 0}
-    na_count = 0
-
-    for game in hltb_data:
-        if "hltb" in game:
-            if (isinstance(game["hltb"], dict) and 
-                game["hltb"].get("ms") == "N/A" and 
-                game["hltb"].get("mpe") == "N/A" and 
-                game["hltb"].get("comp") == "N/A" and 
-                game["hltb"].get("all") == "N/A"):
-                na_count += 1
+        for alt in alts:
+            if alt == game_title:
                 continue
+            res = search_game_single_attempt(page, alt, game_year)
+            if res is not None:
+                hltb_data, found_title = res
+                score = calculate_title_similarity(game_title, found_title if found_title else alt)
+                # if slash original, ensure found_title contains enough parts (handled in find_best_match)
+                if score >= 1.0:
+                    log_message(f"🎯 Найден идеальный результат для {alt}: '{found_title}'")
+                    return hltb_data
+                if score > best_score:
+                    best_score = score
+                    best_result = hltb_data
+                    best_title = found_title
 
-            for category in categories:
-                if category in game["hltb"] and game["hltb"][category] and game["hltb"][category] != "N/A":
-                    categories[category] += 1
-                    if isinstance(game["hltb"][category], dict) and "p" in game["hltb"][category]:
-                        total_polled[category] += game["hltb"][category]["p"]
+        if best_result is not None:
+            log_message(f"🏆 Лучший результат: '{best_title}' (схожесть: {best_score:.2f})")
+            return best_result
 
-    return categories, total_polled, na_count
+    return best_result
+
+# ------------------ Сохранение/утилиты ------------------
+
+def save_results(games_data):
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        for i, game in enumerate(games_data):
+            if i > 0:
+                f.write("\n")
+            json.dump(game, f, separators=(',', ':'), ensure_ascii=False)
+    log_message(f"💾 Результаты сохранены в {OUTPUT_FILE}")
 
 def save_progress(games_data, current_index, total_games):
     progress_data = {
         "current_index": current_index,
         "total_games": total_games,
-        "processed_games": len([g for g in games_data if "hltb" in g]),
-        "last_updated": datetime.now().isoformat(),
-        "status": "in_progress" if current_index < total_games else "completed"
+        "last_updated": datetime.now().isoformat()
     }
     with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
-        json.dump(progress_data, f, indent=2, ensure_ascii=False)
+        json.dump(progress_data, f, ensure_ascii=False, indent=2)
 
-def save_results(games_data):
-    try:
-        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-            for i, game in enumerate(games_data):
-                if i > 0:
-                    f.write("\n")
-                json.dump(game, f, separators=(',', ':'), ensure_ascii=False)
-
-        categories, total_polled, na_count = count_hltb_data(games_data)
-        successful = len([g for g in games_data if "hltb" in g])
-
-        log_message(f"💾 Результаты сохранены в {OUTPUT_FILE}")
-        log_message(f"📊 Статистика: {successful}/{len(games_data)} игр с данными HLTB")
-        log_message(f"📊 Main Story: {categories['ms']} ({total_polled['ms']} голосов), Main+Extras: {categories['mpe']} ({total_polled['mpe']} голосов)")
-        log_message(f"📊 Completionist: {categories['comp']} ({total_polled['comp']} голосов), All: {categories['all']} ({total_polled['all']} голосов)")
-        log_message(f"📊 Co-Op: {categories['coop']} ({total_polled['coop']} голосов), Vs: {categories['vs']} ({total_polled['vs']} голосов)")
-        log_message(f"📊 N/A (не найдено): {na_count} игр")
-
-    except Exception as e:
-        log_message(f"❌ Ошибка сохранения результатов: {e}")
-        raise
-
-def log_progress(current, total, start_time):
-    elapsed = time.time() - start_time
-    rate = current / elapsed * 60 if elapsed > 0 else 0
-    eta = (total - current) / rate if rate > 0 else 0
-    log_message(f"📊 {current}/{total} | {rate:.1f} игр/мин | ETA: {eta:.0f} мин")
+def check_break_time(start_time, games_processed):
+    elapsed_seconds = time.time() - start_time
+    if elapsed_seconds >= random.randint(BREAK_INTERVAL_MIN, BREAK_INTERVAL_MAX):
+        dur = random.randint(BREAK_DURATION_MIN, BREAK_DURATION_MAX)
+        log_message(f"⏸️ Перерыв {dur} секунд... (обработано {games_processed})")
+        time.sleep(dur)
+        return time.time()
+    return start_time
 
 def update_html_with_hltb(html_file, hltb_data):
     try:
         with open(html_file, 'r', encoding='utf-8') as f:
             content = f.read()
-
-        start = content.find('const gamesList = [')
+        start = content.find('const gamesList = ')
         if start == -1:
-            raise ValueError("Не найден const gamesList в HTML файле")
-
-        end = content.find('];', start) + 2
-        if end == 1:
-            raise ValueError("Не найден конец массива gamesList")
-
-        new_games_list = json.dumps(hltb_data, separators=(',', ':'), ensure_ascii=False)
-        new_content = content[:start] + f'const gamesList = {new_games_list}' + content[end:]
-
+            return False
+        start = content.find('[', start)
+        bracket_count = 0
+        end = start
+        for i,ch in enumerate(content[start:], start):
+            if ch == '[': bracket_count += 1
+            elif ch == ']':
+                bracket_count -= 1
+                if bracket_count == 0:
+                    end = i+1
+                    break
+        new = content[:start] + json.dumps(hltb_data, ensure_ascii=False) + content[end:]
         with open(html_file, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-
-        log_message(f"✅ HTML файл обновлен: {html_file}")
+            f.write(new)
         return True
-
     except Exception as e:
         log_message(f"❌ Ошибка обновления HTML: {e}")
         return False
 
+# ------------------ main ------------------
+
 def main():
-    print("🔧 Функция main() вызвана")
-    log_message("🚀 Запуск HLTB Worker")
-    log_message(f"📁 Рабочая директория: {os.getcwd()}")
-    log_message(f"📄 Ищем файл: {GAMES_LIST_FILE}")
-
+    log_message("🚀 Запуск HLTB Worker (обновлённая логика выбора)")
     if not os.path.exists(GAMES_LIST_FILE):
-        log_message(f"❌ Файл {GAMES_LIST_FILE} не найден!")
+        log_message(f"❌ Файл {GAMES_LIST_FILE} не найден")
         return
-
-    log_message(f"✅ Файл {GAMES_LIST_FILE} найден, размер: {os.path.getsize(GAMES_LIST_FILE)} байт")
     setup_directories()
-    log_message("📁 Директории настроены")
+    games_list = extract_games_list(GAMES_LIST_FILE)
+    total_games = len(games_list)
+    log_message(f"📄 Извлечено {total_games} игр")
 
-    try:
-        log_message("🔍 Начинаем извлечение списка игр...")
-        games_list = extract_games_list(GAMES_LIST_FILE)
-        total_games = len(games_list)
-        log_message(f"✅ Извлечено {total_games} игр")
-
-        if os.path.exists(PROGRESS_FILE):
+    start_index = 0
+    if os.path.exists(PROGRESS_FILE):
+        try:
             with open(PROGRESS_FILE, "r", encoding="utf-8") as f:
                 progress = json.load(f)
             start_index = progress.get("current_index", 0)
-            log_message(f"📂 Продолжаем с позиции {start_index}")
-        else:
+            log_message(f"📂 Продолжаем с {start_index}")
+        except:
             start_index = 0
 
-        log_message("🌐 Запускаем Playwright...")
-        with sync_playwright() as p:
-            log_message("🚀 Запускаем Chromium...")
-            browser = p.chromium.launch(headless=True)
-            log_message("✅ Chromium запущен")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36", viewport={"width":1280,"height":800}, locale="en-US")
+        page = context.new_page()
+        try:
+            page.goto(BASE_URL, timeout=PAGE_GOTO_TIMEOUT)
+            page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
+            log_message("✅ HowLongToBeat доступен")
+        except Exception as e:
+            log_message(f"⚠️ Предупреждение: при проверке сайта возникла ошибка: {e}")
 
-            log_message("🔧 Создаем контекст браузера...")
-            context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-                viewport={"width": 1280, "height": 800},
-                locale="en-US"
-            )
-            log_message("✅ Контекст создан")
+        start_time = time.time()
+        for i in range(start_index, total_games):
+            game = games_list[i]
+            title = game.get("title") or ""
+            year = game.get("year")
+            log_message(f"🎮🎮🎮 Обрабатываю {i+1}/{total_games}: {title} ({year})")
+            hltb = search_game_on_hltb(page, title, year)
+            if hltb:
+                game["hltb"] = hltb
+                log_message(f"✅ Найдены данные для '{title}': {hltb}")
+            else:
+                game["hltb"] = {"ms":"N/A","mpe":"N/A","comp":"N/A","all":"N/A"}
+                log_message(f"⚠️ Данные не найдены для: {title} - записано N/A")
+            if (i+1) % 25 == 0:
+                save_progress(games_list, i+1, total_games)
+            start_time = check_break_time(start_time, i+1)
+        browser.close()
 
-            log_message("📄 Создаем новую страницу...")
-            page = context.new_page()
-            log_message("✅ Страница создана")
-
-            log_message("🔍 Проверяем доступность HowLongToBeat.com...")
-            try:
-                page.goto(BASE_URL, timeout=PAGE_GOTO_TIMEOUT)
-                page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
-                title = page.title()
-                log_message(f"📄 Заголовок страницы: {title}")
-                search_box = page.locator('input[type="search"], input[name="q"]')
-                if search_box.count() > 0:
-                    log_message("✅ Поисковая строка найдена - сайт доступен")
-                else:
-                    log_message("⚠️ Поисковая строка не найдена - возможны проблемы")
-
-                page_content = page.content()
-                if "blocked" in page_content.lower() or "access denied" in page_content.lower():
-                    log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP! Сайт заблокировал доступ")
-                    return
-                elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
-                    log_message("⚠️ Cloudflare проверка браузера - ждем...")
-                    time.sleep(3)
-                    page_content = page.content()
-                    if "checking your browser" in page_content.lower():
-                        log_message("❌ Cloudflare блокирует доступ")
-                        return
-
-                log_message("✅ Сайт доступен, начинаем обработку игр")
-
-            except Exception as e:
-                log_message(f"❌ Ошибка проверки доступности сайта: {e}")
-                log_message("⚠️ Продолжаем работу, но возможны проблемы...")
-
-            start_time = time.time()
-            processed_count = 0
-            blocked_count = 0
-
-            for i in range(start_index, total_games):
-                game = games_list[i]
-                game_title = game.get("title") or ""
-                game_year = game.get("year")
-
-                log_message(f"🎮🎮🎮 Обрабатываю {i+1}/{total_games}: {game_title} ({game_year})")
-
-                hltb_data = search_game_on_hltb(page, game_title, game_year)
-
-                if hltb_data:
-                    game["hltb"] = hltb_data
-                    processed_count += 1
-                    blocked_count = 0
-                    log_message(f"✅ Найдены данные: {hltb_data}")
-                else:
-                    game["hltb"] = {"ms": "N/A", "mpe": "N/A", "comp": "N/A", "all": "N/A"}
-                    log_message(f"⚠️  Данные не найдены для: {game_title} - записано N/A")
-
-                    page_content = page.content()
-                    if "blocked" in page_content.lower() or "access denied" in page_content.lower():
-                        blocked_count += 1
-                        log_message(f"🚫 Блокировка обнаружена ({blocked_count}/3)")
-                        if blocked_count >= 3:
-                            log_message("💥 Слишком много блокировок подряд! Останавливаем работу.")
-                            break
-
-                start_time = check_break_time(start_time, i + 1)
-
-                if (i + 1) % 50 == 0:
-                    save_progress(games_list, i + 1, total_games)
-                    log_progress(i + 1, total_games, start_time)
-
-            browser.close()
-
-        save_results(games_list)
-
-        successful = len([g for g in games_list if "hltb" in g])
-        log_message(f"🎉 Завершено! Обработано {successful}/{total_games} игр ({successful/total_games*100:.1f}%)")
-
-        log_message("🔄 Обновление HTML файла с данными HLTB...")
-        if update_html_with_hltb(GAMES_LIST_FILE, games_list):
-            log_message("✅ HTML файл успешно обновлен!")
-        else:
-            log_message("❌ Не удалось обновить HTML файл")
-
-    except Exception as e:
-        log_message(f"💥 Критическая ошибка: {e}")
-        raise
+    save_results(games_list)
+    if update_html_with_hltb(GAMES_LIST_FILE, games_list):
+        log_message("✅ HTML обновлён")
+    log_message("🎉 Завершено!")
 
 if __name__ == "__main__":
-    print("🎯 Запускаем main()...")
     try:
         main()
-        print("✅ main() завершен успешно")
     except Exception as e:
-        print(f"💥 Критическая ошибка в main(): {e}")
-        import traceback
-        traceback.print_exc()
+        log_message(f"💥 Критическая ошибка: {e}")
         raise
