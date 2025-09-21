@@ -359,7 +359,7 @@ def append_summary_log(prefix_idx, game_title, candidates):
         os.makedirs(DUMP_DIR, exist_ok=True)
         summary_path = os.path.join(DUMP_DIR, "summary.log")
         top = candidates[:5]
-        top_str = " | ".join([f"{c.get('text','')[:80].replace('\\n',' ')} -> {c.get('href','')}" for c in top])
+        top_str = " | ".join([f"{c.get('text','')[:80].replace(chr(10),' ')} -> {c.get('href','')}" for c in top])
         with open(summary_path, "a", encoding="utf-8") as sf:
             sf.write(f"{int(time.time())}\t{prefix_idx}\t{game_title}\t{len(candidates)}\t{top_str}\n")
     except Exception:
