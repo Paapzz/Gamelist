@@ -539,7 +539,6 @@ def calculate_year_similarity(target_year, hltb_year):
 
 def clean_title_for_comparison(title):
     """Очищает название игры для сравнения"""
-    import re
     # Убираем лишние символы, приводим к нижнему регистру
     cleaned = re.sub(r'[^\w\s]', '', title.lower())
     # Убираем лишние пробелы
@@ -656,7 +655,6 @@ def generate_alternative_titles(game_title):
             alternatives.append(with_amp)
     
     # Добавляем варианты с римскими цифрами (только для целых чисел)
-    import re
     # Ищем арабские цифры в конце названия или после пробела, но НЕ в составе дробных чисел
     arabic_pattern = r'(\b\d+\b)'
     matches = re.findall(arabic_pattern, game_title)
@@ -908,8 +906,6 @@ def calculate_title_similarity(title1, title2):
 def normalize_title_for_comparison(title):
     """Нормализует название для сравнения, конвертируя римские цифры в арабские"""
     try:
-        import re
-        
         # Словарь для конвертации римских цифр в арабские
         roman_to_arabic = {
             'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
@@ -1068,7 +1064,6 @@ def extract_store_links(page):
                         # Очищаем реферальные ссылки для GOG
                         if store_name == "gog" and "adtraction.com" in href:
                             # Извлекаем прямую ссылку из реферальной
-                            import re
                             match = re.search(r'url=([^&]+)', href)
                             if match:
                                 href = match.group(1)
@@ -1092,8 +1087,6 @@ def extract_store_links(page):
 def extract_hltb_row_data(row_text):
     """Извлекает данные из строки таблицы HLTB (новый формат)"""
     try:
-        import re
-        
         # Ищем количество голосов (поддерживаем K формат и табы)
         # Примеры: "Main Story 54 660h 37m" -> 54, "Main Story	1.7K	15h 31m" -> 1700
         polled_match = re.search(r'^[A-Za-z\s/\+]+\s+(\d+(?:\.\d+)?[Kk]?)\s+', row_text)
@@ -1191,7 +1184,6 @@ def calculate_average_time(time1_str, time2_str):
             # Парсим часы и минуты
             if "h" in time_str and "m" in time_str:
                 # Формат "660h 37m"
-                import re
                 hours_match = re.search(r'(\d+)h', time_str)
                 minutes_match = re.search(r'(\d+)m', time_str)
                 
@@ -1202,7 +1194,6 @@ def calculate_average_time(time1_str, time2_str):
                     
             elif "h" in time_str:
                 # Только часы "660h"
-                import re
                 hours_match = re.search(r'(\d+)h', time_str)
                 if hours_match:
                     total_minutes = int(hours_match.group(1)) * 60
@@ -1252,8 +1243,6 @@ def calculate_average_time(time1_str, time2_str):
 def extract_vs_data_from_text(text):
     """Извлекает Vs. данные из текста"""
     try:
-        import re
-        
         # Убираем переносы строк для читаемого лога
         clean_text = text.replace('\n', ' ').replace('\r', ' ')
         log_message(f"🔍 Ищем Vs. данные в тексте: '{clean_text[:200]}...'")
@@ -1297,8 +1286,6 @@ def extract_vs_data_from_text(text):
 def extract_coop_data_from_text(text):
     """Извлекает Co-Op данные из текста"""
     try:
-        import re
-        
         # Убираем переносы строк для читаемого лога
         clean_text = text.replace('\n', ' ').replace('\r', ' ')
         log_message(f"🔍 Ищем Co-Op данные в тексте: '{clean_text[:200]}...'")
@@ -1342,8 +1329,6 @@ def extract_coop_data_from_text(text):
 def extract_single_player_data_from_text(text):
     """Извлекает Single-Player данные из текста"""
     try:
-        import re
-        
         # Убираем переносы строк для читаемого лога
         clean_text = text.replace('\n', ' ').replace('\r', ' ')
         log_message(f"🔍 Ищем Single-Player данные в тексте: '{clean_text[:200]}...'")
