@@ -1,6 +1,12 @@
 # hltb_worker.py
-# Полная версия: extract_games_list + расширенное логирование/дампы + оптимизации поиска
-# Заменяет ваш предыдущий файл целиком.
+# Полная версия с улучшениями:
+# - несколько вариантов поиска
+# - годовой бонус / мгновенный выбор по названию+году
+# - fuzzy/difflib + LCS scoring
+# - retry с годом при >30 результатов
+# - storage_state для Playwright
+# - детальные дампы и summary.log
+# - совместимость с запуском в GitHub Actions (дампы/артефакты)
 
 import json
 import time
@@ -8,40 +14,43 @@ import random
 import re
 import os
 from datetime import datetime
-from urllib.parse import quote, unquote
-from playwright.sync_api import sync_playwright
+from urllib.parse import quote
+from difflib import SequenceMatcher
+from playwright.sync_api import sync_playwright, Error as PlaywrightError
 
+# ------------- Конфигурация -------------
 BASE_URL = "https://howlongtobeat.com"
 GAMES_LIST_FILE = "index111.html"
 OUTPUT_DIR = "hltb_data"
 OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
 PROGRESS_FILE = "progress.json"
 
-# Таймауты
 PAGE_GOTO_TIMEOUT = 30000
 PAGE_LOAD_TIMEOUT = 20000
 
-# Rate control
 MIN_DELAY = 0.6
 MAX_DELAY = 1.6
+
 INITIAL_BACKOFF = 5
 BACKOFF_MULTIPLIER = 2.0
 MAX_BACKOFF = 300
 
-# ---------------- DEBUG / DUMPS (настраиваемые) ----------------
-DEBUG_CANDIDATES = True         # Если True — сохраняет кандидатов и оценки при спорных выборках
-DUMP_ON_EMPTY = True            # Если True — сохраняет HTML + screenshot когда кандидатов == 0
-DUMP_DIR = "debug_dumps"        # куда сохранять дампы
-DEBUG_SCORE_THRESHOLD = 0.95    # порог: если лучший score < threshold -> сохранить дамп (при DEBUG_CANDIDATES=True)
+# Debug / dumps
+DEBUG_CANDIDATES = True     # если True — сохраняем оценки кандидатов
+DUMP_ON_EMPTY = True        # если True — сохраняем search_html + screenshot + candidates при пустых результатах
+DUMP_DIR = "debug_dumps"
+DEBUG_SCORE_THRESHOLD = 0.95
 VERBOSE = True
 
-# ------------------ Утилиты и логирование ------------------
+# Playwright storage state file (cookies/session) — помогает уменьшить блокировки
+STORAGE_STATE_FILE = "playwright_storage.json"
 
-def log_message(message):
+# ------------- Утилиты и логирование -------------
+def log_message(msg):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{ts}] {message}")
+    print(f"[{ts}] {msg}")
 
-def setup_directories():
+def setup_dirs():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     if DUMP_ON_EMPTY or DEBUG_CANDIDATES:
         os.makedirs(DUMP_DIR, exist_ok=True)
@@ -51,13 +60,11 @@ def sanitize_filename(s):
     s = re.sub(r'[^\w\-_\. ]', '_', s)
     return s[:120]
 
-# ------------------ extract_games_list (robust JS -> JSON parser) ------------------
-
+# ------------- Парсинг gamesList из index111.html -------------
 def extract_games_list(html_file):
     """
-    Извлекает массив gamesList из index111.html.
-    Делает несколько попыток: прямой json.loads, затем простая очистка JS -> JSON.
-    Пишет raw и fixed дампы в debug_dumps/ для отладки.
+    Надёжно извлекает JS-массив const gamesList = [...] из index111.html
+    Сохраняет raw и fixed дамп в debug_dumps для диагностики при ошибках.
     """
     def remove_js_comments(s):
         s = re.sub(r'/\*.*?\*/', '', s, flags=re.DOTALL)
@@ -65,14 +72,12 @@ def extract_games_list(html_file):
         return s
 
     def quote_object_keys(s):
-        # Добавляет кавычки к ключам вида: keyName:
+        # Добавляет кавычки к ключам вида keyName:
         s = re.sub(r'([{\[,]\s*)([A-Za-z0-9_\-\$@]+)\s*:', r'\1"\2":', s)
         return s
 
     def single_to_double_quotes(s):
-        # Replace escaped single quotes then convert '...'
         s = s.replace("\\'", "'")
-        # Convert single-quoted strings to double-quoted
         s = re.sub(r"\'([^'\\]*(?:\\.[^'\\]*)*)\'", lambda m: '"' + m.group(1).replace('"', '\\"') + '"', s)
         return s
 
@@ -103,31 +108,29 @@ def extract_games_list(html_file):
                 end = i + 1
                 break
     if end is None:
-        os.makedirs(DUMP_DIR, exist_ok=True)
         ts = int(time.time())
+        os.makedirs(DUMP_DIR, exist_ok=True)
         raw_path = f"{DUMP_DIR}/gameslist_raw_unclosed_{ts}.html"
         with open(raw_path, "w", encoding="utf-8") as rf:
             rf.write(content[start:start+20000])
-        raise ValueError(f"Не удалось найти закрывающую ']' для gamesList. Сохранён дамп: {raw_path}")
+        raise ValueError(f"Не найдена закрывающая ']' для gamesList. Дамп: {raw_path}")
 
     games_js = content[start:end]
-
     os.makedirs(DUMP_DIR, exist_ok=True)
     ts = int(time.time())
     raw_path = f"{DUMP_DIR}/gameslist_raw_{ts}.js"
     with open(raw_path, "w", encoding="utf-8") as rf:
         rf.write(games_js)
-    log_message(f"📝 Сохранён raw gamesList в {raw_path}")
+    log_message(f"📝 Сохранён raw gamesList: {raw_path}")
 
-    # 1) Попробовать прямой json.loads
+    # Попытка json.loads напрямую
     try:
         games_list = json.loads(games_js)
-        log_message("✅ gamesList распарсен напрямую (json.loads)")
+        log_message("✅ gamesList распарсен напрямую")
         return games_list
     except Exception as e:
-        log_message(f"⚠️ Прямой json.loads не прошёл: {e}. Попробуем очистку JS -> JSON...")
+        log_message(f"⚠️ Прямой json.loads не прошёл: {e}; пробуем очистку...")
 
-    # 2) Очистка
     fixed = games_js
     try:
         fixed = remove_js_comments(fixed)
@@ -137,24 +140,23 @@ def extract_games_list(html_file):
         fixed = re.sub(r'\bundefined\b', 'null', fixed)
         fixed = re.sub(r'\bNaN\b', 'null', fixed)
     except Exception as e:
-        log_message(f"⚠️ Ошибка при очистке JS: {e}")
+        log_message(f"⚠️ Ошибка очистки gamesList: {e}")
 
     fixed_path = f"{DUMP_DIR}/gameslist_fixed_{ts}.json"
     with open(fixed_path, "w", encoding="utf-8") as ff:
         ff.write(fixed)
-    log_message(f"📝 Сохранён преобразованный фрагмент в {fixed_path}")
+    log_message(f"📝 Сохранён преобразованный gamesList: {fixed_path}")
 
     try:
         games_list = json.loads(fixed)
-        log_message("✅ Успешно распарсили gamesList после очистки")
+        log_message("✅ gamesList распарсен после очистки")
         return games_list
     except Exception as e2:
-        msg = f"❌ Не удалось распарсить gamesList даже после очистки: {e2}. Посмотрите дампы: {raw_path} и {fixed_path}"
+        msg = f"❌ НЕ удалось распарсить gamesList: {e2}. Посмотрите дампы: {raw_path}, {fixed_path}"
         log_message(msg)
         raise ValueError(msg)
 
-# ----------------- Normalization & similarity -----------------
-
+# ------------- Нормализация названий и схожесть -------------
 def clean_title_for_comparison(title):
     if not title:
         return ""
@@ -208,6 +210,9 @@ def lcs_length(a_tokens, b_tokens):
                 dp[i][j] = max(dp[i-1][j], dp[i][j-1])
     return dp[n][m]
 
+def fuzzy_ratio(a, b):
+    return SequenceMatcher(None, a, b).ratio()
+
 def calculate_title_similarity(original, candidate):
     if not original or not candidate:
         return 0.0
@@ -216,6 +221,7 @@ def calculate_title_similarity(original, candidate):
         cand_norm = clean_title_for_comparison(normalize_title_for_comparison(candidate))
         if orig_norm == cand_norm:
             return 1.0
+        # try arabic <-> roman normalization
         m = re.search(r'\b(\d+)\b', original)
         if m:
             roman = convert_arabic_to_roman(m.group(1))
@@ -241,11 +247,15 @@ def calculate_title_similarity(original, candidate):
         recall = len(common) / len(a_tokens)
         lcs_len = lcs_length(a_tokens, b_tokens)
         seq = (lcs_len / len(a_tokens)) if len(a_tokens)>0 else 0.0
-        score = 0.6 * recall + 0.25 * precision + 0.15 * seq
+        base_score = 0.6 * recall + 0.25 * precision + 0.15 * seq
+        # combine with fuzzy ratio for robustness
+        fuzz = fuzzy_ratio(orig_norm, cand_norm)
+        score = max(base_score, 0.55 * base_score + 0.45 * fuzz)
         return float(max(0.0, min(1.0, score)))
     except Exception:
         return 0.0
 
+# ------------- Генерация альтернатив/вариантов поиска -------------
 def generate_alternative_titles(game_title):
     if not game_title:
         return []
@@ -283,8 +293,27 @@ def generate_alternative_titles(game_title):
                 add(re.sub(r'\b'+re.escape(rm.group(1))+r'\b', a, game_title, flags=re.IGNORECASE))
     return out
 
-# ----------------- Fast candidate scraping (single eval call) -----------------
+def build_search_variants(game_title, game_year=None):
+    s = (game_title or "").strip()
+    variants = []
+    variants.append(s)
+    variants.append(s.replace('&', 'and'))
+    variants.append(re.sub(r'\(.*?\)', '', s).strip())
+    if ':' in s:
+        variants.append(s.split(':',1)[0].strip())
+    if game_year:
+        variants.append(f"{s} {game_year}")
+        variants.append(f"{s} \"{game_year}\"")
+    variants.append(re.sub(r'[^\w\s]', ' ', s).strip())
+    # dedupe
+    out = []
+    seen = set()
+    for v in variants:
+        if v and v not in seen:
+            seen.add(v); out.append(v)
+    return out
 
+# ------------- Скрапинг кандидатов -------------
 def scrape_game_link_candidates(page, max_candidates=80):
     try:
         script = f'''
@@ -324,7 +353,17 @@ def get_year_from_context_text(ctx_text):
         return min(years)
     return None
 
-# ----------------- Candidate ranking & debug dumps -----------------
+# ------------- Дампы и summary.log -------------
+def append_summary_log(prefix_idx, game_title, candidates):
+    try:
+        os.makedirs(DUMP_DIR, exist_ok=True)
+        summary_path = os.path.join(DUMP_DIR, "summary.log")
+        top = candidates[:5]
+        top_str = " | ".join([f"{c.get('text','')[:80].replace('\\n',' ')} -> {c.get('href','')}" for c in top])
+        with open(summary_path, "a", encoding="utf-8") as sf:
+            sf.write(f"{int(time.time())}\t{prefix_idx}\t{game_title}\t{len(candidates)}\t{top_str}\n")
+    except Exception:
+        pass
 
 def dump_candidates_file(prefix_idx, game_title, candidates, suffix="candidates"):
     try:
@@ -335,6 +374,7 @@ def dump_candidates_file(prefix_idx, game_title, candidates, suffix="candidates"
         with open(path, "w", encoding="utf-8") as f:
             json.dump(candidates, f, ensure_ascii=False, indent=2)
         log_message(f"🗂️ Сохранён дамп кандидатов: {path}")
+        append_summary_log(prefix_idx, game_title, candidates)
         return path
     except Exception as e:
         log_message(f"⚠️ Не удалось сохранить дамп кандидатов: {e}")
@@ -382,6 +422,7 @@ def dump_screenshot(page, prefix_idx, game_title, suffix="screenshot"):
         log_message(f"⚠️ Не удалось сохранить скриншот: {e}")
         return None
 
+# ------------- Ранжирование кандидатов -------------
 def find_best_candidate(candidates, original_title, game_year=None, idx_info=None):
     if not candidates:
         return None, 0.0
@@ -395,22 +436,23 @@ def find_best_candidate(candidates, original_title, game_year=None, idx_info=Non
     best = None; best_score = -1.0
     scores_dump = []
 
-    # exact-clean
+    # exact-clean fast path
     for cand in candidates:
         ct = clean_title_for_comparison(normalize_title_for_comparison(cand["text"]))
         if ct == orig_clean:
             return cand, 1.0
 
-    # base + year quick
+    # immediate year+base match: если базовое название содержится и есть точно совпадающий год в контексте
     if game_year:
         for cand in candidates:
             ct = clean_title_for_comparison(normalize_title_for_comparison(cand["text"]))
             if base_clean and base_clean in ct:
                 cy = get_year_from_context_text(cand.get("context",""))
                 if cy and cy == game_year:
+                    log_message(f"🎯 Полный матч по названию+году: {cand.get('text')} (year {cy})")
                     return cand, 0.999
 
-    # scoring
+    # scoring loop
     for cand in candidates:
         cand_text = cand.get("text","")
         cand_ctx = cand.get("context","")
@@ -440,6 +482,7 @@ def find_best_candidate(candidates, original_title, game_year=None, idx_info=Non
         if score > best_score:
             best_score = score; best = cand
 
+    # debug: preserve scores dump if requested
     if DEBUG_CANDIDATES and idx_info:
         if best_score < DEBUG_SCORE_THRESHOLD:
             try:
@@ -450,6 +493,7 @@ def find_best_candidate(candidates, original_title, game_year=None, idx_info=Non
     if best and best_score >= 0.25:
         return best, float(best_score)
 
+    # in ambiguous cases, save candidates for inspection
     if (DEBUG_CANDIDATES or DUMP_ON_EMPTY) and idx_info:
         try:
             dump_candidates_file(idx_info.get("index",0), idx_info.get("title",""), candidates)
@@ -457,8 +501,7 @@ def find_best_candidate(candidates, original_title, game_year=None, idx_info=Non
             pass
     return None, 0.0
 
-# ----------------- Parsing HLTB page -----------------
-
+# ------------- Извлечение данных со страницы игры -------------
 def round_time(time_str):
     if not time_str:
         return None
@@ -534,6 +577,8 @@ def extract_hltb_data_from_page(page):
                             if d: hltb_data["vs"] = d
         except Exception:
             pass
+
+        # Text-based fallback search around keywords
         try:
             for keyword, key in [("Vs.", "vs"), ("Co-Op", "coop"), ("Single-Player", "ms")]:
                 elems = page.locator(f"text={keyword}")
@@ -557,6 +602,7 @@ def extract_hltb_data_from_page(page):
                         continue
         except Exception:
             pass
+
         if not hltb_data:
             patterns = {
                 "ms": r'(?:Main Story|Single-Player)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)',
@@ -586,112 +632,140 @@ def extract_hltb_data_from_page(page):
         log_message(f"❌ Ошибка extract_hltb_data_from_page: {e}")
         return None
 
-# ------------------ Search attempt + debug behavior ------------------
-
+# ------------- Поисковая попытка (варианты) -------------
 def random_delay(min_s=MIN_DELAY, max_s=MAX_DELAY):
     time.sleep(random.uniform(min_s, max_s))
 
+def is_blocked_content(page_content):
+    s = page_content.lower()
+    checks = ["access denied", "checking your browser", "cloudflare", "please enable javascript", "are you human"]
+    return any(c in s for c in checks)
+
+def save_storage_state(context):
+    try:
+        context.storage_state(path=STORAGE_STATE_FILE)
+    except Exception:
+        pass
+
+def load_storage_state_if_exists():
+    if os.path.exists(STORAGE_STATE_FILE):
+        return STORAGE_STATE_FILE
+    return None
+
 def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
     """
-    Возвращает ((hltb_data, found_title, score), None) или (None, "blocked") или (None, None)
-    idx_info — словарь {"index": i, "title": game_title} для дампов.
+    Попытка поиска — возвращает ((hltb_data, found_title, score), None)
+    или (None, "blocked") или (None, None)
     """
     try:
         log_message(f"🔍 Ищем: '{game_title}'")
-        safe_title = quote(game_title, safe="")
-        search_url = f"{BASE_URL}/?q={safe_title}"
-
-        page.goto(search_url, timeout=PAGE_GOTO_TIMEOUT)
-        try:
-            page.wait_for_selector('a[href^="/game/"]', timeout=3500)
-        except:
-            pass
-
-        random_delay()
-
-        page_content = page.content()
-        if "blocked" in page_content.lower() or "access denied" in page_content.lower() or ("checking your browser" in page_content.lower() and "cloudflare" in page_content.lower()):
-            log_message("❌ Возможная блокировка/Cloudflare на странице поиска")
-            if idx_info and DUMP_ON_EMPTY:
-                dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
-                dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
-            return None, "blocked"
-
-        candidates = scrape_game_link_candidates(page, max_candidates=80)
-
-        if not candidates:
-            log_message("⚠️ Кандидатов 0 — короткий reload (fallback)")
-            if idx_info and DUMP_ON_EMPTY:
-                dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
-                dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+        variants = build_search_variants(game_title, game_year)
+        # try variants in order
+        for variant in variants:
+            safe_title = quote(variant, safe="")
+            search_url = f"{BASE_URL}/?q={safe_title}"
             try:
-                page.reload(timeout=PAGE_GOTO_TIMEOUT)
-                try:
-                    page.wait_for_selector('a[href^=\"/game/\"]', timeout=2000)
-                except:
-                    pass
-                random_delay(0.6, 1.2)
-                candidates = scrape_game_link_candidates(page, max_candidates=80)
-            except Exception:
-                candidates = []
-
-        if not candidates:
-            if idx_info and (DEBUG_CANDIDATES or DUMP_ON_EMPTY):
-                dump_candidates_file(idx_info.get("index",0), idx_info.get("title",""), candidates)
-            return None, None
-
-        if len(candidates) > 30:
-            quoted = f'"{game_title}"'
-            page.goto(f"{BASE_URL}/?q={quote(quoted, safe='')}", timeout=PAGE_GOTO_TIMEOUT)
+                page.goto(search_url, timeout=PAGE_GOTO_TIMEOUT)
+            except PlaywrightError as e:
+                log_message(f"⚠️ Page.goto error for '{variant}': {e}")
+            # small wait for selector
             try:
-                page.wait_for_selector('a[href^=\"/game/\"]', timeout=2500)
+                page.wait_for_selector('a[href^="/game/"]', timeout=3500)
             except:
                 pass
             random_delay()
             page_content = page.content()
-            if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+            if is_blocked_content(page_content):
+                log_message("❌ Возможная блокировка/Cloudflare на странице поиска")
                 if idx_info and DUMP_ON_EMPTY:
                     dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
                     dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
                 return None, "blocked"
-            candidates = scrape_game_link_candidates(page, max_candidates=80)
 
-        best_cand, score = find_best_candidate(candidates, game_title, game_year, idx_info=idx_info)
+            candidates = scrape_game_link_candidates(page, max_candidates=120)
+            if not candidates:
+                log_message("⚠️ Кандидатов 0 — короткий reload (fallback)")
+                if idx_info and DUMP_ON_EMPTY:
+                    dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
+                    dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+                try:
+                    page.reload(timeout=PAGE_GOTO_TIMEOUT)
+                    try:
+                        page.wait_for_selector('a[href^=\"/game/\"]', timeout=2000)
+                    except:
+                        pass
+                    random_delay(0.6, 1.2)
+                    candidates = scrape_game_link_candidates(page, max_candidates=120)
+                except Exception:
+                    candidates = []
 
-        if idx_info and DEBUG_CANDIDATES:
-            if score < DEBUG_SCORE_THRESHOLD:
+            if not candidates:
+                if idx_info and (DEBUG_CANDIDATES or DUMP_ON_EMPTY):
+                    dump_candidates_file(idx_info.get("index",0), idx_info.get("title",""), candidates)
+                continue  # try next variant
+
+            # если слишком много кандидатов — повторим поиск с годом
+            if len(candidates) > 30 and game_year:
+                try:
+                    q = f"{variant} {game_year}"
+                    log_message(f"⚠️ Слишком много результатов ({len(candidates)}), повторный поиск: '{q}'")
+                    page.goto(f"{BASE_URL}/?q={quote(q, safe='')}", timeout=PAGE_GOTO_TIMEOUT)
+                    try:
+                        page.wait_for_selector('a[href^=\"/game/\"]', timeout=3000)
+                    except:
+                        pass
+                    random_delay()
+                    candidates = scrape_game_link_candidates(page, max_candidates=160)
+                except Exception:
+                    pass
+
+            # rank candidates
+            best_cand, score = find_best_candidate(candidates, game_title, game_year, idx_info=idx_info)
+
+            # debug dumps if ambiguous
+            if idx_info and DEBUG_CANDIDATES and score < DEBUG_SCORE_THRESHOLD:
                 dump_candidates_file(idx_info.get("index",0), idx_info.get("title",""), candidates)
 
-        if not best_cand:
-            return None, None
+            if not best_cand:
+                # try next variant
+                continue
 
-        href = best_cand.get("href")
-        if not href:
-            return None, None
-        full_url = f"{BASE_URL}{href}"
+            href = best_cand.get("href")
+            if not href:
+                continue
+            full_url = f"{BASE_URL}{href}"
+            try:
+                page.goto(full_url, timeout=PAGE_GOTO_TIMEOUT)
+            except PlaywrightError:
+                log_message(f"⚠️ Ошибка перехода на страницу игры: {full_url}")
+            try:
+                page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
+            except:
+                pass
+            random_delay()
+            page_content = page.content()
+            if is_blocked_content(page_content):
+                if idx_info and DUMP_ON_EMPTY:
+                    dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
+                    dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+                return None, "blocked"
+            hltb_data = extract_hltb_data_from_page(page)
+            if hltb_data:
+                # save storage state after successful fetch
+                try:
+                    save_storage_state(page.context)
+                except Exception:
+                    pass
+                return (hltb_data, best_cand["text"], score), None
+            else:
+                if idx_info and DUMP_ON_EMPTY:
+                    dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
+                    dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+                # try next variant
+                continue
 
-        page.goto(full_url, timeout=PAGE_GOTO_TIMEOUT)
-        try:
-            page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
-        except:
-            pass
-        random_delay()
-
-        page_content = page.content()
-        if "blocked" in page_content.lower() or "access denied" in page_content.lower():
-            if idx_info and DUMP_ON_EMPTY:
-                dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
-                dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
-            return None, "blocked"
-
-        hltb_data = extract_hltb_data_from_page(page)
-        if hltb_data:
-            return (hltb_data, best_cand["text"], score), None
-        else:
-            if idx_info and DUMP_ON_EMPTY:
-                dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
-                dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
-            return None, None
+        # tried all variants
+        return None, None
 
     except Exception as e:
         log_message(f"⚠️ Ошибка search_game_single_attempt('{game_title}'): {e}")
@@ -703,8 +777,7 @@ def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
                 pass
         return None, None
 
-# ------------------ search_game_on_hltb ------------------
-
+# ------------- Координация попыток поиска -------------
 def search_game_on_hltb(page, game_title, game_year=None, backoff_base=0):
     max_attempts = 3
     backoff = backoff_base
@@ -739,6 +812,7 @@ def search_game_on_hltb(page, game_title, game_year=None, backoff_base=0):
                 time.sleep(backoff)
                 continue
 
+        # альтернативные названия (генерируем осторожно)
         alts = generate_alternative_titles(game_title)
         for alt in alts:
             if alt == game_title:
@@ -763,16 +837,15 @@ def search_game_on_hltb(page, game_title, game_year=None, backoff_base=0):
         return best_result, max(0, backoff)
     return None, max(0, backoff)
 
-# ------------------ Save/progress utilities ------------------
-
+# ------------- Сохранение и основной цикл -------------
 def save_results(games_data):
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         for i, game in enumerate(games_data):
             if i > 0: f.write("\n")
             json.dump(game, f, separators=(',', ':'), ensure_ascii=False)
-    log_message(f"💾 Результаты сохранены в {OUTPUT_FILE}")
+    log_message(f"💾 Результаты сохранены: {OUTPUT_FILE}")
 
-def save_progress(games_data, current_index, total_games):
+def save_progress(current_index, total_games):
     progress_data = {"current_index": current_index, "total_games": total_games, "last_updated": datetime.now().isoformat()}
     with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
         json.dump(progress_data, f, ensure_ascii=False, indent=2)
@@ -797,13 +870,12 @@ def update_html_with_hltb(html_file, hltb_data):
         log_message(f"❌ Ошибка update_html_with_hltb: {e}")
         return False
 
-# ------------------ Main loop ------------------
-
 def main():
-    log_message("🚀 Запуск HLTB Worker (полная версия)")
+    log_message("🚀 Запуск HLTB Worker (улучшенная версия)")
     if not os.path.exists(GAMES_LIST_FILE):
-        log_message(f"❌ Файл {GAMES_LIST_FILE} не найден"); return
-    setup_directories()
+        log_message(f"❌ Файл {GAMES_LIST_FILE} не найден")
+        return
+    setup_dirs()
     try:
         games_list = extract_games_list(GAMES_LIST_FILE)
     except Exception as e:
@@ -817,27 +889,43 @@ def main():
     if os.path.exists(PROGRESS_FILE):
         try:
             with open(PROGRESS_FILE, "r", encoding="utf-8") as f: prog = json.load(f)
-            start_index = prog.get("current_index", 0); log_message(f"📂 Продолжаем с {start_index}")
-        except:
+            start_index = prog.get("current_index", 0)
+            log_message(f"📂 Продолжаем с {start_index}")
+        except Exception:
             start_index = 0
 
     backoff_state = 0
     processed = 0
 
+    storage_path = load_storage_state_if_exists()
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-            viewport={"width":1280,"height":800},
-            locale="en-US"
-        )
+        # создаём context с storage_state если есть
+        context_args = {
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+            "viewport": {"width":1280,"height":800},
+            "locale":"en-US",
+        }
+        try:
+            if storage_path:
+                context_args["storage_state"] = storage_path
+        except Exception:
+            pass
+        context = browser.new_context(**context_args)
         page = context.new_page()
+
         try:
             page.goto(BASE_URL, timeout=PAGE_GOTO_TIMEOUT)
             page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
             log_message("✅ HowLongToBeat доступен")
+            # save storage state after a successful landing page
+            try:
+                save_storage_state(context)
+            except:
+                pass
         except Exception as e:
-            log_message(f"⚠️ Ошибка проверки сайта: {e}")
+            log_message(f"⚠️ Ошибка при открытии сайта: {e}")
 
         for i in range(start_index, total_games):
             game = games_list[i]
@@ -851,11 +939,16 @@ def main():
             else:
                 backoff_state = max(0, backoff_state * 0.6)
             if hltb_data:
-                game["hltb"] = hltb_data; processed += 1; log_message(f"✅ Данные найдены для '{title}'")
+                game["hltb"] = hltb_data
+                processed += 1
+                log_message(f"✅ Данные найдены для '{title}'")
             else:
-                game["hltb"] = {"ms":"N/A","mpe":"N/A","comp":"N/A","all":"N/A"}; log_message(f"⚠️ Данные не найдены для: {title} - записано N/A")
-            if (i+1) % 25 == 0:
-                save_progress(games_list, i+1, total_games)
+                game["hltb"] = {"ms":"N/A","mpe":"N/A","comp":"N/A","all":"N/A"}
+                log_message(f"⚠️ Данные не найдены для: {title} - записано N/A")
+            # периодическое сохранение прогресса и результатов
+            if (i+1) % 10 == 0:
+                save_progress(i+1, total_games)
+                save_results(games_list)
             if backoff_state >= 30:
                 log_message(f"⏸️ Sleeping backoff_state {int(backoff_state)}s")
                 time.sleep(backoff_state)
