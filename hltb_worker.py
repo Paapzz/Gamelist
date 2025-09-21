@@ -1,92 +1,158 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-HLTB Worker - robust version with sanitized debug dump filenames
-(Full file — contains sanitize_filename() applied to all debug outputs)
+hltb_worker.py
+Robust HowLongToBeat scraper/worker with:
+ - robust gamesList extraction from index111.html
+ - candidate extraction via page.evaluate
+ - improved title matching (slashes, &, roman/ar, year bonus)
+ - updated page parsing for GameStats blocks + text heuristics
+ - sanitized debug dumps (filenames safe for NTFS/upload-artifact)
+ - per-run output and atomic commit via GitHub API (retry/backoff)
+ - extended logging and dumps (html, screenshot, candidates, scores, game_html)
 """
+from __future__ import annotations
 import os
 import re
 import json
 import time
+import base64
 import random
-import subprocess
+import logging
+import requests
+from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 from urllib.parse import quote
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+try:
+    from playwright.sync_api import sync_playwright, Error as PlaywrightError
+except Exception as e:
+    raise SystemExit(f"Playwright import failed: {e}. Ensure 'pip install playwright' and 'python -m playwright install chromium' performed.")
 
-# ===========================
-# CONFIG
-# ===========================
+# ---------------- CONFIG ----------------
 BASE_URL = "https://howlongtobeat.com"
-GAMES_LIST_FILE = "index111.html"          # input, should contain const gamesList = [...]
+GAMES_LIST_FILE = "index111.html"
 OUTPUT_DIR = "hltb_data"
-OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
+CANONICAL_OUTPUT_PATH = f"{OUTPUT_DIR}/hltb_data.json"
+PER_RUN_FILENAME_TEMPLATE = f"{OUTPUT_DIR}/hltb_data_{{runid}}.json"
 DEBUG_DIR = "debug_dumps"
-PROGRESS_FILE = "progress.json"
+STORAGE_STATE = "playwright_storage.json"
 
-# Playwright/CI tuning
-PLAYWRIGHT_LAUNCH_ARGS = ["--no-sandbox", "--disable-setuid-sandbox"]
-BROWSER_HEADLESS = True
+# Playwright timeouts (ms)
+PAGE_GOTO_TIMEOUT = 30000
+PAGE_LOAD_TIMEOUT = 20000
 
-# Search behaviour
+# Rate control (tunable)
+DELAY_ATTEMPTS = [(0.4, 0.9), (1.5, 2.5), (5.0, 8.0)]
 MAX_ATTEMPTS = 3
-DELAY_ATTEMPTS = [
-    (0.4, 0.7),   # attempt 1 jitter range (min,max) seconds
-    (1.0, 1.8),   # attempt 2
-    (3.0, 6.0),   # attempt 3 (longer)
-]
-CANDIDATE_TOO_MANY_THRESHOLD = 30
-CANDIDATE_TOO_MANY_RETRY_SUFFIX = " {year}"  # appended when too many results
-MIN_MATCH_SCORE = 0.6   # if above, may accept best result (but exact match forces 1.0)
 
-# ===========================
-# Helpers
-# ===========================
-def log_message(msg):
-    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{ts}] {msg}", flush=True)
+# Matching thresholds
+MIN_ACCEPT_SCORE = 0.6
+HIGH_SCORE = 0.95
 
+# GitHub API commit settings
+GITHUB_API_MAX_ATTEMPTS = 8
+GITHUB_API_INITIAL_BACKOFF = 1.0
+
+# Logging
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+log = logging.getLogger("hltb_worker")
+
+# ---------------- Ensure directories ----------------
 def ensure_dirs():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     os.makedirs(DEBUG_DIR, exist_ok=True)
 
-# sanitize filenames so upload-artifact / NTFS don't choke
-_INVALID_FILENAME_RE = re.compile(r'[\"<>:\|\*\?\r\n/\\]+')  # include slash/backslash
-def sanitize_filename(name: str, max_len: int = 100) -> str:
+# ---------------- Filename sanitization ----------------
+_INVALID_FILENAME_RE = re.compile(r'[\"<>:\|\*\?\r\n/\\]+')
+def sanitize_filename(name: str, max_len: int = 120) -> str:
     if not name:
         return "file"
-    # replace invalid chars with underscore
-    s = _INVALID_FILENAME_RE.sub('_', name)
-    # collapse repeated underscores/spaces
+    s = str(name)
+    s = _INVALID_FILENAME_RE.sub('_', s)
     s = re.sub(r'[_\s]+', '_', s).strip('_')
-    # trim
     if len(s) > max_len:
         s = s[:max_len]
-    # ensure not empty
     if not s:
         s = "file"
     return s
 
-# ===========================
-# Title cleaning & matching
-# ===========================
-def normalize_title_for_comparison(s: str) -> str:
-    if not isinstance(s, str):
-        return ""
-    s = s.lower().strip()
-    s = re.sub(r"[’'`]", "", s)
-    s = re.sub(r"[^a-z0-9а-яё\s:/&\-]+", " ", s)
-    s = re.sub(r"\s+", " ", s)
-    return s.strip()
+# ---------------- gamesList extraction ----------------
+def extract_games_list(html_file: str) -> List[Dict]:
+    if not os.path.exists(html_file):
+        raise FileNotFoundError(html_file)
+    with open(html_file, "r", encoding="utf-8") as f:
+        content = f.read()
 
-def clean_title_for_comparison(s: str) -> str:
+    markers = ["const gamesList =", "var gamesList =", "let gamesList ="]
+    pos = -1
+    for m in markers:
+        pos = content.find(m)
+        if pos != -1:
+            break
+    if pos == -1:
+        raise ValueError("Не найден gamesList в index111.html")
+
+    start = content.find("[", pos)
+    if start == -1:
+        raise ValueError("Не найден '[' после gamesList")
+
+    # find matching closing bracket
+    bracket = 0
+    end = None
+    for i, ch in enumerate(content[start:], start):
+        if ch == "[":
+            bracket += 1
+        elif ch == "]":
+            bracket -= 1
+            if bracket == 0:
+                end = i + 1
+                break
+    if end is None:
+        raw_path = os.path.join(DEBUG_DIR, f"gameslist_raw_unclosed_{int(time.time())}.txt")
+        with open(raw_path, "w", encoding="utf-8") as rf:
+            rf.write(content[start:start+20000])
+        raise ValueError(f"Не найдена закрывающая ']' для gamesList. Дамп сохранён: {raw_path}")
+
+    js_array = content[start:end]
+    raw_path = os.path.join(DEBUG_DIR, f"gameslist_raw_{int(time.time())}.js")
+    with open(raw_path, "w", encoding="utf-8") as rf:
+        rf.write(js_array)
+    log.info(f"📝 saved raw gamesList to {raw_path}")
+
+    # simple cleaning: remove trailing commas, replace undefined/NaN
+    fixed = js_array
+    fixed = re.sub(r',\s*(?=[}\]])', '', fixed)
+    fixed = re.sub(r'\bundefined\b', 'null', fixed)
+    fixed = re.sub(r'\bNaN\b', 'null', fixed)
+    fixed_path = os.path.join(DEBUG_DIR, f"gameslist_fixed_{int(time.time())}.json")
+    with open(fixed_path, "w", encoding="utf-8") as ff:
+        ff.write(fixed)
+    log.info(f"📝 saved fixed gamesList to {fixed_path}")
+
+    try:
+        data = json.loads(fixed)
+        log.info(f"✅ gamesList parsed with {len(data)} items")
+        return data
+    except Exception as e:
+        log.error(f"❌ Failed to parse gamesList: {e}")
+        raise
+
+# ---------------- title normalization & similarity ----------------
+def normalize_title(s: str) -> str:
     if not s:
         return ""
-    s = normalize_title_for_comparison(s)
-    s = s.replace("&", " and ")
-    s = s.replace("/", " ")
+    s = s.lower().strip()
+    s = s.replace('\u2018','\'').replace('\u2019','\'').replace('\u201c','"').replace('\u201d','"')
+    s = re.sub(r'[^0-9a-zа-яё\s\-/&]', ' ', s)
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s
+
+def clean_title(s: str) -> str:
+    s = normalize_title(s)
+    s = s.replace('&', ' and ')
+    s = s.replace('/', ' ')
     s = re.sub(r'\band\b', ' ', s)
     s = re.sub(r'\s+', ' ', s).strip()
     return s
@@ -122,525 +188,610 @@ def convert_roman_to_arabic(rom):
         prev = val
     return str(total)
 
-def calculate_title_similarity(original: str, candidate: str) -> float:
+def calculate_similarity(original: str, candidate: str) -> float:
     if not original or not candidate:
         return 0.0
-
-    orig_clean = clean_title_for_comparison(original)
-    cand_clean = clean_title_for_comparison(candidate)
-
-    if not orig_clean or not cand_clean:
+    orig = clean_title(original)
+    cand = clean_title(candidate)
+    if not orig or not cand:
         return 0.0
-
-    if cand_clean == orig_clean:
+    if orig == cand:
         return 1.0
-
-    if "/" in original or " / " in original:
-        parts = [p.strip() for p in re.split(r"/", original)]
-        for part in parts:
-            if clean_title_for_comparison(part) == cand_clean:
+    # handle slash parts
+    if '/' in original:
+        parts = [p.strip() for p in original.split('/')]
+        for p in parts:
+            if clean_title(p) == cand:
                 return 1.0
-            base = part.split(":", 1)[0].strip()
-            if clean_title_for_comparison(base) == cand_clean:
-                return 0.9
-
-    base = original.split(":", 1)[0].strip()
-    if clean_title_for_comparison(base) == cand_clean:
-        return 0.9
-
-    arabic_match = re.search(r'\b(\d+)\b', original)
+    # base before colon
+    base = original.split(':',1)[0].strip()
+    if clean_title(base) == cand:
+        return 0.95
+    # roman/arabic conversions
+    arabic_match = re.search(r'\b(\d{1,3})\b', original)
     if arabic_match:
         roman = convert_arabic_to_roman(arabic_match.group(1))
-        if roman:
-            if cand_clean == clean_title_for_comparison(re.sub(r'\b' + re.escape(arabic_match.group(1)) + r'\b', roman, original)):
-                return 0.9
-
-    roman_match = re.search(r'\b(I{1,3}|IV|V|VI{0,3}|IX|X)\b', original, flags=re.IGNORECASE)
+        if roman and clean_title(re.sub(r'\b' + re.escape(arabic_match.group(1)) + r'\b', roman, original)) == cand:
+            return 0.9
+    roman_match = re.search(r'\b(I{1,4}|V|VI{0,3}|IX|X)\b', original, flags=re.IGNORECASE)
     if roman_match:
         arab = convert_roman_to_arabic(roman_match.group(1))
-        if arab:
-            if cand_clean == clean_title_for_comparison(re.sub(r'\b' + re.escape(roman_match.group(1)) + r'\b', arab, original, flags=re.IGNORECASE)):
-                return 0.9
-
-    a_tokens = orig_clean.split()
-    b_tokens = cand_clean.split()
+        if arab and clean_title(re.sub(r'\b' + re.escape(roman_match.group(1)) + r'\b', arab, original, flags=re.IGNORECASE)) == cand:
+            return 0.9
+    # token overlap + LCS tokens
+    a_tokens = orig.split()
+    b_tokens = cand.split()
     if not a_tokens or not b_tokens:
         return 0.0
     common = set(a_tokens).intersection(set(b_tokens))
-    precision = len(common) / len(b_tokens) if b_tokens else 0
-    recall = len(common) / len(a_tokens) if a_tokens else 0
-
-    def lcs_len(a, b):
-        n, m = len(a), len(b)
-        if n == 0 or m == 0:
-            return 0
-        dp = [[0]*(m+1) for _ in range(n+1)]
-        for i in range(1, n+1):
-            for j in range(1, m+1):
-                if a[i-1] == b[j-1]:
-                    dp[i][j] = dp[i-1][j-1] + 1
-                else:
-                    dp[i][j] = max(dp[i-1][j], dp[i][j-1])
-        return dp[n][m]
-    seq = lcs_len(a_tokens, b_tokens) / max(1, len(a_tokens))
-
-    score = 0.6 * recall + 0.25 * precision + 0.15 * seq
+    precision = len(common) / len(b_tokens)
+    recall = len(common) / len(a_tokens)
+    # LCS on tokens
+    n, m = len(a_tokens), len(b_tokens)
+    dp = [[0]*(m+1) for _ in range(n+1)]
+    for i in range(1, n+1):
+        for j in range(1, m+1):
+            if a_tokens[i-1] == b_tokens[j-1]:
+                dp[i][j] = dp[i-1][j-1] + 1
+            else:
+                dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+    lcs_len = dp[n][m]
+    seq = lcs_len / max(1, n)
+    score = 0.6*recall + 0.25*precision + 0.15*seq
     return max(0.0, min(1.0, score))
 
-# ===========================
-# Games list extraction
-# ===========================
-def extract_games_list(html_file: str):
-    log_message(f"🔍 Reading games list file: {html_file}")
-    with open(html_file, 'r', encoding='utf-8') as f:
-        content = f.read()
-
-    marker = 'const gamesList ='
-    idx = content.find(marker)
-    if idx == -1:
-        marker2 = 'var gamesList ='
-        idx = content.find(marker2)
-        if idx == -1:
-            raise ValueError("Cannot find gamesList marker in file.")
-        else:
-            marker = marker2
-
-    start = content.find('[', idx)
-    if start == -1:
-        raise ValueError("Cannot find '[' start for gamesList array.")
-
-    bracket_count = 0
-    end = None
-    for i, ch in enumerate(content[start:], start):
-        if ch == '[':
-            bracket_count += 1
-        elif ch == ']':
-            bracket_count -= 1
-            if bracket_count == 0:
-                end = i + 1
-                break
-    if end is None:
-        raise ValueError("Cannot find end of gamesList array.")
-
-    games_json = content[start:end]
-    games_json = re.sub(r',\s*([\]\}])', r'\1', games_json)
-    try:
-        games_list = json.loads(games_json)
-    except Exception as e:
-        raw_dump_path = os.path.join(DEBUG_DIR, f"gameslist_raw_{int(time.time())}.js")
-        try:
-            with open(raw_dump_path, 'w', encoding='utf-8') as f:
-                f.write(games_json)
-            log_message(f"❌ JSON parse failed for gamesList: {e}; saved raw to {raw_dump_path}")
-        except Exception as ee:
-            log_message(f"❌ JSON parse failed and could not save raw: {ee}")
-        raise
-    log_message(f"✅ Parsed gamesList with {len(games_list)} items.")
-    return games_list
-
-# ===========================
-# Debug dump helpers (all filenames sanitized)
-# ===========================
-def save_debug_html_and_screenshot(page, prefix):
-    safe_prefix = sanitize_filename(prefix)
-    try:
-        html_path = os.path.join(DEBUG_DIR, f"{safe_prefix}_search_html_{int(time.time())}.html")
-        with open(html_path, 'w', encoding='utf-8') as f:
-            f.write(page.content())
-        log_message(f"📝 saved html dump: {html_path}")
-    except Exception as e:
-        log_message(f"⚠️ Could not save html dump ({safe_prefix}): {e}")
-
-    try:
-        png_path = os.path.join(DEBUG_DIR, f"{safe_prefix}_screenshot_{int(time.time())}.png")
-        page.screenshot(path=png_path, full_page=True)
-        log_message(f"📸 saved screenshot: {png_path}")
-    except Exception as e:
-        log_message(f"⚠️ Could not save screenshot ({safe_prefix}): {e}")
-
-def save_candidates_dump(candidates, prefix):
-    safe_prefix = sanitize_filename(prefix)
-    try:
-        cand_path = os.path.join(DEBUG_DIR, f"{safe_prefix}_candidates_{int(time.time())}.json")
-        with open(cand_path, 'w', encoding='utf-8') as f:
-            json.dump(candidates, f, ensure_ascii=False, indent=2)
-        log_message(f"🗂️ saved candidates dump: {cand_path}")
-    except Exception as e:
-        log_message(f"⚠️ Could not save candidates dump ({safe_prefix}): {e}")
-
-def save_scores_dump(scores, prefix):
-    safe_prefix = sanitize_filename(prefix)
-    try:
-        scores_path = os.path.join(DEBUG_DIR, f"{safe_prefix}_scores_{int(time.time())}.json")
-        with open(scores_path, 'w', encoding='utf-8') as f:
-            json.dump(scores, f, ensure_ascii=False, indent=2)
-        log_message(f"🧾 saved scores dump: {scores_path}")
-    except Exception as e:
-        log_message(f"⚠️ Could not save scores dump ({safe_prefix}): {e}")
-
-def save_empty_candidates_marker(prefix):
-    safe_prefix = sanitize_filename(prefix)
-    try:
-        empty_path = os.path.join(DEBUG_DIR, f"{safe_prefix}_empty_candidates_{int(time.time())}.json")
-        with open(empty_path, 'w', encoding='utf-8') as f:
-            json.dump([], f, ensure_ascii=False)
-        log_message(f"🗂️ saved empty candidates: {empty_path}")
-    except Exception as e:
-        log_message(f"⚠️ Could not save empty candidates marker ({safe_prefix}): {e}")
-
-# ===========================
-# JS extraction & search helpers
-# ===========================
-def extract_candidates_via_js(page):
+# ---------------- extract candidates from search page ----------------
+def extract_candidates_from_page(page, max_candidates:int=200) -> List[Dict]:
+    """
+    Use page.evaluate to extract anchors with /game/ hrefs and try to capture a year if present.
+    Returns list of dicts {href, text, year, context}
+    """
     try:
         js = """
         () => {
             const anchors = Array.from(document.querySelectorAll('a[href^="/game/"]'));
-            return anchors.map(a => {
-                return {
-                    text: a.innerText ? a.innerText.trim() : (a.querySelector('.text') ? a.querySelector('.text').innerText.trim() : ''),
-                    href: a.getAttribute('href'),
-                    year: (() => {
-                        let t = a.innerText || '';
-                        const m = t.match(/\\b(19\\d{2}|20\\d{2})\\b/);
-                        return m ? m[0] : null;
-                    })()
-                };
-            });
+            const out = [];
+            for (const a of anchors) {
+                const href = a.getAttribute('href') || '';
+                let text = (a.innerText || '').trim();
+                // try sibling context
+                let ctx = '';
+                if (a.closest('.search_list_row') && a.closest('.search_list_row').innerText) ctx = a.closest('.search_list_row').innerText;
+                else if (a.parentElement && a.parentElement.innerText) ctx = a.parentElement.innerText;
+                // try find year in ctx or text
+                const m = (ctx + ' ' + text).match(/(19\\d{2}|20\\d{2})/);
+                const year = m ? m[0] : null;
+                out.push({href, text, year, context: ctx});
+            }
+            return out;
         }
         """
-        results = page.evaluate(js)
+        raw = page.evaluate(js)
         filtered = []
         seen = set()
-        for r in results:
-            href = r.get("href") or ""
-            text = r.get("text") or ""
-            key = (href, text)
+        for r in raw:
+            href = r.get('href') or ''
+            txt = r.get('text') or ''
+            ctx = r.get('context') or ''
+            yr = r.get('year')
+            key = (href, txt)
             if href and key not in seen:
                 seen.add(key)
-                filtered.append({"href": href, "text": text, "year": r.get("year")})
-        return filtered
+                filtered.append({"href": href, "text": txt.strip(), "year": yr, "context": ctx.strip()})
+        return filtered[:max_candidates]
     except Exception as e:
-        log_message(f"⚠️ extract_candidates_via_js failed: {e}")
+        log.warning(f"extract_candidates_from_page exception: {e}")
         return []
 
-def safe_sleep_between(min_s, max_s):
-    if min_s <= 0 and max_s <= 0:
-        return
-    t = random.uniform(min_s, max_s)
-    time.sleep(t)
-
-def attempt_page_goto(page, url, timeout=20000):
-    try:
-        page.goto(url, timeout=timeout)
-        page.wait_for_load_state("domcontentloaded", timeout=max(5000, int(timeout/4)))
-        return True
-    except PlaywrightTimeoutError:
-        log_message(f"⚠️ Page.goto timeout for {url}")
-        return False
-    except Exception as e:
-        log_message(f"⚠️ Page.goto error for {url}: {e}")
-        return False
-
-def search_game_single_attempt(page, game_title: str, game_year=None, prefix_for_debug=""):
-    try:
-        safe_prefix = sanitize_filename(prefix_for_debug)
-        log_message(f"🔍 Searching: '{game_title}'")
-        safe_title = quote(game_title, safe="")
-        search_url = f"{BASE_URL}/?q={safe_title}"
-        ok = attempt_page_goto(page, search_url, timeout=20000)
-        if not ok:
-            log_message("⚠️ Failed page navigation while searching.")
-            return None
-
-        page_text = page.content()
-        low = page_text.lower()
-        if "access denied" in low or "blocked" in low:
-            log_message("❌ BLOCKED or ACCESS DENIED detected on search page")
-            save_debug_html_and_screenshot(page, safe_prefix)
-            return None
-        if "checking your browser" in low or "cloudflare" in low:
-            log_message("⚠️ Cloudflare challenge detected on search page")
-            save_debug_html_and_screenshot(page, safe_prefix)
-            return None
-
-        safe_sleep_between(0.25, 0.6)
-
-        candidates = extract_candidates_via_js(page)
-        save_candidates_dump(candidates, safe_prefix)
-
-        found_count = len(candidates)
-        log_message(f"🔎 Found {found_count} candidates for variant '{game_title}'")
-
-        if found_count == 0:
-            save_empty_candidates_marker(safe_prefix)
-            return None
-
-        scored = []
-        for c in candidates:
-            text = c.get("text") or ""
-            href = c.get("href") or ""
-            year = c.get("year")
-            score = calculate_title_similarity(game_title, text)
-            scored.append({"text": text, "href": href, "year": year, "score": score})
-
-        save_scores_dump(scored, safe_prefix)
-
-        scored_sorted = sorted(scored, key=lambda x: x["score"], reverse=True)
-        best = scored_sorted[0]
-        log_message(f"🏁 Top candidate: '{best['text']}' score={best['score']:.2f} href={best['href']}")
-
-        if best["score"] >= 1.0 or (best["score"] >= MIN_MATCH_SCORE and game_year and str(game_year) in (best.get("year") or "")):
-            page_url = BASE_URL.rstrip("/") + best["href"]
-            ok = attempt_page_goto(page, page_url, timeout=20000)
-            if not ok:
-                log_message("⚠️ Could not open best candidate page.")
-                return None
-            data = extract_data_from_game_page(page, safe_prefix)
-            return (data, best["text"])
-
-        return (None, best["text"])
-
-    except Exception as e:
-        log_message(f"❌ search_game_single_attempt exception: {e}")
-        try:
-            save_debug_html_and_screenshot(page, sanitize_filename(prefix_for_debug or 'search_err'))
-        except Exception:
-            pass
+# ---------------- helper: parse time strings ----------------
+def normalize_time_string(s: str) -> Optional[str]:
+    if not s:
         return None
+    s = s.strip()
+    # replace 1/2 char
+    s = s.replace('½', '.5')
+    # try patterns: "12 Hours", "12 h", "12.5 h", "90 Mins"
+    m = re.search(r'(\d+(?:\.\d+)?)\s*(hours|hour|hrs|hr|h)\b', s, flags=re.I)
+    if m:
+        val = float(m.group(1))
+        if val.is_integer():
+            return f"{int(val)}h"
+        else:
+            return f"{val:.1f}h"
+    m2 = re.search(r'(\d+)\s*(mins|min|m)\b', s, flags=re.I)
+    if m2:
+        return f"{int(m2.group(1))}m"
+    # fallback find numbers
+    m3 = re.search(r'(\d+(?:\.\d+)?)', s)
+    if m3:
+        val = float(m3.group(1))
+        if val > 10:  # assume hours
+            return f"{int(val)}h"
+        else:
+            return f"{val}?"
+    return None
 
-# ===========================
-# Extract HLTB data from the game page
-# ===========================
-def extract_data_from_game_page(page, prefix_for_debug="game"):
+# ---------------- extract hltb times from a game page ----------------
+def extract_hltb_data_from_page(page) -> Optional[Dict]:
+    """
+    Try several strategies:
+     1) search for elements with classes containing 'GameStats' or 'game_time'
+     2) search for text blocks containing 'Main Story', 'Main + Extras', 'Completionist', 'Vs.'
+     3) try small table-like structures
+    Returns dict or None
+    """
     try:
-        safe_prefix = sanitize_filename(prefix_for_debug)
-        save_debug_html_and_screenshot(page, safe_prefix + "_page")
+        # try structured selectors first (new HLTB class names often include 'GameStats' or 'game_times')
+        selectors = [
+            'div[class*="GameStats"]',
+            'div[class*="game_times"]',
+            'div[class*="game_time"]',
+            'table',
+            'div[class*="gameTimes"]'
+        ]
+        page_content = ""
+        data = {}
+        for sel in selectors:
+            try:
+                elems = page.query_selector_all(sel)
+                for eindex in range(len(elems)):
+                    try:
+                        txt = elems[eindex].inner_text().strip()
+                        page_content += "\n\n" + txt
+                    except Exception:
+                        continue
+            except Exception:
+                continue
 
-        page_text = page.content()
-        hltb_data = {}
+        # fallback grab visible text
+        if not page_content:
+            try:
+                page_content = page.inner_text("body")
+            except Exception:
+                page_content = page.content()
 
+        text = page_content.lower()
+
+        # patterns to search
         patterns = {
-            "ms": r'(?:Main Story|Main)\s*[:\-]\s*([0-9]{1,3}\.?[0-9]? ?(Hours|Hour|Hrs|Hr|H|mins|min|m))',
-            "mpe": r'(?:Main \+ Extras|Main \+ Extra|Main \+ Extras)\s*[:\-]\s*([0-9]{1,3}\.?[0-9]? ?(Hours|Hour|Hrs|Hr|H|mins|min|m))',
-            "comp": r'(?:Completionist|Completion)\s*[:\-]\s*([0-9]{1,3}\.?[0-9]? ?(Hours|Hour|Hrs|Hr|H|mins|min|m))',
-            "all": r'(?:All|Everything)\s*[:\-]\s*([0-9]{1,3}\.?[0-9]? ?(Hours|Hour|Hrs|Hr|H|mins|min|m))',
-            "vs": r'Vs\.*\s*[:\-]\s*([0-9]{1,3}\.?[0-9]? ?(Hours|Hour|Hrs|Hr|H|mins|min|m))'
+            "ms": r'(main story|main)\s*[:\-–]?\s*([0-9]+(?:\.\d+)?(?:½)?\s*(hours|hour|hrs|hr|h|mins|min|m))',
+            "mpe": r'(main\s*\+\s*extras|main \+ extras)\s*[:\-–]?\s*([0-9]+(?:\.\d+)?(?:½)?\s*(hours|hour|h|mins|min|m))',
+            "comp": r'(completionist|completion)\s*[:\-–]?\s*([0-9]+(?:\.\d+)?(?:½)?\s*(hours|hour|h|mins|min|m))',
+            "vs": r'(vs\.|versus)\s*[:\-–]?\s*([0-9]+(?:\.\d+)?(?:½)?\s*(hours|hour|h|mins|min|m))',
+            "all": r'(all styles|all)\s*[:\-–]?\s*([0-9]+(?:\.\d+)?(?:½)?\s*(hours|hour|h|mins|min|m))'
         }
         for k, p in patterns.items():
-            m = re.search(p, page.content(), flags=re.IGNORECASE)
+            m = re.search(p, page_content, flags=re.I)
             if m:
-                hltb_data[k] = {"t": m.group(1).strip()}
+                val = normalize_time_string(m.group(2))
+                if val:
+                    data[k] = val
 
-        if not hltb_data:
-            try:
-                m = re.search(r'var gameData = (\{.*?\});', page.content(), flags=re.DOTALL)
-                if m:
+        # If no structured patterns found, attempt to extract lines that contain "Main" etc.
+        if not data:
+            lines = [ln.strip() for ln in page_content.splitlines() if ln.strip()]
+            for ln in lines:
+                low = ln.lower()
+                if 'main story' in low or (('main' in low) and ('story' in low or 'single-player' in low)):
+                    m = re.search(r'([0-9]+(?:\.\d+)?(?:½)?\s*(?:hours|hour|hrs|hr|h|mins|min|m))', ln, flags=re.I)
+                    if m:
+                        data['ms'] = normalize_time_string(m.group(1))
+                if 'main' in low and '+' in ln:
+                    m = re.search(r'([0-9]+(?:\.\d+)?(?:½)?\s*(?:hours|hour|hrs|hr|h|mins|min|m))', ln, flags=re.I)
+                    if m:
+                        data['mpe'] = normalize_time_string(m.group(1))
+                if 'completionist' in low or 'completion' in low:
+                    m = re.search(r'([0-9]+(?:\.\d+)?(?:½)?\s*(?:hours|hour|hrs|hr|h|mins|min|m))', ln, flags=re.I)
+                    if m:
+                        data['comp'] = normalize_time_string(m.group(1))
+                if 'vs' in low or 'versus' in low:
+                    m = re.search(r'([0-9]+(?:\.\d+)?(?:½)?\s*(?:hours|hour|hrs|hr|h|mins|min|m))', ln, flags=re.I)
+                    if m:
+                        data['vs'] = normalize_time_string(m.group(1))
+
+        # Also attempt to find any JSON var with times
+        try:
+            m = re.search(r'var\s+gameData\s*=\s*(\{.*?\});', page.content(), flags=re.S)
+            if m:
+                try:
                     gd = json.loads(m.group(1))
-                    for k in ["ms","mpe","comp","all"]:
-                        if k in gd:
-                            hltb_data[k] = gd[k]
+                    for k in ['ms','mpe','comp','vs','all']:
+                        if k in gd and gd[k]:
+                            data.setdefault(k, gd[k])
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        if not data:
+            # save raw game html for debugging
+            ts = int(time.time())
+            ghtml_path = os.path.join(DEBUG_DIR, sanitize_filename(f"game_html_{ts}.html"))
+            try:
+                with open(ghtml_path, "w", encoding="utf-8") as f:
+                    f.write(page.content())
+                log.info(f"📝 saved raw game html to {ghtml_path}")
+            except Exception as e:
+                log.debug(f"failed to save game html: {e}")
+            return None
+
+        return data
+    except Exception as e:
+        log.exception(f"extract_hltb_data_from_page exception: {e}")
+        return None
+
+# ---------------- scrape candidates + rank ----------------
+def find_best_candidate(candidates: List[Dict], original_title: str, expected_year: Optional[int]=None) -> Tuple[Optional[Dict], float]:
+    if not candidates:
+        return None, 0.0
+    # first try exact cleaned match
+    orig_clean = clean_title(original_title)
+    for c in candidates:
+        cand_clean = clean_title(c.get("text",""))
+        if cand_clean == orig_clean:
+            return c, 1.0
+    best = None
+    best_score = -1.0
+    for c in candidates:
+        score = calculate_similarity(original_title, c.get("text",""))
+        # year bonus
+        try:
+            cy = c.get("year")
+            if expected_year and cy:
+                if int(cy) == int(expected_year):
+                    score = max(score, 0.9)
+        except Exception:
+            pass
+        if score > best_score:
+            best_score = score
+            best = c
+    # if best_score is low, return None
+    if best_score < 0.2:
+        return None, best_score
+    return best, best_score
+
+# ---------------- search attempt logic ----------------
+def dump_search_state(page, prefix):
+    safe = sanitize_filename(prefix)
+    ts = int(time.time())
+    try:
+        html_path = os.path.join(DEBUG_DIR, f"{safe}_search_html_{ts}.html")
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(page.content())
+        log.info(f"📝 saved html dump: {html_path}")
+    except Exception as e:
+        log.debug(f"failed to save html dump: {e}")
+    try:
+        shot_path = os.path.join(DEBUG_DIR, f"{safe}_screenshot_{ts}.png")
+        page.screenshot(path=shot_path, full_page=True)
+        log.info(f"📸 saved screenshot: {shot_path}")
+    except Exception as e:
+        log.debug(f"failed to save screenshot: {e}")
+    try:
+        cands = extract_candidates_from_page(page)
+        cand_path = os.path.join(DEBUG_DIR, f"{safe}_candidates_{ts}.json")
+        with open(cand_path, "w", encoding="utf-8") as f:
+            json.dump(cands, f, ensure_ascii=False, indent=2)
+        log.info(f"🗂 saved candidates: {cand_path}")
+    except Exception as e:
+        log.debug(f"failed to save candidates dump: {e}")
+
+def search_game_single_attempt(page, title: str, year: Optional[int], idx_info: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """
+    returns (hltb_data, matched_title) on success; (None, "blocked") if blocked; (None, None) otherwise
+    """
+    variants = []
+    variants.append(title)
+    variants.append(title.replace('&','and'))
+    variants.append(re.sub(r'\(.*?\)','', title).strip())
+    if ':' in title:
+        variants.append(title.split(':',1)[0].strip())
+    if '/' in title:
+        parts = [p.strip() for p in title.split('/')]
+        if len(parts) >= 2:
+            variants.append(parts[0] + " and " + parts[1])
+            variants.extend(parts[:3])
+    if year:
+        variants.append(f"{title} {year}")
+    # dedupe
+    seen = set()
+    variants_clean = []
+    for v in variants:
+        if v and v not in seen:
+            seen.add(v)
+            variants_clean.append(v)
+
+    for variant in variants_clean:
+        log.info(f"🔍 Searching variant: '{variant}'")
+        try:
+            search_url = f"{BASE_URL}/?q={quote(variant, safe='')}"
+            try:
+                page.goto(search_url, timeout=PAGE_GOTO_TIMEOUT)
+                try:
+                    page.wait_for_selector('a[href^="/game/"]', timeout=3500)
+                except Exception:
+                    pass
+            except PlaywrightError as e:
+                log.warning(f"Page.goto error: {e}")
+
+            # quick block detection
+            content = page.content().lower()
+            if any(x in content for x in ["checking your browser", "access denied", "are you human", "captcha", "cloudflare"]):
+                log.warning("🚫 Block detected on search page")
+                dump_search_state(page, f"{idx_info.get('index','')}_{variant}")
+                return None, "blocked"
+
+            candidates = extract_candidates_from_page(page)
+            tsuffix = int(time.time())
+            cand_path = os.path.join(DEBUG_DIR, sanitize_filename(f"{idx_info.get('index')}_{title}_candidates_{tsuffix}.json"))
+            try:
+                with open(cand_path, "w", encoding="utf-8") as f:
+                    json.dump(candidates, f, ensure_ascii=False, indent=2)
             except Exception:
                 pass
 
-        if not hltb_data:
-            log_message("⚠️ Extraction heuristics found no time blocks on page.")
-            return {"note": "page_opened_but_no_times_extracted"}
+            if not candidates:
+                log.info("⚠️ No candidates found for variant; continue")
+                # small reload fallback
+                try:
+                    page.reload(timeout=PAGE_GOTO_TIMEOUT)
+                    time.sleep(random.uniform(0.3,0.9))
+                    candidates = extract_candidates_from_page(page)
+                except Exception:
+                    pass
+                if not candidates:
+                    dump_search_state(page, f"{idx_info.get('index')}_{variant}_empty")
+                    continue
 
-        log_message(f"🎯 Extracted HLTB data: {hltb_data}")
-        return hltb_data
+            # if too many candidates and we have year, try search with year appended
+            if len(candidates) > 30 and year:
+                log.info(f"⚠️ Too many results ({len(candidates)}), retrying search with year {year}")
+                try:
+                    page.goto(f"{BASE_URL}/?q={quote(variant + ' ' + str(year), safe='')}", timeout=PAGE_GOTO_TIMEOUT)
+                    time.sleep(0.8)
+                    candidates = extract_candidates_from_page(page)
+                except Exception:
+                    pass
 
-    except Exception as e:
-        log_message(f"❌ extract_data_from_game_page error: {e}")
-        return None
+            best_cand, score = find_best_candidate(candidates, title, expected_year=year)
+            log.info(f"🔎 Best candidate: {best_cand.get('text') if best_cand else None} (score={score:.2f})")
 
-# ===========================
-# Alternatives + flow
-# ===========================
-def generate_alternative_titles(game_title: str, game_year=None):
-    alts = []
-    s = game_title.strip()
-    alts.append(s)
-    no_par = re.sub(r'\([^)]*\)', '', s).strip()
-    if no_par and no_par != s:
-        alts.append(no_par)
-    if "/" in s:
-        parts = [p.strip() for p in s.split("/")]
-        if len(parts) >= 2:
-            alts.append(f"{parts[0]} and {parts[1]}")
-            alts.append(f"{parts[0]} & {parts[1]}")
-            alts.extend(parts[:3])
-    if "&" in s:
-        alts.append(s.replace("&", "and"))
-        alts.append(s.replace("&", ""))
-    m = re.search(r'\b(\d{1,2})\b', s)
-    if m:
-        rom = convert_arabic_to_roman(m.group(1))
-        if rom:
-            alts.append(re.sub(r'\b' + re.escape(m.group(1)) + r'\b', rom, s))
-    if game_year:
-        alts.append(f'{s} {game_year}')
-        alts.append(f'{s} "{game_year}"')
-    alts.append(f'"{s}"')
-    seen = set()
-    out = []
-    for a in alts:
-        key = a.lower().strip()
-        if key not in seen:
-            seen.add(key)
-            out.append(a)
-    return out
-
-def search_game_on_hltb(page, game_title, game_year=None, idx=0):
-    prefix = f"{idx}_{game_title.replace('/', ' _ ').replace(' ', '_')}"
-    alt_titles = generate_alternative_titles(game_title, game_year)
-    log_message(f"🔎 Trying search variants for '{game_title}': {alt_titles}")
-
-    for attempt in range(MAX_ATTEMPTS):
-        try:
-            dmin, dmax = DELAY_ATTEMPTS[min(attempt, len(DELAY_ATTEMPTS)-1)]
-            log_message(f"🔄 Attempt {attempt+1}/{MAX_ATTEMPTS} for '{game_title}' — sleeping {dmin:.2f}-{dmax:.2f}s")
-            safe_sleep_between(dmin, dmax)
-        except Exception:
-            pass
-
-        best_result = None
-        best_score = -1.0
-        best_title = None
-
-        for v in alt_titles:
-            res = search_game_single_attempt(page, v, game_year, prefix)
-            if res is None:
+            # if no good candidate, continue with next variant
+            if not best_cand:
                 continue
-            if isinstance(res, tuple):
-                hltb_res, found_title = res
-                if hltb_res:
-                    log_message(f"✅ Found data for '{game_title}' using variant '{v}' -> matched '{found_title}'")
-                    return hltb_res
-                else:
-                    if found_title:
-                        score = calculate_title_similarity(game_title, found_title)
-                        if score > best_score:
-                            best_score = score
-                            best_title = found_title
 
-        if best_score >= 1.0:
-            log_message(f"🎯 Best match perfect: {best_title} (score {best_score:.2f})")
-            res = search_game_single_attempt(page, best_title, game_year, prefix + "_final")
-            if isinstance(res, tuple) and res[0]:
-                return res[0]
-        elif best_score >= MIN_MATCH_SCORE:
-            log_message(f"⚠️ Low but acceptable best score {best_score:.2f} for '{game_title}', will accept if extraction possible.")
-            res = search_game_single_attempt(page, best_title, game_year, prefix + "_final")
-            if isinstance(res, tuple) and res[0]:
-                return res[0]
+            # open candidate page
+            href = best_cand.get("href")
+            if not href:
+                continue
+            full_url = f"{BASE_URL}{href}"
+            try:
+                page.goto(full_url, timeout=PAGE_GOTO_TIMEOUT)
+                try:
+                    page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
+                except Exception:
+                    pass
+            except PlaywrightError as e:
+                log.warning(f"Error opening candidate page: {e}")
+                dump_search_state(page, f"{idx_info.get('index')}_{sanitize_filename(best_cand.get('text') or 'candidate')}_open_err")
+                continue
 
-    log_message(f"⚠️ Data not found for: {game_title} - will record N/A")
-    return None
+            # check block on game page
+            pcontent = page.content().lower()
+            if any(x in pcontent for x in ["checking your browser", "access denied", "captcha", "cloudflare"]):
+                log.warning("🚫 Block detected on game page")
+                dump_search_state(page, f"{idx_info.get('index')}_{sanitize_filename(best_cand.get('text') or 'candidate')}_blocked")
+                return None, "blocked"
 
-# ===========================
-# Git commit helper (best-effort)
-# ===========================
-def safe_commit_results():
-    try:
-        subprocess.run(["git", "config", "--local", "user.email", "action@github.com"], check=False)
-        subprocess.run(["git", "config", "--local", "user.name", "HLTB Action"], check=False)
-        subprocess.run(["git", "add", "-A"], check=False)
-        subprocess.run(["git", "commit", "-m", f"HLTB update: {datetime.utcnow().isoformat()}"], check=False)
-        branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).decode().strip()
-        log_message(f"🔧 Attempting git pull --rebase --autostash origin {branch}")
-        subprocess.run(["git", "pull", "--rebase", "--autostash", "origin", branch], check=False)
-        log_message("🔧 Attempting git push origin HEAD")
-        subprocess.run(["git", "push", "origin", "HEAD"], check=False)
-        log_message("✅ safe_commit_results finished (best-effort).")
-    except Exception as e:
-        log_message(f"⚠️ safe_commit_results failed: {e}")
+            # try extract times
+            hltb_data = extract_hltb_data_from_page(page)
+            if hltb_data:
+                return hltb_data, best_cand.get("text")
+            else:
+                log.info("⚠️ No times extracted from candidate page; dumping and continuing")
+                dump_search_state(page, f"{idx_info.get('index')}_{sanitize_filename(best_cand.get('text') or 'candidate')}_no_times")
+                # if score was very high, still accept an empty marker (so user can inspect)
+                if score >= HIGH_SCORE:
+                    return {"note":"page_opened_but_no_times_extracted"}, best_cand.get("text")
+                continue
+        except Exception as e:
+            log.exception(f"search_game_single_attempt exception for '{title}': {e}")
+            dump_search_state(page, f"{idx_info.get('index')}_{sanitize_filename(title)}_err")
+            continue
+    return None, None
 
-# ===========================
-# Main
-# ===========================
+# ---------------- save per-run and commit via GitHub API ----------------
+def save_results_per_run(games_list: List[Dict], runid: str) -> str:
+    out_name = PER_RUN_FILENAME_TEMPLATE.format(runid=runid)
+    with open(out_name, "w", encoding="utf-8") as f:
+        json.dump(games_list, f, ensure_ascii=False, indent=2)
+    log.info(f"💾 saved per-run results: {out_name}")
+    return out_name
+
+def commit_file_to_github(per_run_file_path: str,
+                          repo: Optional[str],
+                          token: Optional[str],
+                          path_in_repo: str = CANONICAL_OUTPUT_PATH,
+                          commit_message: Optional[str] = None) -> bool:
+    if not token or not repo:
+        log.warning("GITHUB_TOKEN or GITHUB_REPOSITORY not set; skipping commit")
+        return False
+    api_base = f"https://api.github.com/repos/{repo}/contents/{path_in_repo.lstrip('/')}"
+    headers = {"Authorization": f"token {token}", "Accept":"application/vnd.github+json"}
+    with open(per_run_file_path, "rb") as f:
+        content_b64 = base64.b64encode(f.read()).decode()
+
+    if commit_message is None:
+        commit_message = f"HLTB: update data run {os.environ.get('GITHUB_RUN_ID','local')}"
+
+    attempt = 0
+    backoff = GITHUB_API_INITIAL_BACKOFF
+    while attempt < GITHUB_API_MAX_ATTEMPTS:
+        attempt += 1
+        try:
+            resp = requests.get(api_base, headers=headers, timeout=30)
+        except Exception as e:
+            log.warning(f"GitHub GET error (attempt {attempt}): {e}")
+            time.sleep(backoff); backoff *= 2; continue
+        if resp.status_code == 200:
+            try:
+                sha = resp.json().get("sha")
+            except Exception:
+                sha = None
+        elif resp.status_code == 404:
+            sha = None
+        else:
+            log.warning(f"GitHub GET status {resp.status_code}: {resp.text}")
+            time.sleep(backoff); backoff *= 2; continue
+
+        payload = {"message": commit_message, "content": content_b64}
+        if sha:
+            payload["sha"] = sha
+        try:
+            put = requests.put(api_base, headers=headers, json=payload, timeout=30)
+        except Exception as e:
+            log.warning(f"GitHub PUT error (attempt {attempt}): {e}")
+            time.sleep(backoff); backoff *= 2; continue
+
+        if put.status_code in (200,201):
+            log.info("✅ Successfully updated canonical file via GitHub API")
+            return True
+        else:
+            try:
+                jr = put.json()
+                msg = jr.get("message","")
+            except Exception:
+                msg = put.text
+            log.warning(f"GitHub PUT status {put.status_code}: {msg}")
+            if put.status_code in (409,422) or "sha" in msg.lower() or "conflict" in msg.lower():
+                log.info(f"Conflict detected; retry after {backoff}s")
+                time.sleep(backoff); backoff *= 2; continue
+            if put.status_code == 403 and 'rate limit' in msg.lower():
+                log.info(f"Rate limited; sleep {backoff*2}s")
+                time.sleep(backoff*2); backoff *= 2; continue
+            log.error("Fatal error updating file via GitHub API")
+            return False
+    log.error("Max attempts reached for GitHub API commit")
+    return False
+
+# ---------------- main ----------------
 def main():
-    log_message("🚀 Starting HLTB Worker (robust mode)")
     ensure_dirs()
-
-    if not os.path.exists(GAMES_LIST_FILE):
-        log_message(f"❌ Games list file {GAMES_LIST_FILE} not found. Exiting.")
-        return
-
     try:
         games_list = extract_games_list(GAMES_LIST_FILE)
     except Exception as e:
-        log_message(f"💥 Fatal: cannot parse games list: {e}")
+        log.exception(f"Failed to extract games list: {e}")
         return
 
-    open_mode = 'a' if os.path.exists(OUTPUT_FILE) else 'w'
-    out_f = open(OUTPUT_FILE, open_mode, encoding='utf-8')
-    log_message(f"📄 Output will be written to {OUTPUT_FILE}")
+    total = len(games_list)
+    log.info(f"📄 Extracted {total} games from {GAMES_LIST_FILE}")
 
+    # prepare run id
+    runid = os.environ.get("GITHUB_RUN_ID") or datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    processed = 0
+
+    results = []
+
+    # Playwright
     with sync_playwright() as p:
-        log_message("🌐 Launching browser...")
-        browser = p.chromium.launch(headless=BROWSER_HEADLESS, args=PLAYWRIGHT_LAUNCH_ARGS)
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-            viewport={"width": 1280, "height": 800},
-            locale="en-US"
-        )
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox","--disable-setuid-sandbox"])
+        context_kwargs = {"viewport":{"width":1280,"height":900}, "locale":"en-US"}
+        if os.path.exists(STORAGE_STATE):
+            context_kwargs["storage_state"] = STORAGE_STATE
+        context = browser.new_context(**context_kwargs)
         page = context.new_page()
 
+        # quick check
         try:
-            ok = attempt_page_goto(page, BASE_URL, timeout=15000)
-            if not ok:
-                log_message("⚠️ Could not reach HowLongToBeat homepage - continuing but results may be unreliable.")
-            else:
-                title = page.title()
-                log_message(f"📄 HLTB page title: {title}")
-        except Exception as e:
-            log_message(f"⚠️ Error during site check: {e}")
-
-        total = len(games_list)
-        processed = 0
-        for idx, g in enumerate(games_list):
+            page.goto(BASE_URL, timeout=PAGE_GOTO_TIMEOUT)
+            log.info("✅ HowLongToBeat reachable")
             try:
-                title = g.get("title") if isinstance(g, dict) else (g[0] if isinstance(g, (list, tuple)) else str(g))
-                year = g.get("year") if isinstance(g, dict) else None
-                log_message(f"🎮 Processing {idx+1}/{total}: {title} ({year})")
-                res = search_game_on_hltb(page, title, year, idx)
-                if res:
-                    g_out = {"title": title, "year": year, "hltb": res}
-                else:
-                    g_out = {"title": title, "year": year, "hltb": {"ms":"N/A","mpe":"N/A","comp":"N/A","all":"N/A"}}
-                out_f.write(json.dumps(g_out, ensure_ascii=False) + "\n")
-                out_f.flush()
-                processed += 1
-                log_message(f"✅ Written result for '{title}'")
-            except Exception as e:
-                log_message(f"❌ Unexpected error while processing index {idx}: {e}")
+                context.storage_state(path=STORAGE_STATE)
+            except Exception:
+                pass
+        except Exception as e:
+            log.warning(f"Landing page open failed: {e}")
 
-        log_message(f"🎉 Done — processed {processed}/{total} games")
+        for idx, entry in enumerate(games_list, start=1):
+            title = None
+            year = None
+            try:
+                # gamesList items sometimes are dicts or lists - handle both
+                if isinstance(entry, dict):
+                    title = entry.get("title") or entry.get("name") or ""
+                    year = entry.get("year") or entry.get("releaseYear") or None
+                elif isinstance(entry, (list, tuple)):
+                    title = entry[0] if entry else ""
+                    if len(entry) > 1:
+                        year = entry[1]
+                else:
+                    title = str(entry)
+                log.info(f"🎮 Processing {idx}/{total}: {title} ({year})")
+                idx_info = {"index": idx, "title": title}
+
+                # attempt multiple times with backoff
+                hltb = None
+                matched_title = None
+                for attempt in range(MAX_ATTEMPTS):
+                    res, status = search_game_single_attempt(page, title, year, idx_info)
+                    if status == "blocked":
+                        # when blocked, backoff longer
+                        wait = 30 + attempt*15
+                        log.warning(f"⏸ blocked detected, sleeping {wait}s before retry")
+                        time.sleep(wait)
+                        continue
+                    if res:
+                        hltb = res
+                        matched_title = status if isinstance(status, str) else None
+                        break
+                    else:
+                        # retry with smaller delay
+                        dmin, dmax = DELAY_ATTEMPTS[min(attempt, len(DELAY_ATTEMPTS)-1)]
+                        log.info(f"🔁 Retry attempt {attempt+1} for '{title}', sleeping {dmin:.1f}-{dmax:.1f}s")
+                        time.sleep(random.uniform(dmin, dmax))
+
+                if hltb:
+                    results.append({"title": title, "year": year, "hltb": hltb})
+                    log.info(f"✅ Data found for '{title}'")
+                else:
+                    results.append({"title": title, "year": year, "hltb": {"ms":"N/A","mpe":"N/A","comp":"N/A","vs":"N/A"}})
+                    log.warning(f"⚠️ Data not found for: {title} - recorded N/A")
+                processed += 1
+            except Exception as e:
+                log.exception(f"Error processing {title}: {e}")
+                results.append({"title": title or str(entry), "year": year, "hltb": {"ms":"N/A","mpe":"N/A","comp":"N/A","vs":"N/A"}})
+
+        # close context
         try:
             context.close()
             browser.close()
         except Exception:
             pass
 
-    out_f.close()
+    # save per-run file
+    per_run_path = save_results_per_run(results, runid)
 
+    # attempt to update canonical file in repo via GitHub API
+    gh_token = os.environ.get("GITHUB_TOKEN")
+    gh_repo = os.environ.get("GITHUB_REPOSITORY")
+    if gh_token and gh_repo:
+        log.info("🔐 Attempting commit to repository via GitHub API")
+        ok = commit_file_to_github(per_run_path, repo=gh_repo, token=gh_token, path_in_repo=CANONICAL_OUTPUT_PATH)
+        if ok:
+            log.info("✅ Commit via API succeeded")
+        else:
+            log.error("❌ Commit via API failed; leaving per-run file in artifacts")
+    else:
+        log.info("ℹ️ GITHUB_TOKEN or GITHUB_REPOSITORY not present - skipping API commit")
+
+    # summary report
     try:
-        with open(OUTPUT_FILE, 'r', encoding='utf-8') as f:
-            lines = [l.strip() for l in f if l.strip()]
-        total_saved = len(lines)
-        report = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "total_saved": total_saved,
-            "file": OUTPUT_FILE
-        }
-        with open("scraping_report.json", "w", encoding='utf-8') as rf:
+        report = {"timestamp": datetime.utcnow().isoformat(), "processed": processed, "total": total, "per_run": per_run_path}
+        with open("scraping_report.json", "w", encoding="utf-8") as rf:
             json.dump(report, rf, ensure_ascii=False, indent=2)
-        log_message(f"📊 Report created: {total_saved} entries (scraping_report.json)")
+        log.info(f"📊 Report created: processed {processed}/{total}")
     except Exception as e:
-        log_message(f"⚠️ Could not write scraping_report.json: {e}")
-
-    safe_commit_results()
+        log.warning(f"Could not write scraping_report.json: {e}")
 
 if __name__ == "__main__":
     main()
