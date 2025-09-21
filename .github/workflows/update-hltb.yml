@@ -1,4 +1,4 @@
-name: update-hltb (minimal, corrected)
+name: update-hltb (minimal + sanitize)
 
 on:
   workflow_dispatch:
@@ -47,6 +47,41 @@ jobs:
         run: |
           python hltb_worker.py
 
+      - name: Sanitize artifact filenames (replace forbidden chars)
+        run: |
+          python - <<'PY'
+          import os, re, time, sys
+          roots = ["debug_dumps", "hltb_data"]
+          # Pattern includes characters disallowed by upload-artifact / NTFS etc.
+          pattern = re.compile(r'["<>:|*\?\\\r\n/\\\\]+')
+          for root in roots:
+              if not os.path.isdir(root):
+                  # nothing to sanitize in this root
+                  continue
+              for dirpath, dirnames, filenames in os.walk(root):
+                  for fn in filenames:
+                      if pattern.search(fn):
+                          safe = pattern.sub('_', fn)
+                          # collapse multiple underscores/spaces and trim
+                          safe = re.sub(r'[_\s]+','_', safe).strip('_')
+                          # ensure basename not empty
+                          if not safe:
+                              safe = 'file'
+                          old = os.path.join(dirpath, fn)
+                          new = os.path.join(dirpath, safe)
+                          if old == new:
+                              continue
+                          # avoid overwriting an existing file accidentally
+                          if os.path.exists(new):
+                              base, ext = os.path.splitext(safe)
+                              new = os.path.join(dirpath, f"{base}_{int(time.time())}{ext}")
+                          try:
+                              print(f"Renaming: {old} -> {new}")
+                              os.rename(old, new)
+                          except Exception as e:
+                              print(f"ERROR renaming {old} -> {new}: {e}", file=sys.stderr)
+          PY
+
       - name: Upload debug dumps
         if: always()
         uses: actions/upload-artifact@v4
@@ -59,4 +94,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hltb-results
-          path: hltb_data/hltb_data_*.json
+          path: |
+            hltb_data/hltb_data_*.json
+            scraping_report.json
