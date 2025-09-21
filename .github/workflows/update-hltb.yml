@@ -1,4 +1,5 @@
-name: update-hltb
+name: update-hltb (minimal)
+
 on:
   workflow_dispatch:
   push:
@@ -9,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  run-scraper:
+  scrape:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,80 +23,40 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install deps
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install minimal Python deps
         run: |
           python -m pip install --upgrade pip
-          pip install playwright
-          playwright install --with-deps
+          pip install --no-deps playwright requests
+      # install only browser binaries (no --with-deps)
+      - name: Install Playwright browser (chromium only)
+        run: |
+          python -m playwright install chromium
 
       - name: Run HLTB worker
-        id: run_worker
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           python hltb_worker.py
-        # hltb_worker prints output via set-output in end (deprecated but used here for example)
-      
-      - name: Upload debug dumps artifact
+
+      - name: Upload debug dumps
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hltb-debug-dumps
           path: debug_dumps/**
 
-      - name: Upload per-run hltb output
+      - name: Upload per-run results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hltb-results
           path: hltb_data/hltb_data_*.json
-
-      - name: Commit per-run result to main (via GitHub REST API, safe retry)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          # find produced per-run file (latest)
-          OUT_FILE=$(ls -t hltb_data/hltb_data_*.json | head -n1)
-          echo "Found output: $OUT_FILE"
-          PATH_IN_REPO="hltb_data/hltb_data.json"   # canonical path we want to keep in main
-          # encode content
-          CONTENT_BASE64=$(base64 -w 0 "$OUT_FILE")
-          API="https://api.github.com/repos/${REPO}/contents/${PATH_IN_REPO}"
-          AUTH="Authorization: token ${GITHUB_TOKEN}"
-          COMMIT_MSG="HLTB: update data from run ${GITHUB_RUN_ID:-local} at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          # get current file sha if exists
-          attempts=0
-          max_attempts=8
-          backoff=1
-          while [ $attempts -lt $max_attempts ]; do
-            attempts=$((attempts+1))
-            echo "Attempt #$attempts"
-            resp=$(curl -sS -H "$AUTH" "$API" || echo "")
-            sha=$(echo "$resp" | jq -r '.sha // empty')
-            if [ -z "$sha" ]; then
-              echo "File doesn't exist or has no sha — will create"
-              payload=$(jq -n --arg m "$COMMIT_MSG" --arg c "$CONTENT_BASE64" '{message:$m, content:$c}')
-            else
-              echo "File exists; sha=$sha"
-              payload=$(jq -n --arg m "$COMMIT_MSG" --arg c "$CONTENT_BASE64" --arg s "$sha" '{message:$m, content:$c, sha:$s}')
-            fi
-            # perform PUT
-            out=$(curl -sS -X PUT -H "Content-Type: application/json" -H "$AUTH" -d "$payload" "$API" || true)
-            ok=$(echo "$out" | jq -r '.content.path? // empty')
-            if [ -n "$ok" ]; then
-              echo "✅ Successfully committed $PATH_IN_REPO"
-              exit 0
-            fi
-            # check for error message -> maybe sha mismatch or conflict
-            msg=$(echo "$out" | jq -r '.message // empty')
-            echo "API response message: $msg"
-            if echo "$msg" | grep -iq "sha" || echo "$msg" | grep -iq "Conflict"; then
-              echo "Conflict detected, retrying after backoff $backoff"
-              sleep $backoff
-              backoff=$(( backoff * 2 ))
-              continue
-            fi
-            # unknown error -> break and fail
-            echo "Unknown API response: $out"
-            exit 1
-          done
-          echo "❌ Failed to commit after $max_attempts attempts"
-          exit 1
