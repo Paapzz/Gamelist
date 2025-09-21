@@ -1,153 +1,101 @@
-name: Update HLTB Data
-
+name: update-hltb
 on:
-  # Запуск раз в год - 20 января в 00:00 UTC
-  schedule:
-    - cron: '0 0 20 1 *'
-  
-  # Ручной запуск
   workflow_dispatch:
+  push:
+    paths:
+      - index111.html
+
+permissions:
+  contents: write
 
 jobs:
-  update-hltb:
+  run-scraper:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      
+          fetch-depth: 0
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      
-      - name: Install dependencies
+
+      - name: Install deps
         run: |
-          pip install playwright requests
-          playwright install chromium
-      
-      - name: Run HLTB scraper
+          python -m pip install --upgrade pip
+          pip install playwright
+          playwright install --with-deps
+
+      - name: Run HLTB worker
+        id: run_worker
         run: |
-          # Создаем папку hltb_data если её нет
-          mkdir -p hltb_data
-          echo "📁 Создана папка hltb_data"
-          
-          # Запускаем воркер
           python hltb_worker.py
-        continue-on-error: true
+        # hltb_worker prints output via set-output in end (deprecated but used here for example)
       
-      - name: Generate report
-        if: always()
-        run: |
-          # Создаем отчет
-          python -c "
-          import json
-          from datetime import datetime
-          
-          # Загружаем результаты
-          try:
-              with open('hltb_data/hltb_data.json', 'r', encoding='utf-8') as f:
-                  games_data = []
-                  for line in f:
-                      if line.strip():
-                          games_data.append(json.loads(line))
-              
-              # Статистика
-              total_games = len(games_data)
-              successful = len([g for g in games_data if 'hltb' in g])
-              success_rate = (successful / total_games * 100) if total_games > 0 else 0
-              
-              # Создаем отчет
-              report = {
-                  'timestamp': datetime.now().isoformat(),
-                  'total_games': total_games,
-                  'successful_games': successful,
-                  'failed_games': total_games - successful,
-                  'success_rate': f'{success_rate:.1f}%',
-                  'test_mode': 'false'
-              }
-              
-              with open('scraping_report.json', 'w', encoding='utf-8') as f:
-                  json.dump(report, f, indent=2, ensure_ascii=False)
-              
-              print(f'Отчет создан: {successful}/{total_games} игр ({success_rate:.1f}%)')
-              
-          except Exception as e:
-              print(f'Ошибка создания отчета: {e}')
-          "
-        continue-on-error: true
-      
-      - name: Upload artifacts
+      - name: Upload debug dumps artifact
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: hltb-data-${{ github.run_number }}
-          path: |
-            hltb_data/hltb_data.json
-            scraping_report.json
-          retention-days: 30
-      
-      - name: Commit and push results
-        if: always()
+          name: hltb-debug-dumps
+          path: debug_dumps/**
+
+      - name: Upload per-run hltb output
+        uses: actions/upload-artifact@v4
+        with:
+          name: hltb-results
+          path: hltb_data/hltb_data_*.json
+
+      - name: Commit per-run result to main (via GitHub REST API, safe retry)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
-          # Настраиваем git
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # Добавляем файлы только если они существуют
-          if [ -f "hltb_data/hltb_data.json" ]; then
-            git add hltb_data/hltb_data.json
-            echo "✅ Добавлен hltb_data/hltb_data.json"
-          else
-            echo "⚠️ Файл hltb_data/hltb_data.json не найден"
-          fi
-          
-          if [ -f "scraping_report.json" ]; then
-            git add scraping_report.json
-            echo "✅ Добавлен scraping_report.json"
-          else
-            echo "⚠️ Файл scraping_report.json не найден"
-          fi
-          
-          if [ -f "index111.html" ]; then
-            git add index111.html
-            echo "✅ Добавлен index111.html"
-          else
-            echo "⚠️ Файл index111.html не найден"
-          fi
-          
-          # Защита от конфликтов - синхронизируем с удаленным репозиторием
-          git pull --rebase origin main
-          
-          # Коммитим только если есть изменения
-          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Update HLTB data - $(date '+%Y-%m-%d %H:%M:%S UTC')
-          
-          - Total games: $(jq '.total_games' scraping_report.json)
-          - Success rate: $(jq -r '.success_rate' scraping_report.json)
-          - Test mode: $(jq -r '.test_mode' scraping_report.json)
-          
-          Generated by GitHub Actions workflow #${{ github.run_number }}" && git push)
-      
-      
-      - name: Create summary
-        if: always()
-        run: |
-          # Создаем краткое резюме
-          if [ -f "scraping_report.json" ]; then
-            echo "## HLTB Scraping Summary" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Total Games | $(jq '.total_games' scraping_report.json) |" >> $GITHUB_STEP_SUMMARY
-            echo "| Successful | $(jq '.successful_games' scraping_report.json) |" >> $GITHUB_STEP_SUMMARY
-            echo "| Failed | $(jq '.failed_games' scraping_report.json) |" >> $GITHUB_STEP_SUMMARY
-            echo "| Success Rate | $(jq -r '.success_rate' scraping_report.json) |" >> $GITHUB_STEP_SUMMARY
-            echo "| Test Mode | $(jq -r '.test_mode' scraping_report.json) |" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Artifacts:** hltb-data-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Отчет не найден" >> $GITHUB_STEP_SUMMARY
-          fi
-        continue-on-error: true
+          set -euo pipefail
+          # find produced per-run file (latest)
+          OUT_FILE=$(ls -t hltb_data/hltb_data_*.json | head -n1)
+          echo "Found output: $OUT_FILE"
+          PATH_IN_REPO="hltb_data/hltb_data.json"   # canonical path we want to keep in main
+          # encode content
+          CONTENT_BASE64=$(base64 -w 0 "$OUT_FILE")
+          API="https://api.github.com/repos/${REPO}/contents/${PATH_IN_REPO}"
+          AUTH="Authorization: token ${GITHUB_TOKEN}"
+          COMMIT_MSG="HLTB: update data from run ${GITHUB_RUN_ID:-local} at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          # get current file sha if exists
+          attempts=0
+          max_attempts=8
+          backoff=1
+          while [ $attempts -lt $max_attempts ]; do
+            attempts=$((attempts+1))
+            echo "Attempt #$attempts"
+            resp=$(curl -sS -H "$AUTH" "$API" || echo "")
+            sha=$(echo "$resp" | jq -r '.sha // empty')
+            if [ -z "$sha" ]; then
+              echo "File doesn't exist or has no sha — will create"
+              payload=$(jq -n --arg m "$COMMIT_MSG" --arg c "$CONTENT_BASE64" '{message:$m, content:$c}')
+            else
+              echo "File exists; sha=$sha"
+              payload=$(jq -n --arg m "$COMMIT_MSG" --arg c "$CONTENT_BASE64" --arg s "$sha" '{message:$m, content:$c, sha:$s}')
+            fi
+            # perform PUT
+            out=$(curl -sS -X PUT -H "Content-Type: application/json" -H "$AUTH" -d "$payload" "$API" || true)
+            ok=$(echo "$out" | jq -r '.content.path? // empty')
+            if [ -n "$ok" ]; then
+              echo "✅ Successfully committed $PATH_IN_REPO"
+              exit 0
+            fi
+            # check for error message -> maybe sha mismatch or conflict
+            msg=$(echo "$out" | jq -r '.message // empty')
+            echo "API response message: $msg"
+            if echo "$msg" | grep -iq "sha" || echo "$msg" | grep -iq "Conflict"; then
+              echo "Conflict detected, retrying after backoff $backoff"
+              sleep $backoff
+              backoff=$(( backoff * 2 ))
+              continue
+            fi
+            # unknown error -> break and fail
+            echo "Unknown API response: $out"
+            exit 1
+          done
+          echo "❌ Failed to commit after $max_attempts attempts"
+          exit 1
