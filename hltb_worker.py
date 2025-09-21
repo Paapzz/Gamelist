@@ -223,10 +223,10 @@ def search_game_on_hltb(page, game_title, game_year=None):
             log_message("🔄 Продолжаем поиск альтернатив...")
         
         # Сохраняем результат, но не возвращаем сразу
-            good_result = hltb_data
-            good_score = score
-            good_title = found_title
-        else:
+        good_result = hltb_data
+        good_score = score
+        good_title = found_title
+    else:
         log_message("❌ Оригинальное название не найдено, пробуем альтернативы...")
     
     # Генерируем альтернативы для поиска
@@ -380,7 +380,7 @@ def search_game_single_attempt(page, game_title, game_year=None):
             if game_year:
                 log_message(f"⚠️  Низкая схожесть ({similarity:.2f}), но есть год для проверки - продолжаем")
             else:
-            log_message(f"⚠️  Низкая схожесть ({similarity:.2f}), пробуем альтернативное название")
+                log_message(f"⚠️  Низкая схожесть ({similarity:.2f}), пробуем альтернативное название")
             return None
         
         # Переходим на страницу выбранной игры
@@ -726,7 +726,7 @@ def generate_alternative_titles(game_title):
         # Для одиночных частей: также добавляем "Part I" и "Part I: subtitle" уже добавлены
         # Генерируем комбинированные варианты: "A and B", "A & B", "A / B" и перестановки
         # Если много частей, генерируем пары (первые две) + перестановки
-            if len(parts) >= 2:
+        if len(parts) >= 2:
             # создаём пары для комбинирования (включая варианты с конвертацией чисел)
             # Для n частей генерируем комбинации первых двух и (если есть) второй+третьей
             pairs = []
@@ -770,7 +770,7 @@ def generate_alternative_titles(game_title):
         add(" / ".join(simplified_parts))
         add("/".join(simplified_parts))
 
-                else:
+    else:
         # Если нет слэша, но есть числа / римские, генерируем их варианты
         num_vars = gen_num_variants(game_title)
         for v in num_vars:
@@ -1025,10 +1025,10 @@ def extract_hltb_data_from_page(page):
                         if "Hours" in surrounding_text and "table" not in str(element.locator("..").get_attribute("tagName")).lower():
                             # Определяем тип данных по тексту элемента
                             if "Vs." in element_text and "vs" not in hltb_data:
-                            vs_data = extract_vs_data_from_text(surrounding_text)
+                                vs_data = extract_vs_data_from_text(surrounding_text)
                                 if vs_data:
-                                hltb_data["vs"] = vs_data
-                                log_message(f"🎯 Найдены Vs. данные в отдельном блоке: {vs_data}")
+                                    hltb_data["vs"] = vs_data
+                                    log_message(f"🎯 Найдены Vs. данные в отдельном блоке: {vs_data}")
                             elif "Co-Op" in element_text and "coop" not in hltb_data:
                                 coop_data = extract_coop_data_from_text(surrounding_text)
                                 if coop_data:
@@ -1065,6 +1065,7 @@ def extract_hltb_data_from_page(page):
                 if key != "stores" and isinstance(value, dict) and "t" in value:
                     categories.append(f"{key}: {value['t']}")
             if categories:
+                pass  # Логирование было убрано по требованию пользователя
         
         return hltb_data if hltb_data else None
         
