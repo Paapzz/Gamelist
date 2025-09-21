@@ -1,166 +1,179 @@
-# hltb_worker.py
-# Полная версия с улучшениями:
-# - несколько вариантов поиска
-# - годовой бонус / мгновенный выбор по названию+году
-# - fuzzy/difflib + LCS scoring
-# - retry с годом при >30 результатов
-# - storage_state для Playwright
-# - детальные дампы и summary.log
-# - совместимость с запуском в GitHub Actions (дампы/артефакты)
-
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+hltb_worker.py
+Полный рабочий скрипт:
+- устойчивый парсер index111.html -> games list
+- поиск HowLongToBeat (Playwright)
+- расширенное логирование + дампы debug_dumps/*
+- per-run output hltb_data/hltb_data_<runid>.json
+- атомарное обновление hltb_data/hltb_data.json в репозитории через GitHub API (PUT /contents/...)
+  с retry/backoff для корректной работы при параллельных воркерах.
+Requirements:
+  - playwright
+  - requests
+Run:
+  - в GitHub Actions: pip install playwright requests; playwright install --with-deps
+  - экспортировать GITHUB_TOKEN и GITHUB_REPOSITORY (Actions делает это автоматически)
+"""
+from __future__ import annotations
+import os
+import re
 import json
 import time
+import base64
 import random
-import re
-import os
+import logging
 from datetime import datetime
 from urllib.parse import quote
 from difflib import SequenceMatcher
+from typing import List, Dict, Optional, Tuple
+
+# optionally requests (preferred) - if not installed, fallback to urllib
+try:
+    import requests
+except Exception:
+    requests = None
+
 from playwright.sync_api import sync_playwright, Error as PlaywrightError
 
-# ------------- Конфигурация -------------
+# ---------------- CONFIG ----------------
 BASE_URL = "https://howlongtobeat.com"
 GAMES_LIST_FILE = "index111.html"
 OUTPUT_DIR = "hltb_data"
-OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
+CANONICAL_OUTPUT_PATH = "hltb_data/hltb_data.json"  # repo path to update
+PER_RUN_FILENAME_TEMPLATE = "hltb_data_{runid}.json"
 PROGRESS_FILE = "progress.json"
+DEBUG_DIR = "debug_dumps"
+STORAGE_STATE = "playwright_storage.json"
 
+# Playwright timeouts (ms)
 PAGE_GOTO_TIMEOUT = 30000
 PAGE_LOAD_TIMEOUT = 20000
 
+# Rate control
 MIN_DELAY = 0.6
 MAX_DELAY = 1.6
 
-INITIAL_BACKOFF = 5
-BACKOFF_MULTIPLIER = 2.0
-MAX_BACKOFF = 300
+# Commit retry config
+GITHUB_API_MAX_ATTEMPTS = 8
+GITHUB_API_INITIAL_BACKOFF = 1.0
 
-# Debug / dumps
-DEBUG_CANDIDATES = True     # если True — сохраняем оценки кандидатов
-DUMP_ON_EMPTY = True        # если True — сохраняем search_html + screenshot + candidates при пустых результатах
-DUMP_DIR = "debug_dumps"
+# Debug flags
+DEBUG_CANDIDATES = True   # dump candidates scores
+DUMP_ON_EMPTY = True      # save html + screenshot + candidates on problematic searches
 DEBUG_SCORE_THRESHOLD = 0.95
-VERBOSE = True
 
-# Playwright storage state file (cookies/session) — помогает уменьшить блокировки
-STORAGE_STATE_FILE = "playwright_storage.json"
+# Logging
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+log = logging.getLogger("hltb_worker")
 
-# ------------- Утилиты и логирование -------------
-def log_message(msg):
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{ts}] {msg}")
-
-def setup_dirs():
+# ---------------- Utilities ----------------
+def ensure_dirs():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(os.path.dirname(CANONICAL_OUTPUT_PATH) or ".", exist_ok=True)
     if DUMP_ON_EMPTY or DEBUG_CANDIDATES:
-        os.makedirs(DUMP_DIR, exist_ok=True)
+        os.makedirs(DEBUG_DIR, exist_ok=True)
 
-def sanitize_filename(s):
+def ts() -> str:
+    return datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+
+def sanitize_filename(s: str) -> str:
     s = s or "unknown"
     s = re.sub(r'[^\w\-_\. ]', '_', s)
     return s[:120]
 
-# ------------- Парсинг gamesList из index111.html -------------
-def extract_games_list(html_file):
+# ---------------- extract_games_list robust ----------------
+def extract_games_list(html_file: str) -> List[Dict]:
     """
-    Надёжно извлекает JS-массив const gamesList = [...] из index111.html
-    Сохраняет raw и fixed дамп в debug_dumps для диагностики при ошибках.
+    Robust extraction of const gamesList = [...] from index111.html.
+    Saves raw/fixed dumps into debug_dumps if cleaning required.
+    Returns python list of game dicts.
     """
-    def remove_js_comments(s):
-        s = re.sub(r'/\*.*?\*/', '', s, flags=re.DOTALL)
-        s = re.sub(r'//.*?(?=\r?\n)', '', s)
-        return s
-
-    def quote_object_keys(s):
-        # Добавляет кавычки к ключам вида keyName:
-        s = re.sub(r'([{\[,]\s*)([A-Za-z0-9_\-\$@]+)\s*:', r'\1"\2":', s)
-        return s
-
-    def single_to_double_quotes(s):
-        s = s.replace("\\'", "'")
-        s = re.sub(r"\'([^'\\]*(?:\\.[^'\\]*)*)\'", lambda m: '"' + m.group(1).replace('"', '\\"') + '"', s)
-        return s
-
-    def remove_trailing_commas(s):
-        s = re.sub(r',\s*(?=[}\]])', '', s)
-        return s
-
-    with open(html_file, 'r', encoding='utf-8') as f:
+    if not os.path.exists(html_file):
+        raise FileNotFoundError(html_file)
+    with open(html_file, "r", encoding="utf-8") as f:
         content = f.read()
 
-    marker = 'const gamesList ='
+    marker = "const gamesList ="
     pos = content.find(marker)
     if pos == -1:
-        raise ValueError("Не найден 'const gamesList =' в HTML файле")
+        raise ValueError("Не найден 'const gamesList =' в HTML")
 
-    start = content.find('[', pos)
+    start = content.find("[", pos)
     if start == -1:
         raise ValueError("Не найден '[' после 'const gamesList ='")
 
-    bracket_count = 0
+    # find matching closing bracket (handle nested)
+    bracket = 0
     end = None
     for i, ch in enumerate(content[start:], start):
-        if ch == '[':
-            bracket_count += 1
-        elif ch == ']':
-            bracket_count -= 1
-            if bracket_count == 0:
+        if ch == "[":
+            bracket += 1
+        elif ch == "]":
+            bracket -= 1
+            if bracket == 0:
                 end = i + 1
                 break
     if end is None:
-        ts = int(time.time())
-        os.makedirs(DUMP_DIR, exist_ok=True)
-        raw_path = f"{DUMP_DIR}/gameslist_raw_unclosed_{ts}.html"
+        # save partial dump
+        os.makedirs(DEBUG_DIR, exist_ok=True)
+        raw_path = os.path.join(DEBUG_DIR, f"gameslist_raw_unclosed_{int(time.time())}.txt")
         with open(raw_path, "w", encoding="utf-8") as rf:
             rf.write(content[start:start+20000])
-        raise ValueError(f"Не найдена закрывающая ']' для gamesList. Дамп: {raw_path}")
+        raise ValueError(f"Не найдена закрывающая ']' для gamesList. Сохранён дамп: {raw_path}")
 
-    games_js = content[start:end]
-    os.makedirs(DUMP_DIR, exist_ok=True)
-    ts = int(time.time())
-    raw_path = f"{DUMP_DIR}/gameslist_raw_{ts}.js"
+    js_array = content[start:end]
+    raw_path = os.path.join(DEBUG_DIR, f"gameslist_raw_{int(time.time())}.js")
     with open(raw_path, "w", encoding="utf-8") as rf:
-        rf.write(games_js)
-    log_message(f"📝 Сохранён raw gamesList: {raw_path}")
+        rf.write(js_array)
+    log.info(f"📝 saved raw gamesList to {raw_path}")
 
-    # Попытка json.loads напрямую
+    # Try direct json parse
     try:
-        games_list = json.loads(games_js)
-        log_message("✅ gamesList распарсен напрямую")
-        return games_list
+        data = json.loads(js_array)
+        log.info("✅ gamesList parsed directly with json.loads")
+        return data
     except Exception as e:
-        log_message(f"⚠️ Прямой json.loads не прошёл: {e}; пробуем очистку...")
+        log.info(f"⚠️ direct json.loads failed: {e}; attempting cleaning")
 
-    fixed = games_js
+    # Cleaning JS to JSON
+    fixed = js_array
     try:
-        fixed = remove_js_comments(fixed)
-        fixed = single_to_double_quotes(fixed)
-        fixed = quote_object_keys(fixed)
-        fixed = remove_trailing_commas(fixed)
+        # remove block comments and line comments
+        fixed = re.sub(r'/\*.*?\*/', '', fixed, flags=re.DOTALL)
+        fixed = re.sub(r'//.*?(?=\r?\n)', '', fixed)
+        # convert single-quoted strings to double-quoted (simple)
+        fixed = re.sub(r"\'([^'\\]*(?:\\.[^'\\]*)*)\'", lambda m: '"' + m.group(1).replace('"', '\\"') + '"', fixed)
+        # quote object keys like: keyName:
+        fixed = re.sub(r'([{\[,]\s*)([A-Za-z0-9_\-\$@]+)\s*:', r'\1"\2":', fixed)
+        # remove trailing commas
+        fixed = re.sub(r',\s*(?=[}\]])', '', fixed)
         fixed = re.sub(r'\bundefined\b', 'null', fixed)
         fixed = re.sub(r'\bNaN\b', 'null', fixed)
     except Exception as e:
-        log_message(f"⚠️ Ошибка очистки gamesList: {e}")
+        log.warning(f"⚠️ error while cleaning gamesList: {e}")
 
-    fixed_path = f"{DUMP_DIR}/gameslist_fixed_{ts}.json"
+    fixed_path = os.path.join(DEBUG_DIR, f"gameslist_fixed_{int(time.time())}.json")
     with open(fixed_path, "w", encoding="utf-8") as ff:
         ff.write(fixed)
-    log_message(f"📝 Сохранён преобразованный gamesList: {fixed_path}")
+    log.info(f"📝 saved fixed gamesList to {fixed_path}")
 
     try:
-        games_list = json.loads(fixed)
-        log_message("✅ gamesList распарсен после очистки")
-        return games_list
+        data = json.loads(fixed)
+        log.info("✅ gamesList parsed after cleaning")
+        return data
     except Exception as e2:
-        msg = f"❌ НЕ удалось распарсить gamesList: {e2}. Посмотрите дампы: {raw_path}, {fixed_path}"
-        log_message(msg)
+        msg = f"❌ failed to parse gamesList even after cleaning: {e2}. See dumps: {raw_path}, {fixed_path}"
+        log.error(msg)
         raise ValueError(msg)
 
-# ------------- Нормализация названий и схожесть -------------
-def clean_title_for_comparison(title):
+# ---------------- title normalization & similarity ----------------
+def normalize_title_for_comp(title: str) -> str:
     if not title:
         return ""
     s = title
+    # normalize quotes
     s = s.replace('\u2018','\'').replace('\u2019','\'').replace('\u201c','"').replace('\u201d','"')
     s = s.lower()
     s = re.sub(r'\(.*?\)', ' ', s)
@@ -169,296 +182,167 @@ def clean_title_for_comparison(title):
     s = re.sub(r'\s+', ' ', s).strip()
     return s
 
-def normalize_title_for_comparison(title):
-    if not title:
-        return ""
-    s = f" {title} "
-    roman_to_arabic = {
-        ' i ': ' 1 ', ' ii ': ' 2 ', ' iii ': ' 3 ', ' iv ': ' 4 ', ' v ': ' 5 ',
-        ' vi ': ' 6 ', ' vii ': ' 7 ', ' viii ': ' 8 ', ' ix ': ' 9 ', ' x ': ' 10 '
-    }
-    for r,a in roman_to_arabic.items():
-        s = s.replace(r, a)
-    return s.strip()
-
-def convert_arabic_to_roman(num_str):
-    try:
-        num = int(num_str)
-        map_ = {1:"I",2:"II",3:"III",4:"IV",5:"V",6:"VI",7:"VII",8:"VIII",9:"IX",10:"X"}
-        return map_.get(num, num_str)
-    except:
-        return num_str
-
-def convert_roman_to_arabic(roman_str):
-    try:
-        roman_to_arabic_map = {'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5,
-                              'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10}
-        return str(roman_to_arabic_map.get(roman_str.upper(), roman_str))
-    except:
-        return roman_str
-
-def lcs_length(a_tokens, b_tokens):
-    n, m = len(a_tokens), len(b_tokens)
-    if n == 0 or m == 0:
-        return 0
-    dp = [[0] * (m + 1) for _ in range(n + 1)]
-    for i in range(1, n + 1):
-        for j in range(1, m + 1):
-            if a_tokens[i-1] == b_tokens[j-1]:
-                dp[i][j] = dp[i-1][j-1] + 1
-            else:
-                dp[i][j] = max(dp[i-1][j], dp[i][j-1])
-    return dp[n][m]
-
-def fuzzy_ratio(a, b):
+def fuzzy_ratio(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b).ratio()
 
-def calculate_title_similarity(original, candidate):
-    if not original or not candidate:
-        return 0.0
+# ---------------- scraping candidates ----------------
+def scrape_game_link_candidates(page, max_candidates: int = 120) -> List[Dict]:
+    """
+    Try multiple selectors and also parse inline scripts for /game/ links.
+    Returns list of {href, text, context}
+    """
     try:
-        orig_norm = clean_title_for_comparison(normalize_title_for_comparison(original))
-        cand_norm = clean_title_for_comparison(normalize_title_for_comparison(candidate))
-        if orig_norm == cand_norm:
-            return 1.0
-        # try arabic <-> roman normalization
-        m = re.search(r'\b(\d+)\b', original)
-        if m:
-            roman = convert_arabic_to_roman(m.group(1))
-            if roman:
-                if clean_title_for_comparison(normalize_title_for_comparison(re.sub(r'\b'+re.escape(m.group(1))+r'\b', roman, original))) == cand_norm:
-                    return 1.0
-        m2 = re.search(r'\b(I{1,3}|IV|V|VI{0,3}|IX|X)\b', original, flags=re.IGNORECASE)
-        if m2:
-            arab = convert_roman_to_arabic(m2.group(1))
-            if arab:
-                if clean_title_for_comparison(normalize_title_for_comparison(re.sub(r'\b'+re.escape(m2.group(1))+r'\b', arab, original))) == cand_norm:
-                    return 1.0
-        base = original.split(":",1)[0].strip()
-        base_norm = clean_title_for_comparison(normalize_title_for_comparison(base))
-        if base_norm and base_norm == cand_norm:
-            return 0.98
-        a_tokens = orig_norm.split()
-        b_tokens = cand_norm.split()
-        if not a_tokens or not b_tokens:
-            return 0.0
-        common = set(a_tokens).intersection(set(b_tokens))
-        precision = len(common) / len(b_tokens)
-        recall = len(common) / len(a_tokens)
-        lcs_len = lcs_length(a_tokens, b_tokens)
-        seq = (lcs_len / len(a_tokens)) if len(a_tokens)>0 else 0.0
-        base_score = 0.6 * recall + 0.25 * precision + 0.15 * seq
-        # combine with fuzzy ratio for robustness
-        fuzz = fuzzy_ratio(orig_norm, cand_norm)
-        score = max(base_score, 0.55 * base_score + 0.45 * fuzz)
-        return float(max(0.0, min(1.0, score)))
-    except Exception:
-        return 0.0
-
-# ------------- Генерация альтернатив/вариантов поиска -------------
-def generate_alternative_titles(game_title):
-    if not game_title:
-        return []
-    seen = set()
-    out = []
-    def add(s):
-        if not s: return
-        s2 = re.sub(r'\s+', ' ', s).strip()
-        if s2 and s2 not in seen:
-            seen.add(s2); out.append(s2)
-    add(game_title)
-    if '/' in game_title or ',' in game_title:
-        parts = [p.strip() for p in re.split(r'[\/,]', game_title) if p.strip()]
-        for p in parts:
-            add(p)
-        if len(parts) >= 2:
-            add(f"{parts[0]} and {parts[1]}")
-            add(f"{parts[0]} & {parts[1]}")
-        if len(parts) >= 3:
-            add(f"{parts[0]} and {parts[1]} and {parts[2]}")
-            add(f"{parts[0]} & {parts[1]} & {parts[2]}")
-        add(game_title.split(":",1)[0].strip())
-    else:
-        base = game_title.split(":",1)[0].strip()
-        add(base); add(game_title)
-        m = re.search(r'\b(\d+)\b', game_title)
-        if m:
-            r = convert_arabic_to_roman(m.group(1))
-            if r and r != m.group(1):
-                add(re.sub(r'\b'+re.escape(m.group(1))+r'\b', r, game_title))
-        rm = re.search(r'\b(I{1,3}|IV|V|VI{0,3}|IX|X)\b', game_title, flags=re.IGNORECASE)
-        if rm:
-            a = convert_roman_to_arabic(rm.group(1))
-            if a and a != rm.group(1):
-                add(re.sub(r'\b'+re.escape(rm.group(1))+r'\b', a, game_title, flags=re.IGNORECASE))
-    return out
-
-def build_search_variants(game_title, game_year=None):
-    s = (game_title or "").strip()
-    variants = []
-    variants.append(s)
-    variants.append(s.replace('&', 'and'))
-    variants.append(re.sub(r'\(.*?\)', '', s).strip())
-    if ':' in s:
-        variants.append(s.split(':',1)[0].strip())
-    if game_year:
-        variants.append(f"{s} {game_year}")
-        variants.append(f"{s} \"{game_year}\"")
-    variants.append(re.sub(r'[^\w\s]', ' ', s).strip())
-    # dedupe
-    out = []
-    seen = set()
-    for v in variants:
-        if v and v not in seen:
-            seen.add(v); out.append(v)
-    return out
-
-# ------------- Скрапинг кандидатов -------------
-def scrape_game_link_candidates(page, max_candidates=80):
-    try:
-        script = f'''
-        (els, maxc) => {{
+        # JS function to extract attribute + text + context from links matched
+        script = '''
+        (els, maxc) => {
             const out = [];
-            for (let i=0;i<Math.min(els.length, maxc);i++) {{
-                try {{
+            for (let i=0;i<Math.min(els.length, maxc);i++){
+                try {
                     const e = els[i];
                     const href = e.getAttribute('href') || '';
                     const text = e.innerText || '';
                     const p = e.closest('li') || e.closest('div') || e.parentElement;
                     const ctx = p ? (p.innerText || '') : (e.parentElement ? e.parentElement.innerText : text);
-                    out.push({{href, text, ctx}});
-                }} catch(e) {{ }}
-            }}
+                    out.push({href, text, ctx});
+                } catch(e){}
+            }
             return out;
-        }}
+        }
         '''
-        raw = page.eval_on_selector_all('a[href^="/game/"]', script, max_candidates)
-        candidates = []
-        for r in raw:
-            if not r: continue
-            href = r.get("href","") or ""
-            txt = r.get("text","") or ""
-            ctx = r.get("ctx","") or ""
-            candidates.append({"href": href, "text": txt.strip(), "context": ctx.strip()})
-        return candidates
-    except Exception:
-        return []
+        # try list of selectors (cover variants)
+        selectors = [
+            'a[href^="/game/"]',
+            'li.game_title a[href^="/game/"]',
+            'div.search_list_details a[href^="/game/"]',
+            'div.search_list a[href^="/game/"]',
+            'div[class*="gameList"] a[href^="/game/"]',
+        ]
+        all_candidates = []
+        for sel in selectors:
+            try:
+                raw = page.eval_on_selector_all(sel, script, max_candidates)
+                if raw:
+                    for r in raw:
+                        if not r: continue
+                        href = r.get("href","") or ""
+                        txt = r.get("text","") or ""
+                        ctx = r.get("ctx","") or ""
+                        if href and '/game/' in href:
+                            all_candidates.append({"href": href, "text": txt.strip(), "context": ctx.strip()})
+                if all_candidates:
+                    # dedupe by href
+                    seen = set(); ded = []
+                    for c in all_candidates:
+                        if c["href"] not in seen:
+                            seen.add(c["href"]); ded.append(c)
+                    return ded[:max_candidates]
+            except Exception:
+                continue
 
-def get_year_from_context_text(ctx_text):
-    if not ctx_text:
+        # If no anchors found, try inline scripts
+        scripts = page.query_selector_all("script")
+        parsed = []
+        for s in scripts:
+            try:
+                txt = s.inner_text() or ""
+                if "/game/" in txt:
+                    for m in re.finditer(r'["\'](\/game\/[^"\']+)["\']', txt):
+                        href = m.group(1)
+                        # context snippet
+                        st = max(0, m.start()-200)
+                        en = min(len(txt), m.end()+200)
+                        ctx = txt[st:en]
+                        # try to find title near this occurrence
+                        tmatch = re.search(r'["\']name["\']\s*:\s*["\']([^"\']+)["\']', ctx)
+                        title = tmatch.group(1) if tmatch else ""
+                        parsed.append({"href": href, "text": title, "context": ctx})
+            except Exception:
+                continue
+        # dedupe parsed
+        if parsed:
+            seen = set(); out = []
+            for c in parsed:
+                if c["href"] not in seen:
+                    seen.add(c["href"]); out.append(c)
+            return out[:max_candidates]
+    except Exception as e:
+        log.error(f"scrape_game_link_candidates error: {e}")
+    return []
+
+def get_year_from_context(ctx: str) -> Optional[int]:
+    if not ctx:
         return None
-    m = re.findall(r'(\b19\d{2}\b|\b20\d{2}\b)', ctx_text)
+    m = re.findall(r'(19\d{2}|20\d{2})', ctx)
     if m:
         years = [int(x) for x in m]
         return min(years)
     return None
 
-# ------------- Дампы и summary.log -------------
-def append_summary_log(prefix_idx, game_title, candidates):
+# ---------------- ranking & selection ----------------
+def calculate_title_similarity(orig: str, cand: str) -> float:
+    if not orig or not cand:
+        return 0.0
     try:
-        os.makedirs(DUMP_DIR, exist_ok=True)
-        summary_path = os.path.join(DUMP_DIR, "summary.log")
-        top = candidates[:5]
-        top_str = " | ".join([f"{c.get('text','')[:80].replace(chr(10),' ')} -> {c.get('href','')}" for c in top])
-        with open(summary_path, "a", encoding="utf-8") as sf:
-            sf.write(f"{int(time.time())}\t{prefix_idx}\t{game_title}\t{len(candidates)}\t{top_str}\n")
+        orig_norm = normalize_title_for_comp(orig)
+        cand_norm = normalize_title_for_comp(cand)
+        if orig_norm == cand_norm:
+            return 1.0
+        base_tokens = orig_norm.split()
+        cand_tokens = cand_norm.split()
+        if not base_tokens or not cand_tokens:
+            return 0.0
+        common = set(base_tokens).intersection(set(cand_tokens))
+        precision = len(common) / max(1, len(cand_tokens))
+        recall = len(common) / max(1, len(base_tokens))
+        # LCS-like measure using tokens
+        lcs_len = 0
+        # compute simple lcs length on tokens
+        # dynamic programming (small lists)
+        n, m = len(base_tokens), len(cand_tokens)
+        dp = [[0]*(m+1) for _ in range(n+1)]
+        for i in range(1, n+1):
+            for j in range(1, m+1):
+                if base_tokens[i-1] == cand_tokens[j-1]:
+                    dp[i][j] = dp[i-1][j-1] + 1
+                else:
+                    dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+        lcs_len = dp[n][m]
+        seq = lcs_len / max(1, len(base_tokens))
+        base_score = 0.6*recall + 0.25*precision + 0.15*seq
+        fuzz = SequenceMatcher(None, orig_norm, cand_norm).ratio()
+        score = max(base_score, 0.55*base_score + 0.45*fuzz)
+        return float(max(0.0, min(1.0, score)))
     except Exception:
-        pass
+        return 0.0
 
-def dump_candidates_file(prefix_idx, game_title, candidates, suffix="candidates"):
-    try:
-        if not (DEBUG_CANDIDATES or DUMP_ON_EMPTY):
-            return None
-        name = f"{prefix_idx}_{sanitize_filename(game_title)}_{suffix}_{int(time.time())}.json"
-        path = os.path.join(DUMP_DIR, name)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(candidates, f, ensure_ascii=False, indent=2)
-        log_message(f"🗂️ Сохранён дамп кандидатов: {path}")
-        append_summary_log(prefix_idx, game_title, candidates)
-        return path
-    except Exception as e:
-        log_message(f"⚠️ Не удалось сохранить дамп кандидатов: {e}")
-        return None
-
-def dump_scores_file(prefix_idx, game_title, score_list, suffix="scores"):
-    try:
-        if not DEBUG_CANDIDATES:
-            return None
-        name = f"{prefix_idx}_{sanitize_filename(game_title)}_{suffix}_{int(time.time())}.json"
-        path = os.path.join(DUMP_DIR, name)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(score_list, f, ensure_ascii=False, indent=2)
-        log_message(f"🧾 Сохранён дамп оценок кандидатов: {path}")
-        return path
-    except Exception as e:
-        log_message(f"⚠️ Не удалось сохранить дамп оценок: {e}")
-        return None
-
-def dump_search_html(page, prefix_idx, game_title, suffix="search_html"):
-    try:
-        if not DUMP_ON_EMPTY:
-            return None
-        name = f"{prefix_idx}_{sanitize_filename(game_title)}_{suffix}_{int(time.time())}.html"
-        path = os.path.join(DUMP_DIR, name)
-        content = page.content()
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-        log_message(f"📝 Сохранён HTML дамп: {path}")
-        return path
-    except Exception as e:
-        log_message(f"⚠️ Не удалось сохранить HTML дамп: {e}")
-        return None
-
-def dump_screenshot(page, prefix_idx, game_title, suffix="screenshot"):
-    try:
-        if not DUMP_ON_EMPTY:
-            return None
-        name = f"{prefix_idx}_{sanitize_filename(game_title)}_{suffix}_{int(time.time())}.png"
-        path = os.path.join(DUMP_DIR, name)
-        page.screenshot(path=path, full_page=True)
-        log_message(f"📸 Сохранён скриншот: {path}")
-        return path
-    except Exception as e:
-        log_message(f"⚠️ Не удалось сохранить скриншот: {e}")
-        return None
-
-# ------------- Ранжирование кандидатов -------------
-def find_best_candidate(candidates, original_title, game_year=None, idx_info=None):
+def find_best_candidate(candidates: List[Dict], original_title: str, game_year: Optional[int], idx_info: Optional[Dict]=None) -> Tuple[Optional[Dict], float]:
     if not candidates:
         return None, 0.0
-    orig_clean = clean_title_for_comparison(normalize_title_for_comparison(original_title))
-    base_clean = clean_title_for_comparison(normalize_title_for_comparison(original_title.split(":",1)[0].strip()))
-    is_slash = '/' in original_title or ',' in original_title
-    slash_parts = []
-    if is_slash:
-        raw_parts = [p.strip() for p in re.split(r'[\/,]', original_title) if p.strip()]
-        slash_parts = [clean_title_for_comparison(p) for p in raw_parts]
-    best = None; best_score = -1.0
-    scores_dump = []
-
-    # exact-clean fast path
+    orig_clean = normalize_title_for_comp(original_title)
+    base_clean = normalize_title_for_comp(original_title.split(":",1)[0].strip())
+    # exact match fast path
     for cand in candidates:
-        ct = clean_title_for_comparison(normalize_title_for_comparison(cand["text"]))
+        ct = normalize_title_for_comp(cand.get("text",""))
         if ct == orig_clean:
             return cand, 1.0
-
-    # immediate year+base match: если базовое название содержится и есть точно совпадающий год в контексте
+    # immediate year+base match
     if game_year:
         for cand in candidates:
-            ct = clean_title_for_comparison(normalize_title_for_comparison(cand["text"]))
+            ct = normalize_title_for_comp(cand.get("text",""))
             if base_clean and base_clean in ct:
-                cy = get_year_from_context_text(cand.get("context",""))
+                cy = get_year_from_context(cand.get("context",""))
                 if cy and cy == game_year:
-                    log_message(f"🎯 Полный матч по названию+году: {cand.get('text')} (year {cy})")
+                    log.info(f"🎯 exact base+year match: {cand.get('text')} ({cy})")
                     return cand, 0.999
-
-    # scoring loop
+    best = None
+    best_score = -1.0
+    scores_dump = []
     for cand in candidates:
         cand_text = cand.get("text","")
         cand_ctx = cand.get("context","")
         score = calculate_title_similarity(original_title, cand_text)
         if game_year:
-            cy = get_year_from_context_text(cand_ctx)
+            cy = get_year_from_context(cand_ctx)
             if cy:
                 if cy == game_year:
                     score = max(score, 0.9)
@@ -466,46 +350,52 @@ def find_best_candidate(candidates, original_title, game_year=None, idx_info=Non
                     diff = abs(game_year - cy)
                     if diff <= 2:
                         score = max(score, 0.75)
-        ct = clean_title_for_comparison(normalize_title_for_comparison(cand_text))
+        # base presence bonus
+        ct = normalize_title_for_comp(cand_text)
         if base_clean and base_clean in ct:
             score += 0.06
-        if is_slash:
-            parts_matched = 0
-            for p in slash_parts:
-                if p and all(tok in ct for tok in p.split()):
-                    parts_matched += 1
-            min_req = max(1, (len(slash_parts)+1)//2)
-            if parts_matched < min_req:
-                score -= 0.45
         score = max(0.0, min(1.0, score))
-        scores_dump.append({"text": cand_text, "href": cand.get("href",""), "year": get_year_from_context_text(cand_ctx), "score": round(score, 4)})
+        scores_dump.append({"text": cand_text, "href": cand.get("href",""), "year": get_year_from_context(cand_ctx), "score": round(score,4)})
         if score > best_score:
             best_score = score; best = cand
-
-    # debug: preserve scores dump if requested
+    # dump scores if debug
     if DEBUG_CANDIDATES and idx_info:
         if best_score < DEBUG_SCORE_THRESHOLD:
+            p = os.path.join(DEBUG_DIR, f"{idx_info.get('index',0)}_{sanitize_filename(idx_info.get('title',''))}_scores_{int(time.time())}.json")
             try:
-                dump_scores_file(idx_info.get("index",0), idx_info.get("title",""), scores_dump)
+                with open(p, "w", encoding="utf-8") as f:
+                    json.dump(scores_dump, f, ensure_ascii=False, indent=2)
+                log.info(f"🧾 saved scores dump: {p}")
             except Exception:
                 pass
-
     if best and best_score >= 0.25:
         return best, float(best_score)
-
-    # in ambiguous cases, save candidates for inspection
+    # if ambiguous save candidates for offline inspection
     if (DEBUG_CANDIDATES or DUMP_ON_EMPTY) and idx_info:
         try:
-            dump_candidates_file(idx_info.get("index",0), idx_info.get("title",""), candidates)
+            cpath = os.path.join(DEBUG_DIR, f"{idx_info.get('index',0)}_{sanitize_filename(idx_info.get('title',''))}_candidates_{int(time.time())}.json")
+            with open(cpath, "w", encoding="utf-8") as f:
+                json.dump(candidates, f, ensure_ascii=False, indent=2)
+            append_summary_log(idx_info.get('index',0), idx_info.get('title',''), candidates)
+            log.info(f"🗂️ saved candidates dump: {cpath}")
         except Exception:
             pass
     return None, 0.0
 
-# ------------- Извлечение данных со страницы игры -------------
-def round_time(time_str):
-    if not time_str:
-        return None
-    s = str(time_str).replace('½', '.5')
+def append_summary_log(index:int, title:str, candidates:List[Dict]):
+    try:
+        p = os.path.join(DEBUG_DIR, "summary.log")
+        top = candidates[:5]
+        top_str = " | ".join([f"{c.get('text','')[:80]} -> {c.get('href','')}" for c in top])
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(f"{int(time.time())}\t{index}\t{title}\t{len(candidates)}\t{top_str}\n")
+    except Exception:
+        pass
+
+# ---------------- extract HLTB data from game page ----------------
+def round_time_str(s: str) -> Optional[str]:
+    if not s: return None
+    s = s.replace('½', '.5')
     m = re.search(r'(\d+(?:\.\d+)?)\s*h', s, flags=re.IGNORECASE)
     if m:
         val = float(m.group(1))
@@ -515,95 +405,42 @@ def round_time(time_str):
         val = float(m2.group(1)); return f"{int(val)}h" if val == int(val) else f"{val:.1f}h"
     m3 = re.search(r'(\d+)\s*m', s, flags=re.IGNORECASE)
     if m3: return f"{int(m3.group(1))}m"
-    m4 = re.search(r'(\d+(?:\.\d+)?)', s)
-    if m4:
-        val = float(m4.group(1))
-        if val >= 1: return f"{int(val)}h" if val == int(val) else f"{val:.1f}h"
-        return f"{int(val*60)}m"
     return None
 
-def _parse_time_polled_from_text(text):
+def extract_hltb_data_from_page(page) -> Optional[Dict]:
     try:
-        polled = None
-        pm = re.search(r'(\d+(?:\.\d+)?[Kk]?)\s*(?:Polled|polled)?', text)
-        if pm:
-            s = pm.group(1)
-            if 'k' in s.lower():
-                polled = int(float(s.lower().replace('k','')) * 1000)
-            else:
-                polled = int(float(s))
-        time_pat = r'(\d+h\s*\d+m|\d+h|\d+(?:\.\d+)?\s*Hours?|\d+(?:\.\d+)?[½]?)'
-        matches = re.findall(time_pat, text)
-        if matches:
-            avg = matches[0].strip()
-            res = {}
-            t = round_time(avg)
-            if t: res["t"] = t
-            if polled: res["p"] = polled
-            return res if res else None
-        if polled:
-            return {"p": polled}
-        return None
-    except Exception:
-        return None
-
-def extract_hltb_data_from_page(page):
-    try:
-        hltb_data = {}
-        content = page.content()
+        hltb = {}
+        # try to parse tables first
         try:
             tables = page.locator("table")
             for ti in range(tables.count()):
                 tbl = tables.nth(ti)
-                ttxt = tbl.inner_text()
-                if any(k in ttxt for k in ["Main Story","Main + Extras","Completionist","Co-Op","Vs.","Competitive","Single-Player"]):
+                txt = tbl.inner_text()
+                if any(k in txt for k in ["Main Story","Main + Extras","Completionist","Co-Op","Vs.","Single-Player"]):
                     rows = tbl.locator("tr")
                     for ri in range(rows.count()):
                         rtxt = rows.nth(ri).inner_text()
                         if "Main Story" in rtxt or "Single-Player" in rtxt:
-                            d = _parse_time_polled_from_text(rtxt)
-                            if d: hltb_data["ms"] = d
+                            d = re.search(r'(\d+(?:\.\d+)?\s*h)', rtxt)
+                            if d: hltb["ms"] = round_time_str(d.group(1))
                         if "Main + Extras" in rtxt:
-                            d = _parse_time_polled_from_text(rtxt)
-                            if d: hltb_data["mpe"] = d
+                            d = re.search(r'(\d+(?:\.\d+)?\s*h)', rtxt)
+                            if d: hltb["mpe"] = round_time_str(d.group(1))
                         if "Completionist" in rtxt:
-                            d = _parse_time_polled_from_text(rtxt)
-                            if d: hltb_data["comp"] = d
+                            d = re.search(r'(\d+(?:\.\d+)?\s*h)', rtxt)
+                            if d: hltb["comp"] = round_time_str(d.group(1))
                         if "Co-Op" in rtxt:
-                            d = _parse_time_polled_from_text(rtxt)
-                            if d: hltb_data["coop"] = d
-                        if "Vs." in rtxt or "Competitive" in rtxt:
-                            d = _parse_time_polled_from_text(rtxt)
-                            if d: hltb_data["vs"] = d
+                            d = re.search(r'(\d+(?:\.\d+)?\s*h)', rtxt)
+                            if d: hltb["coop"] = round_time_str(d.group(1))
+                        if "Vs." in rtxt or "Versus" in rtxt:
+                            d = re.search(r'(\d+(?:\.\d+)?\s*h)', rtxt)
+                            if d: hltb["vs"] = round_time_str(d.group(1))
         except Exception:
             pass
 
-        # Text-based fallback search around keywords
-        try:
-            for keyword, key in [("Vs.", "vs"), ("Co-Op", "coop"), ("Single-Player", "ms")]:
-                elems = page.locator(f"text={keyword}")
-                for i in range(min(elems.count(), 6)):
-                    try:
-                        el = elems.nth(i)
-                        surrounding = el.evaluate("(e) => (e.closest('div') || e.parentElement || e).innerText")
-                        if key == "vs" and "vs" not in hltb_data:
-                            m = re.search(r'(?:Vs\.|Versus)[^\d]{0,40}?(\d+(?:\.\d+)?(?:½)?)', surrounding, flags=re.IGNORECASE)
-                            if m:
-                                hltb_data["vs"] = {"t": round_time(m.group(1))}
-                        if key == "coop" and "coop" not in hltb_data:
-                            m = re.search(r'Co-Op[^\d]{0,40}?(\d+(?:\.\d+)?(?:½)?)', surrounding, flags=re.IGNORECASE)
-                            if m:
-                                hltb_data["coop"] = {"t": round_time(m.group(1))}
-                        if key == "ms" and "ms" not in hltb_data:
-                            m = re.search(r'(?:Single-Player|Main Story)[^\d]{0,40}?(\d+(?:\.\d+)?(?:½)?)', surrounding, flags=re.IGNORECASE)
-                            if m:
-                                hltb_data["ms"] = {"t": round_time(m.group(1))}
-                    except Exception:
-                        continue
-        except Exception:
-            pass
-
-        if not hltb_data:
+        # fallback: search page text
+        content = page.content()
+        if not hltb:
             patterns = {
                 "ms": r'(?:Main Story|Single-Player)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)',
                 "mpe": r'(?:Main \+ Extras)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)',
@@ -611,10 +448,11 @@ def extract_hltb_data_from_page(page):
                 "coop": r'(?:Co-Op)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)',
                 "vs": r'(?:Vs\.|Versus)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)'
             }
-            for k, p in patterns.items():
+            for k,p in patterns.items():
                 m = re.search(p, content, flags=re.IGNORECASE)
                 if m:
-                    hltb_data[k] = {"t": round_time(m.group(1))}
+                    hltb[k] = round_time_str(m.group(1))
+        # try to find store links
         stores = {}
         try:
             for name, sel in [("steam","a[href*='store.steampowered.com']"), ("gog","a[href*='gog.com']"), ("epic","a[href*='epicgames.com']")]:
@@ -626,49 +464,53 @@ def extract_hltb_data_from_page(page):
         except Exception:
             pass
         if stores:
-            hltb_data["stores"] = stores
-        return hltb_data if hltb_data else None
+            hltb["stores"] = stores
+        return hltb if hltb else None
     except Exception as e:
-        log_message(f"❌ Ошибка extract_hltb_data_from_page: {e}")
+        log.error(f"extract_hltb_data_from_page error: {e}")
         return None
 
-# ------------- Поисковая попытка (варианты) -------------
+# ---------------- search logic single attempt ----------------
+def is_blocked_content(html: str) -> bool:
+    s = html.lower()
+    checks = ["checking your browser", "cloudflare", "access denied", "please enable javascript", "are you human", "captcha"]
+    return any(c in s for c in checks)
+
 def random_delay(min_s=MIN_DELAY, max_s=MAX_DELAY):
     time.sleep(random.uniform(min_s, max_s))
 
-def is_blocked_content(page_content):
-    s = page_content.lower()
-    checks = ["access denied", "checking your browser", "cloudflare", "please enable javascript", "are you human"]
-    return any(c in s for c in checks)
-
-def save_storage_state(context):
-    try:
-        context.storage_state(path=STORAGE_STATE_FILE)
-    except Exception:
-        pass
-
-def load_storage_state_if_exists():
-    if os.path.exists(STORAGE_STATE_FILE):
-        return STORAGE_STATE_FILE
-    return None
-
-def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
+def search_game_single_attempt(page, game_title: str, game_year: Optional[int], idx_info: Optional[Dict]=None) -> Tuple[Optional[Tuple[Dict,str,float]], Optional[str]]:
     """
-    Попытка поиска — возвращает ((hltb_data, found_title, score), None)
-    или (None, "blocked") или (None, None)
+    Returns ((hltb_data, found_title, score), None) on success,
+            (None, "blocked") if blocked,
+            (None, None) if not found this attempt.
     """
     try:
-        log_message(f"🔍 Ищем: '{game_title}'")
-        variants = build_search_variants(game_title, game_year)
-        # try variants in order
-        for variant in variants:
-            safe_title = quote(variant, safe="")
-            search_url = f"{BASE_URL}/?q={safe_title}"
+        variants = []
+        # generate sensible variants
+        variants.append(game_title)
+        variants.append(game_title.replace('&', 'and'))
+        variants.append(re.sub(r'\(.*?\)', '', game_title).strip())
+        if ':' in game_title:
+            variants.append(game_title.split(":",1)[0].strip())
+        if game_year:
+            variants.append(f"{game_title} {game_year}")
+            variants.append(f"{game_title} \"{game_year}\"")
+        # dedupe variants preserving order
+        seen = set()
+        final_variants = []
+        for v in variants:
+            if v and v not in seen:
+                seen.add(v); final_variants.append(v)
+
+        for variant in final_variants:
+            log.info(f"🔍 Searching variant: '{variant}'")
+            search_url = f"{BASE_URL}/?q={quote(variant, safe='')}"
             try:
                 page.goto(search_url, timeout=PAGE_GOTO_TIMEOUT)
             except PlaywrightError as e:
-                log_message(f"⚠️ Page.goto error for '{variant}': {e}")
-            # small wait for selector
+                log.warning(f"Page.goto error: {e}")
+            # wait a little for results to render
             try:
                 page.wait_for_selector('a[href^="/game/"]', timeout=3500)
             except:
@@ -676,58 +518,62 @@ def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
             random_delay()
             page_content = page.content()
             if is_blocked_content(page_content):
-                log_message("❌ Возможная блокировка/Cloudflare на странице поиска")
+                log.warning("🚫 Detected block/anti-bot on search page")
                 if idx_info and DUMP_ON_EMPTY:
-                    dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
-                    dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+                    dump_search_state(page, idx_info)
                 return None, "blocked"
 
-            candidates = scrape_game_link_candidates(page, max_candidates=120)
+            candidates = scrape_game_link_candidates(page, max_candidates=160)
             if not candidates:
-                log_message("⚠️ Кандидатов 0 — короткий reload (fallback)")
+                log.info("⚠️ Candidates == 0 — trying reload fallback")
                 if idx_info and DUMP_ON_EMPTY:
-                    dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
-                    dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+                    dump_search_state(page, idx_info)
                 try:
                     page.reload(timeout=PAGE_GOTO_TIMEOUT)
-                    try:
-                        page.wait_for_selector('a[href^=\"/game/\"]', timeout=2000)
-                    except:
-                        pass
+                    try: page.wait_for_selector('a[href^=\"/game/\"]', timeout=2000)
+                    except: pass
                     random_delay(0.6, 1.2)
-                    candidates = scrape_game_link_candidates(page, max_candidates=120)
-                except Exception:
-                    candidates = []
-
-            if not candidates:
-                if idx_info and (DEBUG_CANDIDATES or DUMP_ON_EMPTY):
-                    dump_candidates_file(idx_info.get("index",0), idx_info.get("title",""), candidates)
-                continue  # try next variant
-
-            # если слишком много кандидатов — повторим поиск с годом
-            if len(candidates) > 30 and game_year:
-                try:
-                    q = f"{variant} {game_year}"
-                    log_message(f"⚠️ Слишком много результатов ({len(candidates)}), повторный поиск: '{q}'")
-                    page.goto(f"{BASE_URL}/?q={quote(q, safe='')}", timeout=PAGE_GOTO_TIMEOUT)
-                    try:
-                        page.wait_for_selector('a[href^=\"/game/\"]', timeout=3000)
-                    except:
-                        pass
-                    random_delay()
                     candidates = scrape_game_link_candidates(page, max_candidates=160)
                 except Exception:
+                    candidates = []
+            if not candidates:
+                # save tiny candidate dump
+                if idx_info and (DEBUG_CANDIDATES or DUMP_ON_EMPTY):
+                    try:
+                        p = os.path.join(DEBUG_DIR, f"{idx_info.get('index',0)}_{sanitize_filename(idx_info.get('title',''))}_empty_candidates_{int(time.time())}.json")
+                        with open(p, "w", encoding="utf-8") as f: json.dump([], f)
+                        log.info(f"🗂️ saved empty candidates: {p}")
+                    except Exception:
+                        pass
+                continue
+
+            log.info(f"🔎 Found {len(candidates)} candidates for variant '{variant}'")
+            # if too many candidates, try narrow by year
+            if len(candidates) > 30 and game_year:
+                try:
+                    yr_q = f"{variant} {game_year}"
+                    log.info(f"⚠️ Too many results ({len(candidates)}), retrying search with year: '{yr_q}'")
+                    page.goto(f"{BASE_URL}/?q={quote(yr_q, safe='')}", timeout=PAGE_GOTO_TIMEOUT)
+                    try: page.wait_for_selector('a[href^=\"/game/\"]', timeout=3000)
+                    except: pass
+                    random_delay()
+                    candidates = scrape_game_link_candidates(page, max_candidates=200)
+                except Exception:
                     pass
+                log.info(f"🔎 After year-filter: {len(candidates)} candidates")
 
-            # rank candidates
             best_cand, score = find_best_candidate(candidates, game_title, game_year, idx_info=idx_info)
-
-            # debug dumps if ambiguous
-            if idx_info and DEBUG_CANDIDATES and score < DEBUG_SCORE_THRESHOLD:
-                dump_candidates_file(idx_info.get("index",0), idx_info.get("title",""), candidates)
-
+            if idx_info and DEBUG_CANDIDATES:
+                if score < DEBUG_SCORE_THRESHOLD:
+                    # save candidate dump for offline analysis
+                    try:
+                        p = os.path.join(DEBUG_DIR, f"{idx_info.get('index',0)}_{sanitize_filename(idx_info.get('title',''))}_candidates_debug_{int(time.time())}.json")
+                        with open(p, "w", encoding="utf-8") as f: json.dump(candidates, f, ensure_ascii=False, indent=2)
+                        log.info(f"🧾 saved debug candidates: {p}")
+                    except Exception:
+                        pass
             if not best_cand:
-                # try next variant
+                log.info("⚠️ No best candidate this variant — continuing with next variant")
                 continue
 
             href = best_cand.get("href")
@@ -737,7 +583,7 @@ def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
             try:
                 page.goto(full_url, timeout=PAGE_GOTO_TIMEOUT)
             except PlaywrightError:
-                log_message(f"⚠️ Ошибка перехода на страницу игры: {full_url}")
+                log.warning(f"⚠️ goto {full_url} failed")
             try:
                 page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
             except:
@@ -745,228 +591,307 @@ def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
             random_delay()
             page_content = page.content()
             if is_blocked_content(page_content):
+                log.warning("🚫 Block detected on game page")
                 if idx_info and DUMP_ON_EMPTY:
-                    dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
-                    dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+                    dump_search_state(page, idx_info)
                 return None, "blocked"
             hltb_data = extract_hltb_data_from_page(page)
             if hltb_data:
-                # save storage state after successful fetch
-                try:
-                    save_storage_state(page.context)
-                except Exception:
-                    pass
-                return (hltb_data, best_cand["text"], score), None
+                return (hltb_data, best_cand.get("text",""), score), None
             else:
                 if idx_info and DUMP_ON_EMPTY:
-                    dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
-                    dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
-                # try next variant
+                    dump_search_state(page, idx_info)
                 continue
-
-        # tried all variants
         return None, None
-
     except Exception as e:
-        log_message(f"⚠️ Ошибка search_game_single_attempt('{game_title}'): {e}")
+        log.exception(f"search_game_single_attempt exception for '{game_title}': {e}")
         if idx_info and DUMP_ON_EMPTY:
             try:
-                dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
-                dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
-            except:
+                dump_search_state(page, idx_info)
+            except Exception:
                 pass
         return None, None
 
-# ------------- Координация попыток поиска -------------
-def search_game_on_hltb(page, game_title, game_year=None, backoff_base=0):
-    max_attempts = 3
-    backoff = backoff_base
-    best_result = None
-    best_score = 0.0
-
-    for attempt in range(max_attempts):
-        if attempt > 0:
-            if backoff > 0:
-                delay = backoff
-            else:
-                delay = random.uniform(3, 6) if attempt == 1 else random.uniform(6, 12)
-            log_message(f"🔄 Попытка {attempt+1}/{max_attempts} для '{game_title}' — пауза {int(delay)}s")
-            time.sleep(delay)
-
-        idx_info = {"index": 0, "title": game_title}
-        outcome, status = search_game_single_attempt(page, game_title, game_year, idx_info=idx_info)
-        if isinstance(outcome, tuple) and outcome[0] is not None:
-            hltb, found_title, score = outcome
-            if score >= 0.98:
-                log_message(f"🎯 Найдено идеальное совпадение: '{found_title}' (score {score:.2f})")
-                return hltb, 0
-            if score > best_score:
-                best_score = score; best_result = hltb
-            if score >= 0.7:
-                return hltb, 0
-        else:
-            if status == "blocked":
-                backoff = max(INITIAL_BACKOFF if backoff_base<=0 else backoff_base * BACKOFF_MULTIPLIER, INITIAL_BACKOFF)
-                backoff = min(backoff, MAX_BACKOFF)
-                log_message(f"🚫 Обнаружена блокировка — backoff -> {int(backoff)}s")
-                time.sleep(backoff)
-                continue
-
-        # альтернативные названия (генерируем осторожно)
-        alts = generate_alternative_titles(game_title)
-        for alt in alts:
-            if alt == game_title:
-                continue
-            outcome_alt, status_alt = search_game_single_attempt(page, alt, game_year, idx_info={"index":0,"title":alt})
-            if isinstance(outcome_alt, tuple) and outcome_alt[0] is not None:
-                hltb, found_title, score = outcome_alt
-                if score >= 0.98:
-                    log_message(f"🎯 Найден идеальный результат для альтернативы '{alt}': '{found_title}'")
-                    return hltb, 0
-                if score > best_score:
-                    best_score = score; best_result = hltb
-            elif status_alt == "blocked":
-                backoff = max(INITIAL_BACKOFF if backoff_base<=0 else backoff_base * BACKOFF_MULTIPLIER, INITIAL_BACKOFF)
-                backoff = min(backoff, MAX_BACKOFF)
-                log_message(f"🚫 Блок при альтернативном поиске — backoff -> {int(backoff)}s")
-                time.sleep(backoff)
-                continue
-
-    if best_result:
-        log_message(f"🏆 Возвращаю лучший доступный результат (score {best_score:.2f})")
-        return best_result, max(0, backoff)
-    return None, max(0, backoff)
-
-# ------------- Сохранение и основной цикл -------------
-def save_results(games_data):
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        for i, game in enumerate(games_data):
-            if i > 0: f.write("\n")
-            json.dump(game, f, separators=(',', ':'), ensure_ascii=False)
-    log_message(f"💾 Результаты сохранены: {OUTPUT_FILE}")
-
-def save_progress(current_index, total_games):
-    progress_data = {"current_index": current_index, "total_games": total_games, "last_updated": datetime.now().isoformat()}
-    with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
-        json.dump(progress_data, f, ensure_ascii=False, indent=2)
-
-def update_html_with_hltb(html_file, hltb_data):
+# ---------------- debugging helpers ----------------
+def dump_search_state(page, idx_info):
     try:
-        with open(html_file, 'r', encoding='utf-8') as f: content = f.read()
-        start = content.find('const gamesList = ')
-        if start == -1: return False
-        start = content.find('[', start)
-        bracket_count = 0; end = start
-        for i,ch in enumerate(content[start:], start):
-            if ch == '[': bracket_count += 1
-            elif ch == ']':
-                bracket_count -= 1
-                if bracket_count == 0:
-                    end = i+1; break
-        new = content[:start] + json.dumps(hltb_data, ensure_ascii=False) + content[end:]
-        with open(html_file, 'w', encoding='utf-8') as f: f.write(new)
-        return True
+        i = idx_info.get("index",0)
+        title = idx_info.get("title","")
+        # html
+        html_path = os.path.join(DEBUG_DIR, f"{i}_{sanitize_filename(title)}_search_html_{int(time.time())}.html")
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(page.content())
+        log.info(f"📝 saved html dump: {html_path}")
     except Exception as e:
-        log_message(f"❌ Ошибка update_html_with_hltb: {e}")
+        log.warning(f"dump_search_state html error: {e}")
+    try:
+        # screenshot
+        shot_path = os.path.join(DEBUG_DIR, f"{i}_{sanitize_filename(title)}_screenshot_{int(time.time())}.png")
+        page.screenshot(path=shot_path, full_page=True)
+        log.info(f"📸 saved screenshot: {shot_path}")
+    except Exception as e:
+        log.warning(f"dump_search_state screenshot error: {e}")
+    try:
+        # candidates (re-scrape)
+        cands = scrape_game_link_candidates(page, max_candidates=200)
+        cand_path = os.path.join(DEBUG_DIR, f"{i}_{sanitize_filename(title)}_candidates_{int(time.time())}.json")
+        with open(cand_path, "w", encoding="utf-8") as f:
+            json.dump(cands, f, ensure_ascii=False, indent=2)
+        log.info(f"🗂️ saved candidates: {cand_path}")
+        append_summary_log(i, title, cands)
+    except Exception as e:
+        log.warning(f"dump_search_state candidates error: {e}")
+
+# ---------------- save results (per-run) ----------------
+def save_results_per_run(games_list: List[Dict], runid: str) -> str:
+    fn = PER_RUN_FILENAME_TEMPLATE.format(runid=runid)
+    out_path = os.path.join(OUTPUT_DIR, fn)
+    with open(out_path, "w", encoding="utf-8") as f:
+        # newline-delimited or single array? we choose single array for canonical file
+        json.dump(games_list, f, ensure_ascii=False, indent=2)
+    log.info(f"💾 saved per-run results: {out_path}")
+    return out_path
+
+# ---------------- GitHub API commit (atomic) ----------------
+def commit_file_to_github(per_run_file_path: str,
+                          repo: Optional[str] = None,
+                          token: Optional[str] = None,
+                          path_in_repo: str = CANONICAL_OUTPUT_PATH,
+                          commit_message: Optional[str] = None) -> bool:
+    """
+    Atomically update (create or update) file at path_in_repo using GitHub API:
+    PUT /repos/{owner}/{repo}/contents/{path}
+    Implements retry with exponential backoff on sha-conflicts.
+    Returns True on success, False on final failure.
+    """
+    if token is None or repo is None:
+        log.warning("GITHUB_TOKEN or GITHUB_REPOSITORY not set; skipping commit")
+        return False
+    if requests is None:
+        log.warning("requests library not installed; skipping commit")
         return False
 
+    with open(per_run_file_path, "rb") as f:
+        content_bytes = f.read()
+    content_b64 = base64.b64encode(content_bytes).decode()
+
+    owner_repo = repo  # "owner/repo"
+    api_base = f"https://api.github.com/repos/{owner_repo}/contents/{path_in_repo.lstrip('/')}"
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
+
+    if commit_message is None:
+        commit_message = f"HLTB: update data from run {os.environ.get('GITHUB_RUN_ID','local')} at {datetime.utcnow().isoformat()}"
+
+    attempt = 0
+    backoff = GITHUB_API_INITIAL_BACKOFF
+    while attempt < GITHUB_API_MAX_ATTEMPTS:
+        attempt += 1
+        try:
+            # get current file to obtain sha (if exists)
+            resp = requests.get(api_base, headers=headers, timeout=30)
+        except Exception as e:
+            log.warning(f"GitHub API GET error (attempt {attempt}): {e}")
+            time.sleep(backoff)
+            backoff *= 2
+            continue
+        if resp.status_code == 200:
+            try:
+                j = resp.json()
+                current_sha = j.get("sha")
+            except Exception:
+                current_sha = None
+        elif resp.status_code == 404:
+            current_sha = None
+        else:
+            log.warning(f"GitHub API GET returned status {resp.status_code}: {resp.text}")
+            # transient error -> retry
+            time.sleep(backoff)
+            backoff *= 2
+            continue
+
+        payload = {"message": commit_message, "content": content_b64}
+        if current_sha:
+            payload["sha"] = current_sha
+        # attempt to PUT
+        try:
+            put_resp = requests.put(api_base, headers=headers, json=payload, timeout=30)
+        except Exception as e:
+            log.warning(f"GitHub API PUT error (attempt {attempt}): {e}")
+            time.sleep(backoff)
+            backoff *= 2
+            continue
+
+        if put_resp.status_code in (200,201):
+            log.info(f"✅ Successfully updated {path_in_repo} in repo {owner_repo} (attempt {attempt})")
+            return True
+        else:
+            # check message
+            try:
+                jr = put_resp.json()
+                message = jr.get("message","")
+            except Exception:
+                message = put_resp.text
+            log.warning(f"GitHub API PUT status {put_resp.status_code} (attempt {attempt}): {message}")
+            # if conflict / sha mismatch, retry
+            if put_resp.status_code == 409 or "sha" in message.lower() or "conflict" in message.lower():
+                log.info(f"Conflict detected; retrying after {backoff}s (attempt {attempt})")
+                time.sleep(backoff)
+                backoff *= 2
+                continue
+            # other errors -> maybe rate limit? handle 403 rate limit
+            if put_resp.status_code == 403 and 'rate limit' in message.lower():
+                reset_sleep = backoff * 2
+                log.info(f"Rate limited; sleeping {reset_sleep}s")
+                time.sleep(reset_sleep)
+                backoff *= 2
+                continue
+            # unknown fatal -> break
+            log.error(f"Fatal error updating file: {put_resp.status_code} - {message}")
+            return False
+    log.error("❌ Reached max attempts for GitHub API commit; giving up")
+    return False
+
+# ---------------- Main loop ----------------
 def main():
-    log_message("🚀 Запуск HLTB Worker (улучшенная версия)")
-    if not os.path.exists(GAMES_LIST_FILE):
-        log_message(f"❌ Файл {GAMES_LIST_FILE} не найден")
-        return
-    setup_dirs()
+    ensure_dirs()
+    # extract games
     try:
         games_list = extract_games_list(GAMES_LIST_FILE)
     except Exception as e:
-        log_message(f"💥 Не удалось извлечь games_list: {e}")
+        log.exception(f"Failed to extract games list: {e}")
         raise
 
-    total_games = len(games_list)
-    log_message(f"📄 Извлечено {total_games} игр")
+    total = len(games_list)
+    log.info(f"📄 extracted {total} games")
 
-    start_index = 0
+    # progress start index (optional)
+    start_idx = 0
     if os.path.exists(PROGRESS_FILE):
         try:
-            with open(PROGRESS_FILE, "r", encoding="utf-8") as f: prog = json.load(f)
-            start_index = prog.get("current_index", 0)
-            log_message(f"📂 Продолжаем с {start_index}")
+            with open(PROGRESS_FILE, "r", encoding="utf-8") as pf:
+                prog = json.load(pf)
+                start_idx = prog.get("current_index", 0)
+                log.info(f"📂 resume from index {start_idx}")
         except Exception:
-            start_index = 0
+            start_idx = 0
 
-    backoff_state = 0
+    runid = os.environ.get("GITHUB_RUN_ID") or ts()
+    per_run_path = None
     processed = 0
+    backoff_state = 0
 
-    storage_path = load_storage_state_if_exists()
+    # Playwright start
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context_kwargs = {
+                "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+                "viewport": {"width": 1280, "height": 800},
+                "locale": "en-US",
+            }
+            if os.path.exists(STORAGE_STATE):
+                context_kwargs["storage_state"] = STORAGE_STATE
+            context = browser.new_context(**context_kwargs)
+            page = context.new_page()
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        # создаём context с storage_state если есть
-        context_args = {
-            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-            "viewport": {"width":1280,"height":800},
-            "locale":"en-US",
-        }
-        try:
-            if storage_path:
-                context_args["storage_state"] = storage_path
-        except Exception:
-            pass
-        context = browser.new_context(**context_args)
-        page = context.new_page()
-
-        try:
-            page.goto(BASE_URL, timeout=PAGE_GOTO_TIMEOUT)
-            page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
-            log_message("✅ HowLongToBeat доступен")
-            # save storage state after a successful landing page
             try:
-                save_storage_state(context)
+                page.goto(BASE_URL, timeout=PAGE_GOTO_TIMEOUT)
+                page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
+                log.info("✅ HowLongToBeat landing OK")
+                # save storage_state
+                try:
+                    context.storage_state(path=STORAGE_STATE)
+                except Exception:
+                    pass
+            except Exception as e:
+                log.warning(f"Landing page open failed: {e}")
+
+            for i in range(start_idx, total):
+                entry = games_list[i]
+                title = entry.get("title") or ""
+                year = entry.get("year")
+                index_display = i+1
+                log.info(f"🎮 Processing {index_display}/{total}: {title} ({year})")
+                idx_info = {"index": index_display, "title": title}
+                outcome, status = search_game_single_attempt(page, title, year, idx_info=idx_info)
+                if status == "blocked":
+                    # increase backoff
+                    backoff_state = max(backoff_state * 2, 30)
+                    log.warning(f"⏸️ Block detected — sleeping {int(backoff_state)}s")
+                    time.sleep(backoff_state)
+                # process outcome
+                if isinstance(outcome, tuple) and outcome[0] is not None:
+                    hltb_data, found_title, score = outcome
+                    entry["hltb"] = hltb_data
+                    processed += 1
+                    log.info(f"✅ Found data for '{title}': matched '{found_title}' (score {score:.2f})")
+                else:
+                    entry["hltb"] = {"ms": "N/A", "mpe": "N/A", "comp": "N/A", "vs": "N/A"}
+                    log.warning(f"⚠️ Data not found for: {title} - written N/A")
+
+                # periodic saves
+                if (i+1) % 10 == 0:
+                    try:
+                        with open(PROGRESS_FILE, "w", encoding="utf-8") as pf:
+                            json.dump({"current_index": i+1, "total": total, "last": datetime.utcnow().isoformat()}, pf)
+                        save_tmp = save_results_per_run(games_list, runid)  # save every 10
+                        per_run_path = save_tmp
+                    except Exception as e:
+                        log.warning(f"Periodic save error: {e}")
+
+                # handle backoff / polite delay
+                if backoff_state >= 30:
+                    log.info(f"⏸ sleeping backoff_state {int(backoff_state)}s")
+                    time.sleep(backoff_state)
+                else:
+                    random_delay()
+
+            # finished loop
+            try:
+                per_run_path = save_results_per_run(games_list, runid)
+            except Exception as e:
+                log.exception(f"Failed final save: {e}")
+            try:
+                context.close()
             except:
                 pass
-        except Exception as e:
-            log_message(f"⚠️ Ошибка при открытии сайта: {e}")
+            try:
+                browser.close()
+            except:
+                pass
+    except Exception as e:
+        log.exception(f"Playwright run failed: {e}")
+        raise
 
-        for i in range(start_index, total_games):
-            game = games_list[i]
-            title = game.get("title") or ""
-            year = game.get("year")
-            log_message(f"🎮 Обрабатываю {i+1}/{total_games}: {title} ({year})")
-            idx_info = {"index": i+1, "title": title}
-            hltb_data, new_backoff = search_game_on_hltb(page, title, year, backoff_base=backoff_state)
-            if new_backoff and new_backoff > backoff_state:
-                backoff_state = new_backoff
-            else:
-                backoff_state = max(0, backoff_state * 0.6)
-            if hltb_data:
-                game["hltb"] = hltb_data
-                processed += 1
-                log_message(f"✅ Данные найдены для '{title}'")
-            else:
-                game["hltb"] = {"ms":"N/A","mpe":"N/A","comp":"N/A","all":"N/A"}
-                log_message(f"⚠️ Данные не найдены для: {title} - записано N/A")
-            # периодическое сохранение прогресса и результатов
-            if (i+1) % 10 == 0:
-                save_progress(i+1, total_games)
-                save_results(games_list)
-            if backoff_state >= 30:
-                log_message(f"⏸️ Sleeping backoff_state {int(backoff_state)}s")
-                time.sleep(backoff_state)
-            else:
-                random_delay()
-        try:
-            browser.close()
-        except:
-            pass
+    log.info(f"🎉 Done — processed {processed}/{total} games. Per-run: {per_run_path}")
 
-    save_results(games_list)
-    if update_html_with_hltb(GAMES_LIST_FILE, games_list):
-        log_message("✅ HTML обновлён")
-    log_message(f"🎉 Готово — обработано {processed}/{total_games} игр")
+    # Attempt commit to GitHub canonical path via API (if token and repo set)
+    gh_token = os.environ.get("GITHUB_TOKEN")  # provided by Actions
+    gh_repo = os.environ.get("GITHUB_REPOSITORY")  # owner/repo
+    if gh_token and gh_repo and per_run_path and os.path.exists(per_run_path):
+        log.info("🔐 Attempting to commit per-run result to repository via GitHub API")
+        commit_msg = f"HLTB: update data (run {os.environ.get('GITHUB_RUN_ID','local')})"
+        ok = commit_file_to_github(per_run_path, repo=gh_repo, token=gh_token, path_in_repo=CANONICAL_OUTPUT_PATH, commit_message=commit_msg)
+        if ok:
+            log.info("✅ Commit successful")
+        else:
+            log.error("❌ Commit failed (see logs)")
+    else:
+        log.info("ℹ️ Skipping GitHub commit (GITHUB_TOKEN and/or GITHUB_REPOSITORY not set or per-run file missing)")
 
+# small wrapper to call save_results_per_run (exposed earlier)
+def save_results_per_run(games_list: List[Dict], runid: str) -> str:
+    fn = PER_RUN_FILENAME_TEMPLATE.format(runid=runid)
+    out_path = os.path.join(OUTPUT_DIR, fn)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(games_list, f, ensure_ascii=False, indent=2)
+    log.info(f"💾 saved per-run results: {out_path}")
+    return out_path
+
+# ---------------- Entrypoint ----------------
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        log_message(f"💥 Критическая ошибка: {e}")
+        log.exception(f"CRITICAL ERROR: {e}")
         raise
