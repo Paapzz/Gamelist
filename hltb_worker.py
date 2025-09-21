@@ -419,4 +419,382 @@ def extract_hltb_data_from_page(page):
         try:
             tables = page.locator("table")
             for ti in range(tables.count()):
-                tbl = ta
+                tbl = tables.nth(ti)
+                ttxt = tbl.inner_text()
+                if any(k in ttxt for k in ["Main Story","Main + Extras","Completionist","Co-Op","Vs.","Competitive","Single-Player"]):
+                    rows = tbl.locator("tr")
+                    for ri in range(rows.count()):
+                        rtxt = rows.nth(ri).inner_text()
+                        if "Main Story" in rtxt or "Single-Player" in rtxt:
+                            d = _parse_time_polled_from_text(rtxt)
+                            if d: hltb_data["ms"] = d
+                        if "Main + Extras" in rtxt:
+                            d = _parse_time_polled_from_text(rtxt)
+                            if d: hltb_data["mpe"] = d
+                        if "Completionist" in rtxt:
+                            d = _parse_time_polled_from_text(rtxt)
+                            if d: hltb_data["comp"] = d
+                        if "Co-Op" in rtxt:
+                            d = _parse_time_polled_from_text(rtxt)
+                            if d: hltb_data["coop"] = d
+                        if "Vs." in rtxt or "Competitive" in rtxt:
+                            d = _parse_time_polled_from_text(rtxt)
+                            if d: hltb_data["vs"] = d
+        except Exception:
+            pass
+        try:
+            for keyword, key in [("Vs.", "vs"), ("Co-Op", "coop"), ("Single-Player", "ms")]:
+                elems = page.locator(f"text={keyword}")
+                for i in range(min(elems.count(), 6)):
+                    try:
+                        el = elems.nth(i)
+                        surrounding = el.evaluate("(e) => (e.closest('div') || e.parentElement || e).innerText")
+                        if key == "vs" and "vs" not in hltb_data:
+                            m = re.search(r'(?:Vs\.|Versus)[^\d]{0,40}?(\d+(?:\.\d+)?(?:½)?)', surrounding, flags=re.IGNORECASE)
+                            if m:
+                                hltb_data["vs"] = {"t": round_time(m.group(1))}
+                        if key == "coop" and "coop" not in hltb_data:
+                            m = re.search(r'Co-Op[^\d]{0,40}?(\d+(?:\.\d+)?(?:½)?)', surrounding, flags=re.IGNORECASE)
+                            if m:
+                                hltb_data["coop"] = {"t": round_time(m.group(1))}
+                        if key == "ms" and "ms" not in hltb_data:
+                            m = re.search(r'(?:Single-Player|Main Story)[^\d]{0,40}?(\d+(?:\.\d+)?(?:½)?)', surrounding, flags=re.IGNORECASE)
+                            if m:
+                                hltb_data["ms"] = {"t": round_time(m.group(1))}
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+        if not hltb_data:
+            patterns = {
+                "ms": r'(?:Main Story|Single-Player)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)',
+                "mpe": r'(?:Main \+ Extras)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)',
+                "comp": r'(?:Completionist)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)',
+                "coop": r'(?:Co-Op)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)',
+                "vs": r'(?:Vs\.|Versus)[^\n]{0,160}?(\d+(?:\.\d+)?(?:½)?\s*h?)'
+            }
+            for k, p in patterns.items():
+                m = re.search(p, content, flags=re.IGNORECASE)
+                if m:
+                    hltb_data[k] = {"t": round_time(m.group(1))}
+        stores = {}
+        try:
+            for name, sel in [("steam","a[href*='store.steampowered.com']"), ("gog","a[href*='gog.com']"), ("epic","a[href*='epicgames.com']")]:
+                loc = page.locator(sel)
+                if loc.count() > 0:
+                    href = loc.first.get_attribute("href")
+                    if href:
+                        stores[name] = href
+        except Exception:
+            pass
+        if stores:
+            hltb_data["stores"] = stores
+        return hltb_data if hltb_data else None
+    except Exception as e:
+        log_message(f"❌ Ошибка extract_hltb_data_from_page: {e}")
+        return None
+
+# ------------------ Search attempt + debug behavior ------------------
+
+def random_delay(min_s=MIN_DELAY, max_s=MAX_DELAY):
+    time.sleep(random.uniform(min_s, max_s))
+
+def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
+    """
+    Возвращает ((hltb_data, found_title, score), None) или (None, "blocked") или (None, None)
+    idx_info — словарь {"index": i, "title": game_title} для дампов.
+    """
+    try:
+        log_message(f"🔍 Ищем: '{game_title}'")
+        safe_title = quote(game_title, safe="")
+        search_url = f"{BASE_URL}/?q={safe_title}"
+
+        page.goto(search_url, timeout=PAGE_GOTO_TIMEOUT)
+        try:
+            page.wait_for_selector('a[href^="/game/"]', timeout=3500)
+        except:
+            # не критично — пробуем дальше; короткий reload позже если кандидатов ноль
+            pass
+
+        random_delay()
+
+        page_content = page.content()
+        if "blocked" in page_content.lower() or "access denied" in page_content.lower() or ("checking your browser" in page_content.lower() and "cloudflare" in page_content.lower()):
+            log_message("❌ Возможная блокировка/Cloudflare на странице поиска")
+            if idx_info and DUMP_ON_EMPTY:
+                dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
+                dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+            return None, "blocked"
+
+        candidates = scrape_game_link_candidates(page, max_candidates=80)
+
+        # если 0 — короткий reload fallback и дамп
+        if not candidates:
+            log_message("⚠️ Кандидатов 0 — короткий reload (fallback)")
+            if idx_info and DUMP_ON_EMPTY:
+                dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
+                dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+            try:
+                page.reload(timeout=PAGE_GOTO_TIMEOUT)
+                try:
+                    page.wait_for_selector('a[href^=\"/game/\"]', timeout=2000)
+                except:
+                    pass
+                random_delay(0.6, 1.2)
+                candidates = scrape_game_link_candidates(page, max_candidates=80)
+            except Exception:
+                candidates = []
+
+        # снова 0 — сохраняем дамп кандидатов (пустой) и возвращаем None
+        if not candidates:
+            if idx_info and (DEBUG_CANDIDATES or DUMP_ON_EMPTY):
+                dump_candidates_file(idx_info.get("index",0), idx_info.get("title",""), candidates)
+            return None, None
+
+        # если много, пробуем точный поиск в кавычках
+        if len(candidates) > 30:
+            quoted = f'"{game_title}"'
+            page.goto(f"{BASE_URL}/?q={quote(quoted, safe='')}", timeout=PAGE_GOTO_TIMEOUT)
+            try:
+                page.wait_for_selector('a[href^=\"/game/\"]', timeout=2500)
+            except:
+                pass
+            random_delay()
+            page_content = page.content()
+            if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+                if idx_info and DUMP_ON_EMPTY:
+                    dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
+                    dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+                return None, "blocked"
+            candidates = scrape_game_link_candidates(page, max_candidates=80)
+
+        # рейтинг кандидатов
+        best_cand, score = find_best_candidate(candidates, game_title, game_year, idx_info=idx_info)
+
+        # если включён DEBUG_CANDIDATES и score низкий — сохраняем список кандидатов и оценки
+        if idx_info and DEBUG_CANDIDATES:
+            if score < DEBUG_SCORE_THRESHOLD:
+                dump_candidates_file(idx_info.get("index",0), idx_info.get("title",""), candidates)
+                # find_best_candidate уже сохранил оценки через dump_scores_file
+
+        if not best_cand:
+            return None, None
+
+        href = best_cand.get("href")
+        if not href:
+            return None, None
+        full_url = f"{BASE_URL}{href}"
+
+        page.goto(full_url, timeout=PAGE_GOTO_TIMEOUT)
+        try:
+            page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
+        except:
+            pass
+        random_delay()
+
+        page_content = page.content()
+        if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+            if idx_info and DUMP_ON_EMPTY:
+                dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
+                dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+            return None, "blocked"
+
+        hltb_data = extract_hltb_data_from_page(page)
+        if hltb_data:
+            return (hltb_data, best_cand["text"], score), None
+        else:
+            # если не удалось спарсить страницу игры — дамп страницы на отладку (опционально)
+            if idx_info and DUMP_ON_EMPTY:
+                dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
+                dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+            return None, None
+
+    except Exception as e:
+        log_message(f"⚠️ Ошибка search_game_single_attempt('{game_title}'): {e}")
+        if idx_info and DUMP_ON_EMPTY:
+            try:
+                dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
+                dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
+            except:
+                pass
+        return None, None
+
+# ------------------ search_game_on_hltb и остальное — оставлено прежним ------------------
+
+def search_game_on_hltb(page, game_title, game_year=None, backoff_base=0):
+    max_attempts = 3
+    backoff = backoff_base
+    best_result = None
+    best_score = 0.0
+    idx_info = {"index": 0, "title": game_title}  # заполнится в основном цикле
+
+    for attempt in range(max_attempts):
+        if attempt > 0:
+            if backoff > 0:
+                delay = backoff
+            else:
+                delay = random.uniform(3, 6) if attempt == 1 else random.uniform(6, 12)
+            log_message(f"🔄 Попытка {attempt+1}/{max_attempts} для '{game_title}' — пауза {int(delay)}s")
+            time.sleep(delay)
+
+        outcome, status = search_game_single_attempt(page, game_title, game_year, idx_info=idx_info)
+        if isinstance(outcome, tuple) and outcome[0] is not None:
+            hltb, found_title, score = outcome
+            if score >= 0.98:
+                log_message(f"🎯 Найдено идеальное совпадение: '{found_title}' (score {score:.2f})")
+                return hltb, 0
+            if score > best_score:
+                best_score = score; best_result = hltb
+            if score >= 0.7:
+                return hltb, 0
+        else:
+            if status == "blocked":
+                backoff = max(INITIAL_BACKOFF if backoff_base<=0 else backoff_base * BACKOFF_MULTIPLIER, INITIAL_BACKOFF)
+                backoff = min(backoff, MAX_BACKOFF)
+                log_message(f"🚫 Обнаружена блокировка — backoff -> {int(backoff)}s")
+                time.sleep(backoff)
+                continue
+
+        alts = generate_alternative_titles(game_title)
+        for alt in alts:
+            if alt == game_title:
+                continue
+            outcome_alt, status_alt = search_game_single_attempt(page, alt, game_year, idx_info=idx_info)
+            if isinstance(outcome_alt, tuple) and outcome_alt[0] is not None:
+                hltb, found_title, score = outcome_alt
+                if score >= 0.98:
+                    log_message(f"🎯 Найден идеальный результат для альтернативы '{alt}': '{found_title}'")
+                    return hltb, 0
+                if score > best_score:
+                    best_score = score; best_result = hltb
+            elif status_alt == "blocked":
+                backoff = max(INITIAL_BACKOFF if backoff_base<=0 else backoff_base * BACKOFF_MULTIPLIER, INITIAL_BACKOFF)
+                backoff = min(backoff, MAX_BACKOFF)
+                log_message(f"🚫 Блок при альтернативном поиске — backoff -> {int(backoff)}s")
+                time.sleep(backoff)
+                continue
+
+    if best_result:
+        log_message(f"🏆 Возвращаю лучший доступный результат (score {best_score:.2f})")
+        return best_result, max(0, backoff)
+    return None, max(0, backoff)
+
+# ------------------ Сохранение / main ------------------
+
+def save_results(games_data):
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        for i, game in enumerate(games_data):
+            if i > 0: f.write("\n")
+            json.dump(game, f, separators=(',', ':'), ensure_ascii=False)
+    log_message(f"💾 Результаты сохранены в {OUTPUT_FILE}")
+
+def save_progress(games_data, current_index, total_games):
+    progress_data = {"current_index": current_index, "total_games": total_games, "last_updated": datetime.now().isoformat()}
+    with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
+        json.dump(progress_data, f, ensure_ascii=False, indent=2)
+
+def update_html_with_hltb(html_file, hltb_data):
+    try:
+        with open(html_file, 'r', encoding='utf-8') as f: content = f.read()
+        start = content.find('const gamesList = ')
+        if start == -1: return False
+        start = content.find('[', start)
+        bracket_count = 0; end = start
+        for i,ch in enumerate(content[start:], start):
+            if ch == '[': bracket_count += 1
+            elif ch == ']':
+                bracket_count -= 1
+                if bracket_count == 0:
+                    end = i+1; break
+        new = content[:start] + json.dumps(hltb_data, ensure_ascii=False) + content[end:]
+        with open(html_file, 'w', encoding='utf-8') as f: f.write(new)
+        return True
+    except Exception as e:
+        log_message(f"❌ Ошибка update_html_with_hltb: {e}")
+        return False
+
+def main():
+    log_message("🚀 Запуск HLTB Worker (с расширенным логированием)")
+    if not os.path.exists(GAMES_LIST_FILE):
+        log_message(f"❌ Файл {GAMES_LIST_FILE} не найден"); return
+    setup_directories()
+    with open(GAMES_LIST_FILE, 'r', encoding='utf-8') as f: content = f.read()
+    start = content.find('const gamesList = ')
+    if start == -1: log_message("❌ gamesList не найден"); return
+    start = content.find('[', start)
+    bracket_count = 0; end = start
+    for i,ch in enumerate(content[start:], start):
+        if ch == '[': bracket_count += 1
+        elif ch == ']':
+            bracket_count -= 1
+            if bracket_count == 0:
+                end = i+1; break
+    games_list = json.loads(content[start:end])
+    total_games = len(games_list)
+    log_message(f"📄 Извлечено {total_games} игр")
+
+    start_index = 0
+    if os.path.exists(PROGRESS_FILE):
+        try:
+            with open(PROGRESS_FILE, "r", encoding="utf-8") as f: prog = json.load(f)
+            start_index = prog.get("current_index", 0); log_message(f"📂 Продолжаем с {start_index}")
+        except:
+            start_index = 0
+
+    backoff_state = 0
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+            viewport={"width":1280,"height":800},
+            locale="en-US"
+        )
+        page = context.new_page()
+        try:
+            page.goto(BASE_URL, timeout=PAGE_GOTO_TIMEOUT)
+            page.wait_for_load_state("domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
+            log_message("✅ HowLongToBeat доступен")
+        except Exception as e:
+            log_message(f"⚠️ Ошибка проверки сайта: {e}")
+
+        start_time = time.time(); processed = 0
+        for i in range(start_index, total_games):
+            game = games_list[i]
+            title = game.get("title") or ""
+            year = game.get("year")
+            log_message(f"🎮 Обрабатываю {i+1}/{total_games}: {title} ({year})")
+            # передаем индекс/название для дампов
+            idx_info = {"index": i+1, "title": title}
+            hltb_data, new_backoff = search_game_on_hltb(page, title, year, backoff_base=backoff_state)
+            if new_backoff and new_backoff > backoff_state:
+                backoff_state = new_backoff
+            else:
+                backoff_state = max(0, backoff_state * 0.6)
+            if hltb_data:
+                game["hltb"] = hltb_data; processed += 1; log_message(f"✅ Данные найдены для '{title}'")
+            else:
+                game["hltb"] = {"ms":"N/A","mpe":"N/A","comp":"N/A","all":"N/A"}; log_message(f"⚠️ Данные не найдены для: {title} - записано N/A")
+            if (i+1) % 25 == 0:
+                save_progress(games_list, i+1, total_games)
+            if backoff_state >= 30:
+                log_message(f"⏸️ Sleeping backoff_state {int(backoff_state)}s")
+                time.sleep(backoff_state)
+            else:
+                random_delay()
+        try:
+            browser.close()
+        except:
+            pass
+
+    save_results(games_list)
+    if update_html_with_hltb(GAMES_LIST_FILE, games_list):
+        log_message("✅ HTML обновлён")
+    log_message(f"🎉 Готово — обработано {processed}/{total_games} игр")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        log_message(f"💥 Критическая ошибка: {e}")
+        raise
