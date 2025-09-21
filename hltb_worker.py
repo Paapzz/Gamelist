@@ -223,10 +223,10 @@ def search_game_on_hltb(page, game_title, game_year=None):
             log_message("🔄 Продолжаем поиск альтернатив...")
         
         # Сохраняем результат, но не возвращаем сразу
-        good_result = hltb_data
-        good_score = score
-        good_title = found_title
-    else:
+            good_result = hltb_data
+            good_score = score
+            good_title = found_title
+        else:
         log_message("❌ Оригинальное название не найдено, пробуем альтернативы...")
     
     # Генерируем альтернативы для поиска
@@ -250,6 +250,8 @@ def search_game_on_hltb(page, game_title, game_year=None):
             best_title = good_title
             best_found_title = good_title
             
+            # внутри цикла альтернатив:
+            perfect_found = False
             for alt_title in alternative_titles:
                 # Пропускаем оригинальное название, так как уже пробовали
                 if alt_title == game_title:
@@ -262,9 +264,23 @@ def search_game_on_hltb(page, game_title, game_year=None):
                     
                     # Вычисляем схожесть между оригинальным названием и найденным результатом
                     score = calculate_title_similarity(
-                        clean_title_for_comparison(game_title),
-                        clean_title_for_comparison(found_title) if found_title else clean_title_for_comparison(alt_title)
+                        game_title,
+                        found_title if found_title else alt_title
                     )
+                    
+                    # если идеальный скор
+                    if score >= 1.0:
+                        # предпочитаем найденный вариант с большим количеством токенов (более специфичный)
+                        cand_len = len(clean_title_for_comparison(found_title or alt_title).split())
+                        best_len = len(clean_title_for_comparison(best_found_title or "").split()) if best_found_title else 0
+                        if score > best_score or (score == best_score and cand_len > best_len):
+                            best_score = score
+                            best_result = hltb_data
+                            best_title = alt_title
+                            best_found_title = found_title
+                        perfect_found = True
+                        # не делаем break — продолжаем, чтобы найти, возможно, ещё более длинный идеал
+                        continue
                     
                     if score > best_score:
                         best_score = score
@@ -272,10 +288,10 @@ def search_game_on_hltb(page, game_title, game_year=None):
                         best_title = alt_title
                         best_found_title = found_title
                     
-                    # Если нашли идеальное совпадение (100%), прекращаем поиск
-                    if score >= 1.0:
-                        log_message(f"🎯 Найдено идеальное совпадение в альтернативах! Прекращаем поиск.")
-                        break
+            # после цикла альтернатив — если нашли идеальный вариант, сразу вернём его
+            if best_result is not None and perfect_found:
+                log_message(f"🎯 Найден наиболее специфичный идеальный результат: '{best_found_title}' (схожесть: {best_score:.2f})")
+                return best_result
             
             if best_result is not None:
                 if attempt > 0:
@@ -358,16 +374,14 @@ def search_game_single_attempt(page, game_title, game_year=None):
         # Сохраняем данные выбранной игры
         best_url = best_match.get_attribute("href")
         
-        # Логируем выбор
-        log_message(f"🎯 Выбрано: '{best_title}' (схожесть: {similarity:.2f})")
         
         # Если схожесть меньше 0.6, но есть год для проверки, все равно переходим на страницу
         if similarity < 0.6:
             if game_year:
                 log_message(f"⚠️  Низкая схожесть ({similarity:.2f}), но есть год для проверки - продолжаем")
             else:
-                log_message(f"⚠️  Низкая схожесть ({similarity:.2f}), пробуем альтернативное название")
-                return None
+            log_message(f"⚠️  Низкая схожесть ({similarity:.2f}), пробуем альтернативное название")
+            return None
         
         # Переходим на страницу выбранной игры
         full_url = f"{BASE_URL}{best_url}"
@@ -400,65 +414,74 @@ def search_game_single_attempt(page, game_title, game_year=None):
         return None
 
 def find_best_match_with_year(page, game_links, original_title, game_year=None):
-    """Находит наиболее подходящий результат из списка найденных игр с учетом года"""
+    """Находит наиболее подходящий результат из списка найденных игр с учетом года.
+       Возвращаем лучший link, его отображаемое название и итоговый combined_score.
+    """
     try:
         best_match = None
-        best_score = 0
+        best_score = -1.0
         best_title = ""
-        best_year_score = 0
+        best_year_score = 0.0
         
-        # Очищаем оригинальное название для сравнения
+        # Нормализованный эталон (для логов/сравнений)
         original_clean = clean_title_for_comparison(original_title)
         
-        # Собираем все результаты с их годами
         candidates = []
-        for i in range(min(game_links.count(), 10)):  # Проверяем первые 10 результатов
+        limit = min(game_links.count(), 12)  # первые N результатов
+        for i in range(limit):
             link = game_links.nth(i)
             link_text = link.inner_text().strip()
-            
-            if link_text:
-                # Очищаем найденное название
-                found_clean = clean_title_for_comparison(link_text)
-                
-                # Вычисляем схожесть названий
-                title_score = calculate_title_similarity(original_clean, found_clean)
-                
-                # Извлекаем год из ссылки (переходим на страницу игры)
-                hltb_year = extract_year_from_game_page(page, link)
-                year_score = calculate_year_similarity(game_year, hltb_year) if game_year and hltb_year else 0
-                
-                candidates.append({
-                    'link': link,
-                    'title': link_text,
-                    'title_score': title_score,
-                    'year_score': year_score,
-                    'hltb_year': hltb_year
-                })
-        
-        # Сортируем кандидатов по комбинированному скору
-        for candidate in candidates:
-            # Комбинированный скор: 70% схожесть названия + 30% схожесть года
-            combined_score = candidate['title_score'] * 0.7 + candidate['year_score'] * 0.3
-            
-            if combined_score > best_score:
-                best_score = combined_score
-                best_match = candidate['link']
-                best_title = candidate['title']
-                best_year_score = candidate['year_score']
-        
-        # Логируем выбор только при наличии года
-        if best_match and game_year and candidates:
-            log_message(f"🎯 Выбрано: '{best_title}' (схожесть: {best_score:.2f}, год: {candidates[0]['hltb_year']})")
-        
-        # Возвращаем кортеж с результатом и схожестью
-        if best_score >= 0.3:
+            if not link_text:
+                continue
+
+            # title_score: сравниваем оригинал с найденным текстом
+            title_score = calculate_title_similarity(original_title, link_text)
+
+            # извлекаем год со страницы (если нужен)
+            hltb_year = extract_year_from_game_page(page, link) if game_year else None
+            year_score = calculate_year_similarity(game_year, hltb_year) if game_year and hltb_year else 0.0
+
+            # is_exact — флаг точного совпадения (после очистки)
+            is_exact = 1 if clean_title_for_comparison(link_text) == clean_title_for_comparison(original_title) else 0
+
+            token_count = len(clean_title_for_comparison(link_text).split())
+
+            candidates.append({
+                'link': link,
+                'title': link_text,
+                'title_score': title_score,
+                'year_score': year_score,
+                'hltb_year': hltb_year,
+                'is_exact': is_exact,
+                'tokens': token_count
+            })
+
+        # Оцениваем кандидатов и выбираем лучший с tie-breakers
+        for c in candidates:
+            combined = c['title_score'] * 0.7 + c['year_score'] * 0.3
+            # Используем кортеж для сравнения: (combined, year_score, is_exact, tokens)
+            cmp_tuple = (combined, c['year_score'], c['is_exact'], c['tokens'])
+            best_cmp_tuple = (best_score, best_year_score, 1 if clean_title_for_comparison(best_title) == clean_title_for_comparison(original_title) else 0, len(clean_title_for_comparison(best_title).split()) if best_title else 0)
+
+            if cmp_tuple > best_cmp_tuple:
+                best_score = combined
+                best_match = c['link']
+                best_title = c['title']
+                best_year_score = c['year_score']
+
+        if best_match and (best_score >= 0.3):
+            # Логируем выбор
+            if game_year and best_year_score:
+                log_message(f"🎯 Выбрано: '{best_title}' (схожесть: {best_score:.2f}, год: {game_year})")
+            else:
+                log_message(f"🎯 Выбрано: '{best_title}' (схожесть: {best_score:.2f})")
             return best_match, best_title, best_score
         else:
-            return None, "", 0
+            return None, "", 0.0
         
     except Exception as e:
         log_message(f"❌ Ошибка выбора лучшего совпадения: {e}")
-        return game_links.first if game_links.count() > 0 else None, "", 0
+        return (game_links.first if game_links.count() > 0 else None), "", 0.0
 
 def find_best_match(page, game_links, original_title):
     """Находит наиболее подходящий результат из списка найденных игр (старая версия для совместимости)"""
@@ -623,281 +646,297 @@ def convert_roman_to_arabic(roman_str):
         return roman_str
 
 def generate_alternative_titles(game_title):
-    """Генерирует альтернативные варианты названия для поиска"""
-    alternatives = [game_title]
-    
-    # Добавляем основное название без подзаголовка (до двоеточия)
-    if ":" in game_title:
-        main_title = game_title.split(":")[0].strip()
-        if main_title and main_title not in alternatives:
-            alternatives.append(main_title)
-    
-    # Добавляем варианты без скобок и с заменой (& на and)
-    if "(" in game_title and ")" in game_title:
-        # Убираем скобки полностью
-        no_parens = re.sub(r'\([^)]*\)', '', game_title).strip()
-        no_parens = re.sub(r'\s+', ' ', no_parens)  # Убираем лишние пробелы
-        if no_parens and no_parens not in alternatives:
-            alternatives.append(no_parens)
-        
-        # Заменяем (& на and
-        with_and = re.sub(r'\(\s*&\s*', 'and ', game_title)
-        with_and = re.sub(r'\s*\)', '', with_and)
-        with_and = re.sub(r'\s+', ' ', with_and).strip()
-        if with_and and with_and not in alternatives:
-            alternatives.append(with_and)
-        
-        # Заменяем (& на &
-        with_amp = re.sub(r'\(\s*&\s*', '& ', game_title)
-        with_amp = re.sub(r'\s*\)', '', with_amp)
-        with_amp = re.sub(r'\s+', ' ', with_amp).strip()
-        if with_amp and with_amp not in alternatives:
-            alternatives.append(with_amp)
-    
-    # Добавляем варианты с римскими цифрами (только для целых чисел)
-    # Ищем арабские цифры в конце названия или после пробела, но НЕ в составе дробных чисел
-    arabic_pattern = r'(\b\d+\b)'
-    matches = re.findall(arabic_pattern, game_title)
-    
-    for match in matches:
-        # Проверяем, что это не часть дробного числа (например, "1.6")
-        # Ищем контекст вокруг цифры
-        context_pattern = r'(\b' + match + r'\b)'
-        context_matches = re.finditer(context_pattern, game_title)
-        
-        for context_match in context_matches:
-            start_pos = context_match.start()
-            end_pos = context_match.end()
-            
-            # Проверяем, что перед и после цифры нет точки
-            before_char = game_title[start_pos - 1] if start_pos > 0 else ''
-            after_char = game_title[end_pos] if end_pos < len(game_title) else ''
-            
-            # Если это не часть дробного числа, преобразуем в римские
-            if before_char != '.' and after_char != '.':
-                roman = convert_arabic_to_roman(match)
-                if roman != match:
-                    # Заменяем арабскую цифру на римскую
-                    alt_title = re.sub(r'\b' + match + r'\b', roman, game_title)
-                    alternatives.append(alt_title)
-                break  # Прерываем после первого подходящего совпадения
-    
-    # Добавляем обратные варианты (римские -> арабские)
-    roman_pattern = r'\b(I{1,3}|IV|V|VI{0,3}|IX|X)\b'
-    roman_matches = re.findall(roman_pattern, game_title)
-    for roman_match in roman_matches:
-        arabic = convert_roman_to_arabic(roman_match)
-        if arabic != roman_match:
-            alt_title = re.sub(r'\b' + roman_match + r'\b', arabic, game_title)
-            alternatives.append(alt_title)
-    
-    # Обрабатываем слэши - разделяем на отдельные названия
-    if "/" in game_title:
-        # Разделяем по слэшу (с пробелами или без)
-        if " / " in game_title:
-            parts = [part.strip() for part in game_title.split(" / ")]
-        else:
-            parts = [part.strip() for part in game_title.split("/")]
-        
-        # Добавляем каждую часть как отдельное название
-        for part in parts:
-            if part and part not in alternatives:
-                alternatives.append(part)
-                
-                # Если часть содержит двоеточие, добавляем основную часть
-                if ":" in part:
-                    main_part = part.split(":")[0].strip()
-                    if main_part and main_part not in alternatives:
-                        alternatives.append(main_part)
-    
-    
-    # Убираем дубликаты и сортируем по правильному приоритету
-    unique_alternatives = []
-    seen = set()
-    
-    # Проверяем, есть ли два названия (разделенные " / ")
-    has_two_titles = " / " in game_title
-    
-    # Для случаев с двумя названиями НЕ добавляем оригинал в начало
-    if not has_two_titles:
-        # Сначала добавляем оригинальное название (только для обычных названий)
-        if game_title and game_title not in seen:
-            unique_alternatives.append(game_title)
-            seen.add(game_title)
-    
-    if has_two_titles:
-        # Для случаев с двумя названиями: сначала части, потом переворот цифр к каждой части
-        parts = [part.strip() for part in game_title.split(" / ")]
-        
-        # Добавляем части в правильном порядке
-        for part in parts:
-            if part and part not in seen:
-                unique_alternatives.append(part)
-                seen.add(part)
-                
-                # Если часть содержит двоеточие, добавляем основную часть
-                if ":" in part:
-                    main_part = part.split(":")[0].strip()
-                    if main_part and main_part not in seen:
-                        unique_alternatives.append(main_part)
-                        seen.add(main_part)
-        
-        # Затем применяем переворот цифр к каждой части отдельно
-        for part in parts:
-            if part:
-                # Конвертируем арабские цифры в римские для этой части
-                arabic_pattern = r'(\b\d+\b)'
-                matches = re.findall(arabic_pattern, part)
-                for match in matches:
-                    roman = convert_arabic_to_roman(match)
-                    if roman != match:
-                        alt_part = re.sub(r'\b' + match + r'\b', roman, part)
-                        if alt_part and alt_part not in seen:
-                            unique_alternatives.append(alt_part)
-                            seen.add(alt_part)
-                
-                # Конвертируем римские цифры в арабские для этой части
-                roman_pattern = r'\b(I{1,3}|IV|V|VI{0,3}|IX|X)\b'
-                roman_matches = re.findall(roman_pattern, part)
-                for roman_match in roman_matches:
-                    arabic = convert_roman_to_arabic(roman_match)
-                    if arabic != roman_match:
-                        alt_part = re.sub(r'\b' + roman_match + r'\b', arabic, part)
-                        if alt_part and alt_part not in seen:
-                            unique_alternatives.append(alt_part)
-                            seen.add(alt_part)
-        
-        # В САМОМ КОНЦЕ добавляем варианты с конвертацией цифр для полного названия
-        # Генерируем их прямо здесь, а не ищем в alternatives
-        # Конвертируем арабские цифры в римские для полного названия
-        arabic_pattern = r'(\b\d+\b)'
-        matches = re.findall(arabic_pattern, game_title)
-        for match in matches:
-            roman = convert_arabic_to_roman(match)
-            if roman != match:
-                alt_title = re.sub(r'\b' + match + r'\b', roman, game_title)
-                if alt_title and alt_title not in seen:
-                    unique_alternatives.append(alt_title)
-                    seen.add(alt_title)
-        
-        # Конвертируем римские цифры в арабские для полного названия
-        roman_pattern = r'\b(I{1,3}|IV|V|VI{0,3}|IX|X)\b'
-        roman_matches = re.findall(roman_pattern, game_title)
-        for roman_match in roman_matches:
-            arabic = convert_roman_to_arabic(roman_match)
-            if arabic != roman_match:
-                alt_title = re.sub(r'\b' + roman_match + r'\b', arabic, game_title)
-                if alt_title and alt_title not in seen:
-                    unique_alternatives.append(alt_title)
-                    seen.add(alt_title)
-        
-        # В САМЫЙ КОНЕЦ добавляем оригинальное полное название
-        if game_title and game_title not in seen:
-            unique_alternatives.append(game_title)
-            seen.add(game_title)
-    else:
-        # Для обычных названий (без " / "): сначала переворот цифр, потом остальные варианты
-        for alt in alternatives:
-            if alt and alt not in seen:
-                # Проверяем, что это вариант с конвертацией цифр
-                original_clean = re.sub(r'\b\d+\b', '', game_title.lower())
-                alt_clean = re.sub(r'\b\d+\b', '', alt.lower())
-                roman_clean = re.sub(r'\b(I{1,3}|IV|V|VI{0,3}|IX|X)\b', '', game_title.lower())
-                alt_roman_clean = re.sub(r'\b(I{1,3}|IV|V|VI{0,3}|IX|X)\b', '', alt.lower())
-                
-                # Если это конвертация цифр (остальное одинаково)
-                if (original_clean == alt_clean or roman_clean == alt_roman_clean) and alt != game_title:
-                    unique_alternatives.append(alt)
-                    seen.add(alt)
-    
-    # Затем добавляем остальные варианты (без скобок, с and, etc.)
-    for alt in alternatives:
-        if alt and alt not in seen:
-            # Для случаев с двумя названиями исключаем варианты с слэшем в "остальных"
-            if has_two_titles and "/" in alt:
-                continue
-            unique_alternatives.append(alt)
-            seen.add(alt)
-    
-    return unique_alternatives
+    """
+    Улучшённая генерация альтернатив:
+    - делает варианты с римскими/арабскими числами,
+    - для '/' генерирует все части, их основы (до ':'), комбинированные варианты и перестановки,
+    - возвращает список уникальных альтернатив, где сначала идут одиночные (специфичные) варианты,
+      затем комбинации со слэшем.
+    """
+    if not game_title:
+        return []
 
-def calculate_title_similarity(title1, title2):
-    """Вычисляет схожесть между двумя названиями игр с весовой системой для последовательности"""
-    try:
-        # Нормализуем названия для сравнения (конвертируем римские цифры в арабские)
-        normalized1 = normalize_title_for_comparison(title1)
-        normalized2 = normalize_title_for_comparison(title2)
-        
-        # Очищаем названия
-        clean1 = clean_title_for_comparison(normalized1)
-        clean2 = clean_title_for_comparison(normalized2)
-        
-        # Простой алгоритм схожести на основе общих слов
-        words1 = set(clean1.split())
-        words2 = set(clean2.split())
-        
-        if not words1 or not words2:
-            return 0.0
-        
-        # Вычисляем пересечение слов
-        common_words = words1.intersection(words2)
-        total_words = words1.union(words2)
-        
-        # Базовая схожесть по словам
-        word_similarity = len(common_words) / len(total_words)
-        
-        # Бонус за точное совпадение
-        if clean1 == clean2:
+    alternatives = []
+    seen = set()
+
+    def add(alt):
+        if not alt:
+            return
+        alt = re.sub(r'\s+', ' ', alt).strip()
+        if alt and alt not in seen:
+            seen.add(alt)
+            alternatives.append(alt)
+
+    def gen_num_variants(text):
+        """Сгенерировать варианты с римскими <-> арабскими числами и основой до ':'."""
+        res = set()
+        text = text.strip()
+        res.add(text)
+        # основа до ':'
+        if ":" in text:
+            res.add(text.split(":", 1)[0].strip())
+
+        # найти первое числовое или римское вхождение и заменить
+        # арабское -> римское
+        arabic_match = re.search(r'\b(\d+)\b', text)
+        if arabic_match:
+            num = arabic_match.group(1)
+            roman = convert_arabic_to_roman(num)
+            if roman and roman != num:
+                res.add(re.sub(r'\b' + re.escape(num) + r'\b', roman, text))
+        # римское -> арабское
+        roman_match = re.search(r'\b(I{1,3}|IV|V|VI{0,3}|IX|X)\b', text)
+        if roman_match:
+            rom = roman_match.group(1)
+            arab = convert_roman_to_arabic(rom)
+            if arab and arab != rom:
+                res.add(re.sub(r'\b' + re.escape(rom) + r'\b', arab, text))
+
+        return list(res)
+
+    # --- если есть скобки, пробуем варианты без скобок, with & и with and
+    if "(" in game_title and ")" in game_title:
+        no_parens = re.sub(r'\([^)]*\)', '', game_title).strip()
+        add(no_parens)
+        with_and = re.sub(r'\(\s*&\s*', 'and ', game_title)
+        with_and = re.sub(r'\s*\)', '', with_and).strip()
+        add(with_and)
+        with_amp = re.sub(r'\(\s*&\s*', '& ', game_title)
+        with_amp = re.sub(r'\s*\)', '', with_amp).strip()
+        add(with_amp)
+
+    # базовый оригинал и основа до двоеточия
+    add(game_title)
+    if ":" in game_title:
+        add(game_title.split(":", 1)[0].strip())
+
+    # обработка случаев со слэшем
+    if "/" in game_title:
+        # Разделяем корректно по " / " или по "/"
+        parts = [p.strip() for p in (game_title.replace(" / ", "/")).split("/")]
+        # Для каждой части добавляем варианты (рим/араб, основа)
+        part_variants = []
+        for p in parts:
+            variants = gen_num_variants(p)
+            part_variants.append(variants)
+
+            for v in variants:
+                add(v)
+
+        # Для одиночных частей: также добавляем "Part I" и "Part I: subtitle" уже добавлены
+        # Генерируем комбинированные варианты: "A and B", "A & B", "A / B" и перестановки
+        # Если много частей, генерируем пары (первые две) + перестановки
+            if len(parts) >= 2:
+            # создаём пары для комбинирования (включая варианты с конвертацией чисел)
+            # Для n частей генерируем комбинации первых двух и (если есть) второй+третьей
+            pairs = []
+            # соберём все возможные текстовые представления для каждой части (не только исходные)
+            for i in range(len(parts)):
+                for j in range(i+1, len(parts)):
+                    pairs.append((i, j))
+
+            for (i, j) in pairs:
+                lefts = part_variants[i]
+                rights = part_variants[j]
+                for L in lefts:
+                    for R in rights:
+                        add(f"{L} and {R}")
+                        add(f"{L} & {R}")
+                        add(f"{L} / {R}")
+                        # перестановка
+                        add(f"{R} and {L}")
+                        add(f"{R} & {L}")
+                        add(f"{R} / {L}")
+
+            # Если конструкция вида "Base A/ B / C" (покемоны), попробуем комбинировать base+first two suffixes
+            # Пример: "Pokémon Red/Blue/Yellow" -> "Pokémon Red and Blue"
+            # Попытаемся извлечь base: много случаев — берём первую часть и разделяем на base + lastword
+            first = parts[0]
+            f_words = first.split()
+            if len(parts) >= 2 and len(f_words) >= 2:
+                base = " ".join(f_words[:-1])
+                suffixes = [f_words[-1]] + parts[1:]
+                if len(suffixes) >= 2:
+                    comb = f"{base} {suffixes[0]} and {suffixes[1]}"
+                    add(comb)
+                    add(f"{base} {suffixes[0]} & {suffixes[1]}")
+
+        # Также добавляем сам слэш-формат в различных вариантах (полное название, без подзаголовков)
+        add(game_title)
+        # если есть сочетание с ':' — добавить "part1 / part2" без подзаголовка
+        simplified_parts = []
+        for p in parts:
+            simplified_parts.append(p.split(":", 1)[0].strip())
+        add(" / ".join(simplified_parts))
+        add("/".join(simplified_parts))
+
+                else:
+        # Если нет слэша, но есть числа / римские, генерируем их варианты
+        num_vars = gen_num_variants(game_title)
+        for v in num_vars:
+            add(v)
+
+    # В конце: формируем порядок финального списка:
+    # 1) все одиночные варианты (те, у которых в тексте нет '/'), отсортированные по специфичности (длина токенов desc)
+    # 2) затем все варианты со слэшем, тоже по длине desc
+    singles = [a for a in alternatives if "/" not in a]
+    slashes = [a for a in alternatives if "/" in a]
+
+    # сортировка по числу токенов, затем по длине строки (для детерминированности)
+    def token_len_key(s):
+        return (len(clean_title_for_comparison(s).split()), len(s))
+
+    singles_sorted = sorted(singles, key=token_len_key, reverse=True)
+    slashes_sorted = sorted(slashes, key=token_len_key, reverse=True)
+
+    final_list = singles_sorted + slashes_sorted
+
+    # Гарантируем, что оригинал присутствует (в конце если не самый специфичный)
+    orig_clean = re.sub(r'\s+', ' ', game_title).strip()
+    if orig_clean not in final_list:
+        final_list.append(orig_clean)
+
+    return final_list
+
+def lcs_length(a_tokens, b_tokens):
+    """Возвращает длину LCS (longest common subsequence) для списков токенов"""
+    n, m = len(a_tokens), len(b_tokens)
+    if n == 0 or m == 0:
+        return 0
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            if a_tokens[i-1] == b_tokens[j-1]:
+                dp[i][j] = dp[i-1][j-1] + 1
+            else:
+                dp[i][j] = dp[i-1][j] if dp[i-1][j] >= dp[i][j-1] else dp[i][j-1]
+    return dp[n][m]
+
+
+def calculate_title_similarity(original, candidate):
+    """
+    Метрика схожести с явным поведением для '/'-случаев:
+      - если candidate точно совпадает с какой-либо частью (после нормализации) -> 1.0
+      - если candidate совпадает с базовой формой части (до ':') или её рим/араб вариантом -> 0.9
+      - иначе: максимум по частям и по полному original (как раньше, на основе recall/precision/LCS)
+    """
+    def _sim(a, b):
+        # вспомогательная внутренняя метрика (как раньше)
+        a_norm = normalize_title_for_comparison(a) if 'normalize_title_for_comparison' in globals() else a
+        b_norm = normalize_title_for_comparison(b) if 'normalize_title_for_comparison' in globals() else b
+        a_clean = clean_title_for_comparison(a_norm)
+        b_clean = clean_title_for_comparison(b_norm)
+        if a_clean == b_clean:
             return 1.0
-        
-        # Бонус за включение одного в другое
-        if clean1 in clean2 or clean2 in clean1:
-            word_similarity += 0.2
-        
-        # Бонус за общие длинные слова (более 4 символов)
-        long_common = [w for w in common_words if len(w) > 4]
-        if long_common:
-            word_similarity += 0.1 * len(long_common)
-        
-        # КЛЮЧЕВОЕ УЛУЧШЕНИЕ: Весовая система для последовательности
-        if '/' in title1:
-            # Извлекаем отдельные слова из слэш-разделенного названия
-            slash_parts = [part.strip() for part in title1.split('/')]
-            slash_words = []
-            for part in slash_parts:
-                part_clean = clean_title_for_comparison(part)
-                slash_words.extend(part_clean.split())
+        a_tokens = a_clean.split()
+        b_tokens = b_clean.split()
+        if not a_tokens or not b_tokens:
+            return 0.0
+        common = set(a_tokens).intersection(set(b_tokens))
+        common_count = len(common)
+        precision = common_count / len(b_tokens)
+        recall = common_count / len(a_tokens)
+        lcs_len = lcs_length(a_tokens, b_tokens)
+        seq = (lcs_len / len(a_tokens)) if len(a_tokens) > 0 else 0.0
+        score = 0.65 * recall + 0.2 * precision + 0.15 * seq
+        return max(0.0, min(1.0, score))
+
+    try:
+        if not original or not candidate:
+            return 0.0
+
+        cand_clean = clean_title_for_comparison(
+            normalize_title_for_comparison(candidate) if 'normalize_title_for_comparison' in globals() else candidate
+        )
+
+        # Специальная обработка для случаев с "/"
+        if "/" in original:
+            parts = [p.strip() for p in (original.replace(" / ", "/")).split("/")]
             
-            # Создаем весовую систему: чем ближе к началу, тем больше вес
-            word_weights = {}
-            for i, word in enumerate(slash_words):
-                # Вес уменьшается с расстоянием от начала (1.0, 0.8, 0.6, 0.4, ...)
-                weight = max(0.2, 1.0 - (i * 0.2))
-                word_weights[word] = weight
-            
-            # Проверяем, сколько слов из слэш-частей есть в title2
-            words2_list = clean2.split()
-            total_weight = 0
-            matched_weight = 0
-            
-            for word, weight in word_weights.items():
-                total_weight += weight
-                if word in words2_list:
-                    matched_weight += weight
-            
-            # Вычисляем взвешенное покрытие
-            if total_weight > 0:
-                weighted_coverage = matched_weight / total_weight
-                
-                # Если title2 содержит "and" и хорошее взвешенное покрытие
-                if 'and' in clean2 and weighted_coverage >= 0.5:  # 50% взвешенное покрытие
-                    word_similarity += 0.3 * weighted_coverage  # Бонус пропорциональный покрытию
-                
-                # Дополнительный бонус за отличное покрытие
-                if weighted_coverage >= 0.8:
-                    word_similarity += 0.2
-        
-        return min(word_similarity, 1.0)
+            def gen_full_and_base_norms(part):
+                """
+                Возвращает два множества:
+                  - full_norms: нормализованные формы, которые считаем 'полной частью'
+                  - base_norms: нормализованные формы, которые считаем 'базовой формой' (до ':') и её конверсиями
+                """
+                full_norms = set()
+                base_norms = set()
+
+                # нормализованная полная часть
+                part_norm = normalize_title_for_comparison(part) if 'normalize_title_for_comparison' in globals() else part
+                part_clean = clean_title_for_comparison(part_norm)
+                if part_clean:
+                    full_norms.add(part_clean)
+
+                # базовая форма (до :)
+                base = part.split(":", 1)[0].strip()
+                base_norm = normalize_title_for_comparison(base) if 'normalize_title_for_comparison' in globals() else base
+                base_clean = clean_title_for_comparison(base_norm)
+                if base_clean:
+                    base_norms.add(base_clean)
+
+                # римские <-> арабские конверсии применим к full и к base
+                # попробуем найти арабскую цифру и конвертировать
+                arabic_match_full = re.search(r'\b(\d+)\b', part, flags=re.IGNORECASE)
+                if arabic_match_full:
+                    num = arabic_match_full.group(1)
+                    roman = convert_arabic_to_roman(num)
+                    if roman and roman != num:
+                        full_conv = clean_title_for_comparison(normalize_title_for_comparison(re.sub(r'\b' + re.escape(num) + r'\b', roman, part)))
+                        full_norms.add(full_conv)
+                        # и на базе
+                        base_conv = clean_title_for_comparison(normalize_title_for_comparison(re.sub(r'\b' + re.escape(num) + r'\b', roman, base)))
+                        base_norms.add(base_conv)
+
+                # римская цифра -> арабская
+                roman_match_full = re.search(r'\b(I{1,3}|IV|V|VI{0,3}|IX|X)\b', part)
+                if roman_match_full:
+                    rom = roman_match_full.group(1)
+                    arab = convert_roman_to_arabic(rom)
+                    if arab and arab != rom:
+                        full_conv = clean_title_for_comparison(normalize_title_for_comparison(re.sub(r'\b' + re.escape(rom) + r'\b', arab, part)))
+                        full_norms.add(full_conv)
+                        base_conv = clean_title_for_comparison(normalize_title_for_comparison(re.sub(r'\b' + re.escape(rom) + r'\b', arab, base)))
+                        base_norms.add(base_conv)
+
+                # ещё: иногда полная часть содержит скобки (& Knuckles) — добавим варианты без скобок и с &/and
+                if "(" in part and ")" in part:
+                    no_parens = re.sub(r'\([^)]*\)', '', part).strip()
+                    if no_parens:
+                        full_norms.add(clean_title_for_comparison(normalize_title_for_comparison(no_parens)))
+                    with_and = re.sub(r'\(\s*&\s*', 'and ', part)
+                    with_and = re.sub(r'\s*\)', '', with_and).strip()
+                    if with_and:
+                        full_norms.add(clean_title_for_comparison(normalize_title_for_comparison(with_and)))
+                    with_amp = re.sub(r'\(\s*&\s*', '& ', part)
+                    with_amp = re.sub(r'\s*\)', '', with_amp).strip()
+                    if with_amp:
+                        full_norms.add(clean_title_for_comparison(normalize_title_for_comparison(with_amp)))
+
+                return full_norms, base_norms
+
+            # Пробегаем по частям: сначала проверяем полное совпадение части -> 1.0,
+            # затем — совпадение с базой -> 0.9
+            for part in parts:
+                full_norms, base_norms = gen_full_and_base_norms(part)
+                if cand_clean in full_norms:
+                    return 1.0
+                if cand_clean in base_norms:
+                    return 0.9
+
+            # Если не попали в точные/близкие нормы, берём максимум по частям и по полному original
+            best = 0.0
+            for part in parts:
+                best = max(best, _sim(part, candidate))
+            best = max(best, _sim(original, candidate))
+            return float(best)
+
+        # Обычный путь (без '/'): сначала точное совпадение, иначе внутренняя метрика
+        orig_clean = clean_title_for_comparison(normalize_title_for_comparison(original) if 'normalize_title_for_comparison' in globals() else original)
+        if orig_clean == cand_clean:
+            return 1.0
+
+        return float(_sim(original, candidate))
         
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
@@ -941,7 +980,6 @@ def extract_hltb_data_from_page(page):
                 
                 # Проверяем, содержит ли таблица нужные ключевые слова
                 if any(keyword in table_text for keyword in ["Main Story", "Main + Extras", "Completionist", "Co-Op", "Competitive", "Vs."]):
-                    log_message(f"📊 Обрабатываем таблицу {table_idx + 1}")
                     
                     # Получаем все строки таблицы
                     rows = table.locator("tr")
@@ -987,10 +1025,10 @@ def extract_hltb_data_from_page(page):
                         if "Hours" in surrounding_text and "table" not in str(element.locator("..").get_attribute("tagName")).lower():
                             # Определяем тип данных по тексту элемента
                             if "Vs." in element_text and "vs" not in hltb_data:
-                                vs_data = extract_vs_data_from_text(surrounding_text)
+                            vs_data = extract_vs_data_from_text(surrounding_text)
                                 if vs_data:
-                                    hltb_data["vs"] = vs_data
-                                    log_message(f"🎯 Найдены Vs. данные в отдельном блоке: {vs_data}")
+                                hltb_data["vs"] = vs_data
+                                log_message(f"🎯 Найдены Vs. данные в отдельном блоке: {vs_data}")
                             elif "Co-Op" in element_text and "coop" not in hltb_data:
                                 coop_data = extract_coop_data_from_text(surrounding_text)
                                 if coop_data:
@@ -1027,7 +1065,6 @@ def extract_hltb_data_from_page(page):
                 if key != "stores" and isinstance(value, dict) and "t" in value:
                     categories.append(f"{key}: {value['t']}")
             if categories:
-                log_message(f"📊 Найдены категории: {', '.join(categories)}")
         
         return hltb_data if hltb_data else None
         
@@ -1609,7 +1646,7 @@ def main():
                 game_title = game["title"]
                 game_year = game.get("year")
                 
-                log_message(f"🎮 Обрабатываю {i+1}/{total_games}: {game_title} ({game_year})")
+                log_message(f"🎮🎮🎮 Обрабатываю {i+1}/{total_games}: {game_title} ({game_year})")
                 
                 # Ищем данные на HLTB
                 hltb_data = search_game_on_hltb(page, game_title, game_year)
