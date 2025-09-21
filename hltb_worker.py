@@ -1,6 +1,6 @@
 # hltb_worker.py
-# ВЕРСИЯ: добавлено расширенное логирование/дампы для отладки (HTML, screenshot, candidates, scores)
-# Замените текущий файл этим.
+# Полная версия: extract_games_list + расширенное логирование/дампы + оптимизации поиска
+# Заменяет ваш предыдущий файл целиком.
 
 import json
 import time
@@ -29,7 +29,7 @@ BACKOFF_MULTIPLIER = 2.0
 MAX_BACKOFF = 300
 
 # ---------------- DEBUG / DUMPS (настраиваемые) ----------------
-DEBUG_CANDIDATES = True         # Если True — сохраняет кандидатов и оценки при спорных выборках
+DEBUG_CANDIDATES = False         # Если True — сохраняет кандидатов и оценки при спорных выборках
 DUMP_ON_EMPTY = True            # Если True — сохраняет HTML + screenshot когда кандидатов == 0
 DUMP_DIR = "debug_dumps"        # куда сохранять дампы
 DEBUG_SCORE_THRESHOLD = 0.95    # порог: если лучший score < threshold -> сохранить дамп (при DEBUG_CANDIDATES=True)
@@ -47,12 +47,113 @@ def setup_directories():
         os.makedirs(DUMP_DIR, exist_ok=True)
 
 def sanitize_filename(s):
-    # безопасное имя файла: ограничим длину и уберем опасные символы
     s = s or "unknown"
     s = re.sub(r'[^\w\-_\. ]', '_', s)
     return s[:120]
 
-# ----------------- Normalization & similarity (как раньше) -----------------
+# ------------------ extract_games_list (robust JS -> JSON parser) ------------------
+
+def extract_games_list(html_file):
+    """
+    Извлекает массив gamesList из index111.html.
+    Делает несколько попыток: прямой json.loads, затем простая очистка JS -> JSON.
+    Пишет raw и fixed дампы в debug_dumps/ для отладки.
+    """
+    def remove_js_comments(s):
+        s = re.sub(r'/\*.*?\*/', '', s, flags=re.DOTALL)
+        s = re.sub(r'//.*?(?=\r?\n)', '', s)
+        return s
+
+    def quote_object_keys(s):
+        # Добавляет кавычки к ключам вида: keyName:
+        s = re.sub(r'([{\[,]\s*)([A-Za-z0-9_\-\$@]+)\s*:', r'\1"\2":', s)
+        return s
+
+    def single_to_double_quotes(s):
+        # Replace escaped single quotes then convert '...'
+        s = s.replace("\\'", "'")
+        # Convert single-quoted strings to double-quoted
+        s = re.sub(r"\'([^'\\]*(?:\\.[^'\\]*)*)\'", lambda m: '"' + m.group(1).replace('"', '\\"') + '"', s)
+        return s
+
+    def remove_trailing_commas(s):
+        s = re.sub(r',\s*(?=[}\]])', '', s)
+        return s
+
+    with open(html_file, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    marker = 'const gamesList ='
+    pos = content.find(marker)
+    if pos == -1:
+        raise ValueError("Не найден 'const gamesList =' в HTML файле")
+
+    start = content.find('[', pos)
+    if start == -1:
+        raise ValueError("Не найден '[' после 'const gamesList ='")
+
+    bracket_count = 0
+    end = None
+    for i, ch in enumerate(content[start:], start):
+        if ch == '[':
+            bracket_count += 1
+        elif ch == ']':
+            bracket_count -= 1
+            if bracket_count == 0:
+                end = i + 1
+                break
+    if end is None:
+        os.makedirs(DUMP_DIR, exist_ok=True)
+        ts = int(time.time())
+        raw_path = f"{DUMP_DIR}/gameslist_raw_unclosed_{ts}.html"
+        with open(raw_path, "w", encoding="utf-8") as rf:
+            rf.write(content[start:start+20000])
+        raise ValueError(f"Не удалось найти закрывающую ']' для gamesList. Сохранён дамп: {raw_path}")
+
+    games_js = content[start:end]
+
+    os.makedirs(DUMP_DIR, exist_ok=True)
+    ts = int(time.time())
+    raw_path = f"{DUMP_DIR}/gameslist_raw_{ts}.js"
+    with open(raw_path, "w", encoding="utf-8") as rf:
+        rf.write(games_js)
+    log_message(f"📝 Сохранён raw gamesList в {raw_path}")
+
+    # 1) Попробовать прямой json.loads
+    try:
+        games_list = json.loads(games_js)
+        log_message("✅ gamesList распарсен напрямую (json.loads)")
+        return games_list
+    except Exception as e:
+        log_message(f"⚠️ Прямой json.loads не прошёл: {e}. Попробуем очистку JS -> JSON...")
+
+    # 2) Очистка
+    fixed = games_js
+    try:
+        fixed = remove_js_comments(fixed)
+        fixed = single_to_double_quotes(fixed)
+        fixed = quote_object_keys(fixed)
+        fixed = remove_trailing_commas(fixed)
+        fixed = re.sub(r'\bundefined\b', 'null', fixed)
+        fixed = re.sub(r'\bNaN\b', 'null', fixed)
+    except Exception as e:
+        log_message(f"⚠️ Ошибка при очистке JS: {e}")
+
+    fixed_path = f"{DUMP_DIR}/gameslist_fixed_{ts}.json"
+    with open(fixed_path, "w", encoding="utf-8") as ff:
+        ff.write(fixed)
+    log_message(f"📝 Сохранён преобразованный фрагмент в {fixed_path}")
+
+    try:
+        games_list = json.loads(fixed)
+        log_message("✅ Успешно распарсили gamesList после очистки")
+        return games_list
+    except Exception as e2:
+        msg = f"❌ Не удалось распарсить gamesList даже после очистки: {e2}. Посмотрите дампы: {raw_path} и {fixed_path}"
+        log_message(msg)
+        raise ValueError(msg)
+
+# ----------------- Normalization & similarity -----------------
 
 def clean_title_for_comparison(title):
     if not title:
@@ -282,10 +383,6 @@ def dump_screenshot(page, prefix_idx, game_title, suffix="screenshot"):
         return None
 
 def find_best_candidate(candidates, original_title, game_year=None, idx_info=None):
-    """
-    candidates: list of dict {href,text,context}
-    Если DEBUG_CANDIDATES=True — при спорном выборе сохраняет дамп оценок.
-    """
     if not candidates:
         return None, 0.0
     orig_clean = clean_title_for_comparison(normalize_title_for_comparison(original_title))
@@ -338,13 +435,11 @@ def find_best_candidate(candidates, original_title, game_year=None, idx_info=Non
             min_req = max(1, (len(slash_parts)+1)//2)
             if parts_matched < min_req:
                 score -= 0.45
-        # clamp
         score = max(0.0, min(1.0, score))
         scores_dump.append({"text": cand_text, "href": cand.get("href",""), "year": get_year_from_context_text(cand_ctx), "score": round(score, 4)})
         if score > best_score:
             best_score = score; best = cand
 
-    # debug: сохраняем оценки, если включено и если best_score < threshold
     if DEBUG_CANDIDATES and idx_info:
         if best_score < DEBUG_SCORE_THRESHOLD:
             try:
@@ -354,7 +449,7 @@ def find_best_candidate(candidates, original_title, game_year=None, idx_info=Non
 
     if best and best_score >= 0.25:
         return best, float(best_score)
-    # если спорно — всё равно сохранить дамп кандидатов (если включено)
+
     if (DEBUG_CANDIDATES or DUMP_ON_EMPTY) and idx_info:
         try:
             dump_candidates_file(idx_info.get("index",0), idx_info.get("title",""), candidates)
@@ -362,7 +457,7 @@ def find_best_candidate(candidates, original_title, game_year=None, idx_info=Non
             pass
     return None, 0.0
 
-# ----------------- Parsing HLTB page (как было) -----------------
+# ----------------- Parsing HLTB page -----------------
 
 def round_time(time_str):
     if not time_str:
@@ -374,16 +469,13 @@ def round_time(time_str):
         return f"{int(val)}h" if val == int(val) else f"{val:.1f}h"
     m2 = re.search(r'(\d+(?:\.\d+)?)\s*Hours?', s, flags=re.IGNORECASE)
     if m2:
-        val = float(m2.group(1))
-        return f"{int(val)}h" if val == int(val) else f"{val:.1f}h"
+        val = float(m2.group(1)); return f"{int(val)}h" if val == int(val) else f"{val:.1f}h"
     m3 = re.search(r'(\d+)\s*m', s, flags=re.IGNORECASE)
-    if m3:
-        return f"{int(m3.group(1))}m"
+    if m3: return f"{int(m3.group(1))}m"
     m4 = re.search(r'(\d+(?:\.\d+)?)', s)
     if m4:
         val = float(m4.group(1))
-        if val >= 1:
-            return f"{int(val)}h" if val == int(val) else f"{val:.1f}h"
+        if val >= 1: return f"{int(val)}h" if val == int(val) else f"{val:.1f}h"
         return f"{int(val*60)}m"
     return None
 
@@ -513,7 +605,6 @@ def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
         try:
             page.wait_for_selector('a[href^="/game/"]', timeout=3500)
         except:
-            # не критично — пробуем дальше; короткий reload позже если кандидатов ноль
             pass
 
         random_delay()
@@ -528,7 +619,6 @@ def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
 
         candidates = scrape_game_link_candidates(page, max_candidates=80)
 
-        # если 0 — короткий reload fallback и дамп
         if not candidates:
             log_message("⚠️ Кандидатов 0 — короткий reload (fallback)")
             if idx_info and DUMP_ON_EMPTY:
@@ -545,13 +635,11 @@ def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
             except Exception:
                 candidates = []
 
-        # снова 0 — сохраняем дамп кандидатов (пустой) и возвращаем None
         if not candidates:
             if idx_info and (DEBUG_CANDIDATES or DUMP_ON_EMPTY):
                 dump_candidates_file(idx_info.get("index",0), idx_info.get("title",""), candidates)
             return None, None
 
-        # если много, пробуем точный поиск в кавычках
         if len(candidates) > 30:
             quoted = f'"{game_title}"'
             page.goto(f"{BASE_URL}/?q={quote(quoted, safe='')}", timeout=PAGE_GOTO_TIMEOUT)
@@ -568,14 +656,11 @@ def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
                 return None, "blocked"
             candidates = scrape_game_link_candidates(page, max_candidates=80)
 
-        # рейтинг кандидатов
         best_cand, score = find_best_candidate(candidates, game_title, game_year, idx_info=idx_info)
 
-        # если включён DEBUG_CANDIDATES и score низкий — сохраняем список кандидатов и оценки
         if idx_info and DEBUG_CANDIDATES:
             if score < DEBUG_SCORE_THRESHOLD:
                 dump_candidates_file(idx_info.get("index",0), idx_info.get("title",""), candidates)
-                # find_best_candidate уже сохранил оценки через dump_scores_file
 
         if not best_cand:
             return None, None
@@ -603,7 +688,6 @@ def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
         if hltb_data:
             return (hltb_data, best_cand["text"], score), None
         else:
-            # если не удалось спарсить страницу игры — дамп страницы на отладку (опционально)
             if idx_info and DUMP_ON_EMPTY:
                 dump_search_html(page, idx_info.get("index",0), idx_info.get("title",""))
                 dump_screenshot(page, idx_info.get("index",0), idx_info.get("title",""))
@@ -619,14 +703,13 @@ def search_game_single_attempt(page, game_title, game_year=None, idx_info=None):
                 pass
         return None, None
 
-# ------------------ search_game_on_hltb и остальное — оставлено прежним ------------------
+# ------------------ search_game_on_hltb ------------------
 
 def search_game_on_hltb(page, game_title, game_year=None, backoff_base=0):
     max_attempts = 3
     backoff = backoff_base
     best_result = None
     best_score = 0.0
-    idx_info = {"index": 0, "title": game_title}  # заполнится в основном цикле
 
     for attempt in range(max_attempts):
         if attempt > 0:
@@ -637,6 +720,7 @@ def search_game_on_hltb(page, game_title, game_year=None, backoff_base=0):
             log_message(f"🔄 Попытка {attempt+1}/{max_attempts} для '{game_title}' — пауза {int(delay)}s")
             time.sleep(delay)
 
+        idx_info = {"index": 0, "title": game_title}
         outcome, status = search_game_single_attempt(page, game_title, game_year, idx_info=idx_info)
         if isinstance(outcome, tuple) and outcome[0] is not None:
             hltb, found_title, score = outcome
@@ -659,7 +743,7 @@ def search_game_on_hltb(page, game_title, game_year=None, backoff_base=0):
         for alt in alts:
             if alt == game_title:
                 continue
-            outcome_alt, status_alt = search_game_single_attempt(page, alt, game_year, idx_info=idx_info)
+            outcome_alt, status_alt = search_game_single_attempt(page, alt, game_year, idx_info={"index":0,"title":alt})
             if isinstance(outcome_alt, tuple) and outcome_alt[0] is not None:
                 hltb, found_title, score = outcome_alt
                 if score >= 0.98:
@@ -679,7 +763,7 @@ def search_game_on_hltb(page, game_title, game_year=None, backoff_base=0):
         return best_result, max(0, backoff)
     return None, max(0, backoff)
 
-# ------------------ Сохранение / main ------------------
+# ------------------ Save/progress utilities ------------------
 
 def save_results(games_data):
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
@@ -713,23 +797,19 @@ def update_html_with_hltb(html_file, hltb_data):
         log_message(f"❌ Ошибка update_html_with_hltb: {e}")
         return False
 
+# ------------------ Main loop ------------------
+
 def main():
-    log_message("🚀 Запуск HLTB Worker (с расширенным логированием)")
+    log_message("🚀 Запуск HLTB Worker (полная версия)")
     if not os.path.exists(GAMES_LIST_FILE):
         log_message(f"❌ Файл {GAMES_LIST_FILE} не найден"); return
     setup_directories()
-    with open(GAMES_LIST_FILE, 'r', encoding='utf-8') as f: content = f.read()
-    start = content.find('const gamesList = ')
-    if start == -1: log_message("❌ gamesList не найден"); return
-    start = content.find('[', start)
-    bracket_count = 0; end = start
-    for i,ch in enumerate(content[start:], start):
-        if ch == '[': bracket_count += 1
-        elif ch == ']':
-            bracket_count -= 1
-            if bracket_count == 0:
-                end = i+1; break
-    games_list = json.loads(content[start:end])
+    try:
+        games_list = extract_games_list(GAMES_LIST_FILE)
+    except Exception as e:
+        log_message(f"💥 Не удалось извлечь games_list: {e}")
+        raise
+
     total_games = len(games_list)
     log_message(f"📄 Извлечено {total_games} игр")
 
@@ -742,6 +822,7 @@ def main():
             start_index = 0
 
     backoff_state = 0
+    processed = 0
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -758,13 +839,11 @@ def main():
         except Exception as e:
             log_message(f"⚠️ Ошибка проверки сайта: {e}")
 
-        start_time = time.time(); processed = 0
         for i in range(start_index, total_games):
             game = games_list[i]
             title = game.get("title") or ""
             year = game.get("year")
             log_message(f"🎮 Обрабатываю {i+1}/{total_games}: {title} ({year})")
-            # передаем индекс/название для дампов
             idx_info = {"index": i+1, "title": title}
             hltb_data, new_backoff = search_game_on_hltb(page, title, year, backoff_base=backoff_state)
             if new_backoff and new_backoff > backoff_state:
