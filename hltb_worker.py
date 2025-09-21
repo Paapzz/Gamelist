@@ -29,7 +29,7 @@ BACKOFF_MULTIPLIER = 2.0
 MAX_BACKOFF = 300
 
 # ---------------- DEBUG / DUMPS (настраиваемые) ----------------
-DEBUG_CANDIDATES = False         # Если True — сохраняет кандидатов и оценки при спорных выборках
+DEBUG_CANDIDATES = True         # Если True — сохраняет кандидатов и оценки при спорных выборках
 DUMP_ON_EMPTY = True            # Если True — сохраняет HTML + screenshot когда кандидатов == 0
 DUMP_DIR = "debug_dumps"        # куда сохранять дампы
 DEBUG_SCORE_THRESHOLD = 0.95    # порог: если лучший score < threshold -> сохранить дамп (при DEBUG_CANDIDATES=True)
