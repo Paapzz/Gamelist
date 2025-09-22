@@ -371,9 +371,9 @@ def search_game_on_hltb(page, game_title, game_year=None):
                 # Открываем финальную страницу и извлекаем данные
                 hltb_data = extract_hltb_data_from_candidate(page, best_candidate)
                 if hltb_data:
-                if attempt > 0:
-                    log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
-                    log_message(f"🏆 Лучший результат: '{best_candidate.get('text', '')}' (схожесть: {best_score:.2f})")
+                    if attempt > 0:
+                        log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
+                        log_message(f"🏆 Лучший результат: '{best_candidate.get('text', '')}' (схожесть: {best_score:.2f})")
                     return hltb_data
                 else:
                     # Сохраняем отладочную информацию если данные не извлечены
