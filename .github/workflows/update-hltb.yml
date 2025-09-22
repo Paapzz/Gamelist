@@ -1,4 +1,4 @@
-name: Update HLTB
+name: Update HLTB data (with safe push)
 
 on:
   workflow_dispatch:
@@ -21,12 +21,17 @@ permissions:
 jobs:
   run-hltb:
     runs-on: ubuntu-latest
+    # Защита от вечных запусков — ограничиваем 6 часов (360 минут)
+    timeout-minutes: 360
+    # concurrency: делаем уникальную группу по run_id + chunk, чтобы позволить параллельные чанки в одном run
     concurrency:
-      group: hltb-worker
+      group: hltb-worker-${{ github.run_id }}-${{ github.event.inputs.CHUNK_INDEX }}
       cancel-in-progress: false
+
     env:
       PYTHONUNBUFFERED: 1
       HLTB_DEBUG: "true"
+
     steps:
       - name: Checkout (with token for push)
         uses: actions/checkout@v4
@@ -73,15 +78,12 @@ PY
       - name: Prepare env vars (CHUNK_INDEX / CHUNK_SIZE)
         id: prepare_env
         run: |
-          # Grab inputs — may be empty when triggered by push
           INPUT_CHUNK_INDEX="${{ github.event.inputs.CHUNK_INDEX }}"
           INPUT_CHUNK_SIZE="${{ github.event.inputs.CHUNK_SIZE }}"
-          # Default if empty/null
           CHUNK_INDEX="${INPUT_CHUNK_INDEX:-0}"
           CHUNK_SIZE="${INPUT_CHUNK_SIZE:-0}"
-          echo "CHUNK_INDEX=${CHUNK_INDEX}" 
+          echo "CHUNK_INDEX=${CHUNK_INDEX}"
           echo "CHUNK_SIZE=${CHUNK_SIZE}"
-          # Export for later steps
           echo "CHUNK_INDEX=${CHUNK_INDEX}" >> $GITHUB_ENV
           echo "CHUNK_SIZE=${CHUNK_SIZE}" >> $GITHUB_ENV
 
@@ -91,7 +93,7 @@ PY
           CHUNK_INDEX: ${{ env.CHUNK_INDEX }}
           CHUNK_SIZE: ${{ env.CHUNK_SIZE }}
         run: |
-          echo "Starting hltb_worker.py (DEBUG=${HLTB_DEBUG})"
+          echo "Starting hltb_worker.py (DEBUG=${HLTB_DEBUG}, CHUNK_INDEX=${CHUNK_INDEX}, CHUNK_SIZE=${CHUNK_SIZE})"
           python hltb_worker.py
 
       - name: Upload debug dumps (if any)
@@ -118,14 +120,10 @@ PY
         run: |
           set -euo pipefail
           echo "Preparing to commit results..."
-
           git config user.name "${GIT_AUTHOR_NAME}"
           git config user.email "${GIT_AUTHOR_EMAIL}"
-
-          # Ensure on main
           git checkout main
 
-          # Stage files only if they exist
           CHANGED=0
           if ls hltb_data/*.json 1> /dev/null 2>&1; then
             git add hltb_data/*.json
@@ -143,14 +141,12 @@ PY
 
           COMMIT_MSG="HLTB worker: update results $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           
-          # Check if there are changes to commit
           if git diff --cached --quiet; then
             echo "No changes staged for commit"
           else
             git commit -m "${COMMIT_MSG}"
           fi
 
-          # Fetch remote main and try to merge, handle merge errors explicitly
           git fetch origin main
 
           set +e
@@ -167,15 +163,13 @@ PY
             exit 0
           fi
 
-          # After successful merge, ensure staged files again and push
           if ls hltb_data/*.json 1> /dev/null 2>&1; then
             git add hltb_data/*.json
           fi
           if [ -f scraping_report.json ]; then
             git add scraping_report.json
           fi
-          
-          # Check if there are post-merge changes to commit
+
           if git diff --cached --quiet; then
             echo "No post-merge changes to commit"
           else
