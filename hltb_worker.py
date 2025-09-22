@@ -158,6 +158,11 @@ def try_js_array_parsing(content):
                 array_content = array_content.replace('true', 'True')
                 array_content = array_content.replace('false', 'False')
                 
+                # Заменяем JavaScript объекты на Python словари
+                # {"key": "value"} -> {"key": "value"}
+                # Но нужно заменить одинарные кавычки на двойные для ключей
+                array_content = re.sub(r"'([^']+)':", r'"\1":', array_content)
+                
                 # Парсим как Python код
                 import ast
                 games_list = ast.literal_eval('[' + array_content + ']')
@@ -170,8 +175,10 @@ def try_js_array_parsing(content):
                         title, year = extract_title_and_year(game)
                         formatted_games.append({"title": title, "year": year})
                     elif isinstance(game, dict):
-                        # Уже в нужном формате
-                        formatted_games.append(game)
+                        # Извлекаем title и year из объекта
+                        title = game.get("title", "")
+                        year = game.get("year")
+                        formatted_games.append({"title": title, "year": year})
                 
                 return formatted_games
         
@@ -364,8 +371,8 @@ def search_game_on_hltb(page, game_title, game_year=None):
                 # Открываем финальную страницу и извлекаем данные
                 hltb_data = extract_hltb_data_from_candidate(page, best_candidate)
                 if hltb_data:
-                    if attempt > 0:
-                        log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
+                if attempt > 0:
+                    log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
                     log_message(f"🏆 Лучший результат: '{best_candidate.get('text', '')}' (схожесть: {best_score:.2f})")
                     return hltb_data
                 else:
@@ -731,10 +738,10 @@ def determine_base(parts):
         return ""
     
     # Эвристика: если первая часть содержит пробелы, берем все слова кроме последнего
-    first_part = parts[0]
-    if " " in first_part:
-        words = first_part.split()
-        if len(words) >= 2:
+            first_part = parts[0]
+            if " " in first_part:
+                words = first_part.split()
+                if len(words) >= 2:
             # Проверяем, что последнее слово не является общим (Red, Blue, Yellow, etc.)
             last_word = words[-1].lower()
             common_words = {"red", "blue", "yellow", "green", "black", "white", "gold", "silver", "crystal"}
