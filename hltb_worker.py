@@ -140,7 +140,10 @@ def try_js_array_parsing(content):
         patterns = [
             r'const\s+gamesList\s*=\s*\[(.*?)\];',
             r'let\s+gamesList\s*=\s*\[(.*?)\];',
-            r'var\s+gamesList\s*=\s*\[(.*?)\];'
+            r'var\s+gamesList\s*=\s*\[(.*?)\];',
+            r'const\s+gamesList\s*=\s*\[(.*?)\]\s*;',
+            r'let\s+gamesList\s*=\s*\[(.*?)\]\s*;',
+            r'var\s+gamesList\s*=\s*\[(.*?)\]\s*;'
         ]
         
         for pattern in patterns:
@@ -170,8 +173,11 @@ def try_js_array_parsing(content):
                         title, year = extract_title_and_year(game)
                         formatted_games.append({"title": title, "year": year})
                     elif isinstance(game, dict):
-                        # Уже в нужном формате
-                        formatted_games.append(game)
+                        # Извлекаем title и year из объекта
+                        title = game.get("title", "")
+                        year = game.get("year")
+                        if title:
+                            formatted_games.append({"title": title, "year": year})
                 
                 return formatted_games
         
