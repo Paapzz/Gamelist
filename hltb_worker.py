@@ -109,48 +109,19 @@ def extract_games_list(html_file):
         
         log_message(f"📄 Файл прочитан, размер: {len(content)} символов")
         
-        # Показываем первые 500 символов для отладки
-        log_message(f"📄 Первые 500 символов файла: {content[:500]}")
-        
-        # Ищем все возможные паттерны gamesList
-        gameslist_patterns = [
-            r'const\s+gamesList\s*=',
-            r'let\s+gamesList\s*=',
-            r'var\s+gamesList\s*=',
-            r'gamesList\s*=',
-            r'gamesList\s*:'
-        ]
-        
-        found_patterns = []
-        for pattern in gameslist_patterns:
-            if re.search(pattern, content, re.IGNORECASE):
-                found_patterns.append(pattern)
-        
-        log_message(f"📄 Найденные паттерны gamesList: {found_patterns}")
-        
         # Способ 1: JS-array parsing
-        log_message("🔍 Пробуем JS-array parsing...")
         games_list = try_js_array_parsing(content)
         if games_list:
             log_message(f"✅ Извлечено {len(games_list)} игр через JS-array parsing")
             return games_list
         
-        # Способ 2: Поиск любых JSON объектов с title (приоритетный fallback)
-        log_message("🔍 Пробуем поиск JSON объектов...")
-        games_list = try_json_objects_search(content)
-        if games_list:
-            log_message(f"✅ Извлечено {len(games_list)} игр через JSON поиск")
-            return games_list
-        
-        # Способ 3: Heuristic regex
-        log_message("🔍 Пробуем heuristic regex...")
+        # Способ 2: Heuristic regex
         games_list = try_heuristic_regex(content)
         if games_list:
             log_message(f"✅ Извлечено {len(games_list)} игр через heuristic regex")
             return games_list
         
-        # Способ 4: Fallback на anchors
-        log_message("🔍 Пробуем anchor fallback...")
+        # Способ 3: Fallback на anchors
         games_list = try_anchor_fallback(content)
         if games_list:
             log_message(f"✅ Извлечено {len(games_list)} игр через anchor fallback")
@@ -169,181 +140,45 @@ def try_js_array_parsing(content):
         patterns = [
             r'const\s+gamesList\s*=\s*\[(.*?)\];',
             r'let\s+gamesList\s*=\s*\[(.*?)\];',
-            r'var\s+gamesList\s*=\s*\[(.*?)\];',
-            r'gamesList\s*=\s*\[(.*?)\];',
-            r'const\s+gamesList\s*=\s*\[(.*?)\]',
-            r'let\s+gamesList\s*=\s*\[(.*?)\]',
-            r'var\s+gamesList\s*=\s*\[(.*?)\]',
-            r'gamesList\s*=\s*\[(.*?)\]'
+            r'var\s+gamesList\s*=\s*\[(.*?)\];'
         ]
         
-        # Также попробуем найти весь массив до конца скрипта
-        full_array_patterns = [
-            r'const\s+gamesList\s*=\s*\[(.*?)\];\s*</script>',
-            r'let\s+gamesList\s*=\s*\[(.*?)\];\s*</script>',
-            r'var\s+gamesList\s*=\s*\[(.*?)\];\s*</script>',
-            r'gamesList\s*=\s*\[(.*?)\];\s*</script>'
-        ]
-        
-        # Сначала найдем все вхождения gamesList в файле
-        gameslist_positions = []
-        for match in re.finditer(r'gamesList', content):
-            start = max(0, match.start() - 50)
-            end = min(len(content), match.end() + 50)
-            context = content[start:end]
-            gameslist_positions.append((match.start(), context))
-        
-        log_message(f"📝 Найдено {len(gameslist_positions)} вхождений 'gamesList' в файле")
-        for i, (pos, context) in enumerate(gameslist_positions[:3]):  # Показываем первые 3
-            log_message(f"📝 Вхождение {i+1} (позиция {pos}): {context}")
-        
-        # Сначала пробуем полные паттерны (до конца скрипта)
-        for i, pattern in enumerate(full_array_patterns):
-            log_message(f"📝 Проверяем полный паттерн {i+1}: {pattern}")
+        for pattern in patterns:
             match = re.search(pattern, content, re.DOTALL)
             if match:
-                log_message(f"✅ Полный паттерн {i+1} найден!")
                 array_content = match.group(1)
-                log_message(f"📝 Найден полный JS массив, размер: {len(array_content)} символов")
-                log_message(f"📝 Первые 200 символов: {array_content[:200]}")
-                break
-        else:
-            # Если полные паттерны не сработали, пробуем обычные
-            for i, pattern in enumerate(patterns):
-                log_message(f"📝 Проверяем паттерн {i+1}: {pattern}")
-                match = re.search(pattern, content, re.DOTALL)
-                if match:
-                    log_message(f"✅ Паттерн {i+1} найден!")
-                    array_content = match.group(1)
-                    log_message(f"📝 Найден JS массив, размер: {len(array_content)} символов")
-                    log_message(f"📝 Первые 200 символов: {array_content[:200]}")
-                    break
-            else:
-                log_message("❌ Ни один паттерн не найден")
-                return None
-        
-        # Преобразуем JS в Python-safe
-        # Удаляем trailing commas
-        array_content = re.sub(r',\s*\]', ']', array_content)
-        array_content = re.sub(r',\s*$', '', array_content)
-        
-        # Заменяем null/true/false
-        array_content = array_content.replace('null', 'None')
-        array_content = array_content.replace('true', 'True')
-        array_content = array_content.replace('false', 'False')
-        
-        # Заменяем JavaScript объекты на Python словари
-        # {"key": "value"} -> {"key": "value"}
-        # Но нужно заменить одинарные кавычки на двойные для ключей
-        array_content = re.sub(r"'([^']+)':", r'"\1":', array_content)
-        
-        log_message(f"📝 Обработанный массив (первые 200 символов): {array_content[:200]}")
-        
-        try:
-            # Парсим как Python код
-            import ast
-            games_list = ast.literal_eval('[' + array_content + ']')
-            
-            # Преобразуем в нужный формат
-            formatted_games = []
-            for game in games_list:
-                if isinstance(game, str):
-                    # "Title (YYYY)" -> {"title": "Title", "year": YYYY}
-                    title, year = extract_title_and_year(game)
-                    formatted_games.append({"title": title, "year": year})
-                elif isinstance(game, dict):
-                    # Извлекаем title и year из объекта
-                    title = game.get("title", "")
-                    year = game.get("year")
-                    if title:
+                
+                # Преобразуем JS в Python-safe
+                # Удаляем trailing commas
+                array_content = re.sub(r',\s*\]', ']', array_content)
+                array_content = re.sub(r',\s*$', '', array_content)
+                
+                # Заменяем null/true/false
+                array_content = array_content.replace('null', 'None')
+                array_content = array_content.replace('true', 'True')
+                array_content = array_content.replace('false', 'False')
+                
+                # Парсим как Python код
+                import ast
+                games_list = ast.literal_eval('[' + array_content + ']')
+                
+                # Преобразуем в нужный формат
+                formatted_games = []
+                for game in games_list:
+                    if isinstance(game, str):
+                        # "Title (YYYY)" -> {"title": "Title", "year": YYYY}
+                        title, year = extract_title_and_year(game)
                         formatted_games.append({"title": title, "year": year})
-            
-            log_message(f"✅ Извлечено {len(formatted_games)} игр из JS массива")
-            return formatted_games
-            
-        except Exception as parse_error:
-            log_message(f"❌ Ошибка парсинга JS массива: {parse_error}")
-            # Попробуем альтернативный способ - извлечение через regex
-            return extract_games_from_js_objects(array_content)
+                    elif isinstance(game, dict):
+                        # Уже в нужном формате
+                        formatted_games.append(game)
+                
+                return formatted_games
         
         return None
         
     except Exception as e:
         log_message(f"⚠️ JS-array parsing не удался: {e}")
-        return None
-
-def extract_games_from_js_objects(array_content):
-    """Извлекает игры из JS объектов через regex"""
-    try:
-        formatted_games = []
-        
-        # Ищем все объекты в массиве
-        # Паттерн для поиска объектов: {"key": "value", ...}
-        object_pattern = r'\{[^}]*"title"[^}]*"year"[^}]*\}'
-        matches = re.findall(object_pattern, array_content)
-        
-        log_message(f"📝 Найдено {len(matches)} объектов через regex")
-        
-        for match in matches:
-            try:
-                # Извлекаем title
-                title_match = re.search(r'"title":\s*"([^"]*)"', match)
-                title = title_match.group(1) if title_match else ""
-                
-                # Извлекаем year
-                year_match = re.search(r'"year":\s*(\d+)', match)
-                year = int(year_match.group(1)) if year_match else None
-                
-                if title:
-                    formatted_games.append({"title": title, "year": year})
-                    log_message(f"📝 Извлечена игра: {title} ({year})")
-                    
-            except Exception as e:
-                log_message(f"⚠️ Ошибка обработки объекта: {e}")
-                continue
-        
-        log_message(f"✅ Извлечено {len(formatted_games)} игр через regex")
-        return formatted_games if formatted_games else None
-        
-    except Exception as e:
-        log_message(f"❌ Ошибка извлечения через regex: {e}")
-        return None
-
-def try_json_objects_search(content):
-    """Поиск любых JSON объектов с title в файле"""
-    try:
-        formatted_games = []
-        
-        # Ищем все объекты с "title" в файле
-        # Паттерн для поиска объектов: {"title": "...", ...}
-        object_pattern = r'\{[^}]*"title"[^}]*\}'
-        matches = re.findall(object_pattern, content)
-        
-        log_message(f"📝 Найдено {len(matches)} объектов с title через JSON поиск")
-        
-        for match in matches:
-            try:
-                # Извлекаем title
-                title_match = re.search(r'"title":\s*"([^"]*)"', match)
-                title = title_match.group(1) if title_match else ""
-                
-                # Извлекаем year (если есть)
-                year_match = re.search(r'"year":\s*(\d+)', match)
-                year = int(year_match.group(1)) if year_match else None
-                
-                if title:
-                    formatted_games.append({"title": title, "year": year})
-                    log_message(f"📝 JSON поиск: {title} ({year})")
-                    
-            except Exception as e:
-                log_message(f"⚠️ Ошибка обработки JSON объекта: {e}")
-                continue
-        
-        log_message(f"✅ JSON поиск: извлечено {len(formatted_games)} игр")
-        return formatted_games if formatted_games else None
-        
-    except Exception as e:
-        log_message(f"❌ Ошибка JSON поиска: {e}")
         return None
 
 def try_heuristic_regex(content):
@@ -900,11 +735,11 @@ def determine_base(parts):
     if " " in first_part:
         words = first_part.split()
         if len(words) >= 2:
-            # Проверяем, что последнее слово не является общим (Red, Blue, Yellow, etc.)
-            last_word = words[-1].lower()
-            common_words = {"red", "blue", "yellow", "green", "black", "white", "gold", "silver", "crystal"}
-            if last_word in common_words:
-                return " ".join(words[:-1])
+            # Проверяем, не дублируется ли первое слово
+            if len(words) >= 3 and words[0] == words[1]:
+                # "Pokémon Pokémon Red" -> "Pokémon Red"
+                return " ".join(words[1:-1])
+            return " ".join(words[:-1])
     
     return ""
 
@@ -989,19 +824,25 @@ def calculate_title_similarity(title1, title2):
         if normalized1 == normalized2:
             return 1.0
         
-        # Убираем бонус за подстроку - он завышает оценки
-        # Вместо этого используем более строгую оценку
+        # Штраф за неполное совпадение (один содержит другой)
+        if normalized1 in normalized2 or normalized2 in normalized1:
+            # Если один является подстрокой другого - штраф
+            shorter = min(len(normalized1), len(normalized2))
+            longer = max(len(normalized1), len(normalized2))
+            if longer > 0:
+                substring_penalty = (longer - shorter) / longer * 0.3
+                word_similarity -= substring_penalty
         
         # Бонус за общие длинные слова (более 4 символов)
         long_common = [w for w in common_words if len(w) > 4]
         if long_common:
-            word_similarity += 0.05 * len(long_common)  # Уменьшен бонус
+            word_similarity += 0.1 * len(long_common)
         
         # Штраф за значительную разницу в длине названий
         length_diff = abs(len(normalized1) - len(normalized2))
         max_length = max(len(normalized1), len(normalized2))
         if max_length > 0:
-            length_penalty = (length_diff / max_length) * 0.1
+            length_penalty = (length_diff / max_length) * 0.2
             word_similarity -= length_penalty
         
         return max(0.0, min(word_similarity, 1.0))
@@ -1607,18 +1448,9 @@ def update_html_with_hltb(html_file, hltb_data):
         if start == -1:
             raise ValueError("Не найден const gamesList в HTML файле")
         
-        # Ищем конец массива - может быть ]; или просто ]
-        end = content.find('];', start)
-        if end == -1:
-            end = content.find('\n];', start)
-        if end == -1:
-            end = content.find(']', start)
-        if end == -1:
+        end = content.find('];', start) + 2
+        if end == 1:
             raise ValueError("Не найден конец массива gamesList")
-        
-        end += 1  # Включаем символ ]
-        if content[end] == ';':
-            end += 1  # Включаем точку с запятой если есть
         
         # Создаем компактный JSON с HLTB данными (в одну строку)
         new_games_list = json.dumps(hltb_data, separators=(',', ':'), ensure_ascii=False)
