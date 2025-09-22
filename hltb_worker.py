@@ -154,7 +154,7 @@ def extract_games_list(html_file):
         games_list = try_json_objects_search(content)
         if games_list:
             log_message(f"✅ Извлечено {len(games_list)} игр через JSON поиск")
-            return games_list
+        return games_list
         
         raise ValueError("Не удалось извлечь список игр ни одним из способов")
         
@@ -172,9 +172,11 @@ def try_js_array_parsing(content):
             r'var\s+gamesList\s*=\s*\[(.*?)\];'
         ]
         
-        for pattern in patterns:
+        for i, pattern in enumerate(patterns):
+            log_message(f"📝 Проверяем паттерн {i+1}: {pattern}")
             match = re.search(pattern, content, re.DOTALL)
             if match:
+                log_message(f"✅ Паттерн {i+1} найден!")
                 array_content = match.group(1)
                 log_message(f"📝 Найден JS массив, размер: {len(array_content)} символов")
                 log_message(f"📝 Первые 200 символов: {array_content[:200]}")
@@ -487,7 +489,7 @@ def search_game_on_hltb(page, game_title, game_year=None):
                 if hltb_data:
                     if attempt > 0:
                         log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
-                        log_message(f"🏆 Лучший результат: '{best_candidate.get('text', '')}' (схожесть: {best_score:.2f})")
+                    log_message(f"🏆 Лучший результат: '{best_candidate.get('text', '')}' (схожесть: {best_score:.2f})")
                     return hltb_data
                 else:
                     # Сохраняем отладочную информацию если данные не извлечены
@@ -606,7 +608,7 @@ def extract_years_from_candidate(link_element):
 def choose_best_candidate(candidates, orig_title, input_year):
     """Выбирает лучшего кандидата согласно логике из logs.py"""
     if not candidates:
-        return None
+            return None
         
     try:
         # Вычисляем score для каждого кандидата
@@ -1563,9 +1565,18 @@ def update_html_with_hltb(html_file, hltb_data):
         if start == -1:
             raise ValueError("Не найден const gamesList в HTML файле")
         
-        end = content.find('];', start) + 2
-        if end == 1:
+        # Ищем конец массива - может быть ]; или просто ]
+        end = content.find('];', start)
+        if end == -1:
+            end = content.find('\n];', start)
+        if end == -1:
+            end = content.find(']', start)
+        if end == -1:
             raise ValueError("Не найден конец массива gamesList")
+        
+        end += 1  # Включаем символ ]
+        if content[end] == ';':
+            end += 1  # Включаем точку с запятой если есть
         
         # Создаем компактный JSON с HLTB данными (в одну строку)
         new_games_list = json.dumps(hltb_data, separators=(',', ':'), ensure_ascii=False)
