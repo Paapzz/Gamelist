@@ -109,22 +109,51 @@ def extract_games_list(html_file):
         
         log_message(f"📄 Файл прочитан, размер: {len(content)} символов")
         
+        # Показываем первые 500 символов для отладки
+        log_message(f"📄 Первые 500 символов файла: {content[:500]}")
+        
+        # Ищем все возможные паттерны gamesList
+        gameslist_patterns = [
+            r'const\s+gamesList\s*=',
+            r'let\s+gamesList\s*=',
+            r'var\s+gamesList\s*=',
+            r'gamesList\s*=',
+            r'gamesList\s*:'
+        ]
+        
+        found_patterns = []
+        for pattern in gameslist_patterns:
+            if re.search(pattern, content, re.IGNORECASE):
+                found_patterns.append(pattern)
+        
+        log_message(f"📄 Найденные паттерны gamesList: {found_patterns}")
+        
         # Способ 1: JS-array parsing
+        log_message("🔍 Пробуем JS-array parsing...")
         games_list = try_js_array_parsing(content)
         if games_list:
             log_message(f"✅ Извлечено {len(games_list)} игр через JS-array parsing")
             return games_list
         
         # Способ 2: Heuristic regex
+        log_message("🔍 Пробуем heuristic regex...")
         games_list = try_heuristic_regex(content)
         if games_list:
             log_message(f"✅ Извлечено {len(games_list)} игр через heuristic regex")
             return games_list
         
         # Способ 3: Fallback на anchors
+        log_message("🔍 Пробуем anchor fallback...")
         games_list = try_anchor_fallback(content)
         if games_list:
             log_message(f"✅ Извлечено {len(games_list)} игр через anchor fallback")
+            return games_list
+        
+        # Способ 4: Поиск любых JSON объектов с title
+        log_message("🔍 Пробуем поиск JSON объектов...")
+        games_list = try_json_objects_search(content)
+        if games_list:
+            log_message(f"✅ Извлечено {len(games_list)} игр через JSON поиск")
             return games_list
         
         raise ValueError("Не удалось извлечь список игр ни одним из способов")
@@ -234,6 +263,43 @@ def extract_games_from_js_objects(array_content):
         
     except Exception as e:
         log_message(f"❌ Ошибка извлечения через regex: {e}")
+        return None
+
+def try_json_objects_search(content):
+    """Поиск любых JSON объектов с title в файле"""
+    try:
+        formatted_games = []
+        
+        # Ищем все объекты с "title" в файле
+        # Паттерн для поиска объектов: {"title": "...", ...}
+        object_pattern = r'\{[^}]*"title"[^}]*\}'
+        matches = re.findall(object_pattern, content)
+        
+        log_message(f"📝 Найдено {len(matches)} объектов с title через JSON поиск")
+        
+        for match in matches:
+            try:
+                # Извлекаем title
+                title_match = re.search(r'"title":\s*"([^"]*)"', match)
+                title = title_match.group(1) if title_match else ""
+                
+                # Извлекаем year (если есть)
+                year_match = re.search(r'"year":\s*(\d+)', match)
+                year = int(year_match.group(1)) if year_match else None
+                
+                if title:
+                    formatted_games.append({"title": title, "year": year})
+                    log_message(f"📝 JSON поиск: {title} ({year})")
+                    
+            except Exception as e:
+                log_message(f"⚠️ Ошибка обработки JSON объекта: {e}")
+                continue
+        
+        log_message(f"✅ JSON поиск: извлечено {len(formatted_games)} игр")
+        return formatted_games if formatted_games else None
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка JSON поиска: {e}")
         return None
 
 def try_heuristic_regex(content):
