@@ -177,6 +177,14 @@ def try_js_array_parsing(content):
             r'gamesList\s*=\s*\[(.*?)\]'
         ]
         
+        # Также попробуем найти весь массив до конца скрипта
+        full_array_patterns = [
+            r'const\s+gamesList\s*=\s*\[(.*?)\];\s*</script>',
+            r'let\s+gamesList\s*=\s*\[(.*?)\];\s*</script>',
+            r'var\s+gamesList\s*=\s*\[(.*?)\];\s*</script>',
+            r'gamesList\s*=\s*\[(.*?)\];\s*</script>'
+        ]
+        
         # Сначала найдем все вхождения gamesList в файле
         gameslist_positions = []
         for match in re.finditer(r'gamesList', content):
@@ -189,57 +197,74 @@ def try_js_array_parsing(content):
         for i, (pos, context) in enumerate(gameslist_positions[:3]):  # Показываем первые 3
             log_message(f"📝 Вхождение {i+1} (позиция {pos}): {context}")
         
-        for i, pattern in enumerate(patterns):
-            log_message(f"📝 Проверяем паттерн {i+1}: {pattern}")
+        # Сначала пробуем полные паттерны (до конца скрипта)
+        for i, pattern in enumerate(full_array_patterns):
+            log_message(f"📝 Проверяем полный паттерн {i+1}: {pattern}")
             match = re.search(pattern, content, re.DOTALL)
             if match:
-                log_message(f"✅ Паттерн {i+1} найден!")
+                log_message(f"✅ Полный паттерн {i+1} найден!")
                 array_content = match.group(1)
-                log_message(f"📝 Найден JS массив, размер: {len(array_content)} символов")
+                log_message(f"📝 Найден полный JS массив, размер: {len(array_content)} символов")
                 log_message(f"📝 Первые 200 символов: {array_content[:200]}")
-                
-                # Преобразуем JS в Python-safe
-                # Удаляем trailing commas
-                array_content = re.sub(r',\s*\]', ']', array_content)
-                array_content = re.sub(r',\s*$', '', array_content)
-                
-                # Заменяем null/true/false
-                array_content = array_content.replace('null', 'None')
-                array_content = array_content.replace('true', 'True')
-                array_content = array_content.replace('false', 'False')
-                
-                # Заменяем JavaScript объекты на Python словари
-                # {"key": "value"} -> {"key": "value"}
-                # Но нужно заменить одинарные кавычки на двойные для ключей
-                array_content = re.sub(r"'([^']+)':", r'"\1":', array_content)
-                
-                log_message(f"📝 Обработанный массив (первые 200 символов): {array_content[:200]}")
-                
-                try:
-                    # Парсим как Python код
-                    import ast
-                    games_list = ast.literal_eval('[' + array_content + ']')
-                    
-                    # Преобразуем в нужный формат
-                    formatted_games = []
-                    for game in games_list:
-                        if isinstance(game, str):
-                            # "Title (YYYY)" -> {"title": "Title", "year": YYYY}
-                            title, year = extract_title_and_year(game)
-                            formatted_games.append({"title": title, "year": year})
-                        elif isinstance(game, dict):
-                            # Извлекаем title и year из объекта
-                            title = game.get("title", "")
-                            year = game.get("year")
-                            formatted_games.append({"title": title, "year": year})
-                    
-                    log_message(f"✅ Извлечено {len(formatted_games)} игр из JS массива")
-                    return formatted_games
-                    
-                except Exception as parse_error:
-                    log_message(f"❌ Ошибка парсинга JS массива: {parse_error}")
-                    # Попробуем альтернативный способ - извлечение через regex
-                    return extract_games_from_js_objects(array_content)
+                break
+        else:
+            # Если полные паттерны не сработали, пробуем обычные
+            for i, pattern in enumerate(patterns):
+                log_message(f"📝 Проверяем паттерн {i+1}: {pattern}")
+                match = re.search(pattern, content, re.DOTALL)
+                if match:
+                    log_message(f"✅ Паттерн {i+1} найден!")
+                    array_content = match.group(1)
+                    log_message(f"📝 Найден JS массив, размер: {len(array_content)} символов")
+                    log_message(f"📝 Первые 200 символов: {array_content[:200]}")
+                    break
+            else:
+                log_message("❌ Ни один паттерн не найден")
+                return None
+        
+        # Преобразуем JS в Python-safe
+        # Удаляем trailing commas
+        array_content = re.sub(r',\s*\]', ']', array_content)
+        array_content = re.sub(r',\s*$', '', array_content)
+        
+        # Заменяем null/true/false
+        array_content = array_content.replace('null', 'None')
+        array_content = array_content.replace('true', 'True')
+        array_content = array_content.replace('false', 'False')
+        
+        # Заменяем JavaScript объекты на Python словари
+        # {"key": "value"} -> {"key": "value"}
+        # Но нужно заменить одинарные кавычки на двойные для ключей
+        array_content = re.sub(r"'([^']+)':", r'"\1":', array_content)
+        
+        log_message(f"📝 Обработанный массив (первые 200 символов): {array_content[:200]}")
+        
+        try:
+            # Парсим как Python код
+            import ast
+            games_list = ast.literal_eval('[' + array_content + ']')
+            
+            # Преобразуем в нужный формат
+            formatted_games = []
+            for game in games_list:
+                if isinstance(game, str):
+                    # "Title (YYYY)" -> {"title": "Title", "year": YYYY}
+                    title, year = extract_title_and_year(game)
+                    formatted_games.append({"title": title, "year": year})
+                elif isinstance(game, dict):
+                    # Извлекаем title и year из объекта
+                    title = game.get("title", "")
+                    year = game.get("year")
+                    if title:
+                        formatted_games.append({"title": title, "year": year})
+            
+            log_message(f"✅ Извлечено {len(formatted_games)} игр из JS массива")
+            return formatted_games
+            
+        except Exception as parse_error:
+            log_message(f"❌ Ошибка парсинга JS массива: {parse_error}")
+            # Попробуем альтернативный способ - извлечение через regex
+            return extract_games_from_js_objects(array_content)
         
         return None
         
