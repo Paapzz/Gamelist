@@ -1,194 +1,127 @@
-name: Update HLTB
+name: Update HLTB Data
 
 on:
+  # Запуск раз в год - 20 января в 00:00 UTC
+  schedule:
+    - cron: '0 0 20 1 *'
+  
+  # Ручной запуск
   workflow_dispatch:
-    inputs:
-      CHUNK_INDEX:
-        description: 'Chunk index (0..n). 0 means full list'
-        required: false
-        default: '0'
-      CHUNK_SIZE:
-        description: 'Chunk size per job (0 = all)'
-        required: false
-        default: '0'
-  push:
-    branches:
-      - main
-
-permissions:
-  contents: write
 
 jobs:
-  run-hltb:
+  update-hltb:
     runs-on: ubuntu-latest
-    # Защита от вечных запусков — ограничиваем 6 часов (360 минут)
-    timeout-minutes: 360
-    # concurrency: делаем уникальную группу по run_id + chunk, чтобы позволить параллельные чанки в одном run
-    concurrency:
-      group: hltb-worker-${{ github.run_id }}-${{ github.event.inputs.CHUNK_INDEX }}
-      cancel-in-progress: false
-
-    env:
-      PYTHONUNBUFFERED: 1
-      HLTB_DEBUG: "true"
-
+    
     steps:
-      - name: Checkout (with token for push)
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          persist-credentials: true
-          fetch-depth: 0
-
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install required Python packages
+      
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install playwright pyee requests
-          if [ -f requirements.txt ]; then pip install -r requirements.txt || true; fi
-
-      - name: Install Playwright browsers
+          pip install playwright requests
+          playwright install chromium
+      
+      - name: Run HLTB scraper
         run: |
-          python -m playwright install chromium
-
-      - name: Show basic versions (non-fatal)
-        run: |
-          python -V
-          python - <<'PY'
-          import importlib
-          for pkg in ("playwright","pyee","requests"):
-              try:
-                  mod = importlib.import_module(pkg)
-                  print(pkg, getattr(mod, "__version__", "ok"))
-              except Exception as e:
-                  print(pkg, "NOT INSTALLED:", e)
-          PY
-
-      - name: Prepare env vars (CHUNK_INDEX / CHUNK_SIZE)
-        id: prepare_env
-        run: |
-          INPUT_CHUNK_INDEX="${{ github.event.inputs.CHUNK_INDEX }}"
-          INPUT_CHUNK_SIZE="${{ github.event.inputs.CHUNK_SIZE }}"
-          CHUNK_INDEX="${INPUT_CHUNK_INDEX:-0}"
-          CHUNK_SIZE="${INPUT_CHUNK_SIZE:-0}"
-          echo "CHUNK_INDEX=${CHUNK_INDEX}"
-          echo "CHUNK_SIZE=${CHUNK_SIZE}"
-          echo "CHUNK_INDEX=${CHUNK_INDEX}" >> $GITHUB_ENV
-          echo "CHUNK_SIZE=${CHUNK_SIZE}" >> $GITHUB_ENV
-
-      - name: Run HLTB worker
-        env:
-          HLTB_DEBUG: ${{ env.HLTB_DEBUG }}
-          CHUNK_INDEX: ${{ env.CHUNK_INDEX }}
-          CHUNK_SIZE: ${{ env.CHUNK_SIZE }}
-        run: |
-          echo "Starting hltb_worker.py (DEBUG=${HLTB_DEBUG}, CHUNK_INDEX=${CHUNK_INDEX}, CHUNK_SIZE=${CHUNK_SIZE})"
           python hltb_worker.py
-
-      - name: Upload debug dumps (if any)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: hltb-debug-dumps
-          path: debug_dumps/**
-          if-no-files-found: warn
-
-      - name: Upload hltb data
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: hltb-data
-          path: hltb_data/*.json
-          if-no-files-found: warn
-
-      - name: Commit & push results back to main (safe merge strategy)
-        if: always()
-        env:
-          GIT_AUTHOR_NAME: "HLTB Worker"
-          GIT_AUTHOR_EMAIL: "hltb-worker@users.noreply.github.com"
+        continue-on-error: true
+      
+      - name: Generate report
         run: |
-          set -euo pipefail
-          echo "Preparing to commit results..."
-          git config user.name "${GIT_AUTHOR_NAME}"
-          git config user.email "${GIT_AUTHOR_EMAIL}"
-          git checkout main
-
-          CHANGED=0
-          if ls hltb_data/*.json 1> /dev/null 2>&1; then
-            git add hltb_data/*.json
-            CHANGED=1
-          fi
-          if [ -f scraping_report.json ]; then
-            git add scraping_report.json
-            CHANGED=1
-          fi
-
-          if [ "$CHANGED" -eq 0 ]; then
-            echo "No output files to commit. Exiting."
-            exit 0
-          fi
-
-          COMMIT_MSG="HLTB worker: update results $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          # Создаем отчет
+          python -c "
+          import json
+          from datetime import datetime
           
-          if git diff --cached --quiet; then
-            echo "No changes staged for commit"
+          # Загружаем результаты
+          try:
+              with open('hltb_data/hltb_data.json', 'r', encoding='utf-8') as f:
+                  games_data = []
+                  for line in f:
+                      if line.strip():
+                          games_data.append(json.loads(line))
+              
+              # Статистика
+              total_games = len(games_data)
+              successful = len([g for g in games_data if 'hltb' in g])
+              success_rate = (successful / total_games * 100) if total_games > 0 else 0
+              
+              # Создаем отчет
+              report = {
+                  'timestamp': datetime.now().isoformat(),
+                  'total_games': total_games,
+                  'successful_games': successful,
+                  'failed_games': total_games - successful,
+                  'success_rate': f'{success_rate:.1f}%',
+                  'test_mode': 'false'
+              }
+              
+              with open('scraping_report.json', 'w', encoding='utf-8') as f:
+                  json.dump(report, f, indent=2, ensure_ascii=False)
+              
+              print(f'Отчет создан: {successful}/{total_games} игр ({success_rate:.1f}%)')
+              
+          except Exception as e:
+              print(f'Ошибка создания отчета: {e}')
+          "
+        continue-on-error: true
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hltb-data-${{ github.run_number }}
+          path: |
+            hltb_data/hltb_data.json
+            scraping_report.json
+          retention-days: 30
+      
+      - name: Commit and push results
+        run: |
+          # Настраиваем git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Добавляем файлы
+          git add hltb_data/hltb_data.json
+          git add scraping_report.json
+          git add index111.html
+          
+          # Защита от конфликтов - синхронизируем с удаленным репозиторием
+          git pull --rebase origin main
+          
+          # Коммитим только если есть изменения
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Update HLTB data - $(date '+%Y-%m-%d %H:%M:%S UTC')
+          
+          - Total games: $(jq '.total_games' scraping_report.json)
+          - Success rate: $(jq -r '.success_rate' scraping_report.json)
+          - Test mode: $(jq -r '.test_mode' scraping_report.json)
+          
+          Generated by GitHub Actions workflow #${{ github.run_number }}" && git push)
+      
+      
+      - name: Create summary
+        run: |
+          # Создаем краткое резюме
+          if [ -f "scraping_report.json" ]; then
+            echo "## HLTB Scraping Summary" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Games | $(jq '.total_games' scraping_report.json) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Successful | $(jq '.successful_games' scraping_report.json) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Failed | $(jq '.failed_games' scraping_report.json) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Success Rate | $(jq -r '.success_rate' scraping_report.json) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Test Mode | $(jq -r '.test_mode' scraping_report.json) |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Artifacts:** hltb-data-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
           else
-            git commit -m "${COMMIT_MSG}"
+            echo "Отчет не найден" >> $GITHUB_STEP_SUMMARY
           fi
-
-          git fetch origin main
-
-          set +e
-          git merge --no-edit -s recursive -X ours origin/main
-          MERGE_RC=$?
-          set -e
-
-          if [ $MERGE_RC -ne 0 ]; then
-            echo "⚠️ Merge returned non-zero rc=${MERGE_RC}. Will create fallback branch to avoid overwriting remote unexpectedly."
-            BRANCH="hltb-worker-fallback-$(date -u +%Y%m%d%H%M%S)"
-            git checkout -b "${BRANCH}"
-            git push origin "${BRANCH}"
-            echo "🔀 Pushed fallback branch: ${BRANCH}. Please review and merge manually."
-            exit 0
-          fi
-
-          if ls hltb_data/*.json 1> /dev/null 2>&1; then
-            git add hltb_data/*.json
-          fi
-          if [ -f scraping_report.json ]; then
-            git add scraping_report.json
-          fi
-
-          if git diff --cached --quiet; then
-            echo "No post-merge changes to commit"
-          else
-            git commit -m "${COMMIT_MSG} (post-merge)"
-          fi
-
-          set +e
-          git push origin HEAD:main
-          PUSH_RC=$?
-          set -e
-
-          if [ $PUSH_RC -eq 0 ]; then
-            echo "✅ Pushed results to main"
-            exit 0
-          else
-            echo "⚠️ Push to main failed (RC=$PUSH_RC). Creating fallback branch and pushing there."
-            BRANCH="hltb-worker-fallback-$(date -u +%Y%m%d%H%M%S)"
-            git checkout -b "${BRANCH}"
-            git push origin "${BRANCH}"
-            echo "🔀 Pushed fallback branch: ${BRANCH}. Please merge manually."
-            exit 0
-          fi
+        continue-on-error: true
