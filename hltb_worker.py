@@ -19,6 +19,11 @@ OUTPUT_DIR = "hltb_data"
 OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
 PROGRESS_FILE = "progress.json"
 
+# Переменные окружения для GitHub Actions
+DEBUG_MODE = os.getenv("HLTB_DEBUG", "false").lower() == "true"
+CHUNK_INDEX = int(os.getenv("CHUNK_INDEX", "0"))
+CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "0"))
+
 # Задержки для GitHub Actions (6 часов работы)
 BREAK_INTERVAL_MIN = 15 * 60  # 15 минут в секундах
 BREAK_INTERVAL_MAX = 25 * 60  # 25 минут в секундах
@@ -46,7 +51,7 @@ def log_message(message, level="INFO"):
         print(log_entry)
         
         # Дополнительное логирование в файл для отладки
-        if level in ["ERROR", "WARNING", "DEBUG"]:
+        if DEBUG_MODE or level in ["ERROR", "WARNING", "DEBUG"]:
             try:
                 with open("hltb_debug.log", "a", encoding="utf-8") as f:
                     f.write(log_entry + "\n")
@@ -1387,6 +1392,8 @@ def main():
     log_message("🚀 Запуск HLTB Worker")
     log_message(f"📁 Рабочая директория: {os.getcwd()}")
     log_message(f"📄 Ищем файл: {GAMES_LIST_FILE}")
+    log_message(f"🔧 Режим отладки: {DEBUG_MODE}")
+    log_message(f"📦 Чанк: {CHUNK_INDEX}, размер: {CHUNK_SIZE}")
     
     # Проверяем существование файла
     if not os.path.exists(GAMES_LIST_FILE):
@@ -1404,6 +1411,15 @@ def main():
         games_list = extract_games_list(GAMES_LIST_FILE)
         total_games = len(games_list)
         log_message(f"✅ Извлечено {total_games} игр")
+        
+        # Обработка чанков для GitHub Actions
+        if CHUNK_SIZE > 0 and CHUNK_INDEX >= 0:
+            start_idx = CHUNK_INDEX * CHUNK_SIZE
+            end_idx = min(start_idx + CHUNK_SIZE, total_games)
+            games_list = games_list[start_idx:end_idx]
+            log_message(f"📦 Обрабатываем чанк {CHUNK_INDEX}: игры {start_idx}-{end_idx-1} ({len(games_list)} игр)")
+        elif CHUNK_INDEX > 0:
+            log_message(f"⚠️ CHUNK_INDEX={CHUNK_INDEX} но CHUNK_SIZE=0, обрабатываем все игры")
         
         # Загружаем существующий прогресс, если есть
         if os.path.exists(PROGRESS_FILE):
