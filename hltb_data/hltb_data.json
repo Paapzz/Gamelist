@@ -23,14 +23,14 @@
 {"title":"BioShock","year":2007}
 {"title":"DOOM","year":1993}
 {"title":"Portal 2","year":2011}
-{"title":"World of Warcraft","year":2004,"hltb":{"coop":{"t":"2336h"},"vs":{"t":"1767h"},"ms":{"t":"480.5h","p":54,"r":"260.5h","l":"3466.5h"},"mpe":{"t":"1269h","p":64,"r":"659.5h","l":"5146.5h"},"comp":{"t":"5802.5h","p":27,"r":"3051h","l":"7901h"}}}
-{"title":"Grand Theft Auto V","year":2013,"hltb":{"ms":{"t":"32h"},"comp":{"t":"88h"},"mpe":{"t":"51h","p":3600,"r":"33.5h","l":"177h"},"coop":{"t":"193.5h","p":348,"min":"97h","max":"3595h"},"vs":{"t":"142.5h","p":233,"min":"71h","max":"1851h"},"stores":{"steam":"https://store.steampowered.com/app/271590/"}}}
+{"title":"World of Warcraft","year":2004,"hltb":{"ms":"N/A","mpe":"N/A","comp":"N/A","all":"N/A"}}
+{"title":"Grand Theft Auto V","year":2013,"hltb":{"ms":"N/A","mpe":"N/A","comp":"N/A","all":"N/A"}}
 {"title":"Super Metroid","year":1994,"hltb":{"ms":{"t":"7h"},"comp":{"t":"9h"},"mpe":{"t":"8.5h","p":938,"r":"5.5h","l":"15.5h"}}}
-{"title":"Portal","year":2007,"hltb":{"ms":{"t":"3h"},"comp":{"t":"10h"},"mpe":{"t":"5h","p":2200,"r":"3h","l":"14h"},"stores":{"steam":"https://store.steampowered.com/app/400/"}}}
+{"title":"Portal","year":2007,"hltb":{"ms":"N/A","mpe":"N/A","comp":"N/A","all":"N/A"}}
 {"title":"Red Dead Redemption","year":2010,"hltb":{"ms":{"t":"17h"},"comp":{"t":"46h"},"mpe":{"t":"26h","p":1400,"r":"18.5h","l":"53h"}}}
 {"title":"The Elder Scrolls V: Skyrim","year":2011,"hltb":{"ms":{"t":"35h"},"comp":{"t":"237h"},"mpe":{"t":"110h","p":2300,"r":"62h","l":"384h"},"stores":{"steam":"https://store.steampowered.com/app/72850/"}}}
-{"title":"Final Fantasy VII","year":1997,"hltb":{"ms":{"t":"36h"},"comp":{"t":"79h"},"mpe":{"t":"49.5h","p":1800,"r":"33h","l":"125.5h"},"stores":{"steam":"https://store.steampowered.com/app/39140/"}}}
+{"title":"Final Fantasy VII","year":1997,"hltb":{"ms":"N/A","mpe":"N/A","comp":"N/A","all":"N/A"}}
 {"title":"Street Fighter II","year":1991,"hltb":{"ms":{"t":"1h"},"comp":{"t":"11h"},"mpe":{"t":"7h","p":22,"r":"4h","l":"19h"}}}
 {"title":"God of War","year":2018,"hltb":{"ms":{"t":"20h"},"comp":{"t":"51h"},"mpe":{"t":"33h","p":3700,"r":"22.5h","l":"58.5h"},"stores":{"steam":"https://store.steampowered.com/app/1593500/","gog":"https://www.gog.com/en/game/god_of_war"}}}
-{"title":"Bloodborne","year":2015,"hltb":{"ms":{"t":"32h"},"comp":{"t":"75h"},"mpe":{"t":"43.5h","p":1500,"r":"28h","l":"130h"},"coop":{"t":"17.5h","p":26,"min":"9h","max":"84h"},"vs":{"t":"16.5h","p":11,"min":"8h","max":"83h"}}}
+{"title":"Bloodborne","year":2015,"hltb":{"ms":"N/A","mpe":"N/A","comp":"N/A","all":"N/A"}}
 {"title":"Call of Duty 4: Modern Warfare","year":2007,"hltb":{"ms":{"t":"7h"},"mpe":{"t":"10h"},"comp":{"t":"16h"},"coop":{"t":"79.5h","p":14,"min":"40h","max":"290h"},"vs":{"t":"197h","p":142,"min":"63h","max":"1812h"},"stores":{"steam":"https://store.steampowered.com/app/7940/"}}}
