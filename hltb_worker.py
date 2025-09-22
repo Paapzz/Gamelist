@@ -135,26 +135,26 @@ def extract_games_list(html_file):
             log_message(f"✅ Извлечено {len(games_list)} игр через JS-array parsing")
             return games_list
         
-        # Способ 2: Heuristic regex
+        # Способ 2: Поиск любых JSON объектов с title (приоритетный fallback)
+        log_message("🔍 Пробуем поиск JSON объектов...")
+        games_list = try_json_objects_search(content)
+        if games_list:
+            log_message(f"✅ Извлечено {len(games_list)} игр через JSON поиск")
+            return games_list
+        
+        # Способ 3: Heuristic regex
         log_message("🔍 Пробуем heuristic regex...")
         games_list = try_heuristic_regex(content)
         if games_list:
             log_message(f"✅ Извлечено {len(games_list)} игр через heuristic regex")
             return games_list
         
-        # Способ 3: Fallback на anchors
+        # Способ 4: Fallback на anchors
         log_message("🔍 Пробуем anchor fallback...")
         games_list = try_anchor_fallback(content)
         if games_list:
             log_message(f"✅ Извлечено {len(games_list)} игр через anchor fallback")
             return games_list
-        
-        # Способ 4: Поиск любых JSON объектов с title
-        log_message("🔍 Пробуем поиск JSON объектов...")
-        games_list = try_json_objects_search(content)
-        if games_list:
-            log_message(f"✅ Извлечено {len(games_list)} игр через JSON поиск")
-        return games_list
         
         raise ValueError("Не удалось извлечь список игр ни одним из способов")
         
@@ -169,8 +169,25 @@ def try_js_array_parsing(content):
         patterns = [
             r'const\s+gamesList\s*=\s*\[(.*?)\];',
             r'let\s+gamesList\s*=\s*\[(.*?)\];',
-            r'var\s+gamesList\s*=\s*\[(.*?)\];'
+            r'var\s+gamesList\s*=\s*\[(.*?)\];',
+            r'gamesList\s*=\s*\[(.*?)\];',
+            r'const\s+gamesList\s*=\s*\[(.*?)\]',
+            r'let\s+gamesList\s*=\s*\[(.*?)\]',
+            r'var\s+gamesList\s*=\s*\[(.*?)\]',
+            r'gamesList\s*=\s*\[(.*?)\]'
         ]
+        
+        # Сначала найдем все вхождения gamesList в файле
+        gameslist_positions = []
+        for match in re.finditer(r'gamesList', content):
+            start = max(0, match.start() - 50)
+            end = min(len(content), match.end() + 50)
+            context = content[start:end]
+            gameslist_positions.append((match.start(), context))
+        
+        log_message(f"📝 Найдено {len(gameslist_positions)} вхождений 'gamesList' в файле")
+        for i, (pos, context) in enumerate(gameslist_positions[:3]):  # Показываем первые 3
+            log_message(f"📝 Вхождение {i+1} (позиция {pos}): {context}")
         
         for i, pattern in enumerate(patterns):
             log_message(f"📝 Проверяем паттерн {i+1}: {pattern}")
