@@ -66,14 +66,14 @@ jobs:
         run: |
           python -V
           python - <<'PY'
-import importlib
-for pkg in ("playwright","pyee","requests"):
-    try:
-        mod = importlib.import_module(pkg)
-        print(pkg, getattr(mod, "__version__", "ok"))
-    except Exception as e:
-        print(pkg, "NOT INSTALLED:", e)
-PY
+          import importlib
+          for pkg in ("playwright","pyee","requests"):
+              try:
+                  mod = importlib.import_module(pkg)
+                  print(pkg, getattr(mod, "__version__", "ok"))
+              except Exception as e:
+                  print(pkg, "NOT INSTALLED:", e)
+          PY
 
       - name: Prepare env vars (CHUNK_INDEX / CHUNK_SIZE)
         id: prepare_env
