@@ -1,21 +1,37 @@
-name: update-hltb (minimal + sanitize)
+name: Update HLTB data (with safe push)
 
 on:
   workflow_dispatch:
+    inputs:
+      CHUNK_INDEX:
+        description: 'Chunk index (0..n). 0 means full list'
+        required: false
+        default: '0'
+      CHUNK_SIZE:
+        description: 'Chunk size per job (0 = all)'
+        required: false
+        default: '0'
   push:
-    paths:
-      - index111.html
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
-  scrape:
+  run-hltb:
     runs-on: ubuntu-latest
+    concurrency:
+      group: hltb-worker
+      cancel-in-progress: false
+    env:
+      PYTHONUNBUFFERED: 1
+      HLTB_DEBUG: "true"
     steps:
-      - name: Checkout
+      - name: Checkout (with token for push)
         uses: actions/checkout@v4
         with:
+          persist-credentials: true
           fetch-depth: 0
 
       - name: Setup Python
@@ -31,69 +47,154 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install minimal Python deps (playwright + requests)
+      - name: Install required Python packages
         run: |
           python -m pip install --upgrade pip
-          pip install playwright requests
+          python -m pip install playwright pyee requests
+          if [ -f requirements.txt ]; then pip install -r requirements.txt || true; fi
 
-      - name: Install Playwright browser (chromium only)
+      - name: Install Playwright browsers
         run: |
           python -m playwright install chromium
 
+      - name: Show basic versions (non-fatal)
+        run: |
+          python -V
+          python - <<'PY'
+import importlib
+for pkg in ("playwright","pyee","requests"):
+    try:
+        mod = importlib.import_module(pkg)
+        print(pkg, getattr(mod, "__version__", "ok"))
+    except Exception as e:
+        print(pkg, "NOT INSTALLED:", e)
+PY
+
+      - name: Prepare env vars (CHUNK_INDEX / CHUNK_SIZE)
+        id: prepare_env
+        run: |
+          # Grab inputs — may be empty when triggered by push
+          INPUT_CHUNK_INDEX="${{ github.event.inputs.CHUNK_INDEX }}"
+          INPUT_CHUNK_SIZE="${{ github.event.inputs.CHUNK_SIZE }}"
+          # Default if empty/null
+          CHUNK_INDEX="${INPUT_CHUNK_INDEX:-0}"
+          CHUNK_SIZE="${INPUT_CHUNK_SIZE:-0}"
+          echo "CHUNK_INDEX=${CHUNK_INDEX}" 
+          echo "CHUNK_SIZE=${CHUNK_SIZE}"
+          # Export for later steps
+          echo "CHUNK_INDEX=${CHUNK_INDEX}" >> $GITHUB_ENV
+          echo "CHUNK_SIZE=${CHUNK_SIZE}" >> $GITHUB_ENV
+
       - name: Run HLTB worker
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          HLTB_DEBUG: ${{ env.HLTB_DEBUG }}
+          CHUNK_INDEX: ${{ env.CHUNK_INDEX }}
+          CHUNK_SIZE: ${{ env.CHUNK_SIZE }}
         run: |
+          echo "Starting hltb_worker.py (DEBUG=${HLTB_DEBUG})"
           python hltb_worker.py
 
-      - name: Sanitize artifact filenames (replace forbidden chars)
-        run: |
-          python - <<'PY'
-          import os, re, time, sys
-          roots = ["debug_dumps", "hltb_data"]
-          # Pattern includes characters disallowed by upload-artifact / NTFS etc.
-          pattern = re.compile(r'["<>:|*\?\\\r\n/\\\\]+')
-          for root in roots:
-              if not os.path.isdir(root):
-                  # nothing to sanitize in this root
-                  continue
-              for dirpath, dirnames, filenames in os.walk(root):
-                  for fn in filenames:
-                      if pattern.search(fn):
-                          safe = pattern.sub('_', fn)
-                          # collapse multiple underscores/spaces and trim
-                          safe = re.sub(r'[_\s]+','_', safe).strip('_')
-                          # ensure basename not empty
-                          if not safe:
-                              safe = 'file'
-                          old = os.path.join(dirpath, fn)
-                          new = os.path.join(dirpath, safe)
-                          if old == new:
-                              continue
-                          # avoid overwriting an existing file accidentally
-                          if os.path.exists(new):
-                              base, ext = os.path.splitext(safe)
-                              new = os.path.join(dirpath, f"{base}_{int(time.time())}{ext}")
-                          try:
-                              print(f"Renaming: {old} -> {new}")
-                              os.rename(old, new)
-                          except Exception as e:
-                              print(f"ERROR renaming {old} -> {new}: {e}", file=sys.stderr)
-          PY
-
-      - name: Upload debug dumps
+      - name: Upload debug dumps (if any)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hltb-debug-dumps
           path: debug_dumps/**
+          if-no-files-found: warn
 
-      - name: Upload per-run results
+      - name: Upload hltb data
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hltb-results
-          path: |
-            hltb_data/hltb_data_*.json
-            scraping_report.json
+          name: hltb-data
+          path: hltb_data/*.json
+          if-no-files-found: warn
+
+      - name: Commit & push results back to main (safe merge strategy)
+        if: always()
+        env:
+          GIT_AUTHOR_NAME: "HLTB Worker"
+          GIT_AUTHOR_EMAIL: "hltb-worker@users.noreply.github.com"
+        run: |
+          set -euo pipefail
+          echo "Preparing to commit results..."
+
+          git config user.name "${GIT_AUTHOR_NAME}"
+          git config user.email "${GIT_AUTHOR_EMAIL}"
+
+          # Ensure on main
+          git checkout main
+
+          # Stage files only if they exist
+          CHANGED=0
+          if ls hltb_data/*.json 1> /dev/null 2>&1; then
+            git add hltb_data/*.json
+            CHANGED=1
+          fi
+          if [ -f scraping_report.json ]; then
+            git add scraping_report.json
+            CHANGED=1
+          fi
+
+          if [ "$CHANGED" -eq 0 ]; then
+            echo "No output files to commit. Exiting."
+            exit 0
+          fi
+
+          COMMIT_MSG="HLTB worker: update results $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          
+          # Check if there are changes to commit
+          if git diff --cached --quiet; then
+            echo "No changes staged for commit"
+          else
+            git commit -m "${COMMIT_MSG}"
+          fi
+
+          # Fetch remote main and try to merge, handle merge errors explicitly
+          git fetch origin main
+
+          set +e
+          git merge --no-edit -s recursive -X ours origin/main
+          MERGE_RC=$?
+          set -e
+
+          if [ $MERGE_RC -ne 0 ]; then
+            echo "⚠️ Merge returned non-zero rc=${MERGE_RC}. Will create fallback branch to avoid overwriting remote unexpectedly."
+            BRANCH="hltb-worker-fallback-$(date -u +%Y%m%d%H%M%S)"
+            git checkout -b "${BRANCH}"
+            git push origin "${BRANCH}"
+            echo "🔀 Pushed fallback branch: ${BRANCH}. Please review and merge manually."
+            exit 0
+          fi
+
+          # After successful merge, ensure staged files again and push
+          if ls hltb_data/*.json 1> /dev/null 2>&1; then
+            git add hltb_data/*.json
+          fi
+          if [ -f scraping_report.json ]; then
+            git add scraping_report.json
+          fi
+          
+          # Check if there are post-merge changes to commit
+          if git diff --cached --quiet; then
+            echo "No post-merge changes to commit"
+          else
+            git commit -m "${COMMIT_MSG} (post-merge)"
+          fi
+
+          set +e
+          git push origin HEAD:main
+          PUSH_RC=$?
+          set -e
+
+          if [ $PUSH_RC -eq 0 ]; then
+            echo "✅ Pushed results to main"
+            exit 0
+          else
+            echo "⚠️ Push to main failed (RC=$PUSH_RC). Creating fallback branch and pushing there."
+            BRANCH="hltb-worker-fallback-$(date -u +%Y%m%d%H%M%S)"
+            git checkout -b "${BRANCH}"
+            git push origin "${BRANCH}"
+            echo "🔀 Pushed fallback branch: ${BRANCH}. Please merge manually."
+            exit 0
+          fi
