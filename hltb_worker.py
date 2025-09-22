@@ -364,8 +364,8 @@ def search_game_on_hltb(page, game_title, game_year=None):
                 # Открываем финальную страницу и извлекаем данные
                 hltb_data = extract_hltb_data_from_candidate(page, best_candidate)
                 if hltb_data:
-                    if attempt > 0:
-                        log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
+                if attempt > 0:
+                    log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
                     log_message(f"🏆 Лучший результат: '{best_candidate.get('text', '')}' (схожесть: {best_score:.2f})")
                     return hltb_data
                 else:
@@ -485,19 +485,16 @@ def extract_years_from_candidate(link_element):
 def choose_best_candidate(candidates, orig_title, input_year):
     """Выбирает лучшего кандидата согласно логике из logs.py"""
     if not candidates:
-        return None
-    
+            return None
+        
     try:
         # Вычисляем score для каждого кандидата
         scored_candidates = []
         for candidate in candidates:
             score = calculate_title_similarity(orig_title, candidate["text"])
             
-            # Бонус +0.02, если normalized(original) является подстрокой normalized(candidate_text)
-            orig_normalized = clean_title_for_comparison(orig_title)
-            candidate_normalized = clean_title_for_comparison(candidate["text"])
-            if orig_normalized in candidate_normalized:
-                score += 0.02
+            # Убираем бонус за подстроку - он завышает оценки
+            # Теперь полагаемся только на алгоритм схожести
             
             # earliest_year = min(candidate.years) если есть годы
             earliest_year = min(candidate["years"]) if candidate["years"] else None
@@ -738,7 +735,11 @@ def determine_base(parts):
     if " " in first_part:
         words = first_part.split()
         if len(words) >= 2:
-            return " ".join(words[:-1])
+            # Проверяем, что последнее слово не является общим (Red, Blue, Yellow, etc.)
+            last_word = words[-1].lower()
+            common_words = {"red", "blue", "yellow", "green", "black", "white", "gold", "silver", "crystal"}
+            if last_word in common_words:
+                return " ".join(words[:-1])
     
     return ""
 
@@ -823,16 +824,22 @@ def calculate_title_similarity(title1, title2):
         if normalized1 == normalized2:
             return 1.0
         
-        # Бонус за включение одного в другое
-        if normalized1 in normalized2 or normalized2 in normalized1:
-            word_similarity += 0.2
+        # Убираем бонус за подстроку - он завышает оценки
+        # Вместо этого используем более строгую оценку
         
         # Бонус за общие длинные слова (более 4 символов)
         long_common = [w for w in common_words if len(w) > 4]
         if long_common:
-            word_similarity += 0.1 * len(long_common)
+            word_similarity += 0.05 * len(long_common)  # Уменьшен бонус
         
-        return min(word_similarity, 1.0)
+        # Штраф за значительную разницу в длине названий
+        length_diff = abs(len(normalized1) - len(normalized2))
+        max_length = max(len(normalized1), len(normalized2))
+        if max_length > 0:
+            length_penalty = (length_diff / max_length) * 0.1
+            word_similarity -= length_penalty
+        
+        return max(0.0, min(word_similarity, 1.0))
         
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
@@ -861,6 +868,68 @@ def normalize_title_for_comparison(title):
     except Exception as e:
         log_message(f"❌ Ошибка нормализации названия: {e}")
         return title
+
+def extract_gamestats_data(page):
+    """Извлекает данные из GameStats блока (ul/li/h4-h5)"""
+    try:
+        hltb_data = {}
+        
+        # Ищем GameStats блок
+        gamestats = page.locator('.GameStats_game_times__ ul li')
+        if gamestats.count() == 0:
+            # Альтернативный селектор
+            gamestats = page.locator('[class*="GameStats"] ul li')
+        
+        if gamestats.count() == 0:
+            return None
+        
+        log_message(f"📊 Найден GameStats блок с {gamestats.count()} элементами")
+        
+        for i in range(gamestats.count()):
+            try:
+                li = gamestats.nth(i)
+                
+                # Ищем h4 (категория) и h5 (время)
+                h4 = li.locator('h4')
+                h5 = li.locator('h5')
+                
+                if h4.count() > 0 and h5.count() > 0:
+                    category = h4.inner_text().strip()
+                    time_text = h5.inner_text().strip()
+                    
+                    # Пропускаем пустые или "--" значения
+                    if not time_text or time_text == "--":
+                        continue
+                    
+                    # Определяем тип категории
+                    category_key = None
+                    if "Main Story" in category:
+                        category_key = "ms"
+                    elif "Main + Extras" in category or "Main +Extra" in category:
+                        category_key = "mpe"
+                    elif "Completionist" in category:
+                        category_key = "comp"
+                    elif "Co-Op" in category or "Coop" in category:
+                        category_key = "coop"
+                    elif "Vs." in category or "Competitive" in category:
+                        category_key = "vs"
+                    
+                    if category_key:
+                        # Обрабатываем время
+                        rounded_time = round_time(time_text)
+                        if rounded_time:
+                            hltb_data[category_key] = {"t": rounded_time}
+                            log_message(f"📊 GameStats: {category} -> {rounded_time}")
+                
+            except Exception as e:
+                log_message(f"⚠️ Ошибка обработки GameStats элемента {i}: {e}")
+                continue
+        
+        return hltb_data if hltb_data else None
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения GameStats данных: {e}")
+        return None
 
 def extract_earliest_year_from_page(page):
     """Извлекает самый ранний год со страницы игры"""
@@ -894,6 +963,12 @@ def extract_hltb_data_from_page(page):
     """Извлекает данные HLTB со страницы игры"""
     try:
         hltb_data = {}
+        
+        # Сначала пробуем извлечь из GameStats блока (самый надежный)
+        gamestats_data = extract_gamestats_data(page)
+        if gamestats_data:
+            hltb_data.update(gamestats_data)
+            log_message(f"📊 Найдены данные в GameStats: {list(gamestats_data.keys())}")
         
         # Ищем все таблицы на странице
         tables = page.locator("table")
