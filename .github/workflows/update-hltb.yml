@@ -1,4 +1,4 @@
-name: Update HLTB data (with safe push)
+name: Update HLTB
 
 on:
   workflow_dispatch:
