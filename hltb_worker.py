@@ -492,7 +492,7 @@ def extract_years_from_candidate(link_element):
 def choose_best_candidate(candidates, orig_title, input_year):
     """Выбирает лучшего кандидата согласно логике из logs.py"""
     if not candidates:
-            return None
+        return None
         
     try:
         # Вычисляем score для каждого кандидата
@@ -738,10 +738,10 @@ def determine_base(parts):
         return ""
     
     # Эвристика: если первая часть содержит пробелы, берем все слова кроме последнего
-            first_part = parts[0]
-            if " " in first_part:
-                words = first_part.split()
-                if len(words) >= 2:
+    first_part = parts[0]
+    if " " in first_part:
+        words = first_part.split()
+        if len(words) >= 2:
             # Проверяем, что последнее слово не является общим (Red, Blue, Yellow, etc.)
             last_word = words[-1].lower()
             common_words = {"red", "blue", "yellow", "green", "black", "white", "gold", "silver", "crystal"}
