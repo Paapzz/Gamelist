@@ -147,6 +147,8 @@ def try_js_array_parsing(content):
             match = re.search(pattern, content, re.DOTALL)
             if match:
                 array_content = match.group(1)
+                log_message(f"📝 Найден JS массив, размер: {len(array_content)} символов")
+                log_message(f"📝 Первые 200 символов: {array_content[:200]}")
                 
                 # Преобразуем JS в Python-safe
                 # Удаляем trailing commas
@@ -163,29 +165,75 @@ def try_js_array_parsing(content):
                 # Но нужно заменить одинарные кавычки на двойные для ключей
                 array_content = re.sub(r"'([^']+)':", r'"\1":', array_content)
                 
-                # Парсим как Python код
-                import ast
-                games_list = ast.literal_eval('[' + array_content + ']')
+                log_message(f"📝 Обработанный массив (первые 200 символов): {array_content[:200]}")
                 
-                # Преобразуем в нужный формат
-                formatted_games = []
-                for game in games_list:
-                    if isinstance(game, str):
-                        # "Title (YYYY)" -> {"title": "Title", "year": YYYY}
-                        title, year = extract_title_and_year(game)
-                        formatted_games.append({"title": title, "year": year})
-                    elif isinstance(game, dict):
-                        # Извлекаем title и year из объекта
-                        title = game.get("title", "")
-                        year = game.get("year")
-                        formatted_games.append({"title": title, "year": year})
-                
-                return formatted_games
+                try:
+                    # Парсим как Python код
+                    import ast
+                    games_list = ast.literal_eval('[' + array_content + ']')
+                    
+                    # Преобразуем в нужный формат
+                    formatted_games = []
+                    for game in games_list:
+                        if isinstance(game, str):
+                            # "Title (YYYY)" -> {"title": "Title", "year": YYYY}
+                            title, year = extract_title_and_year(game)
+                            formatted_games.append({"title": title, "year": year})
+                        elif isinstance(game, dict):
+                            # Извлекаем title и year из объекта
+                            title = game.get("title", "")
+                            year = game.get("year")
+                            formatted_games.append({"title": title, "year": year})
+                    
+                    log_message(f"✅ Извлечено {len(formatted_games)} игр из JS массива")
+                    return formatted_games
+                    
+                except Exception as parse_error:
+                    log_message(f"❌ Ошибка парсинга JS массива: {parse_error}")
+                    # Попробуем альтернативный способ - извлечение через regex
+                    return extract_games_from_js_objects(array_content)
         
         return None
         
     except Exception as e:
         log_message(f"⚠️ JS-array parsing не удался: {e}")
+        return None
+
+def extract_games_from_js_objects(array_content):
+    """Извлекает игры из JS объектов через regex"""
+    try:
+        formatted_games = []
+        
+        # Ищем все объекты в массиве
+        # Паттерн для поиска объектов: {"key": "value", ...}
+        object_pattern = r'\{[^}]*"title"[^}]*"year"[^}]*\}'
+        matches = re.findall(object_pattern, array_content)
+        
+        log_message(f"📝 Найдено {len(matches)} объектов через regex")
+        
+        for match in matches:
+            try:
+                # Извлекаем title
+                title_match = re.search(r'"title":\s*"([^"]*)"', match)
+                title = title_match.group(1) if title_match else ""
+                
+                # Извлекаем year
+                year_match = re.search(r'"year":\s*(\d+)', match)
+                year = int(year_match.group(1)) if year_match else None
+                
+                if title:
+                    formatted_games.append({"title": title, "year": year})
+                    log_message(f"📝 Извлечена игра: {title} ({year})")
+                    
+            except Exception as e:
+                log_message(f"⚠️ Ошибка обработки объекта: {e}")
+                continue
+        
+        log_message(f"✅ Извлечено {len(formatted_games)} игр через regex")
+        return formatted_games if formatted_games else None
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения через regex: {e}")
         return None
 
 def try_heuristic_regex(content):
