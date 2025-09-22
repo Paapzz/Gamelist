@@ -109,127 +109,43 @@ def extract_games_list(html_file):
         
         log_message(f"📄 Файл прочитан, размер: {len(content)} символов")
         
-        # Способ 1: JS-array parsing
-        games_list = try_js_array_parsing(content)
-        if games_list:
-            log_message(f"✅ Извлечено {len(games_list)} игр через JS-array parsing")
-            return games_list
+        # Ищем gamesList = [ ... ]
+        pattern = r'gamesList\s*=\s*\[(.*?)\];'
+        match = re.search(pattern, content, re.DOTALL)
         
-        # Способ 2: Heuristic regex
-        games_list = try_heuristic_regex(content)
-        if games_list:
-            log_message(f"✅ Извлечено {len(games_list)} игр через heuristic regex")
-            return games_list
-        
-        # Способ 3: Fallback на anchors
-        games_list = try_anchor_fallback(content)
-        if games_list:
-            log_message(f"✅ Извлечено {len(games_list)} игр через anchor fallback")
-            return games_list
-        
-        raise ValueError("Не удалось извлечь список игр ни одним из способов")
+        if match:
+            array_content = match.group(1)
+            log_debug(f"Найден gamesList, размер: {len(array_content)} символов")
+            
+            # Преобразуем JS в Python-safe
+            array_content = re.sub(r',\s*\]', ']', array_content)
+            array_content = re.sub(r',\s*$', '', array_content)
+            array_content = array_content.replace('null', 'None')
+            array_content = array_content.replace('true', 'True')
+            array_content = array_content.replace('false', 'False')
+            
+            # Парсим как Python код
+            import ast
+            games_list = ast.literal_eval('[' + array_content + ']')
+            
+            # Преобразуем в нужный формат
+            formatted_games = []
+            for game in games_list:
+                if isinstance(game, dict):
+                    title = game.get("title", "")
+                    year = game.get("year")
+                    if title:
+                        formatted_games.append({"title": title, "year": year})
+            
+            log_message(f"✅ Извлечено {len(formatted_games)} игр")
+            return formatted_games
+        else:
+            raise ValueError("Не найден gamesList в файле")
         
     except Exception as e:
         log_message(f"❌ Ошибка извлечения списка игр: {e}")
         raise
 
-def try_js_array_parsing(content):
-    """Пытается извлечь список игр через JS-array parsing"""
-    try:
-        # Ищем const/let/var gamesList = [ ... ];
-        patterns = [
-            r'const\s+gamesList\s*=\s*\[(.*?)\];',
-            r'let\s+gamesList\s*=\s*\[(.*?)\];',
-            r'var\s+gamesList\s*=\s*\[(.*?)\];',
-            r'const\s+gamesList\s*=\s*\[(.*?)\]\s*;',
-            r'let\s+gamesList\s*=\s*\[(.*?)\]\s*;',
-            r'var\s+gamesList\s*=\s*\[(.*?)\]\s*;'
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, content, re.DOTALL)
-            if match:
-                array_content = match.group(1)
-                
-                # Преобразуем JS в Python-safe
-                # Удаляем trailing commas
-                array_content = re.sub(r',\s*\]', ']', array_content)
-                array_content = re.sub(r',\s*$', '', array_content)
-                
-                # Заменяем null/true/false
-                array_content = array_content.replace('null', 'None')
-                array_content = array_content.replace('true', 'True')
-                array_content = array_content.replace('false', 'False')
-                
-                # Парсим как Python код
-                import ast
-                games_list = ast.literal_eval('[' + array_content + ']')
-                
-                # Преобразуем в нужный формат
-                formatted_games = []
-                for game in games_list:
-                    if isinstance(game, str):
-                        # "Title (YYYY)" -> {"title": "Title", "year": YYYY}
-                        title, year = extract_title_and_year(game)
-                        formatted_games.append({"title": title, "year": year})
-                    elif isinstance(game, dict):
-                        # Извлекаем title и year из объекта
-                        title = game.get("title", "")
-                        year = game.get("year")
-                        if title:
-                            formatted_games.append({"title": title, "year": year})
-                
-                return formatted_games
-        
-        return None
-        
-    except Exception as e:
-        log_message(f"⚠️ JS-array parsing не удался: {e}")
-        return None
-
-def try_heuristic_regex(content):
-    """Пытается извлечь список игр через heuristic regex"""
-    try:
-        # Ищем шаблоны >Title (YYYY)< в HTML
-        pattern = r'>([^<]+)\s*\((\d{4})\)<'
-        matches = re.findall(pattern, content)
-        
-        games_list = []
-        for title, year in matches:
-            title = title.strip()
-            if title and year:
-                games_list.append({"title": title, "year": int(year)})
-        
-        return games_list if games_list else None
-        
-    except Exception as e:
-        log_message(f"⚠️ Heuristic regex не удался: {e}")
-        return None
-
-def try_anchor_fallback(content):
-    """Fallback на anchors - собирает все <a ...>Title</a> ссылки"""
-    try:
-        # Ищем все <a ...>Title</a> ссылки
-        pattern = r'<a[^>]*>([^<]+)</a>'
-        matches = re.findall(pattern, content)
-        
-        games_list = []
-        for match in matches:
-            title = match.strip()
-            # Очищаем от тегов и лишних пробелов
-            title = re.sub(r'<[^>]+>', '', title)
-            title = re.sub(r'\s+', ' ', title).strip()
-            
-            if title:
-                # Пытаемся извлечь год из названия
-                title_clean, year = extract_title_and_year(title)
-                games_list.append({"title": title_clean, "year": year})
-        
-        return games_list if games_list else None
-        
-    except Exception as e:
-        log_message(f"⚠️ Anchor fallback не удался: {e}")
-        return None
 
 def extract_title_and_year(text):
     """Извлекает название и год из текста"""
