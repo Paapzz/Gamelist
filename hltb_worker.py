@@ -1,32 +1,15 @@
 #!/usr/bin/env python3
 
 print("🚀 HLTB Worker запускается...")
-print("📦 Импортируем модули...")
 
 import json
-print("✅ json импортирован")
-
 import time
-print("✅ time импортирован")
-
 import random
-print("✅ random импортирован")
-
 import re
-print("✅ re импортирован")
-
 import os
-print("✅ os импортирован")
-
 from datetime import datetime
-print("✅ datetime импортирован")
-
 from urllib.parse import quote
-print("✅ urllib.parse импортирован")
-
-print("📦 Импортируем Playwright...")
 from playwright.sync_api import sync_playwright
-print("✅ Playwright импортирован")
 
 # Конфигурация
 BASE_URL = "https://howlongtobeat.com"
@@ -591,13 +574,18 @@ def generate_alternative_titles(game_title):
                     alternatives.append(alt_title)
                 break  # Прерываем после первого подходящего совпадения
     
-    # Для названий с "/" добавляем варианты поиска по частям
+    # Для названий с "/" добавляем варианты поиска по частям (логика из logs.py)
     if "/" in game_title:
         parts = [part.strip() for part in game_title.split("/")]
         
-        # Добавляем только первую часть (основное название)
-        if parts[0] and parts[0] not in alternatives:
-            alternatives.append(parts[0])
+        # Убираем оригинальное название из списка, так как по логике logs.py полное название с "/" не ищется
+        if game_title in alternatives:
+            alternatives.remove(game_title)
+        
+        # Добавляем ВСЕ части отдельно
+        for part in parts:
+            if part and part not in alternatives:
+                alternatives.append(part)
         
         # Для случаев типа "Pokémon Red/Blue/Yellow" добавляем варианты с пробелами
         if len(parts) >= 2:
@@ -704,18 +692,39 @@ def calculate_title_similarity(title1, title2):
         if normalized1 == normalized2:
             return 1.0
         
+        # Штраф за большую разницу в длине названий
+        words1_count = len(words1)
+        words2_count = len(words2)
+        if words1_count > 0 and words2_count > 0:
+            length_ratio = min(words1_count, words2_count) / max(words1_count, words2_count)
+            if length_ratio < 0.8:  # Если одно название короче другого
+                word_similarity *= 0.6  # Уменьшаем схожесть на 40%
+            elif length_ratio < 0.9:  # Если одно название немного короче
+                word_similarity *= 0.8  # Уменьшаем схожесть на 20%
+        
         # Бонус за включение одного в другое (но не полный)
         if normalized1 in normalized2 or normalized2 in normalized1:
             # Если одно название является подстрокой другого, но не равно ему
             if normalized1 != normalized2:
-                word_similarity += 0.1  # Уменьшенный бонус для неполных совпадений
+                # Проверяем, насколько одно название короче другого
+                shorter = min(len(normalized1), len(normalized2))
+                longer = max(len(normalized1), len(normalized2))
+                ratio = shorter / longer
+                
+                # Бонус зависит от соотношения длин
+                if ratio >= 0.8:  # Почти одинаковые по длине
+                    word_similarity += 0.05
+                elif ratio >= 0.6:  # Среднее соотношение
+                    word_similarity += 0.03
+                else:  # Одно намного короче другого
+                    word_similarity += 0.01
             else:
                 word_similarity += 0.2  # Полный бонус для точных совпадений
         
-        # Бонус за общие длинные слова (более 4 символов)
+        # Бонус за общие длинные слова (более 4 символов) - уменьшен
         long_common = [w for w in common_words if len(w) > 4]
         if long_common:
-            word_similarity += 0.1 * len(long_common)
+            word_similarity += 0.02 * len(long_common)  # Уменьшен с 0.1 до 0.02
         
         return min(word_similarity, 1.0)
         
