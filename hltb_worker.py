@@ -641,6 +641,42 @@ def generate_alternative_titles(game_title):
                             single_part = f"{base} {part}"
                         alternatives.append(single_part)
     
+    # Для названий с "&" в скобках добавляем варианты
+    if "&" in game_title and "(" in game_title and ")" in game_title:
+        import re
+        
+        # Вариант 1: убираем скобки полностью
+        # "Sonic the Hedgehog 3 (& Knuckles)" -> "Sonic the Hedgehog 3"
+        without_brackets = re.sub(r'\s*\([^)]*\)', '', game_title).strip()
+        if without_brackets and without_brackets not in alternatives:
+            alternatives.append(without_brackets)
+        
+        # Вариант 2: заменяем "&" на "and" в скобках
+        # "Sonic the Hedgehog 3 (& Knuckles)" -> "Sonic the Hedgehog 3 (and Knuckles)"
+        with_and = re.sub(r'\([^)]*&([^)]*)\)', r'(and\1)', game_title)
+        if with_and != game_title and with_and not in alternatives:
+            alternatives.append(with_and)
+        
+        # Вариант 3: убираем скобки и заменяем "&" на "and"
+        # "Sonic the Hedgehog 3 (& Knuckles)" -> "Sonic the Hedgehog 3 and Knuckles"
+        with_and_no_brackets = re.sub(r'\s*\([^)]*&([^)]*)\)', r' and\1', game_title).strip()
+        if with_and_no_brackets and with_and_no_brackets not in alternatives:
+            alternatives.append(with_and_no_brackets)
+        
+        # Вариант 4: убираем скобки и заменяем "&" на "&" (без скобок)
+        # "Sonic the Hedgehog 3 (& Knuckles)" -> "Sonic the Hedgehog 3 & Knuckles"
+        with_ampersand_no_brackets = re.sub(r'\s*\(([^)]*&[^)]*)\)', r' \1', game_title).strip()
+        if with_ampersand_no_brackets and with_ampersand_no_brackets not in alternatives:
+            alternatives.append(with_ampersand_no_brackets)
+    
+    # Для названий с любыми скобками (без "&") добавляем вариант без скобок
+    elif "(" in game_title and ")" in game_title:
+        import re
+        # Убираем скобки полностью
+        without_brackets = re.sub(r'\s*\([^)]*\)', '', game_title).strip()
+        if without_brackets and without_brackets not in alternatives:
+            alternatives.append(without_brackets)
+    
     return alternatives
 
 def calculate_title_similarity(title1, title2):
