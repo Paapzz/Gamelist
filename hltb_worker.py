@@ -33,7 +33,6 @@ BASE_URL = "https://howlongtobeat.com"
 GAMES_LIST_FILE = "index111.html"
 OUTPUT_DIR = "hltb_data"
 OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
-PROGRESS_FILE = "progress.json"
 
 # Задержки (убрана вежливая задержка между играми)
 BREAK_INTERVAL_MIN = 8 * 60  # 8 минут в секундах
@@ -482,6 +481,7 @@ def convert_arabic_to_roman(num_str):
 
 def generate_alternative_titles(game_title):
     """Генерирует альтернативные варианты названия для поиска"""
+    log_message(f"🔍 [DEBUG] Генерируем альтернативы для: '{game_title}'")
     alternatives = [game_title]
     
     # Добавляем варианты с римскими цифрами (только для целых чисел)
@@ -516,26 +516,34 @@ def generate_alternative_titles(game_title):
     # Для названий с "/" добавляем варианты поиска по частям
     if "/" in game_title:
         parts = [part.strip() for part in game_title.split("/")]
+        log_message(f"🔍 [DEBUG] Части слэша: {parts}")
         
         # Добавляем только первую часть (основное название)
         if parts[0] and parts[0] not in alternatives:
             alternatives.append(parts[0])
+            log_message(f"🔍 [DEBUG] Добавлена первая часть: '{parts[0]}'")
         
         # Для случаев типа "Pokémon Red/Blue/Yellow" добавляем варианты с пробелами
         if len(parts) >= 2:
             first_part = parts[0]
+            log_message(f"🔍 [DEBUG] Первая часть: '{first_part}'")
+            
             if " " in first_part:
                 # Берем все слова кроме последнего
                 words = first_part.split()
+                log_message(f"🔍 [DEBUG] Слова первой части: {words}")
+                
                 if len(words) >= 2:
                     base = " ".join(words[:-1])
                     last_word = words[-1]
+                    log_message(f"🔍 [DEBUG] Base: '{base}', Last word: '{last_word}'")
                     
                     # Вариант 1: с "and" (как было раньше)
                     if len(parts) >= 2:
                         second_part = parts[1].split()[0] if " " in parts[1] else parts[1]
                         combined_with_and = f"{base} {last_word} and {second_part}"
                         alternatives.append(combined_with_and)
+                        log_message(f"🔍 [DEBUG] Добавлен вариант с 'and': '{combined_with_and}'")
                     
                     # Вариант 2: без "and", просто с пробелами
                     # "Pokémon Red/Blue/Yellow" -> "Pokémon Red Blue Yellow"
@@ -551,8 +559,16 @@ def generate_alternative_titles(game_title):
                     
                     combined_with_spaces = f"{base} {' '.join(all_parts_with_spaces)}"
                     alternatives.append(combined_with_spaces)
+                    log_message(f"🔍 [DEBUG] Добавлен вариант с пробелами: '{combined_with_spaces}'")
     
-    return alternatives
+    # Дедупликация
+    unique_alternatives = []
+    for alt in alternatives:
+        if alt not in unique_alternatives:
+            unique_alternatives.append(alt)
+    
+    log_message(f"🔍 [DEBUG] Итоговые альтернативы: {unique_alternatives}")
+    return unique_alternatives
 
 def calculate_title_similarity(title1, title2):
     """Вычисляет схожесть между двумя названиями игр"""
@@ -561,9 +577,16 @@ def calculate_title_similarity(title1, title2):
         normalized1 = normalize_title_for_comparison(title1)
         normalized2 = normalize_title_for_comparison(title2)
         
+        # ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ
+        log_message(f"🔍 [DEBUG] Сравниваем: '{title1}' vs '{title2}'")
+        log_message(f"🔍 [DEBUG] Нормализованные: '{normalized1}' vs '{normalized2}'")
+        
         # Простой алгоритм схожести на основе общих слов
         words1 = set(normalized1.split())
         words2 = set(normalized2.split())
+        
+        log_message(f"🔍 [DEBUG] Слова 1: {words1}")
+        log_message(f"🔍 [DEBUG] Слова 2: {words2}")
         
         if not words1 or not words2:
             return 0.0
@@ -572,23 +595,42 @@ def calculate_title_similarity(title1, title2):
         common_words = words1.intersection(words2)
         total_words = words1.union(words2)
         
+        log_message(f"🔍 [DEBUG] Общие слова: {common_words}")
+        log_message(f"🔍 [DEBUG] Всего слов: {len(total_words)}")
+        
         # Базовая схожесть по словам
         word_similarity = len(common_words) / len(total_words)
         
+        log_message(f"🔍 [DEBUG] Базовая схожесть: {word_similarity:.3f}")
+        
         # Бонус за точное совпадение
         if normalized1 == normalized2:
+            log_message(f"🔍 [DEBUG] Точное совпадение: 1.0")
             return 1.0
         
         # Бонус за включение одного в другое
         if normalized1 in normalized2 or normalized2 in normalized1:
             word_similarity += 0.2
+            log_message(f"🔍 [DEBUG] Бонус за включение: +0.2")
         
         # Бонус за общие длинные слова (более 4 символов)
         long_common = [w for w in common_words if len(w) > 4]
         if long_common:
-            word_similarity += 0.1 * len(long_common)
+            bonus = 0.1 * len(long_common)
+            word_similarity += bonus
+            log_message(f"🔍 [DEBUG] Бонус за длинные слова: +{bonus}")
         
-        return min(word_similarity, 1.0)
+        # ПРОВЕРКА НА ПОЛНОТУ СОВПАДЕНИЯ
+        missing_words = words1 - words2
+        if missing_words:
+            penalty = len(missing_words) * 0.1
+            word_similarity -= penalty
+            log_message(f"🔍 [DEBUG] Штраф за отсутствующие слова {missing_words}: -{penalty}")
+        
+        final_score = min(max(word_similarity, 0.0), 1.0)
+        log_message(f"🔍 [DEBUG] Итоговая схожесть: {final_score:.3f}")
+        
+        return final_score
         
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
@@ -618,14 +660,124 @@ def normalize_title_for_comparison(title):
         log_message(f"❌ Ошибка нормализации названия: {e}")
         return title
 
+def extract_gamestats_blocks(page):
+    """Извлекает данные из GameStats блоков (приоритетный источник)"""
+    try:
+        log_message("🔍 [DEBUG] Парсим GameStats блоки...")
+        
+        # Ищем GameStats блоки
+        gamestats_selectors = [
+            'div[class*="GameStats_game_times"]',
+            'div[class*="GameStats"]',
+            '.GameStats_game_times',
+            '.GameStats'
+        ]
+        
+        for selector in gamestats_selectors:
+            try:
+                blocks = page.locator(selector)
+                count = blocks.count()
+                log_message(f"🔍 [DEBUG] Селектор '{selector}': найдено {count} блоков")
+                
+                if count > 0:
+                    for i in range(count):
+                        block = blocks.nth(i)
+                        block_text = block.inner_text()
+                        log_message(f"🔍 [DEBUG] GameStats блок {i+1}: '{block_text[:200]}...'")
+                        
+                        # Ищем ul/li структуру
+                        ul_elements = block.locator('ul')
+                        if ul_elements.count() > 0:
+                            li_elements = ul_elements.locator('li')
+                            log_message(f"🔍 [DEBUG] Найдено {li_elements.count()} li элементов")
+                            
+                            for j in range(li_elements.count()):
+                                li = li_elements.nth(j)
+                                li_text = li.inner_text()
+                                log_message(f"🔍 [DEBUG] li {j+1}: '{li_text}'")
+                                
+                                # Ищем h4 (категория) и h5 (время)
+                                h4 = li.locator('h4')
+                                h5 = li.locator('h5')
+                                
+                                if h4.count() > 0 and h5.count() > 0:
+                                    category = h4.inner_text().strip()
+                                    time_value = h5.inner_text().strip()
+                                    log_message(f"🔍 [DEBUG] Найдена пара: '{category}' -> '{time_value}'")
+                                    
+                                    # Парсим категорию и время
+                                    parsed_data = parse_gamestats_pair(category, time_value)
+                                    if parsed_data:
+                                        log_message(f"✅ [DEBUG] Распарсено: {parsed_data}")
+                                        return parsed_data
+                        
+            except Exception as e:
+                log_message(f"⚠️ [DEBUG] Ошибка с селектором '{selector}': {e}")
+                continue
+        
+        log_message("❌ [DEBUG] GameStats блоки не найдены")
+        return None
+        
+    except Exception as e:
+        log_message(f"❌ [DEBUG] Ошибка парсинга GameStats: {e}")
+        return None
+
+def parse_gamestats_pair(category, time_value):
+    """Парсит пару категория-время из GameStats"""
+    try:
+        category_lower = category.lower()
+        
+        # Определяем тип категории
+        if 'co-op' in category_lower or 'coop' in category_lower:
+            category_key = 'coop'
+        elif 'vs' in category_lower or 'competitive' in category_lower:
+            category_key = 'vs'
+        elif 'single' in category_lower and 'player' in category_lower:
+            category_key = 'ms'  # Main Story для single-player
+        else:
+            log_message(f"⚠️ [DEBUG] Неизвестная категория: '{category}'")
+            return None
+        
+        # Парсим время
+        if time_value == '--' or time_value == 'N/A' or not time_value:
+            parsed_time = 'N/A'
+        else:
+            # Обрабатываем "634 Hours" -> "634h"
+            if 'Hours' in time_value:
+                hours_match = re.search(r'(\d+(?:\.\d+)?)', time_value)
+                if hours_match:
+                    hours = float(hours_match.group(1))
+                    parsed_time = f"{int(hours)}h" if hours == int(hours) else f"{hours}h"
+                else:
+                    parsed_time = time_value
+            else:
+                parsed_time = time_value
+        
+        result = {category_key: {"t": parsed_time}}
+        log_message(f"✅ [DEBUG] Создан результат: {result}")
+        return result
+        
+    except Exception as e:
+        log_message(f"❌ [DEBUG] Ошибка парсинга пары '{category}' -> '{time_value}': {e}")
+        return None
+
 def extract_hltb_data_from_page(page):
     """Извлекает данные HLTB со страницы игры"""
     try:
         hltb_data = {}
         
-        # Ищем все таблицы на странице
+        # ПРИОРИТЕТ 1: Ищем GameStats блоки (самый надежный источник)
+        log_message("🔍 [DEBUG] Ищем GameStats блоки...")
+        gamestats_data = extract_gamestats_blocks(page)
+        if gamestats_data:
+            hltb_data.update(gamestats_data)
+            log_message(f"✅ [DEBUG] Найдены GameStats данные: {gamestats_data}")
+        
+        # ПРИОРИТЕТ 2: Ищем все таблицы на странице
+        log_message("🔍 [DEBUG] Ищем таблицы...")
         tables = page.locator("table")
         table_count = tables.count()
+        log_message(f"🔍 [DEBUG] Найдено таблиц: {table_count}")
         
         for table_idx in range(table_count):
             try:
@@ -904,12 +1056,9 @@ def calculate_average_time(time1_str, time2_str):
         # Конвертируем обратно в часы
         hours = avg_minutes / 60
         
-        # Применяем умное округление
+        # Применяем умное округление через round_time
         if hours >= 1:
-            if hours == int(hours):
-                return f"{int(hours)}h"
-            else:
-                return f"{hours:.1f}h"
+            return round_time(f"{hours:.1f}h")
         else:
             return f"{int(avg_minutes)}m"
             
@@ -1027,18 +1176,6 @@ def extract_time_from_row(row_text):
     except:
         return None
 
-def save_progress(games_data, current_index, total_games):
-    """Сохраняет прогресс выполнения"""
-    progress_data = {
-        "current_index": current_index,
-        "total_games": total_games,
-        "processed_games": len([g for g in games_data if "hltb" in g]),
-        "last_updated": datetime.now().isoformat(),
-        "status": "in_progress" if current_index < total_games else "completed"
-    }
-    
-    with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
-        json.dump(progress_data, f, indent=2, ensure_ascii=False)
 
 def save_results(games_data):
     """Сохраняет финальные результаты в компактном формате"""
@@ -1128,14 +1265,7 @@ def main():
         total_games = len(games_list)
         log_message(f"✅ Извлечено {total_games} игр")
         
-        # Загружаем существующий прогресс, если есть
-        if os.path.exists(PROGRESS_FILE):
-            with open(PROGRESS_FILE, "r", encoding="utf-8") as f:
-                progress = json.load(f)
-            start_index = progress.get("current_index", 0)
-            log_message(f"📂 Продолжаем с позиции {start_index}")
-        else:
-            start_index = 0
+        start_index = 0
         
         # Запускаем браузер
         log_message("🌐 Запускаем Playwright...")
@@ -1235,7 +1365,6 @@ def main():
                 
                 # Сохраняем прогресс каждые 50 игр
                 if (i + 1) % 50 == 0:
-                    save_progress(games_list, i + 1, total_games)
                     log_progress(i + 1, total_games, start_time)
             
             browser.close()
