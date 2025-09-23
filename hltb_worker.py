@@ -109,43 +109,121 @@ def extract_games_list(html_file):
         
         log_message(f"📄 Файл прочитан, размер: {len(content)} символов")
         
-        # Ищем gamesList = [ ... ]
-        pattern = r'gamesList\s*=\s*\[(.*?)\];'
-        match = re.search(pattern, content, re.DOTALL)
+        # Способ 1: JS-array parsing
+        games_list = try_js_array_parsing(content)
+        if games_list:
+            log_message(f"✅ Извлечено {len(games_list)} игр через JS-array parsing")
+            return games_list
         
-        if match:
-            array_content = match.group(1)
-            log_debug(f"Найден gamesList, размер: {len(array_content)} символов")
-            
-            # Преобразуем JS в Python-safe
-            array_content = re.sub(r',\s*\]', ']', array_content)
-            array_content = re.sub(r',\s*$', '', array_content)
-            array_content = array_content.replace('null', 'None')
-            array_content = array_content.replace('true', 'True')
-            array_content = array_content.replace('false', 'False')
-            
-            # Парсим как Python код
-            import ast
-            games_list = ast.literal_eval('[' + array_content + ']')
-            
-            # Преобразуем в нужный формат
-            formatted_games = []
-            for game in games_list:
-                if isinstance(game, dict):
-                    title = game.get("title", "")
-                    year = game.get("year")
-                    if title:
-                        formatted_games.append({"title": title, "year": year})
-            
-            log_message(f"✅ Извлечено {len(formatted_games)} игр")
-            return formatted_games
-        else:
-            raise ValueError("Не найден gamesList в файле")
+        # Способ 2: Heuristic regex
+        games_list = try_heuristic_regex(content)
+        if games_list:
+            log_message(f"✅ Извлечено {len(games_list)} игр через heuristic regex")
+            return games_list
+        
+        # Способ 3: Fallback на anchors
+        games_list = try_anchor_fallback(content)
+        if games_list:
+            log_message(f"✅ Извлечено {len(games_list)} игр через anchor fallback")
+            return games_list
+        
+        raise ValueError("Не удалось извлечь список игр ни одним из способов")
         
     except Exception as e:
         log_message(f"❌ Ошибка извлечения списка игр: {e}")
         raise
 
+def try_js_array_parsing(content):
+    """Пытается извлечь список игр через JS-array parsing"""
+    try:
+        # Ищем const/let/var gamesList = [ ... ];
+        patterns = [
+            r'const\s+gamesList\s*=\s*\[(.*?)\];',
+            r'let\s+gamesList\s*=\s*\[(.*?)\];',
+            r'var\s+gamesList\s*=\s*\[(.*?)\];'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, content, re.DOTALL)
+            if match:
+                array_content = match.group(1)
+                
+                # Преобразуем JS в Python-safe
+                # Удаляем trailing commas
+                array_content = re.sub(r',\s*\]', ']', array_content)
+                array_content = re.sub(r',\s*$', '', array_content)
+                
+                # Заменяем null/true/false
+                array_content = array_content.replace('null', 'None')
+                array_content = array_content.replace('true', 'True')
+                array_content = array_content.replace('false', 'False')
+                
+                # Парсим как Python код
+                import ast
+                games_list = ast.literal_eval('[' + array_content + ']')
+                
+                # Преобразуем в нужный формат
+                formatted_games = []
+                for game in games_list:
+                    if isinstance(game, str):
+                        # "Title (YYYY)" -> {"title": "Title", "year": YYYY}
+                        title, year = extract_title_and_year(game)
+                        formatted_games.append({"title": title, "year": year})
+                    elif isinstance(game, dict):
+                        # Уже в нужном формате
+                        formatted_games.append(game)
+                
+                return formatted_games
+        
+        return None
+        
+    except Exception as e:
+        log_message(f"⚠️ JS-array parsing не удался: {e}")
+        return None
+
+def try_heuristic_regex(content):
+    """Пытается извлечь список игр через heuristic regex"""
+    try:
+        # Ищем шаблоны >Title (YYYY)< в HTML
+        pattern = r'>([^<]+)\s*\((\d{4})\)<'
+        matches = re.findall(pattern, content)
+        
+        games_list = []
+        for title, year in matches:
+            title = title.strip()
+            if title and year:
+                games_list.append({"title": title, "year": int(year)})
+        
+        return games_list if games_list else None
+        
+    except Exception as e:
+        log_message(f"⚠️ Heuristic regex не удался: {e}")
+        return None
+
+def try_anchor_fallback(content):
+    """Fallback на anchors - собирает все <a ...>Title</a> ссылки"""
+    try:
+        # Ищем все <a ...>Title</a> ссылки
+        pattern = r'<a[^>]*>([^<]+)</a>'
+        matches = re.findall(pattern, content)
+        
+        games_list = []
+        for match in matches:
+            title = match.strip()
+            # Очищаем от тегов и лишних пробелов
+            title = re.sub(r'<[^>]+>', '', title)
+            title = re.sub(r'\s+', ' ', title).strip()
+            
+            if title:
+                # Пытаемся извлечь год из названия
+                title_clean, year = extract_title_and_year(title)
+                games_list.append({"title": title_clean, "year": year})
+        
+        return games_list if games_list else None
+        
+    except Exception as e:
+        log_message(f"⚠️ Anchor fallback не удался: {e}")
+        return None
 
 def extract_title_and_year(text):
     """Извлекает название и год из текста"""
@@ -286,8 +364,8 @@ def search_game_on_hltb(page, game_title, game_year=None):
                 # Открываем финальную страницу и извлекаем данные
                 hltb_data = extract_hltb_data_from_candidate(page, best_candidate)
                 if hltb_data:
-                    if attempt > 0:
-                        log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
+                if attempt > 0:
+                    log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
                     log_message(f"🏆 Лучший результат: '{best_candidate.get('text', '')}' (схожесть: {best_score:.2f})")
                     return hltb_data
                 else:
@@ -415,8 +493,11 @@ def choose_best_candidate(candidates, orig_title, input_year):
         for candidate in candidates:
             score = calculate_title_similarity(orig_title, candidate["text"])
             
-            # Убираем бонус за подстроку - он завышает оценки
-            # Теперь полагаемся только на алгоритм схожести
+            # Бонус +0.02, если normalized(original) является подстрокой normalized(candidate_text)
+            orig_normalized = clean_title_for_comparison(orig_title)
+            candidate_normalized = clean_title_for_comparison(candidate["text"])
+            if orig_normalized in candidate_normalized:
+                score += 0.02
             
             # earliest_year = min(candidate.years) если есть годы
             earliest_year = min(candidate["years"]) if candidate["years"] else None
@@ -653,14 +734,10 @@ def determine_base(parts):
         return ""
     
     # Эвристика: если первая часть содержит пробелы, берем все слова кроме последнего
-    first_part = parts[0]
-    if " " in first_part:
-        words = first_part.split()
-        if len(words) >= 2:
-            # Проверяем, не дублируется ли первое слово
-            if len(words) >= 3 and words[0] == words[1]:
-                # "Pokémon Pokémon Red" -> "Pokémon Red"
-                return " ".join(words[1:-1])
+            first_part = parts[0]
+            if " " in first_part:
+                words = first_part.split()
+                if len(words) >= 2:
             return " ".join(words[:-1])
     
     return ""
@@ -746,28 +823,16 @@ def calculate_title_similarity(title1, title2):
         if normalized1 == normalized2:
             return 1.0
         
-        # Штраф за неполное совпадение (один содержит другой)
+        # Бонус за включение одного в другое
         if normalized1 in normalized2 or normalized2 in normalized1:
-            # Если один является подстрокой другого - штраф
-            shorter = min(len(normalized1), len(normalized2))
-            longer = max(len(normalized1), len(normalized2))
-            if longer > 0:
-                substring_penalty = (longer - shorter) / longer * 0.3
-                word_similarity -= substring_penalty
+            word_similarity += 0.2
         
         # Бонус за общие длинные слова (более 4 символов)
         long_common = [w for w in common_words if len(w) > 4]
         if long_common:
             word_similarity += 0.1 * len(long_common)
         
-        # Штраф за значительную разницу в длине названий
-        length_diff = abs(len(normalized1) - len(normalized2))
-        max_length = max(len(normalized1), len(normalized2))
-        if max_length > 0:
-            length_penalty = (length_diff / max_length) * 0.2
-            word_similarity -= length_penalty
-        
-        return max(0.0, min(word_similarity, 1.0))
+        return min(word_similarity, 1.0)
         
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
@@ -796,68 +861,6 @@ def normalize_title_for_comparison(title):
     except Exception as e:
         log_message(f"❌ Ошибка нормализации названия: {e}")
         return title
-
-def extract_gamestats_data(page):
-    """Извлекает данные из GameStats блока (ul/li/h4-h5)"""
-    try:
-        hltb_data = {}
-        
-        # Ищем GameStats блок
-        gamestats = page.locator('.GameStats_game_times__ ul li')
-        if gamestats.count() == 0:
-            # Альтернативный селектор
-            gamestats = page.locator('[class*="GameStats"] ul li')
-        
-        if gamestats.count() == 0:
-            return None
-        
-        log_message(f"📊 Найден GameStats блок с {gamestats.count()} элементами")
-        
-        for i in range(gamestats.count()):
-            try:
-                li = gamestats.nth(i)
-                
-                # Ищем h4 (категория) и h5 (время)
-                h4 = li.locator('h4')
-                h5 = li.locator('h5')
-                
-                if h4.count() > 0 and h5.count() > 0:
-                    category = h4.inner_text().strip()
-                    time_text = h5.inner_text().strip()
-                    
-                    # Пропускаем пустые или "--" значения
-                    if not time_text or time_text == "--":
-                        continue
-                    
-                    # Определяем тип категории
-                    category_key = None
-                    if "Main Story" in category:
-                        category_key = "ms"
-                    elif "Main + Extras" in category or "Main +Extra" in category:
-                        category_key = "mpe"
-                    elif "Completionist" in category:
-                        category_key = "comp"
-                    elif "Co-Op" in category or "Coop" in category:
-                        category_key = "coop"
-                    elif "Vs." in category or "Competitive" in category:
-                        category_key = "vs"
-                    
-                    if category_key:
-                        # Обрабатываем время
-                        rounded_time = round_time(time_text)
-                        if rounded_time:
-                            hltb_data[category_key] = {"t": rounded_time}
-                            log_message(f"📊 GameStats: {category} -> {rounded_time}")
-                
-            except Exception as e:
-                log_message(f"⚠️ Ошибка обработки GameStats элемента {i}: {e}")
-                continue
-        
-        return hltb_data if hltb_data else None
-        
-    except Exception as e:
-        log_message(f"❌ Ошибка извлечения GameStats данных: {e}")
-        return None
 
 def extract_earliest_year_from_page(page):
     """Извлекает самый ранний год со страницы игры"""
@@ -891,12 +894,6 @@ def extract_hltb_data_from_page(page):
     """Извлекает данные HLTB со страницы игры"""
     try:
         hltb_data = {}
-        
-        # Сначала пробуем извлечь из GameStats блока (самый надежный)
-        gamestats_data = extract_gamestats_data(page)
-        if gamestats_data:
-            hltb_data.update(gamestats_data)
-            log_message(f"📊 Найдены данные в GameStats: {list(gamestats_data.keys())}")
         
         # Ищем все таблицы на странице
         tables = page.locator("table")
