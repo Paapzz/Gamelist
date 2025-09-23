@@ -34,11 +34,11 @@ GAMES_LIST_FILE = "index111.html"
 OUTPUT_DIR = "hltb_data"
 OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
 
-# Задержки (убрана вежливая задержка между играми)
-BREAK_INTERVAL_MIN = 8 * 60  # 8 минут в секундах
-BREAK_INTERVAL_MAX = 10 * 60  # 10 минут в секундах
-BREAK_DURATION_MIN = 40  # 40 секунд
-BREAK_DURATION_MAX = 80  # 80 секунд
+# Задержки отключены для максимальной скорости
+
+# Таймауты для страниц
+PAGE_GOTO_TIMEOUT_MS = 17000  # 17 секунд
+WAIT_SELECTOR_TIMEOUT_MS = 10000  # 10 секунд
 
 def setup_directories():
     """Настройка директорий"""
@@ -130,6 +130,32 @@ def extract_games_list(html_file):
         log_message("🔄 Парсим JSON...")
         
         games_list = json.loads(games_json)
+        
+        # Обрабатываем игры - год должен быть в отдельном параметре
+        for i, game in enumerate(games_list):
+            if isinstance(game, dict):
+                # Если уже есть структура с title и year
+                if "title" in game and "year" in game:
+                    continue  # Уже правильно структурировано
+                elif "title" in game:
+                    # Есть title, но нет year - ищем год в title как fallback
+                    title = game["title"]
+                    years = extract_years_from_text(title)
+                    game["year"] = min(years) if years else None
+                else:
+                    # Неправильная структура - пытаемся исправить
+                    log_message(f"⚠️ Неправильная структура игры: {game}")
+            elif isinstance(game, str):
+                # Если игра представлена как строка, пытаемся извлечь год
+                years = extract_years_from_text(game)
+                if years:
+                    # Преобразуем в объект
+                    game_obj = {"title": game, "year": min(years)}
+                    games_list[i] = game_obj
+                else:
+                    game_obj = {"title": game, "year": None}
+                    games_list[i] = game_obj
+        
         log_message(f"✅ Извлечено {len(games_list)} игр из HTML файла")
         return games_list
         
@@ -191,23 +217,8 @@ def random_delay(min_seconds, max_seconds):
     delay = random.uniform(min_seconds, max_seconds)
     time.sleep(delay)
 
-def check_break_time(start_time, games_processed):
-    """Проверяет, нужен ли перерыв"""
-    elapsed_seconds = time.time() - start_time
-    
-    # Рандомный интервал между перерывами
-    break_interval = random.randint(BREAK_INTERVAL_MIN, BREAK_INTERVAL_MAX)
-    
-    if elapsed_seconds >= break_interval:
-        # Рандомная длительность перерыва
-        break_duration = random.randint(BREAK_DURATION_MIN, BREAK_DURATION_MAX)
-        log_message(f"⏸️  Перерыв {break_duration} секунд... (обработано {games_processed} игр)")
-        time.sleep(break_duration)
-        return time.time()  # Обновляем время начала
-    
-    return start_time
 
-def search_game_on_hltb(page, game_title):
+def search_game_on_hltb(page, game_title, game_year=None):
     """Ищет игру на HLTB и возвращает данные с повторными попытками"""
     max_attempts = 3
     delays = [0, (15, 18), (65, 70)]  # Паузы между попытками в секундах
@@ -235,7 +246,7 @@ def search_game_on_hltb(page, game_title):
             best_found_title = ""
             
             for alt_title in alternative_titles:
-                result_data = search_game_single_attempt(page, alt_title)
+                result_data = search_game_single_attempt(page, alt_title, game_year)
                 if result_data is not None:
                     # result_data теперь содержит (hltb_data, found_title)
                     hltb_data, found_title = result_data
@@ -271,7 +282,7 @@ def search_game_on_hltb(page, game_title):
     
     return None
 
-def search_game_single_attempt(page, game_title):
+def search_game_single_attempt(page, game_title, game_year=None):
     """Одна попытка поиска игры на HLTB"""
     try:
         log_message(f"🔍 Ищем: '{game_title}'")
@@ -281,8 +292,8 @@ def search_game_single_attempt(page, game_title):
         search_url = f"{BASE_URL}/?q={safe_title}"
         
         # Переходим на страницу поиска
-        page.goto(search_url, timeout=20000)
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        page.goto(search_url, timeout=PAGE_GOTO_TIMEOUT_MS)
+        page.wait_for_load_state("domcontentloaded", timeout=WAIT_SELECTOR_TIMEOUT_MS)
         
         # Проверяем на блокировку после перехода
         page_content = page.content()
@@ -316,10 +327,26 @@ def search_game_single_attempt(page, game_title):
             found_count = game_links.count()  # Пересчитываем после ожидания
         
         if found_count == 0:
+            # Сохраняем отладочную информацию при отсутствии результатов
+            if os.getenv("HLTB_DEBUG") == "true":
+                debug_dir = "hltb_debug"
+                os.makedirs(debug_dir, exist_ok=True)
+                
+                # Сохраняем скриншот
+                screenshot_path = f"{debug_dir}/no_results_{game_title.replace(' ', '_')}.png"
+                page.screenshot(path=screenshot_path)
+                
+                # Сохраняем HTML
+                html_path = f"{debug_dir}/no_results_{game_title.replace(' ', '_')}.html"
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(page.content())
+                
+                log_message(f"🔍 DEBUG: Сохранены дампы для '{game_title}' - нет результатов")
+            
             return None
         
-        # Выбираем наиболее подходящий результат
-        best_match, best_title, similarity = find_best_match(page, game_links, game_title)
+        # Выбираем наиболее подходящий результат с учетом года
+        best_match, best_title, similarity = find_best_match(page, game_links, game_title, game_year)
         if not best_match:
             return None
         
@@ -337,8 +364,8 @@ def search_game_single_attempt(page, game_title):
         # Переходим на страницу выбранной игры
         full_url = f"{BASE_URL}{best_url}"
         
-        page.goto(full_url, timeout=20000)
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        page.goto(full_url, timeout=PAGE_GOTO_TIMEOUT_MS)
+        page.wait_for_load_state("domcontentloaded", timeout=WAIT_SELECTOR_TIMEOUT_MS)
         
         # Проверяем на блокировку на странице игры
         page_content = page.content()
@@ -358,47 +385,53 @@ def search_game_single_attempt(page, game_title):
         
         # Извлекаем данные из таблицы
         hltb_data = extract_hltb_data_from_page(page)
+        
+        # Проверяем год на странице игры, если он указан
+        if hltb_data and game_year:
+            page_year = extract_earliest_year_from_page(page)
+            if page_year and page_year > game_year:
+                log_message(f"⚠️ Год на странице ({page_year}) больше входного ({game_year}), пропускаем")
+                return None
+        
         return (hltb_data, best_title) if hltb_data else None
         
     except Exception as e:
         log_message(f"❌ Ошибка поиска игры '{game_title}': {e}")
         return None
 
-def find_best_match(page, game_links, original_title):
-    """Находит наиболее подходящий результат из списка найденных игр"""
+def find_best_match(page, game_links, original_title, input_year=None):
+    """Находит наиболее подходящий результат из списка найденных игр с учетом года"""
     try:
-        best_match = None
-        best_score = 0
-        best_title = ""
+        candidates = []
         
-        # Очищаем оригинальное название для сравнения
-        original_clean = clean_title_for_comparison(original_title)
-        
+        # Собираем всех кандидатов с их данными
         for i in range(min(game_links.count(), 10)):  # Проверяем первые 10 результатов
             link = game_links.nth(i)
             link_text = link.inner_text().strip()
             
             if link_text:
-                # Очищаем найденное название
-                found_clean = clean_title_for_comparison(link_text)
+                # Получаем href
+                href = link.get_attribute("href")
                 
-                # Вычисляем схожесть
-                score = calculate_title_similarity(original_clean, found_clean)
-                
-                if score > best_score:
-                    best_score = score
-                    best_match = link
-                    best_title = link_text
-                
-                # Если нашли очень хорошее совпадение, останавливаемся
-                if score >= 0.9:
-                    break
+                # На странице поиска год не пишется, поэтому years = []
+                candidates.append({
+                    "text": link_text,
+                    "href": href,
+                    "years": [],  # Год будет извлечен позже на странице игры
+                    "context": link_text
+                })
         
-        # Возвращаем кортеж с результатом и схожестью
-        if best_score >= 0.3:
-            return best_match, best_title, best_score
-        else:
-            return None, "", 0
+        # Используем новую логику выбора лучшего кандидата
+        best_result = choose_best_candidate(candidates, original_title, input_year)
+        
+        if best_result and best_result["score"] >= 0.3:
+            # Находим соответствующий link элемент
+            for i in range(min(game_links.count(), 10)):
+                link = game_links.nth(i)
+                if link.get_attribute("href") == best_result["candidate"]["href"]:
+                    return link, best_result["candidate"]["text"], best_result["score"]
+        
+        return None, "", 0
         
     except Exception as e:
         log_message(f"❌ Ошибка выбора лучшего совпадения: {e}")
@@ -413,42 +446,88 @@ def clean_title_for_comparison(title):
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
     return cleaned
 
-def extract_primary_title(game_title):
-    """Извлекает основное название игры из названия с альтернативными вариантами"""
-    if not game_title:
-        return game_title
-    
-    # Если есть "/", обрабатываем по-разному
-    if "/" in game_title:
-        parts = [part.strip() for part in game_title.split("/")]
-        
-        # Если части без пробелов (например "Gold/Silver/Crystal"), объединяем с "and"
-        if all(" " not in part for part in parts):
-            primary = f"{parts[0]} and {parts[1]}"
-            log_message(f"📝 Объединяем части: '{game_title}' -> '{primary}'")
-            return primary
-        else:
-            # Если есть пробелы, берем только первую часть
-            primary = parts[0]
-            log_message(f"📝 Извлекаем основное название: '{game_title}' -> '{primary}'")
-            return primary
-    
-    return game_title
+def extract_years_from_text(text):
+    """Извлекает все годы из текста"""
+    import re
+    years = []
+    # Ищем 4-значные числа от 1950 до текущего года
+    current_year = datetime.now().year
+    year_matches = re.findall(r'\b(19[5-9]\d|20[0-2]\d)\b', text)
+    for year_str in year_matches:
+        year = int(year_str)
+        if 1950 <= year <= current_year:
+            years.append(year)
+    return years
 
-def extract_alternative_title(game_title):
-    """Извлекает альтернативное название для поиска"""
-    if not game_title or "/" not in game_title:
+def extract_earliest_year_from_page(page):
+    """Извлекает самый ранний год со страницы игры"""
+    try:
+        page_content = page.content()
+        years = extract_years_from_text(page_content)
+        return min(years) if years else None
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения года со страницы: {e}")
         return None
-    
-    parts = [part.strip() for part in game_title.split("/")]
-    
-    # Если части без пробелов, возвращаем вторую часть
-    if len(parts) >= 2 and all(" " not in part for part in parts):
-        alternative = parts[1]
-        log_message(f"📝 Альтернативное название: '{game_title}' -> '{alternative}'")
-        return alternative
-    
-    return None
+
+def choose_best_candidate(candidates, orig_title, input_year):
+    """Выбирает лучшего кандидата на основе схожести (год проверяется позже на странице игры)"""
+    try:
+        if not candidates:
+            return None
+        
+        # Вычисляем схожесть для каждого кандидата
+        scored_candidates = []
+        for candidate in candidates:
+            score = calculate_title_similarity(orig_title, candidate["text"])
+            
+            # Бонус за включение оригинального названия
+            if clean_title_for_comparison(orig_title) in clean_title_for_comparison(candidate["text"]):
+                score += 0.02
+            
+            scored_candidates.append({
+                "candidate": candidate,
+                "score": score
+            })
+        
+        # Сортируем по схожести (убывание)
+        scored_candidates.sort(key=lambda x: -x["score"])
+        
+        # Правила принятия решения (без учета года, так как его нет на странице поиска)
+        for candidate_data in scored_candidates:
+            score = candidate_data["score"]
+            candidate = candidate_data["candidate"]
+            
+            # Rule 1: очень высокая схожесть
+            if score >= 0.95:
+                return {
+                    "candidate": candidate,
+                    "score": score,
+                    "earliest_year": None,  # Будет определен позже
+                    "reason": "score_very_high"
+                }
+            
+            # Rule 2: высокая схожесть + содержит оригинал
+            if score >= 0.92 and clean_title_for_comparison(orig_title) in clean_title_for_comparison(candidate["text"]):
+                return {
+                    "candidate": candidate,
+                    "score": score,
+                    "earliest_year": None,  # Будет определен позже
+                    "reason": "score_high_and_contains_original"
+                }
+        
+        # Rule 3: fallback - лучший кандидат
+        best = scored_candidates[0]
+        return {
+            "candidate": best["candidate"],
+            "score": best["score"],
+            "earliest_year": None,  # Будет определен позже
+            "reason": "fallback_best_score"
+        }
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка выбора лучшего кандидата: {e}")
+        return None
+
 
 def convert_arabic_to_roman(num_str):
     """Конвертирует арабские цифры в римские"""
@@ -481,7 +560,6 @@ def convert_arabic_to_roman(num_str):
 
 def generate_alternative_titles(game_title):
     """Генерирует альтернативные варианты названия для поиска"""
-    log_message(f"🔍 [DEBUG] Генерируем альтернативы для: '{game_title}'")
     alternatives = [game_title]
     
     # Добавляем варианты с римскими цифрами (только для целых чисел)
@@ -516,34 +594,26 @@ def generate_alternative_titles(game_title):
     # Для названий с "/" добавляем варианты поиска по частям
     if "/" in game_title:
         parts = [part.strip() for part in game_title.split("/")]
-        log_message(f"🔍 [DEBUG] Части слэша: {parts}")
         
         # Добавляем только первую часть (основное название)
         if parts[0] and parts[0] not in alternatives:
             alternatives.append(parts[0])
-            log_message(f"🔍 [DEBUG] Добавлена первая часть: '{parts[0]}'")
         
         # Для случаев типа "Pokémon Red/Blue/Yellow" добавляем варианты с пробелами
         if len(parts) >= 2:
             first_part = parts[0]
-            log_message(f"🔍 [DEBUG] Первая часть: '{first_part}'")
-            
             if " " in first_part:
                 # Берем все слова кроме последнего
                 words = first_part.split()
-                log_message(f"🔍 [DEBUG] Слова первой части: {words}")
-                
                 if len(words) >= 2:
                     base = " ".join(words[:-1])
                     last_word = words[-1]
-                    log_message(f"🔍 [DEBUG] Base: '{base}', Last word: '{last_word}'")
                     
                     # Вариант 1: с "and" (как было раньше)
                     if len(parts) >= 2:
                         second_part = parts[1].split()[0] if " " in parts[1] else parts[1]
                         combined_with_and = f"{base} {last_word} and {second_part}"
                         alternatives.append(combined_with_and)
-                        log_message(f"🔍 [DEBUG] Добавлен вариант с 'and': '{combined_with_and}'")
                     
                     # Вариант 2: без "and", просто с пробелами
                     # "Pokémon Red/Blue/Yellow" -> "Pokémon Red Blue Yellow"
@@ -559,16 +629,19 @@ def generate_alternative_titles(game_title):
                     
                     combined_with_spaces = f"{base} {' '.join(all_parts_with_spaces)}"
                     alternatives.append(combined_with_spaces)
-                    log_message(f"🔍 [DEBUG] Добавлен вариант с пробелами: '{combined_with_spaces}'")
+                    
+                    # Вариант 3: отдельные части без дублирования base
+                    for part in parts[1:]:  # Пропускаем первую часть, так как она уже добавлена
+                        if " " in part:
+                            # Если часть содержит пробел, берем только последнее слово
+                            part_words = part.split()
+                            single_part = f"{base} {part_words[-1]}"
+                        else:
+                            # Если часть без пробела, берем целиком
+                            single_part = f"{base} {part}"
+                        alternatives.append(single_part)
     
-    # Дедупликация
-    unique_alternatives = []
-    for alt in alternatives:
-        if alt not in unique_alternatives:
-            unique_alternatives.append(alt)
-    
-    log_message(f"🔍 [DEBUG] Итоговые альтернативы: {unique_alternatives}")
-    return unique_alternatives
+    return alternatives
 
 def calculate_title_similarity(title1, title2):
     """Вычисляет схожесть между двумя названиями игр"""
@@ -577,16 +650,9 @@ def calculate_title_similarity(title1, title2):
         normalized1 = normalize_title_for_comparison(title1)
         normalized2 = normalize_title_for_comparison(title2)
         
-        # ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ
-        log_message(f"🔍 [DEBUG] Сравниваем: '{title1}' vs '{title2}'")
-        log_message(f"🔍 [DEBUG] Нормализованные: '{normalized1}' vs '{normalized2}'")
-        
         # Простой алгоритм схожести на основе общих слов
         words1 = set(normalized1.split())
         words2 = set(normalized2.split())
-        
-        log_message(f"🔍 [DEBUG] Слова 1: {words1}")
-        log_message(f"🔍 [DEBUG] Слова 2: {words2}")
         
         if not words1 or not words2:
             return 0.0
@@ -595,42 +661,27 @@ def calculate_title_similarity(title1, title2):
         common_words = words1.intersection(words2)
         total_words = words1.union(words2)
         
-        log_message(f"🔍 [DEBUG] Общие слова: {common_words}")
-        log_message(f"🔍 [DEBUG] Всего слов: {len(total_words)}")
-        
         # Базовая схожесть по словам
         word_similarity = len(common_words) / len(total_words)
         
-        log_message(f"🔍 [DEBUG] Базовая схожесть: {word_similarity:.3f}")
-        
         # Бонус за точное совпадение
         if normalized1 == normalized2:
-            log_message(f"🔍 [DEBUG] Точное совпадение: 1.0")
             return 1.0
         
-        # Бонус за включение одного в другое
+        # Бонус за включение одного в другое (но не полный)
         if normalized1 in normalized2 or normalized2 in normalized1:
-            word_similarity += 0.2
-            log_message(f"🔍 [DEBUG] Бонус за включение: +0.2")
+            # Если одно название является подстрокой другого, но не равно ему
+            if normalized1 != normalized2:
+                word_similarity += 0.1  # Уменьшенный бонус для неполных совпадений
+            else:
+                word_similarity += 0.2  # Полный бонус для точных совпадений
         
         # Бонус за общие длинные слова (более 4 символов)
         long_common = [w for w in common_words if len(w) > 4]
         if long_common:
-            bonus = 0.1 * len(long_common)
-            word_similarity += bonus
-            log_message(f"🔍 [DEBUG] Бонус за длинные слова: +{bonus}")
+            word_similarity += 0.1 * len(long_common)
         
-        # ПРОВЕРКА НА ПОЛНОТУ СОВПАДЕНИЯ
-        missing_words = words1 - words2
-        if missing_words:
-            penalty = len(missing_words) * 0.1
-            word_similarity -= penalty
-            log_message(f"🔍 [DEBUG] Штраф за отсутствующие слова {missing_words}: -{penalty}")
-        
-        final_score = min(max(word_similarity, 0.0), 1.0)
-        log_message(f"🔍 [DEBUG] Итоговая схожесть: {final_score:.3f}")
-        
-        return final_score
+        return min(word_similarity, 1.0)
         
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
@@ -663,8 +714,6 @@ def normalize_title_for_comparison(title):
 def extract_gamestats_blocks(page):
     """Извлекает данные из GameStats блоков (приоритетный источник)"""
     try:
-        log_message("🔍 [DEBUG] Парсим GameStats блоки...")
-        
         # Ищем GameStats блоки
         gamestats_selectors = [
             'div[class*="GameStats_game_times"]',
@@ -677,24 +726,20 @@ def extract_gamestats_blocks(page):
             try:
                 blocks = page.locator(selector)
                 count = blocks.count()
-                log_message(f"🔍 [DEBUG] Селектор '{selector}': найдено {count} блоков")
                 
                 if count > 0:
                     for i in range(count):
                         block = blocks.nth(i)
                         block_text = block.inner_text()
-                        log_message(f"🔍 [DEBUG] GameStats блок {i+1}: '{block_text[:200]}...'")
                         
                         # Ищем ul/li структуру
                         ul_elements = block.locator('ul')
                         if ul_elements.count() > 0:
                             li_elements = ul_elements.locator('li')
-                            log_message(f"🔍 [DEBUG] Найдено {li_elements.count()} li элементов")
                             
                             for j in range(li_elements.count()):
                                 li = li_elements.nth(j)
                                 li_text = li.inner_text()
-                                log_message(f"🔍 [DEBUG] li {j+1}: '{li_text}'")
                                 
                                 # Ищем h4 (категория) и h5 (время)
                                 h4 = li.locator('h4')
@@ -703,23 +748,18 @@ def extract_gamestats_blocks(page):
                                 if h4.count() > 0 and h5.count() > 0:
                                     category = h4.inner_text().strip()
                                     time_value = h5.inner_text().strip()
-                                    log_message(f"🔍 [DEBUG] Найдена пара: '{category}' -> '{time_value}'")
                                     
                                     # Парсим категорию и время
                                     parsed_data = parse_gamestats_pair(category, time_value)
                                     if parsed_data:
-                                        log_message(f"✅ [DEBUG] Распарсено: {parsed_data}")
                                         return parsed_data
                         
             except Exception as e:
-                log_message(f"⚠️ [DEBUG] Ошибка с селектором '{selector}': {e}")
                 continue
         
-        log_message("❌ [DEBUG] GameStats блоки не найдены")
         return None
         
     except Exception as e:
-        log_message(f"❌ [DEBUG] Ошибка парсинга GameStats: {e}")
         return None
 
 def parse_gamestats_pair(category, time_value):
@@ -735,7 +775,6 @@ def parse_gamestats_pair(category, time_value):
         elif 'single' in category_lower and 'player' in category_lower:
             category_key = 'ms'  # Main Story для single-player
         else:
-            log_message(f"⚠️ [DEBUG] Неизвестная категория: '{category}'")
             return None
         
         # Парсим время
@@ -754,11 +793,9 @@ def parse_gamestats_pair(category, time_value):
                 parsed_time = time_value
         
         result = {category_key: {"t": parsed_time}}
-        log_message(f"✅ [DEBUG] Создан результат: {result}")
         return result
         
     except Exception as e:
-        log_message(f"❌ [DEBUG] Ошибка парсинга пары '{category}' -> '{time_value}': {e}")
         return None
 
 def extract_hltb_data_from_page(page):
@@ -767,17 +804,14 @@ def extract_hltb_data_from_page(page):
         hltb_data = {}
         
         # ПРИОРИТЕТ 1: Ищем GameStats блоки (самый надежный источник)
-        log_message("🔍 [DEBUG] Ищем GameStats блоки...")
         gamestats_data = extract_gamestats_blocks(page)
         if gamestats_data:
             hltb_data.update(gamestats_data)
-            log_message(f"✅ [DEBUG] Найдены GameStats данные: {gamestats_data}")
+            log_message(f"✅ Найдены GameStats данные: {gamestats_data}")
         
         # ПРИОРИТЕТ 2: Ищем все таблицы на странице
-        log_message("🔍 [DEBUG] Ищем таблицы...")
         tables = page.locator("table")
         table_count = tables.count()
-        log_message(f"🔍 [DEBUG] Найдено таблиц: {table_count}")
         
         for table_idx in range(table_count):
             try:
@@ -1111,70 +1145,6 @@ def extract_vs_data_from_text(text):
         log_message(f"❌ Ошибка извлечения Vs. данных: {e}")
         return None
 
-def extract_time_and_polled_from_row(row_text):
-    """Извлекает время и количество голосов из строки таблицы"""
-    try:
-        # Ищем время в формате "Xh Ym"
-        time_match = re.search(r'(\d+h\s*\d*m)', row_text)
-        if time_match:
-            time_str = time_match.group(1)
-            rounded_time = round_time(time_str)
-            
-            # Ищем количество голосов - более гибкий поиск
-            polled_count = None
-            
-            # Вариант 1: Ищем число перед "Polled"
-            polled_match = re.search(r'(\d+(?:\.\d+)?[Kk]?)\s*(?:Polled|polled)', row_text, re.IGNORECASE)
-            if polled_match:
-                polled_str = polled_match.group(1)
-                polled_count = parse_polled_number(polled_str)
-            
-            # Вариант 2: Ищем число в начале строки (часто количество голосов идет первым)
-            if not polled_count:
-                first_number_match = re.search(r'^(\d+(?:\.\d+)?[Kk]?)', row_text.strip())
-                if first_number_match:
-                    polled_str = first_number_match.group(1)
-                    polled_count = parse_polled_number(polled_str)
-            
-            # Вариант 3: Ищем любое число в строке (если другие варианты не сработали)
-            if not polled_count:
-                any_number_match = re.search(r'(\d+(?:\.\d+)?[Kk]?)', row_text)
-                if any_number_match:
-                    polled_str = any_number_match.group(1)
-                    polled_count = parse_polled_number(polled_str)
-            
-            # Возвращаем объект с временем и количеством голосов (сокращенные названия)
-            result = {"t": rounded_time}
-            if polled_count:
-                result["p"] = polled_count
-            
-            return result
-        return None
-    except Exception as e:
-        log_message(f"❌ Ошибка извлечения данных из строки: {e}")
-        return None
-
-def parse_polled_number(polled_str):
-    """Парсит число голосов из строки"""
-    try:
-        if 'K' in polled_str.upper():
-            return int(float(polled_str.upper().replace('K', '')) * 1000)
-        else:
-            return int(float(polled_str))
-    except:
-        return None
-
-def extract_time_from_row(row_text):
-    """Извлекает только время из строки таблицы (для обратной совместимости)"""
-    try:
-        # Ищем время в формате "Xh Ym"
-        time_match = re.search(r'(\d+h\s*\d*m)', row_text)
-        if time_match:
-            time_str = time_match.group(1)
-            return round_time(time_str)
-        return None
-    except:
-        return None
 
 
 def save_results(games_data):
@@ -1330,11 +1300,12 @@ def main():
             for i in range(start_index, total_games):
                 game = games_list[i]
                 game_title = game["title"]
+                game_year = game.get("year")
                 
-                log_message(f"🎮 Обрабатываю {i+1}/{total_games}: {game_title}")
+                log_message(f"🎮 Обрабатываю {i+1}/{total_games}: {game_title}" + (f" ({game_year})" if game_year else ""))
                 
                 # Ищем данные на HLTB
-                hltb_data = search_game_on_hltb(page, game_title)
+                hltb_data = search_game_on_hltb(page, game_title, game_year)
                 
                 if hltb_data:
                     game["hltb"] = hltb_data
@@ -1360,8 +1331,7 @@ def main():
                 
                 # Вежливая задержка убрана - достаточно задержек в процессе поиска
                 
-                # Проверяем перерыв
-                start_time = check_break_time(start_time, i + 1)
+                # Перерывы отключены для максимальной скорости
                 
                 # Сохраняем прогресс каждые 50 игр
                 if (i + 1) % 50 == 0:
