@@ -1,32 +1,15 @@
 #!/usr/bin/env python3
 
 print("🚀 HLTB Worker запускается...")
-print("📦 Импортируем модули...")
 
 import json
-print("✅ json импортирован")
-
 import time
-print("✅ time импортирован")
-
 import random
-print("✅ random импортирован")
-
 import re
-print("✅ re импортирован")
-
 import os
-print("✅ os импортирован")
-
 from datetime import datetime
-print("✅ datetime импортирован")
-
 from urllib.parse import quote
-print("✅ urllib.parse импортирован")
-
-print("📦 Импортируем Playwright...")
 from playwright.sync_api import sync_playwright
-print("✅ Playwright импортирован")
 
 # Конфигурация
 BASE_URL = "https://howlongtobeat.com"
@@ -591,9 +574,13 @@ def generate_alternative_titles(game_title):
                     alternatives.append(alt_title)
                 break  # Прерываем после первого подходящего совпадения
     
-    # Для названий с "/" добавляем варианты поиска по частям
+    # Для названий с "/" добавляем варианты поиска по частям (логика из logs.py)
     if "/" in game_title:
         parts = [part.strip() for part in game_title.split("/")]
+        
+        # Убираем оригинальное название из списка, так как по логике logs.py полное название с "/" не ищется
+        if game_title in alternatives:
+            alternatives.remove(game_title)
         
         # Добавляем только первую часть (основное название)
         if parts[0] and parts[0] not in alternatives:
@@ -709,8 +696,10 @@ def calculate_title_similarity(title1, title2):
         words2_count = len(words2)
         if words1_count > 0 and words2_count > 0:
             length_ratio = min(words1_count, words2_count) / max(words1_count, words2_count)
-            if length_ratio < 0.5:  # Если одно название в 2+ раза короче другого
-                word_similarity *= 0.8  # Уменьшаем схожесть на 20%
+            if length_ratio < 0.7:  # Если одно название значительно короче другого
+                word_similarity *= 0.7  # Уменьшаем схожесть на 30%
+            elif length_ratio < 0.8:  # Если одно название немного короче
+                word_similarity *= 0.85  # Уменьшаем схожесть на 15%
         
         # Бонус за включение одного в другое (но не полный)
         if normalized1 in normalized2 or normalized2 in normalized1:
