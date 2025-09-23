@@ -582,9 +582,10 @@ def generate_alternative_titles(game_title):
         if game_title in alternatives:
             alternatives.remove(game_title)
         
-        # Добавляем только первую часть (основное название)
-        if parts[0] and parts[0] not in alternatives:
-            alternatives.append(parts[0])
+        # Добавляем ВСЕ части отдельно
+        for part in parts:
+            if part and part not in alternatives:
+                alternatives.append(part)
         
         # Для случаев типа "Pokémon Red/Blue/Yellow" добавляем варианты с пробелами
         if len(parts) >= 2:
@@ -696,10 +697,10 @@ def calculate_title_similarity(title1, title2):
         words2_count = len(words2)
         if words1_count > 0 and words2_count > 0:
             length_ratio = min(words1_count, words2_count) / max(words1_count, words2_count)
-            if length_ratio < 0.7:  # Если одно название значительно короче другого
-                word_similarity *= 0.7  # Уменьшаем схожесть на 30%
-            elif length_ratio < 0.8:  # Если одно название немного короче
-                word_similarity *= 0.85  # Уменьшаем схожесть на 15%
+            if length_ratio < 0.8:  # Если одно название короче другого
+                word_similarity *= 0.6  # Уменьшаем схожесть на 40%
+            elif length_ratio < 0.9:  # Если одно название немного короче
+                word_similarity *= 0.8  # Уменьшаем схожесть на 20%
         
         # Бонус за включение одного в другое (но не полный)
         if normalized1 in normalized2 or normalized2 in normalized1:
