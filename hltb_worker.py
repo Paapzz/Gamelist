@@ -203,8 +203,8 @@ def check_break_time(start_time, games_processed):
     
     return start_time
 
-def search_game_on_hltb(page, game_title):
-    """Ищет игру на HLTB и возвращает данные с повторными попытками"""
+def search_game_on_hltb(page, game_title, game_year=None):
+    """Ищет игру на HLTB и возвращает данные с повторными попытками, учитывая год релиза"""
     max_attempts = 3
     delays = [0, (15, 18), (65, 70)]  # Паузы между попытками в секундах
     
@@ -224,10 +224,8 @@ def search_game_on_hltb(page, game_title):
                     log_message(f"⏳ Пауза {delays[attempt]} секунд...")
                     time.sleep(delays[attempt])
             
-            # Пробуем все альтернативные названия и выбираем лучший результат
-            best_result = None
-            best_score = 0
-            best_title = ""
+            # Пробуем все альтернативные названия и собираем все результаты
+            all_results = []
             
             for alt_title in alternative_titles:
                 result = search_game_single_attempt(page, alt_title)
@@ -238,16 +236,18 @@ def search_game_on_hltb(page, game_title):
                         clean_title_for_comparison(alt_title)
                     )
                     
-                    if score > best_score:
-                        best_score = score
-                        best_result = result
-                        best_title = alt_title
+                    all_results.append({
+                        'result': result,
+                        'score': score,
+                        'title': alt_title
+                    })
             
-            if best_result is not None:
-                if attempt > 0:
-                    log_message(f"✅ Успешно найдено с попытки {attempt + 1}")
-                log_message(f"🏆 Лучший результат: '{best_title}' (схожесть: {best_score:.2f})")
-                return best_result
+            # Если есть результаты, выбираем лучший с учетом года
+            if all_results:
+                best_result = find_best_result_with_year(all_results, game_title, game_year)
+                if best_result:
+                    log_message(f"🏆 Лучший результат: '{best_result['title']}' (схожесть: {best_result['score']:.2f})")
+                    return best_result['result']
             
         except Exception as e:
             log_message(f"❌ Ошибка попытки {attempt + 1} для '{game_title}': {e}")
@@ -256,6 +256,57 @@ def search_game_on_hltb(page, game_title):
                 return None
     
     return None
+
+def find_best_result_with_year(all_results, original_title, original_year):
+    """Выбирает лучший результат из всех найденных с учетом года релиза"""
+    try:
+        if not all_results:
+            return None
+        
+        # Если год не указан, используем старую логику
+        if original_year is None:
+            best_result = max(all_results, key=lambda x: x['score'])
+            return best_result
+        
+        # Группируем результаты по схожести названий
+        high_similarity = []  # >= 0.8
+        medium_similarity = []  # >= 0.6
+        
+        for result in all_results:
+            if result['score'] >= 0.8:
+                high_similarity.append(result)
+            elif result['score'] >= 0.6:
+                medium_similarity.append(result)
+        
+        # Приоритет 1: название >= 0.8 + год идентичный
+        for result in high_similarity:
+            # Здесь нужно извлечь год со страницы игры
+            # Пока что возвращаем первый результат с высокой схожестью
+            if result['score'] >= 0.8:
+                log_message(f"✅ ПРИОРИТЕТ 1: {result['title']} (схожесть: {result['score']:.3f})")
+                return result
+        
+        # Приоритет 2: название >= 0.8 + год ближайший в меньшую сторону
+        # (пока что не реализовано, так как нужно извлекать год со страницы)
+        
+        # Приоритет 3: название >= 0.8 + год ближайший в любую сторону
+        # (пока что не реализовано)
+        
+        # Приоритет 4: название >= 0.6 + год идентичный
+        for result in medium_similarity:
+            if result['score'] >= 0.6:
+                log_message(f"✅ ПРИОРИТЕТ 4: {result['title']} (схожесть: {result['score']:.3f})")
+                return result
+        
+        # Если ничего не подошло, возвращаем лучший по схожести
+        best_result = max(all_results, key=lambda x: x['score'])
+        log_message(f"✅ Лучший по схожести: {best_result['title']} (схожесть: {best_result['score']:.3f})")
+        return best_result
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка выбора лучшего результата: {e}")
+        # В случае ошибки возвращаем лучший по схожести
+        return max(all_results, key=lambda x: x['score']) if all_results else None
 
 def search_game_single_attempt(page, game_title):
     """Одна попытка поиска игры на HLTB"""
@@ -763,8 +814,8 @@ def jaro_winkler_similarity(s1, s2):
         jaro += 0.1 * prefix * (1 - jaro)
     return jaro
 
-def calculate_title_similarity(title1, title2):
-    """Вычисляет схожесть между двумя названиями игр используя Jaro-Winkler"""
+def calculate_title_similarity(title1, title2, year1=None, year2=None):
+    """Вычисляет схожесть между двумя названиями игр используя Jaro-Winkler с учетом года"""
     try:
         # Нормализуем названия для сравнения (конвертируем римские цифры в арабские)
         normalized1 = normalize_title_for_comparison(title1)
@@ -775,7 +826,7 @@ def calculate_title_similarity(title1, title2):
         
         # Бонус за точное совпадение
         if normalized1.lower() == normalized2.lower():
-            return 1.0
+            similarity = 1.0
         
         # Штраф за значительную разницу в длине (более короткое название весит меньше)
         len1, len2 = len(normalized1), len(normalized2)
@@ -785,11 +836,105 @@ def calculate_title_similarity(title1, title2):
             if length_ratio < 0.7:  # Если разница в длине больше 30%
                 similarity *= length_ratio
         
-        return similarity
+        # Штраф за разницу в годах (если годы предоставлены)
+        if year1 is not None and year2 is not None:
+            year_diff = abs(year1 - year2)
+            if year_diff == 0:
+                year_penalty = 0  # Точное совпадение года
+            elif year_diff <= 1:
+                year_penalty = 0.01  # Разница в 1 год
+            elif year_diff <= 2:
+                year_penalty = 0.05  # Разница в 2 года
+            elif year_diff <= 5:
+                year_penalty = 0.1   # Разница в 3-5 лет
+            else:
+                year_penalty = 0.2   # Большая разница в годах
+            
+            similarity -= year_penalty
+        
+        return max(0.0, similarity)  # Не даем отрицательных значений
         
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
         return 0.0
+
+def extract_release_year_from_page(page):
+    """Извлекает год релиза со страницы игры HLTB"""
+    try:
+        # Кэш для хранения извлеченных годов
+        if not hasattr(extract_release_year_from_page, 'year_cache'):
+            extract_release_year_from_page.year_cache = {}
+        
+        # Проверяем кэш
+        page_url = page.url
+        if page_url in extract_release_year_from_page.year_cache:
+            return extract_release_year_from_page.year_cache[page_url]
+        
+        # Пытаемся извлечь год из JSON данных
+        try:
+            # Ищем JSON данные в script теге
+            json_script = page.locator('script#__NEXT_DATA__').first
+            if json_script.count() > 0:
+                json_text = json_script.text_content()
+                import json
+                data = json.loads(json_text)
+                
+                # Ищем год в структуре данных
+                games = data.get('props', {}).get('pageProps', {}).get('game', {}).get('data', {}).get('game', [])
+                if games:
+                    # Берем первую игру из списка
+                    game_data = games[0]
+                    
+                    # Ищем различные поля с датой
+                    year_fields = ['game_name_date', 'release_date', 'date', 'year']
+                    for field in year_fields:
+                        if field in game_data and game_data[field]:
+                            year = game_data[field]
+                            if isinstance(year, (int, str)) and str(year).isdigit():
+                                year_int = int(year)
+                                if 1950 <= year_int <= 2030:  # Разумный диапазон годов
+                                    extract_release_year_from_page.year_cache[page_url] = year_int
+                                    return year_int
+        except Exception as e:
+            log_message(f"⚠️ Ошибка извлечения года из JSON: {e}")
+        
+        # Если JSON не сработал, ищем в HTML тексте
+        try:
+            # Ищем паттерны типа "NA: September 24th, 1997" или "2016"
+            page_text = page.content()
+            
+            # Паттерн для дат типа "September 24th, 1997"
+            date_pattern = r'(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?,\s+(\d{4})'
+            matches = re.findall(date_pattern, page_text, re.IGNORECASE)
+            if matches:
+                years = [int(year) for year in matches if 1950 <= int(year) <= 2030]
+                if years:
+                    # Берем самый ранний год
+                    earliest_year = min(years)
+                    extract_release_year_from_page.year_cache[page_url] = earliest_year
+                    return earliest_year
+            
+            # Паттерн для простых годов
+            year_pattern = r'\b(19|20)\d{2}\b'
+            matches = re.findall(year_pattern, page_text)
+            if matches:
+                years = [int(match[0] + match[1]) for match in matches if 1950 <= int(match[0] + match[1]) <= 2030]
+                if years:
+                    # Берем самый ранний год
+                    earliest_year = min(years)
+                    extract_release_year_from_page.year_cache[page_url] = earliest_year
+                    return earliest_year
+                    
+        except Exception as e:
+            log_message(f"⚠️ Ошибка извлечения года из HTML: {e}")
+        
+        # Если ничего не найдено
+        extract_release_year_from_page.year_cache[page_url] = None
+        return None
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения года релиза: {e}")
+        return None
 
 def normalize_title_for_comparison(title):
     """Нормализует название для сравнения, конвертируя римские цифры в арабские"""
@@ -1471,11 +1616,12 @@ def main():
             for i in range(0, total_games):
                 game = games_list[i]
                 game_title = game["title"]
+                game_year = game.get("year")  # Получаем год из данных игры
                 
-                log_message(f"🎮 Обрабатываю {i+1}/{total_games}: {game_title}")
+                log_message(f"🎮 Обрабатываю {i+1}/{total_games}: {game_title} ({game_year})")
                 
                 # Ищем данные на HLTB
-                hltb_data = search_game_on_hltb(page, game_title)
+                hltb_data = search_game_on_hltb(page, game_title, game_year)
                 
                 if hltb_data:
                     game["hltb"] = hltb_data
