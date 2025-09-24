@@ -378,12 +378,20 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
         
         for result in all_results:
             for link in result['game_links']:
+                # Вычисляем схожесть между оригинальным названием и найденным на сайте
+                link_similarity = calculate_title_similarity(
+                    clean_title_for_comparison(original_title),
+                    clean_title_for_comparison(link['text'])
+                )
+                
                 # Извлекаем год со страницы игры
                 game_year = extract_year_from_game_page(page, link)
                 
+                log_message(f"🔍 Кандидат: '{link['text']}' (схожесть: {link_similarity:.3f}, год: {game_year})")
+                
                 candidates_with_years.append({
                     'title': result['title'],
-                    'score': result['score'],
+                    'score': link_similarity,  # Используем схожесть с найденным названием
                     'link': link,
                     'year': game_year
                 })
@@ -393,6 +401,11 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
             -x['score'],  # Сначала по схожести (убывание)
             abs(x['year'] - original_year) if x['year'] is not None else 999  # Потом по разнице в годах
         ))
+        
+        # Логируем всех кандидатов
+        log_message(f"📊 Всего кандидатов: {len(candidates_with_years)}")
+        for i, candidate in enumerate(candidates_with_years[:10], 1):  # Показываем первые 10
+            log_message(f"📊 {i}. {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
         
         # Приоритет 1: название >= 0.8 + год идентичный
         for candidate in candidates_with_years:
@@ -405,6 +418,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
                 }
         
         # Приоритет 2: название >= 0.8 + год ближайший в меньшую сторону
+        log_message(f"🔍 Ищем приоритет 2: схожесть >= 0.8 и год < {original_year}")
         for candidate in candidates_with_years:
             if candidate['score'] >= 0.8 and candidate['year'] is not None and candidate['year'] < original_year:
                 log_message(f"✅ ПРИОРИТЕТ 2: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
@@ -480,6 +494,7 @@ def extract_year_from_game_page(page, link):
         
         # Извлекаем год
         year = extract_release_year_from_page(page)
+        log_message(f"📅 Извлечен год для '{link['text']}': {year}")
         return year
         
     except Exception as e:
@@ -857,10 +872,16 @@ def generate_ampersand_variants(title):
         if and_variant not in variants:
             variants.append(and_variant)
     
+    # ( & Something) -> & Something (убираем скобки вокруг &)
+    import re
+    if "(&" in title:
+        no_parens_amp = re.sub(r'\(\s*&\s*([^)]+)\)', r'& \1', title)
+        if no_parens_amp and no_parens_amp != title and no_parens_amp not in variants:
+            variants.append(no_parens_amp)
+    
     # Убираем & часть полностью
     if "&" in title:
         # Ищем паттерн "& Something" или "(& Something)"
-        import re
         no_ampersand = re.sub(r'\s*\(?&\s*[^)]+\)?', '', title).strip()
         if no_ampersand and no_ampersand != title and no_ampersand not in variants:
             variants.append(no_ampersand)
@@ -1093,10 +1114,10 @@ def extract_release_year_from_page(page):
                     return earliest_year
             
             # Паттерн для простых годов
-            year_pattern = r'\b(19|20)\d{2}\b'
+            year_pattern = r'\b(19\d{2}|20\d{2})\b'
             matches = re.findall(year_pattern, page_text)
             if matches:
-                years = [int(match[0] + match[1]) for match in matches if 1950 <= int(match[0] + match[1]) <= 2030]
+                years = [int(match) for match in matches if 1950 <= int(match) <= 2030]
                 if years:
                     # Берем самый ранний год
                     earliest_year = min(years)
