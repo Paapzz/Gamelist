@@ -33,7 +33,6 @@ BASE_URL = "https://howlongtobeat.com"
 GAMES_LIST_FILE = "index111.html"
 OUTPUT_DIR = "hltb_data"
 OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
-PROGRESS_FILE = "progress.json"
 
 # Задержки (убрана вежливая задержка между играми)
 BREAK_INTERVAL_MIN = 8 * 60  # 8 минут в секундах
@@ -63,8 +62,8 @@ def log_message(message):
 
 def count_hltb_data(hltb_data):
     """Подсчитывает количество данных HLTB по категориям"""
-    categories = {"ms": 0, "mpe": 0, "comp": 0, "all": 0, "coop": 0, "vs": 0}
-    total_polled = {"ms": 0, "mpe": 0, "comp": 0, "all": 0, "coop": 0, "vs": 0}
+    categories = {"ms": 0, "mpe": 0, "comp": 0, "coop": 0, "vs": 0}
+    total_polled = {"ms": 0, "mpe": 0, "comp": 0, "coop": 0, "vs": 0}
     na_count = 0
     
     for game in hltb_data:
@@ -73,8 +72,7 @@ def count_hltb_data(hltb_data):
             if (isinstance(game["hltb"], dict) and 
                 game["hltb"].get("ms") == "N/A" and 
                 game["hltb"].get("mpe") == "N/A" and 
-                game["hltb"].get("comp") == "N/A" and 
-                game["hltb"].get("all") == "N/A"):
+                game["hltb"].get("comp") == "N/A"):
                 na_count += 1
                 continue
             
@@ -469,97 +467,325 @@ def convert_arabic_to_roman(num_str):
 
 def generate_alternative_titles(game_title):
     """Генерирует альтернативные варианты названия для поиска"""
-    alternatives = [game_title]
+    alternatives = []
     
-    # Добавляем варианты с римскими цифрами
+    # Проверяем, есть ли слеш в названии
+    if " / " in game_title:
+        # Слеш с пробелами - два отдельных названия (НЕ включаем оригинал)
+        parts = [part.strip() for part in game_title.split(" / ")]
+        log_message(f"📝 Обрабатываем слеш с пробелами: {parts}")
+        
+        # Порядок: A, B, A римские, B римские, A амперсанд, B амперсанд, A без скобок, B без скобок
+        for part in parts:
+            if part and part not in alternatives:
+                alternatives.append(part)
+        
+        # Римские/арабские варианты для каждой части
+        for part in parts:
+            roman_variants = generate_roman_variants(part)
+            for variant in roman_variants:
+                if variant not in alternatives:
+                    alternatives.append(variant)
+        
+        # Амперсанд варианты для каждой части
+        for part in parts:
+            ampersand_variants = generate_ampersand_variants(part)
+            for variant in ampersand_variants:
+                if variant not in alternatives:
+                    alternatives.append(variant)
+        
+        # Без скобок для каждой части
+        for part in parts:
+            no_parens = remove_parentheses(part)
+            if no_parens and no_parens not in alternatives:
+                alternatives.append(no_parens)
+                
+    elif "/" in game_title and " / " not in game_title:
+        # Слеш без пробелов - определяем базовую часть
+        parts = [part.strip() for part in game_title.split("/")]
+        log_message(f"📝 Обрабатываем слеш без пробелов: {parts}")
+        
+        # Добавляем оригинал
+        alternatives.append(game_title)
+        
+        # Определяем базовую часть (префикс)
+        base = determine_base_part(parts)
+        log_message(f"📝 Базовая часть: '{base}'")
+        
+        if base:
+            # Новый порядок: все вместе, парные, одиночные
+            
+            # 1. Все части вместе
+            if len(parts) > 2:
+                non_base_parts = []
+                for p in parts:
+                    if p != base:
+                        # Убираем базу из части, если она там есть
+                        clean_part = p.replace(base, "").strip()
+                        if clean_part:
+                            non_base_parts.append(clean_part)
+                
+                if len(non_base_parts) > 2:
+                    all_parts_title = f"{base} {' and '.join(non_base_parts)}"
+                    if all_parts_title not in alternatives:
+                        alternatives.append(all_parts_title)
+            
+            # 2. Парные варианты
+            for i in range(len(parts)):
+                for j in range(i + 1, len(parts)):
+                    if parts[i] != base and parts[j] != base:
+                        # Убираем базу из частей, если она там есть
+                        part1 = parts[i].replace(base, "").strip()
+                        part2 = parts[j].replace(base, "").strip()
+                        if part1 and part2:
+                            pair_title = f"{base} {part1} and {part2}"
+                            if pair_title not in alternatives:
+                                alternatives.append(pair_title)
+            
+            # 3. Одиночные варианты
+            for part in parts:
+                if part and part != base:
+                    # Если часть уже содержит базу, не дублируем
+                    if part.startswith(base):
+                        if part not in alternatives:
+                            alternatives.append(part)
+                    else:
+                        # Проверяем, что часть не начинается с базы
+                        if not part.startswith(base + " "):
+                            full_title = f"{base} {part}"
+                            if full_title not in alternatives:
+                                alternatives.append(full_title)
+        else:
+            # Если базу не определили, обрабатываем как обычные части
+            for part in parts:
+                if part and part not in alternatives:
+                    alternatives.append(part)
+    else:
+        # Обычное название без слешей
+        log_message(f"📝 Обрабатываем обычное название: {game_title}")
+        
+        # Добавляем оригинал
+        alternatives.append(game_title)
+        
+        # Римские/арабские варианты
+        roman_variants = generate_roman_variants(game_title)
+        alternatives.extend(roman_variants)
+        
+        # Амперсанд варианты
+        ampersand_variants = generate_ampersand_variants(game_title)
+        alternatives.extend(ampersand_variants)
+        
+        # Без скобок
+        no_parens = remove_parentheses(game_title)
+        if no_parens and no_parens not in alternatives:
+            alternatives.append(no_parens)
+    
+    # Убираем дубликаты, сохраняя порядок
+    unique_alternatives = []
+    for alt in alternatives:
+        if alt and alt not in unique_alternatives:
+            unique_alternatives.append(alt)
+    
+    log_message(f"🔄 Сгенерировано {len(unique_alternatives)} альтернативных названий")
+    return unique_alternatives
+
+def generate_roman_variants(title):
+    """Генерирует варианты с римскими/арабскими цифрами"""
+    variants = []
     import re
-    # Ищем арабские цифры в конце названия или после пробела
+    
+    # Ищем арабские цифры
     arabic_pattern = r'(\b\d+\b)'
-    matches = re.findall(arabic_pattern, game_title)
+    matches = re.findall(arabic_pattern, title)
     
     for match in matches:
         roman = convert_arabic_to_roman(match)
         if roman != match:
-            # Заменяем арабскую цифру на римскую
-            alt_title = re.sub(r'\b' + match + r'\b', roman, game_title)
-            alternatives.append(alt_title)
+            alt_title = re.sub(r'\b' + match + r'\b', roman, title)
+            if alt_title not in variants:
+                variants.append(alt_title)
     
-    # Для названий с "/" добавляем варианты поиска по частям
-    if "/" in game_title:
-        parts = [part.strip() for part in game_title.split("/")]
-        
-        # Добавляем только первую часть (основное название)
-        if parts[0] and parts[0] not in alternatives:
-            alternatives.append(parts[0])
-        
-        # Для случаев типа "Pokémon Red/Blue/Yellow" добавляем варианты с пробелами
-        if len(parts) >= 2:
-            first_part = parts[0]
-            if " " in first_part:
-                # Берем все слова кроме последнего
-                words = first_part.split()
-                if len(words) >= 2:
-                    base = " ".join(words[:-1])
-                    last_word = words[-1]
-                    
-                    # Вариант 1: с "and" (как было раньше)
-                    if len(parts) >= 2:
-                        second_part = parts[1].split()[0] if " " in parts[1] else parts[1]
-                        combined_with_and = f"{base} {last_word} and {second_part}"
-                        alternatives.append(combined_with_and)
-                    
-                    # Вариант 2: без "and", просто с пробелами
-                    # "Pokémon Red/Blue/Yellow" -> "Pokémon Red Blue Yellow"
-                    all_parts_with_spaces = []
-                    for part in parts:
-                        if " " in part:
-                            # Если часть содержит пробел, берем только последнее слово
-                            part_words = part.split()
-                            all_parts_with_spaces.append(part_words[-1])
-                        else:
-                            # Если часть без пробела, берем целиком
-                            all_parts_with_spaces.append(part)
-                    
-                    combined_with_spaces = f"{base} {' '.join(all_parts_with_spaces)}"
-                    alternatives.append(combined_with_spaces)
+    # Ищем римские цифры
+    roman_pattern = r'\b([IVX]+)\b'
+    roman_matches = re.findall(roman_pattern, title)
     
-    return alternatives
+    for match in roman_matches:
+        arabic = convert_roman_to_arabic(match)
+        if arabic != match:
+            alt_title = re.sub(r'\b' + match + r'\b', arabic, title)
+            if alt_title not in variants:
+                variants.append(alt_title)
+    
+    return variants
+
+def generate_ampersand_variants(title):
+    """Генерирует варианты с амперсандом"""
+    variants = []
+    
+    # & -> and
+    if "&" in title:
+        and_variant = title.replace("&", "and")
+        if and_variant not in variants:
+            variants.append(and_variant)
+    
+    # Убираем & часть полностью
+    if "&" in title:
+        # Ищем паттерн "& Something" или "(& Something)"
+        import re
+        no_ampersand = re.sub(r'\s*\(?&\s*[^)]+\)?', '', title).strip()
+        if no_ampersand and no_ampersand != title and no_ampersand not in variants:
+            variants.append(no_ampersand)
+        
+        # Убираем только &, оставляя скобки
+        no_amp_only = re.sub(r'\s*&\s*', ' ', title).strip()
+        if no_amp_only and no_amp_only != title and no_amp_only not in variants:
+            variants.append(no_amp_only)
+    
+    # Упрощаем длинные названия (убираем "the", "of", "and")
+    simplified = simplify_title(title)
+    if simplified and simplified != title and simplified not in variants:
+        variants.append(simplified)
+    
+    return variants
+
+def remove_parentheses(title):
+    """Убирает содержимое в скобках"""
+    import re
+    no_parens = re.sub(r'\([^)]*\)', '', title).strip()
+    # Убираем лишние пробелы
+    no_parens = re.sub(r'\s+', ' ', no_parens).strip()
+    return no_parens if no_parens != title else None
+
+def determine_base_part(parts):
+    """Определяет базовую часть для названий со слешем без пробелов"""
+    if not parts or len(parts) < 2:
+        return None
+    
+    # Ищем общий префикс
+    first_part = parts[0]
+    if " " not in first_part:
+        return None
+    
+    words = first_part.split()
+    if len(words) < 2:
+        return None
+    
+    # Пробуем разные варианты базовой части
+    for i in range(1, len(words)):
+        potential_base = " ".join(words[:i])
+        
+        # Проверяем, есть ли эта база в других частях
+        base_found = True
+        for part in parts[1:]:
+            if not part.startswith(potential_base):
+                base_found = False
+                break
+        
+        if base_found:
+            return potential_base
+    
+    # Если не нашли общий префикс, пробуем найти базовую часть по-другому
+    # Для случаев типа "Pokémon Red/Blue/Dark" - база это "Pokémon"
+    if len(parts) >= 2:
+        # Берем первое слово из первой части как потенциальную базу
+        first_word = words[0]
+        # Для случаев типа "Pokémon Red/Blue/Dark" - база это "Pokémon"
+        # Проверяем, что другие части короткие (скорее всего это варианты)
+        short_parts = all(len(part.split()) <= 2 for part in parts[1:])
+        if short_parts:
+            return first_word
+    
+    return None
+
+def simplify_title(title):
+    """Упрощает название, убирая лишние слова"""
+    import re
+    # Убираем "the", "of", "and" в начале и конце
+    simplified = re.sub(r'\b(the|of|and)\b', '', title, flags=re.IGNORECASE)
+    # Убираем лишние пробелы
+    simplified = re.sub(r'\s+', ' ', simplified).strip()
+    return simplified if simplified != title else None
+
+def convert_roman_to_arabic(roman):
+    """Конвертирует римские цифры в арабские"""
+    roman_to_arabic = {
+        'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
+        'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10'
+    }
+    return roman_to_arabic.get(roman, roman)
+
+def jaro_distance(s1, s2):
+    """Вычисляет Jaro-схожесть (базовая метрика для Jaro-Winkler)."""
+    if s1 == s2:
+        return 1.0
+    len1, len2 = len(s1), len(s2)
+    if len1 == 0 or len2 == 0:
+        return 0.0
+    max_dist = (max(len1, len2) // 2) - 1
+    match = 0
+    hash_s1 = [0] * len1
+    hash_s2 = [0] * len2
+    # Поиск совпадений в окне
+    for i in range(len1):
+        for j in range(max(0, i - max_dist), min(len2, i + max_dist + 1)):
+            if s1[i] == s2[j] and hash_s2[j] == 0:
+                hash_s1[i] = 1
+                hash_s2[j] = 1
+                match += 1
+                break
+    if match == 0:
+        return 0.0
+    # Подсчёт транспозиций
+    t = 0
+    point = 0
+    for i in range(len1):
+        if hash_s1[i]:
+            while hash_s2[point] == 0:
+                point += 1
+            if s1[i] != s2[point]:
+                t += 1
+            point += 1
+    t //= 2  # Транспозиции считаются парно
+    return (match / len1 + match / len2 + (match - t) / match) / 3.0
+
+def jaro_winkler_similarity(s1, s2):
+    """Jaro-Winkler: Jaro + бонус за префикс (до 4 символов)."""
+    jaro = jaro_distance(s1, s2)
+    if jaro > 0.7:  # Только если базовая схожесть высокая
+        prefix = 0
+        min_len = min(len(s1), len(s2))
+        for i in range(min_len):
+            if s1[i] == s2[i]:
+                prefix += 1
+            else:
+                break
+        prefix = min(4, prefix)
+        jaro += 0.1 * prefix * (1 - jaro)
+    return jaro
 
 def calculate_title_similarity(title1, title2):
-    """Вычисляет схожесть между двумя названиями игр"""
+    """Вычисляет схожесть между двумя названиями игр используя Jaro-Winkler"""
     try:
         # Нормализуем названия для сравнения (конвертируем римские цифры в арабские)
         normalized1 = normalize_title_for_comparison(title1)
         normalized2 = normalize_title_for_comparison(title2)
         
-        # Простой алгоритм схожести на основе общих слов
-        words1 = set(normalized1.split())
-        words2 = set(normalized2.split())
-        
-        if not words1 or not words2:
-            return 0.0
-        
-        # Вычисляем пересечение слов
-        common_words = words1.intersection(words2)
-        total_words = words1.union(words2)
-        
-        # Базовая схожесть по словам
-        word_similarity = len(common_words) / len(total_words)
+        # Используем Jaro-Winkler для вычисления схожести
+        similarity = jaro_winkler_similarity(normalized1.lower(), normalized2.lower())
         
         # Бонус за точное совпадение
-        if normalized1 == normalized2:
+        if normalized1.lower() == normalized2.lower():
             return 1.0
         
-        # Бонус за включение одного в другое
-        if normalized1 in normalized2 or normalized2 in normalized1:
-            word_similarity += 0.2
+        # Штраф за значительную разницу в длине (более короткое название весит меньше)
+        len1, len2 = len(normalized1), len(normalized2)
+        if len1 > 0 and len2 > 0:
+            length_ratio = min(len1, len2) / max(len1, len2)
+            # Если одно название значительно короче другого, снижаем схожесть
+            if length_ratio < 0.7:  # Если разница в длине больше 30%
+                similarity *= length_ratio
         
-        # Бонус за общие длинные слова (более 4 символов)
-        long_common = [w for w in common_words if len(w) > 4]
-        if long_common:
-            word_similarity += 0.1 * len(long_common)
-        
-        return min(word_similarity, 1.0)
+        return similarity
         
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
@@ -594,6 +820,149 @@ def extract_hltb_data_from_page(page):
     try:
         hltb_data = {}
         
+        # Сначала ищем данные в верхних блоках (Single, Co-Op, Vs.)
+        top_block_data = extract_top_block_data(page)
+        if top_block_data:
+            hltb_data.update(top_block_data)
+            log_message(f"📊 Найдены данные в верхних блоках: {list(top_block_data.keys())}")
+        
+        # Затем ищем данные в таблицах
+        table_data = extract_table_data(page)
+        if table_data:
+            hltb_data.update(table_data)
+            log_message(f"📊 Найдены данные в таблицах: {list(table_data.keys())}")
+        
+        # Если есть только верхние блоки (без таблиц с ms/mpe/comp), используем только их
+        if top_block_data and not table_data:
+            log_message("🎮 Обнаружена игра только с верхними блоками (без детальных таблиц)")
+            # Оставляем только данные из верхних блоков
+        elif top_block_data and table_data:
+            # Проверяем, есть ли в таблицах данные о single player (ms/mpe/comp)
+            has_single_player_data = any(key in table_data for key in ["ms", "mpe", "comp"])
+            if not has_single_player_data:
+                log_message("🎮 В таблицах нет single player данных, используем только верхние блоки")
+                # Удаляем данные из таблиц, оставляем только верхние блоки
+                hltb_data = top_block_data.copy()
+        
+        # Собираем ссылки на магазины
+        store_links = extract_store_links(page)
+        if store_links:
+            hltb_data["stores"] = store_links
+        
+        # Логируем итоговые результаты
+        if hltb_data:
+            categories = []
+            for key, value in hltb_data.items():
+                if key != "stores" and isinstance(value, dict) and "t" in value:
+                    categories.append(f"{key}: {value['t']}")
+            if categories:
+                log_message(f"📊 Итоговые категории: {', '.join(categories)}")
+        
+        return hltb_data if hltb_data else None
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения данных со страницы: {e}")
+        return None
+
+def extract_top_block_data(page):
+    """Извлекает данные из верхних блоков (Single, Co-Op, Vs.)"""
+    try:
+        top_data = {}
+        
+        # Ищем блок с игровыми статистиками
+        game_stats = page.locator('.GameStats_game_times__KHrRY')
+        if game_stats.count() == 0:
+            log_message("❌ Блок GameStats не найден")
+            return None
+        
+        # Получаем все элементы списка
+        stats_items = game_stats.locator('li')
+        item_count = stats_items.count()
+        
+        log_message(f"📊 Найдено {item_count} элементов статистики")
+        
+        for i in range(item_count):
+            try:
+                item = stats_items.nth(i)
+                
+                # Получаем название категории (h4) и время (h5)
+                category_element = item.locator('h4')
+                time_element = item.locator('h5')
+                
+                if category_element.count() > 0 and time_element.count() > 0:
+                    category = category_element.inner_text().strip()
+                    time_text = time_element.inner_text().strip()
+                    
+                    log_message(f"📊 Категория: '{category}', Время: '{time_text}'")
+                    
+                    # Пропускаем пустые значения
+                    if time_text == "--" or not time_text or "Hours" not in time_text:
+                        log_message(f"⚠️ Пропускаем пустое значение для {category}")
+                        continue
+                    
+                    # Обрабатываем данные в зависимости от категории
+                    if category == "Co-Op":
+                        coop_data = extract_time_from_h5(time_text)
+                        if coop_data and "coop" not in top_data:
+                            top_data["coop"] = coop_data
+                            log_message(f"🎯 Найдены Co-Op данные: {coop_data}")
+                    elif category == "Vs.":
+                        vs_data = extract_time_from_h5(time_text)
+                        if vs_data and "vs" not in top_data:
+                            top_data["vs"] = vs_data
+                            log_message(f"🎯 Найдены Vs. данные: {vs_data}")
+                    elif category in ["Single-Player", "Single Player"]:
+                        single_data = extract_time_from_h5(time_text)
+                        if single_data and "ms" not in top_data:
+                            top_data["ms"] = single_data
+                            log_message(f"🎯 Найдены Single данные: {single_data}")
+                            
+            except Exception as e:
+                log_message(f"⚠️ Ошибка обработки элемента статистики {i}: {e}")
+                continue
+        
+        return top_data if top_data else None
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения данных из верхних блоков: {e}")
+        return None
+
+def extract_time_from_h5(time_text):
+    """Извлекает время из текста h5 элемента"""
+    try:
+        import re
+        
+        log_message(f"🔍 Обрабатываем время: '{time_text}'")
+        
+        # Ищем число и "Hours"
+        time_match = re.search(r'(\d+(?:\.\d+)?)\s*Hours?', time_text)
+        if time_match:
+            hours = float(time_match.group(1))
+            
+            # Форматируем время
+            if hours >= 1:
+                if hours == int(hours):
+                    formatted_time = f"{int(hours)}h"
+                else:
+                    formatted_time = f"{hours:.1f}h"
+            else:
+                formatted_time = f"{int(hours * 60)}m"
+            
+            log_message(f"✅ Извлечено время: {formatted_time}")
+            return {"t": formatted_time}
+        
+        log_message("❌ Время не найдено")
+        return None
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения времени: {e}")
+        return None
+
+def extract_table_data(page):
+    """Извлекает данные из таблиц"""
+    try:
+        table_data = {}
+        
         # Ищем все таблицы на странице
         tables = page.locator("table")
         table_count = tables.count()
@@ -616,16 +985,16 @@ def extract_hltb_data_from_page(page):
                             row_text = rows.nth(row_idx).inner_text().strip()
                             
                             # Парсим строки с данными (только если еще не найдены)
-                            if "Main Story" in row_text and "ms" not in hltb_data:
-                                hltb_data["ms"] = extract_hltb_row_data(row_text)
-                            elif "Main + Extras" in row_text and "mpe" not in hltb_data:
-                                hltb_data["mpe"] = extract_hltb_row_data(row_text)
-                            elif "Completionist" in row_text and "comp" not in hltb_data:
-                                hltb_data["comp"] = extract_hltb_row_data(row_text)
-                            elif "Co-Op" in row_text and "coop" not in hltb_data:
-                                hltb_data["coop"] = extract_hltb_row_data(row_text)
-                            elif "Competitive" in row_text and "vs" not in hltb_data:
-                                hltb_data["vs"] = extract_hltb_row_data(row_text)
+                            if "Main Story" in row_text and "ms" not in table_data:
+                                table_data["ms"] = extract_hltb_row_data(row_text)
+                            elif "Main + Extras" in row_text and "mpe" not in table_data:
+                                table_data["mpe"] = extract_hltb_row_data(row_text)
+                            elif "Completionist" in row_text and "comp" not in table_data:
+                                table_data["comp"] = extract_hltb_row_data(row_text)
+                            elif "Co-Op" in row_text and "coop" not in table_data:
+                                table_data["coop"] = extract_hltb_row_data(row_text)
+                            elif "Competitive" in row_text and "vs" not in table_data:
+                                table_data["vs"] = extract_hltb_row_data(row_text)
                                 
                         except Exception as e:
                             log_message(f"⚠️ Ошибка обработки строки {row_idx}: {e}")
@@ -635,54 +1004,10 @@ def extract_hltb_data_from_page(page):
                 log_message(f"⚠️ Ошибка обработки таблицы {table_idx}: {e}")
                 continue
         
-        # Ищем отдельные блоки с "Vs." (не в таблицах)
-        try:
-            vs_elements = page.locator('text="Vs."')
-            vs_count = vs_elements.count()
-            if vs_count > 0:
-                for i in range(min(3, vs_count)):  # Проверяем первые 3 вхождения
-                    try:
-                        vs_element = vs_elements.nth(i)
-                        surrounding_text = vs_element.evaluate("(e) => (e.closest('div')||e.parentElement||e).innerText")
-                        
-                        # Если это не таблица и содержит время, извлекаем данные
-                        if "Hours" in surrounding_text and "table" not in str(vs_element.locator("..").get_attribute("tagName")).lower():
-                            vs_data = extract_vs_data_from_text(surrounding_text)
-                            if vs_data and "vs" not in hltb_data:
-                                hltb_data["vs"] = vs_data
-                                log_message(f"🎯 Найдены Vs. данные в отдельном блоке: {vs_data}")
-                    except Exception as e:
-                        log_message(f"⚠️ Ошибка обработки Vs. блока {i}: {e}")
-                        continue
-        except Exception as e:
-            log_message(f"⚠️ Ошибка поиска Vs. блоков: {e}")
-        
-        # Если найдены только Vs. данные (чисто мультиплеерные игры), добавляем их как основную категорию
-        if hltb_data and "vs" in hltb_data and len(hltb_data) == 1:
-            log_message("🎮 Обнаружена чисто мультиплеерная игра, добавляем Vs. как основную категорию")
-            # Не добавляем дополнительных категорий, оставляем только vs
-        elif hltb_data and "vs" in hltb_data and len(hltb_data) == 2 and "stores" in hltb_data:
-            log_message("🎮 Обнаружена чисто мультиплеерная игра с магазинами")
-            # Не добавляем дополнительных категорий, оставляем только vs и stores
-        
-        # Собираем ссылки на магазины
-        store_links = extract_store_links(page)
-        if store_links:
-            hltb_data["stores"] = store_links
-        
-        # Логируем итоговые результаты
-        if hltb_data:
-            categories = []
-            for key, value in hltb_data.items():
-                if key != "stores" and isinstance(value, dict) and "t" in value:
-                    categories.append(f"{key}: {value['t']}")
-            if categories:
-                log_message(f"📊 Найдены категории: {', '.join(categories)}")
-        
-        return hltb_data if hltb_data else None
+        return table_data if table_data else None
         
     except Exception as e:
-        log_message(f"❌ Ошибка извлечения данных со страницы: {e}")
+        log_message(f"❌ Ошибка извлечения данных из таблиц: {e}")
         return None
 
 def extract_store_links(page):
@@ -888,48 +1213,44 @@ def calculate_average_time(time1_str, time2_str):
         log_message(f"❌ Ошибка вычисления среднего времени: {e}")
         return time1_str or time2_str
 
-def extract_vs_data_from_text(text):
-    """Извлекает Vs. данные из текста"""
+
+def determine_error_type(page, game_title):
+    """Определяет тип ошибки при поиске игры"""
     try:
-        import re
+        page_content = page.content().lower()
         
-        log_message(f"🔍 Ищем Vs. данные в тексте: '{text[:200]}...'")
+        # Проверяем на блокировку IP
+        if "blocked" in page_content or "access denied" in page_content:
+            return "IP блокировка"
         
-        # Ищем различные форматы Vs. данных
-        patterns = [
-            r'Vs\.\s*\|\s*(\d+(?:\.\d+)?)\s*Hours?',  # "Vs. | 1767 Hours"
-            r'Vs\.\s+(\d+(?:\.\d+)?)\s*Hours?',        # "Vs. 1767 Hours"
-            r'Vs\.\s*(\d+(?:\.\d+)?)\s*Hours?',        # "Vs.1767 Hours"
-            r'Vs\.\s*(\d+(?:\.\d+)?[½]?)\s*Hours?',    # "Vs. 1767½ Hours"
-        ]
+        # Проверяем на Cloudflare
+        if "cloudflare" in page_content and "checking your browser" in page_content:
+            return "Cloudflare блокировка"
         
-        for pattern in patterns:
-            vs_match = re.search(pattern, text)
-            if vs_match:
-                time_str = vs_match.group(1)
-                # Обрабатываем дробные часы с ½
-                if '½' in time_str:
-                    time_str = time_str.replace('½', '.5')
-                
-                hours = float(time_str)
-                
-                if hours >= 1:
-                    if hours == int(hours):
-                        formatted_time = f"{int(hours)}h"
-                    else:
-                        formatted_time = f"{hours:.1f}h"
-                else:
-                    formatted_time = f"{int(hours * 60)}m"
-                
-                log_message(f"✅ Найдены Vs. данные: {formatted_time}")
-                return {"t": formatted_time}
+        # Проверяем на таймаут
+        if "timeout" in page_content or "timed out" in page_content:
+            return "Таймаут запроса"
         
-        log_message("❌ Vs. данные не найдены")
-        return None
+        # Проверяем на ошибку сети
+        if "network error" in page_content or "connection error" in page_content:
+            return "Ошибка сети"
+        
+        # Проверяем на отсутствие результатов поиска
+        search_results = page.locator('a[href^="/game/"]')
+        if search_results.count() == 0:
+            return "Игра не найдена в поиске"
+        
+        # Проверяем на отсутствие данных на странице игры
+        tables = page.locator("table")
+        if tables.count() == 0:
+            return "Нет таблиц с данными на странице"
+        
+        # Если ничего не подошло
+        return "Неизвестная ошибка"
         
     except Exception as e:
-        log_message(f"❌ Ошибка извлечения Vs. данных: {e}")
-        return None
+        log_message(f"❌ Ошибка определения типа ошибки: {e}")
+        return "Ошибка анализа страницы"
 
 def extract_time_and_polled_from_row(row_text):
     """Извлекает время и количество голосов из строки таблицы"""
@@ -996,18 +1317,6 @@ def extract_time_from_row(row_text):
     except:
         return None
 
-def save_progress(games_data, current_index, total_games):
-    """Сохраняет прогресс выполнения"""
-    progress_data = {
-        "current_index": current_index,
-        "total_games": total_games,
-        "processed_games": len([g for g in games_data if "hltb" in g]),
-        "last_updated": datetime.now().isoformat(),
-        "status": "in_progress" if current_index < total_games else "completed"
-    }
-    
-    with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
-        json.dump(progress_data, f, indent=2, ensure_ascii=False)
 
 def save_results(games_data):
     """Сохраняет финальные результаты в компактном формате"""
@@ -1026,7 +1335,7 @@ def save_results(games_data):
         log_message(f"💾 Результаты сохранены в {OUTPUT_FILE}")
         log_message(f"📊 Статистика: {successful}/{len(games_data)} игр с данными HLTB")
         log_message(f"📊 Main Story: {categories['ms']} ({total_polled['ms']} голосов), Main+Extras: {categories['mpe']} ({total_polled['mpe']} голосов)")
-        log_message(f"📊 Completionist: {categories['comp']} ({total_polled['comp']} голосов), All: {categories['all']} ({total_polled['all']} голосов)")
+        log_message(f"📊 Completionist: {categories['comp']} ({total_polled['comp']} голосов)")
         log_message(f"📊 Co-Op: {categories['coop']} ({total_polled['coop']} голосов), Vs: {categories['vs']} ({total_polled['vs']} голосов)")
         log_message(f"📊 N/A (не найдено): {na_count} игр")
         
@@ -1097,14 +1406,7 @@ def main():
         total_games = len(games_list)
         log_message(f"✅ Извлечено {total_games} игр")
         
-        # Загружаем существующий прогресс, если есть
-        if os.path.exists(PROGRESS_FILE):
-            with open(PROGRESS_FILE, "r", encoding="utf-8") as f:
-                progress = json.load(f)
-            start_index = progress.get("current_index", 0)
-            log_message(f"📂 Продолжаем с позиции {start_index}")
-        else:
-            start_index = 0
+        start_index = 0
         
         # Запускаем браузер
         log_message("🌐 Запускаем Playwright...")
@@ -1166,7 +1468,7 @@ def main():
             blocked_count = 0  # Счетчик блокировок
             
             # Обрабатываем игры
-            for i in range(start_index, total_games):
+            for i in range(0, total_games):
                 game = games_list[i]
                 game_title = game["title"]
                 
@@ -1181,13 +1483,15 @@ def main():
                     blocked_count = 0  # Сбрасываем счетчик блокировок при успехе
                     log_message(f"✅ Найдены данные: {hltb_data}")
                 else:
+                    # Определяем тип ошибки
+                    error_type = determine_error_type(page, game_title)
+                    
                     # Записываем N/A если данные не найдены
-                    game["hltb"] = {"ms": "N/A", "mpe": "N/A", "comp": "N/A", "all": "N/A"}
-                    log_message(f"⚠️  Данные не найдены для: {game_title} - записано N/A")
+                    game["hltb"] = {"ms": "N/A", "mpe": "N/A", "comp": "N/A"}
+                    log_message(f"⚠️  {error_type} для: {game_title} - записано N/A")
                     
                     # Проверяем, не было ли блокировки
-                    page_content = page.content()
-                    if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+                    if error_type == "IP блокировка":
                         blocked_count += 1
                         log_message(f"🚫 Блокировка #{blocked_count}")
                         
@@ -1202,9 +1506,8 @@ def main():
                 # Проверяем перерыв
                 start_time = check_break_time(start_time, i + 1)
                 
-                # Сохраняем прогресс каждые 50 игр
+                # Логируем прогресс каждые 50 игр
                 if (i + 1) % 50 == 0:
-                    save_progress(games_list, i + 1, total_games)
                     log_progress(i + 1, total_games, start_time)
             
             browser.close()
