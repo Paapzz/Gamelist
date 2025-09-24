@@ -228,8 +228,9 @@ def search_game_on_hltb(page, game_title, game_year=None):
             all_results = []
             
             for alt_title in alternative_titles:
-                result = search_game_single_attempt(page, alt_title)
-                if result is not None:
+                # Ищем только ссылки, не переходя на страницу
+                game_links = search_game_links_only(page, alt_title)
+                if game_links:
                     # Вычисляем схожесть между оригинальным названием и альтернативным
                     score = calculate_title_similarity(
                         clean_title_for_comparison(game_title),
@@ -237,17 +238,18 @@ def search_game_on_hltb(page, game_title, game_year=None):
                     )
                     
                     all_results.append({
-                        'result': result,
+                        'game_links': game_links,
                         'score': score,
                         'title': alt_title
                     })
             
             # Если есть результаты, выбираем лучший с учетом года
             if all_results:
-                best_result = find_best_result_with_year(all_results, game_title, game_year)
+                best_result = find_best_result_with_year(page, all_results, game_title, game_year)
                 if best_result:
                     log_message(f"🏆 Лучший результат: '{best_result['title']}' (схожесть: {best_result['score']:.2f})")
-                    return best_result['result']
+                    # Теперь извлекаем данные с выбранной страницы
+                    return extract_data_from_selected_game(page, best_result['selected_link'])
             
         except Exception as e:
             log_message(f"❌ Ошибка попытки {attempt + 1} для '{game_title}': {e}")
@@ -257,7 +259,104 @@ def search_game_on_hltb(page, game_title, game_year=None):
     
     return None
 
-def find_best_result_with_year(all_results, original_title, original_year):
+def search_game_links_only(page, game_title):
+    """Ищет только ссылки на игры без перехода на страницу"""
+    try:
+        log_message(f"🔍 Ищем ссылки для: '{game_title}'")
+        
+        # Кодируем название для URL
+        safe_title = quote(game_title, safe="")
+        search_url = f"{BASE_URL}/?q={safe_title}"
+        
+        # Переходим на страницу поиска
+        page.goto(search_url, timeout=20000)
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        
+        # Проверяем на блокировку
+        page_content = page.content()
+        if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+            log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
+            return None
+        elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
+            log_message("⚠️ Cloudflare проверка при поиске - ждем...")
+            time.sleep(5)
+            page_content = page.content()
+            if "checking your browser" in page_content.lower():
+                log_message("❌ Cloudflare блокирует поиск")
+                return None
+        
+        # Ждем загрузки результатов поиска
+        random_delay(3, 5)
+        
+        # Ищем все ссылки на игры
+        game_links = page.locator('a[href^="/game/"]')
+        found_count = game_links.count()
+        
+        if found_count == 0:
+            random_delay(2, 4)
+            found_count = game_links.count()
+        
+        if found_count > 10:
+            log_message(f"📊 Найдено {found_count} результатов, ждем дополнительную загрузку...")
+            random_delay(5, 8)
+            found_count = game_links.count()
+        
+        if found_count == 0:
+            return None
+        
+        # Возвращаем все найденные ссылки
+        links_data = []
+        for i in range(min(found_count, 10)):  # Берем первые 10 результатов
+            link = game_links.nth(i)
+            link_text = link.inner_text().strip()
+            link_href = link.get_attribute("href")
+            
+            if link_text and link_href:
+                links_data.append({
+                    'text': link_text,
+                    'href': link_href,
+                    'element': link
+                })
+        
+        return links_data
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка поиска ссылок для '{game_title}': {e}")
+        return None
+
+def extract_data_from_selected_game(page, selected_link):
+    """Извлекает данные с выбранной страницы игры"""
+    try:
+        # Переходим на страницу выбранной игры
+        full_url = f"{BASE_URL}{selected_link['href']}"
+        
+        page.goto(full_url, timeout=20000)
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        
+        # Проверяем на блокировку на странице игры
+        page_content = page.content()
+        if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+            log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
+            return None
+        elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
+            log_message("⚠️ Cloudflare проверка на странице игры - ждем...")
+            time.sleep(5)
+            page_content = page.content()
+            if "checking your browser" in page_content.lower():
+                log_message("❌ Cloudflare блокирует страницу игры")
+                return None
+        
+        # Ждем загрузки страницы
+        random_delay(3, 5)
+        
+        # Извлекаем данные HLTB
+        return extract_hltb_data_from_page(page)
+        
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения данных с страницы игры: {e}")
+        return None
+
+def find_best_result_with_year(page, all_results, original_title, original_year):
     """Выбирает лучший результат из всех найденных с учетом года релиза"""
     try:
         if not all_results:
@@ -266,47 +365,126 @@ def find_best_result_with_year(all_results, original_title, original_year):
         # Если год не указан, используем старую логику
         if original_year is None:
             best_result = max(all_results, key=lambda x: x['score'])
-            return best_result
+            # Выбираем лучшую ссылку из этого результата
+            best_link = find_best_link_in_result(best_result['game_links'], original_title)
+            return {
+                'title': best_result['title'],
+                'score': best_result['score'],
+                'selected_link': best_link
+            }
         
-        # Группируем результаты по схожести названий
-        high_similarity = []  # >= 0.8
-        medium_similarity = []  # >= 0.6
+        # Собираем все кандидаты с их годами
+        candidates_with_years = []
         
         for result in all_results:
-            if result['score'] >= 0.8:
-                high_similarity.append(result)
-            elif result['score'] >= 0.6:
-                medium_similarity.append(result)
+            for link in result['game_links']:
+                # Извлекаем год со страницы игры
+                game_year = extract_year_from_game_page(page, link)
+                
+                candidates_with_years.append({
+                    'title': result['title'],
+                    'score': result['score'],
+                    'link': link,
+                    'year': game_year
+                })
+        
+        # Сортируем по приоритетам
+        candidates_with_years.sort(key=lambda x: (
+            -x['score'],  # Сначала по схожести (убывание)
+            abs(x['year'] - original_year) if x['year'] is not None else 999  # Потом по разнице в годах
+        ))
         
         # Приоритет 1: название >= 0.8 + год идентичный
-        for result in high_similarity:
-            # Здесь нужно извлечь год со страницы игры
-            # Пока что возвращаем первый результат с высокой схожестью
-            if result['score'] >= 0.8:
-                log_message(f"✅ ПРИОРИТЕТ 1: {result['title']} (схожесть: {result['score']:.3f})")
-                return result
+        for candidate in candidates_with_years:
+            if candidate['score'] >= 0.8 and candidate['year'] == original_year:
+                log_message(f"✅ ПРИОРИТЕТ 1: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
+                return {
+                    'title': candidate['title'],
+                    'score': candidate['score'],
+                    'selected_link': candidate['link']
+                }
         
         # Приоритет 2: название >= 0.8 + год ближайший в меньшую сторону
-        # (пока что не реализовано, так как нужно извлекать год со страницы)
+        for candidate in candidates_with_years:
+            if candidate['score'] >= 0.8 and candidate['year'] is not None and candidate['year'] < original_year:
+                log_message(f"✅ ПРИОРИТЕТ 2: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
+                return {
+                    'title': candidate['title'],
+                    'score': candidate['score'],
+                    'selected_link': candidate['link']
+                }
         
         # Приоритет 3: название >= 0.8 + год ближайший в любую сторону
-        # (пока что не реализовано)
+        for candidate in candidates_with_years:
+            if candidate['score'] >= 0.8 and candidate['year'] is not None:
+                log_message(f"✅ ПРИОРИТЕТ 3: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
+                return {
+                    'title': candidate['title'],
+                    'score': candidate['score'],
+                    'selected_link': candidate['link']
+                }
         
         # Приоритет 4: название >= 0.6 + год идентичный
-        for result in medium_similarity:
-            if result['score'] >= 0.6:
-                log_message(f"✅ ПРИОРИТЕТ 4: {result['title']} (схожесть: {result['score']:.3f})")
-                return result
+        for candidate in candidates_with_years:
+            if candidate['score'] >= 0.6 and candidate['year'] == original_year:
+                log_message(f"✅ ПРИОРИТЕТ 4: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
+                return {
+                    'title': candidate['title'],
+                    'score': candidate['score'],
+                    'selected_link': candidate['link']
+                }
         
         # Если ничего не подошло, возвращаем лучший по схожести
-        best_result = max(all_results, key=lambda x: x['score'])
-        log_message(f"✅ Лучший по схожести: {best_result['title']} (схожесть: {best_result['score']:.3f})")
-        return best_result
+        best_candidate = candidates_with_years[0] if candidates_with_years else None
+        if best_candidate:
+            log_message(f"✅ Лучший по схожести: {best_candidate['link']['text']} (схожесть: {best_candidate['score']:.3f}, год: {best_candidate['year']})")
+            return {
+                'title': best_candidate['title'],
+                'score': best_candidate['score'],
+                'selected_link': best_candidate['link']
+            }
+        
+        return None
         
     except Exception as e:
         log_message(f"❌ Ошибка выбора лучшего результата: {e}")
-        # В случае ошибки возвращаем лучший по схожести
-        return max(all_results, key=lambda x: x['score']) if all_results else None
+        return None
+
+def find_best_link_in_result(game_links, original_title):
+    """Находит лучшую ссылку в результате поиска"""
+    if not game_links:
+        return None
+    
+    best_link = None
+    best_score = 0
+    
+    for link in game_links:
+        score = calculate_title_similarity(
+            clean_title_for_comparison(original_title),
+            clean_title_for_comparison(link['text'])
+        )
+        
+        if score > best_score:
+            best_score = score
+            best_link = link
+    
+    return best_link
+
+def extract_year_from_game_page(page, link):
+    """Извлекает год релиза со страницы игры"""
+    try:
+        # Переходим на страницу игры
+        full_url = f"{BASE_URL}{link['href']}"
+        page.goto(full_url, timeout=20000)
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        
+        # Извлекаем год
+        year = extract_release_year_from_page(page)
+        return year
+        
+    except Exception as e:
+        log_message(f"⚠️ Ошибка извлечения года для {link['text']}: {e}")
+        return None
 
 def search_game_single_attempt(page, game_title):
     """Одна попытка поиска игры на HLTB"""
