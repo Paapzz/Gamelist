@@ -11,9 +11,6 @@ on:
         description: 'Chunk size per job (0 = all)'
         required: false
         default: '0'
-  push:
-    branches:
-      - main
 
 permissions:
   contents: write
@@ -113,7 +110,6 @@ jobs:
           name: hltb-data
           path: |
             hltb_data/*.json
-            *.html
           if-no-files-found: warn
 
       - name: Commit & push results back to main (safe merge strategy)
@@ -133,10 +129,7 @@ jobs:
             git add hltb_data/*.json
             CHANGED=1
           fi
-          if [ -f index111.html ]; then
-            git add index111.html
-            CHANGED=1
-          fi
+          # index111.html не обновляется воркером
           if [ -f progress.json ]; then
             git add progress.json
             CHANGED=1
@@ -174,9 +167,7 @@ jobs:
           if ls hltb_data/*.json 1> /dev/null 2>&1; then
             git add hltb_data/*.json
           fi
-          if [ -f index111.html ]; then
-            git add index111.html
-          fi
+          # index111.html не обновляется воркером
           if [ -f progress.json ]; then
             git add progress.json
           fi
