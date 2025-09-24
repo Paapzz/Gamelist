@@ -1216,12 +1216,8 @@ def main():
         successful = len([g for g in games_list if "hltb" in g])
         log_message(f"🎉 Завершено! Обработано {successful}/{total_games} игр ({successful/total_games*100:.1f}%)")
         
-        # Обновляем HTML файл с новыми данными
-        log_message("🔄 Обновление HTML файла с данными HLTB...")
-        if update_html_with_hltb(GAMES_LIST_FILE, games_list):
-            log_message("✅ HTML файл успешно обновлен!")
-        else:
-            log_message("❌ Не удалось обновить HTML файл")
+        # HTML файл не обновляется - только сохраняем данные в JSON
+        log_message("📄 Данные сохранены в JSON файл, HTML не обновляется")
         
     except Exception as e:
         log_message(f"💥 Критическая ошибка: {e}")
