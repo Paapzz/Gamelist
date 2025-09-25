@@ -961,6 +961,8 @@ def determine_base_part(parts):
             return potential_base
     
     
+    # Если не нашли общий префикс, пробуем найти базовую часть по-другому
+    # Для случаев типа "Pokémon Red/Blue/Dark" - база это "Pokémon"
     if len(parts) >= 2:
         # Берем первое слово из первой части как потенциальную базу
         first_word = words[0]
@@ -1150,7 +1152,7 @@ def extract_release_year_from_page(page):
                     extract_release_year_from_page.year_cache[page_url] = earliest_year
                     return earliest_year
         except Exception as e:
-            log_message(f" Ошибка извлечения года из JSON: {e}")
+            log_message(f"⚠️ Ошибка извлечения года из JSON: {e}")
         
         # Пытаемся извлечь год из HTML
         try:
@@ -1256,8 +1258,11 @@ def extract_hltb_data_from_page(page):
         if store_links:
             hltb_data["stores"] = store_links
         
-        # Добавляем ссылку на страницу HLTB
-        hltb_data["hltb_url"] = page.url
+        # Добавляем ID игры из URL HLTB
+        import re
+        url_match = re.search(r'/game/(\d+)', page.url)
+        if url_match:
+            hltb_data["hltb_id"] = url_match.group(1)
         
         return hltb_data if hltb_data else None
         
@@ -1418,7 +1423,7 @@ def extract_table_data(page):
         return table_data if table_data else None
         
     except Exception as e:
-        log_message(f" Ошибка извлечения данных из таблиц: {e}")
+        log_message(f"❌ Ошибка извлечения данных из таблиц: {e}")
         return None
 
 def extract_store_links(page):
@@ -1925,12 +1930,17 @@ def main():
         # Сохраняем финальные результаты
         save_results(games_list)
         
+        # Обновляем HTML файл с новыми данными HLTB
+        log_message("🔄 Обновляем HTML файл с данными HLTB...")
+        html_updated = update_html_with_hltb(GAMES_LIST_FILE, games_list)
+        if html_updated:
+            log_message("✅ HTML файл успешно обновлен")
+        else:
+            log_message("⚠️ Не удалось обновить HTML файл")
+        
         # Финальная статистика
         successful = len([g for g in games_list if "hltb" in g])
         log_message(f" Завершено! Обработано {successful}/{total_games} игр ({successful/total_games*100:.1f}%)")
-        
-        # HTML файл не обновляется - только сохраняем данные в JSON
-        log_message(" Данные сохранены в JSON файл, HTML не обновляется")
         
     except Exception as e:
         log_message(f" Критическая ошибка: {e}")
