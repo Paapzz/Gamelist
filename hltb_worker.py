@@ -443,7 +443,6 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
                 }
         
         # Приоритет 2: название >= 0.8 + год ближайший в меньшую сторону
-        log_message(f"🔍 Ищем приоритет 2: схожесть >= 0.8 и год < {original_year}")
         for candidate in candidates_with_years:
             if candidate['score'] >= 0.8 and candidate['year'] is not None and candidate['year'] < original_year:
                 log_message(f"✅ ПРИОРИТЕТ 2: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
@@ -523,7 +522,6 @@ def extract_year_from_game_page(page, link):
         # Проверяем кэш
         if full_url in extract_year_from_game_page.url_cache:
             cached_year = extract_year_from_game_page.url_cache[full_url]
-            log_message(f"📅 Год из кэша для '{link['text']}': {cached_year}")
             return cached_year
         
         # Переходим на страницу игры
@@ -536,7 +534,6 @@ def extract_year_from_game_page(page, link):
         # Сохраняем в кэш
         extract_year_from_game_page.url_cache[full_url] = year
         
-        log_message(f"📅 Извлечен год для '{link['text']}': {year}")
         return year
         
     except Exception as e:
@@ -547,7 +544,6 @@ def extract_year_from_game_page(page, link):
             page.goto(full_url, timeout=8000)  # Еще меньше таймаут
             page.wait_for_load_state("domcontentloaded", timeout=5000)  # Еще меньше таймаут
             year = extract_release_year_from_page(page)
-            log_message(f"📅 Извлечен год для '{link['text']}' (повторно): {year}")
             return year
         except Exception as e2:
             log_message(f"⚠️ Повторная ошибка извлечения года для {link['text']}: {e2}")
@@ -983,8 +979,7 @@ def determine_base_part(parts):
         if base_found:
             return potential_base
     
-    # Если не нашли общий префикс, пробуем найти базовую часть по-другому
-    # Для случаев типа "Pokémon Red/Blue/Dark" - база это "Pokémon"
+    
     if len(parts) >= 2:
         # Берем первое слово из первой части как потенциальную базу
         first_word = words[0]
@@ -1173,11 +1168,47 @@ def extract_release_year_from_page(page):
                     extract_release_year_from_page.year_cache[page_url] = earliest_year
                     return earliest_year
         except Exception as e:
+            log_message(f"⚠️ Ошибка извлечения года из JSON: {e}")
+        
+        # Пытаемся извлечь год из HTML
+        try:
+            # Ищем год в HTML
+            years = []
+            
+            # Ищем в различных местах HTML
+            year_selectors = [
+                'span[data-testid="release-date"]',
+                '.release-date',
+                '.game-release-date',
+                'time[datetime]',
+                '[data-testid="game-release-year"]'
+            ]
+            
+            for selector in year_selectors:
+                elements = page.locator(selector).all()
+                for element in elements:
+                    text = element.text_content()
+                    if text:
+                        # Ищем 4-значный год
+                        import re
+                        year_match = re.search(r'\b(19|20)\d{2}\b', text)
+                        if year_match:
+                            year = int(year_match.group())
+                            if 1950 <= year <= 2030:
+                                years.append(year)
+            
+            # Если нашли годы
+            if years:
+                # Берем самый ранний год
+                earliest_year = min(years)
+                extract_release_year_from_page.year_cache[page_url] = earliest_year
+                return earliest_year
+        except Exception as e:
             log_message(f"⚠️ Ошибка извлечения года из HTML: {e}")
         
-            # Если ничего не найдено
-            extract_release_year_from_page.year_cache[page_url] = None
-            return None
+        # Если ничего не найдено
+        extract_release_year_from_page.year_cache[page_url] = None
+        return None
         
     except Exception as e:
         log_message(f"❌ Ошибка извлечения года релиза: {e}")
@@ -1216,7 +1247,6 @@ def extract_hltb_data_from_page(page):
         top_block_data = extract_top_block_data(page)
         if top_block_data:
             hltb_data.update(top_block_data)
-            log_message(f"📊 Найдены данные в верхних блоках: {list(top_block_data.keys())}")
         
         # Затем ищем данные в таблицах
         table_data = extract_table_data(page)
@@ -1225,8 +1255,8 @@ def extract_hltb_data_from_page(page):
         
         # Если есть только верхние блоки (без таблиц с ms/mpe/comp), используем только их
         if top_block_data and not table_data:
-            log_message("🎮 Обнаружена игра только с верхними блоками (без детальных таблиц)")
             # Оставляем только данные из верхних блоков
+            pass
         elif top_block_data and table_data:
             # Проверяем, есть ли в таблицах данные о single player (ms/mpe/comp)
             has_single_player_data = any(key in table_data for key in ["ms", "mpe", "comp"])
@@ -1277,7 +1307,6 @@ def extract_top_block_data(page):
                     
                     # Пропускаем пустые значения
                     if time_text == "--" or not time_text:
-                        log_message(f"⚠️ Пропускаем пустое значение для {category}")
                         continue
                     
                     # Обрабатываем данные в зависимости от категории
@@ -1285,17 +1314,14 @@ def extract_top_block_data(page):
                         coop_data = extract_time_from_h5(time_text)
                         if coop_data and "coop" not in top_data:
                             top_data["coop"] = coop_data
-                            log_message(f"🎯 Найдены Co-Op данные: {coop_data}")
                     elif category == "Vs.":
                         vs_data = extract_time_from_h5(time_text)
                         if vs_data and "vs" not in top_data:
                             top_data["vs"] = vs_data
-                            log_message(f"🎯 Найдены Vs. данные: {vs_data}")
                     elif category in ["Single-Player", "Single Player"]:
                         single_data = extract_time_from_h5(time_text)
                         if single_data and "ms" not in top_data:
                             top_data["ms"] = single_data
-                            log_message(f"🎯 Найдены Single данные: {single_data}")
                             
             except Exception as e:
                 log_message(f"⚠️ Ошибка обработки элемента статистики {i}: {e}")
@@ -1312,7 +1338,6 @@ def extract_time_from_h5(time_text):
     try:
         import re
         
-        log_message(f"🔍 Обрабатываем время: '{time_text}'")
         
         # Ищем число и "Hours"
         time_match = re.search(r'(\d+(?:\.\d+)?)\s*Hours?', time_text)
@@ -1328,7 +1353,6 @@ def extract_time_from_h5(time_text):
             else:
                 formatted_time = f"{int(hours * 60)}m"
             
-            log_message(f"✅ Извлечено время: {formatted_time}")
             return {"t": formatted_time}
         
         # Ищем число и "Minutes" или "Mins" или просто "m"
@@ -1337,7 +1361,6 @@ def extract_time_from_h5(time_text):
             minutes = float(time_match.group(1))
             formatted_time = f"{int(minutes)}m"
             
-            log_message(f"✅ Извлечено время: {formatted_time}")
             return {"t": formatted_time}
         
         # Ищем число и "h" (часы)
@@ -1349,7 +1372,6 @@ def extract_time_from_h5(time_text):
             else:
                 formatted_time = f"{hours:.1f}h"
             
-            log_message(f"✅ Извлечено время: {formatted_time}")
             return {"t": formatted_time}
         
         log_message("❌ Время не найдено")
@@ -1871,7 +1893,7 @@ def main():
                 game_title = game["title"]
                 game_year = game.get("year")  # Получаем год из данных игры
                 
-                log_message(f"🎮 Обрабатываю {i+1}/{total_games}: {game_title} ({game_year})")
+                log_message(f"🎮🎮🎮 Обрабатываю {i+1}/{total_games}: {game_title} ({game_year})")
                 
                 # Ищем данные на HLTB
                 hltb_data = search_game_on_hltb(page, game_title, game_year)
@@ -1880,7 +1902,7 @@ def main():
                     game["hltb"] = hltb_data
                     processed_count += 1
                     blocked_count = 0  # Сбрасываем счетчик блокировок при успехе
-                    log_message(f"✅ Найдены данные: {hltb_data}")
+                    log_message(f"✅✅✅ Найдены данные: {hltb_data}")
                 else:
                     # Определяем тип ошибки
                     error_type = determine_error_type(page, game_title)
