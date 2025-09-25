@@ -175,6 +175,9 @@ def round_time(time_str):
     
     hours, minutes = parse_time_to_hours(time_str)
     
+    # Убеждаемся, что hours - целое число
+    hours = int(hours)
+    
     if minutes <= 14:
         return f"{hours}h"           # 0-14 мин → целый час
     elif minutes <= 44:
@@ -378,9 +381,9 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
         
         for result in all_results:
             for link in result['game_links']:
-                # Вычисляем схожесть между оригинальным названием и найденным на сайте
+                # Вычисляем схожесть между альтернативным названием (которое искали) и найденным на сайте
                 link_similarity = calculate_title_similarity(
-                    clean_title_for_comparison(original_title),
+                    clean_title_for_comparison(result['title']),  # Используем альтернативное название, которое искали
                     clean_title_for_comparison(link['text'])
                 )
                 
@@ -429,8 +432,10 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
                 }
         
         # Приоритет 3: название >= 0.8 + год ближайший в любую сторону
+        # Но только если нет кандидатов с более высокой схожестью без года
+        best_score_without_year = max([c['score'] for c in candidates_with_years if c['year'] is None], default=0)
         for candidate in candidates_with_years:
-            if candidate['score'] >= 0.8 and candidate['year'] is not None:
+            if candidate['score'] >= 0.8 and candidate['year'] is not None and candidate['score'] >= best_score_without_year:
                 log_message(f"✅ ПРИОРИТЕТ 3: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
                 return {
                     'title': candidate['title'],
@@ -489,8 +494,8 @@ def extract_year_from_game_page(page, link):
     try:
         # Переходим на страницу игры
         full_url = f"{BASE_URL}{link['href']}"
-        page.goto(full_url, timeout=20000)
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        page.goto(full_url, timeout=30000)  # Увеличиваем таймаут до 30 секунд
+        page.wait_for_load_state("domcontentloaded", timeout=20000)  # Увеличиваем таймаут до 20 секунд
         
         # Извлекаем год
         year = extract_release_year_from_page(page)
@@ -499,7 +504,17 @@ def extract_year_from_game_page(page, link):
         
     except Exception as e:
         log_message(f"⚠️ Ошибка извлечения года для {link['text']}: {e}")
-        return None
+        # Пробуем еще раз с меньшим таймаутом
+        try:
+            log_message(f"🔄 Повторная попытка извлечения года для '{link['text']}'...")
+            page.goto(full_url, timeout=15000)
+            page.wait_for_load_state("domcontentloaded", timeout=10000)
+            year = extract_release_year_from_page(page)
+            log_message(f"📅 Извлечен год для '{link['text']}' (повторно): {year}")
+            return year
+        except Exception as e2:
+            log_message(f"⚠️ Повторная ошибка извлечения года для {link['text']}: {e2}")
+    return None
 
 def search_game_single_attempt(page, game_title):
     """Одна попытка поиска игры на HLTB"""
@@ -1056,7 +1071,7 @@ def calculate_title_similarity(title1, title2, year1=None, year2=None):
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
         return 0.0
-
+        
 def extract_release_year_from_page(page):
     """Извлекает год релиза со страницы игры HLTB"""
     try:
@@ -1123,7 +1138,6 @@ def extract_release_year_from_page(page):
                     earliest_year = min(years)
                     extract_release_year_from_page.year_cache[page_url] = earliest_year
                     return earliest_year
-                    
         except Exception as e:
             log_message(f"⚠️ Ошибка извлечения года из HTML: {e}")
         
@@ -1291,6 +1305,27 @@ def extract_time_from_h5(time_text):
                     formatted_time = f"{hours:.1f}h"
             else:
                 formatted_time = f"{int(hours * 60)}m"
+            
+            log_message(f"✅ Извлечено время: {formatted_time}")
+            return {"t": formatted_time}
+        
+        # Ищем число и "Minutes" или "Mins" или просто "m"
+        time_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:Minutes?|Mins?|m)\b', time_text)
+        if time_match:
+            minutes = float(time_match.group(1))
+            formatted_time = f"{int(minutes)}m"
+            
+            log_message(f"✅ Извлечено время: {formatted_time}")
+            return {"t": formatted_time}
+        
+        # Ищем число и "h" (часы)
+        time_match = re.search(r'(\d+(?:\.\d+)?)\s*h\b', time_text)
+        if time_match:
+            hours = float(time_match.group(1))
+            if hours == int(hours):
+                formatted_time = f"{int(hours)}h"
+            else:
+                formatted_time = f"{hours:.1f}h"
             
             log_message(f"✅ Извлечено время: {formatted_time}")
             return {"t": formatted_time}
