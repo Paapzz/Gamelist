@@ -376,9 +376,8 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
                 'selected_link': best_link
             }
         
-        # Собираем все кандидаты с их годами
-        candidates_with_years = []
-        
+        # Сначала собираем всех кандидатов без года
+        all_candidates = []
         for result in all_results:
             for link in result['game_links']:
                 # Вычисляем схожесть между альтернативным названием (которое искали) и найденным на сайте
@@ -387,17 +386,35 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
                     clean_title_for_comparison(link['text'])
                 )
                 
-                # Извлекаем год со страницы игры
-                game_year = extract_year_from_game_page(page, link)
-                
-                log_message(f"🔍 Кандидат: '{link['text']}' (схожесть: {link_similarity:.3f}, год: {game_year})")
-                
-                candidates_with_years.append({
+                all_candidates.append({
                     'title': result['title'],
-                    'score': link_similarity,  # Используем схожесть с найденным названием
+                    'score': link_similarity,
                     'link': link,
-                    'year': game_year
+                    'year': None
                 })
+        
+        # Сортируем по схожести и берем только топ-3 для извлечения года
+        all_candidates.sort(key=lambda x: -x['score'])
+        
+        # Если есть точное совпадение (схожесть 1.0), извлекаем год только для него
+        if all_candidates and all_candidates[0]['score'] >= 0.99:
+            top_candidates = all_candidates[:1]  # Только лучший кандидат
+            log_message(f"🎯 Найдено точное совпадение, извлекаем год только для лучшего кандидата")
+        else:
+            top_candidates = all_candidates[:3]  # Топ-3 кандидата
+        
+        # Извлекаем год только для выбранных кандидатов
+        for candidate in top_candidates:
+            game_year = extract_year_from_game_page(page, candidate['link'])
+            candidate['year'] = game_year
+            log_message(f"🔍 Кандидат: '{candidate['link']['text']}' (схожесть: {candidate['score']:.3f}, год: {game_year})")
+            
+            # Небольшая пауза между запросами для снижения нагрузки
+            if len(top_candidates) > 1:
+                time.sleep(random.uniform(0.5, 1.5))  # 0.5-1.5 секунды между запросами
+        
+        # Добавляем остальных кандидатов без года
+        candidates_with_years = top_candidates + all_candidates[len(top_candidates):]
         
         # Сортируем по приоритетам
         candidates_with_years.sort(key=lambda x: (
@@ -492,13 +509,28 @@ def find_best_link_in_result(game_links, original_title):
 def extract_year_from_game_page(page, link):
     """Извлекает год релиза со страницы игры"""
     try:
-        # Переходим на страницу игры
+        # Кэш для часто встречающихся игр
+        if not hasattr(extract_year_from_game_page, 'url_cache'):
+            extract_year_from_game_page.url_cache = {}
+        
         full_url = f"{BASE_URL}{link['href']}"
-        page.goto(full_url, timeout=30000)  # Увеличиваем таймаут до 30 секунд
-        page.wait_for_load_state("domcontentloaded", timeout=20000)  # Увеличиваем таймаут до 20 секунд
+        
+        # Проверяем кэш
+        if full_url in extract_year_from_game_page.url_cache:
+            cached_year = extract_year_from_game_page.url_cache[full_url]
+            log_message(f"📅 Год из кэша для '{link['text']}': {cached_year}")
+            return cached_year
+        
+        # Переходим на страницу игры
+        page.goto(full_url, timeout=15000)  # Уменьшаем таймаут до 15 секунд
+        page.wait_for_load_state("domcontentloaded", timeout=10000)  # Уменьшаем таймаут до 10 секунд
         
         # Извлекаем год
         year = extract_release_year_from_page(page)
+        
+        # Сохраняем в кэш
+        extract_year_from_game_page.url_cache[full_url] = year
+        
         log_message(f"📅 Извлечен год для '{link['text']}': {year}")
         return year
         
@@ -507,14 +539,14 @@ def extract_year_from_game_page(page, link):
         # Пробуем еще раз с меньшим таймаутом
         try:
             log_message(f"🔄 Повторная попытка извлечения года для '{link['text']}'...")
-            page.goto(full_url, timeout=15000)
-            page.wait_for_load_state("domcontentloaded", timeout=10000)
+            page.goto(full_url, timeout=8000)  # Еще меньше таймаут
+            page.wait_for_load_state("domcontentloaded", timeout=5000)  # Еще меньше таймаут
             year = extract_release_year_from_page(page)
             log_message(f"📅 Извлечен год для '{link['text']}' (повторно): {year}")
             return year
         except Exception as e2:
             log_message(f"⚠️ Повторная ошибка извлечения года для {link['text']}: {e2}")
-    return None
+            return None
 
 def search_game_single_attempt(page, game_title):
     """Одна попытка поиска игры на HLTB"""
