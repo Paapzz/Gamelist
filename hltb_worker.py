@@ -1,32 +1,13 @@
 #!/usr/bin/env python3
 
-print("🚀 HLTB Worker запускается...")
-print("📦 Импортируем модули...")
-
 import json
-print("✅ json импортирован")
-
 import time
-print("✅ time импортирован")
-
 import random
-print("✅ random импортирован")
-
 import re
-print("✅ re импортирован")
-
 import os
-print("✅ os импортирован")
-
 from datetime import datetime
-print("✅ datetime импортирован")
-
 from urllib.parse import quote
-print("✅ urllib.parse импортирован")
-
-print("📦 Импортируем Playwright...")
 from playwright.sync_api import sync_playwright
-print("✅ Playwright импортирован")
 
 # Конфигурация
 BASE_URL = "https://howlongtobeat.com"
@@ -42,10 +23,10 @@ BREAK_DURATION_MAX = 80  # 80 секунд
 
 def setup_directories():
     """Настройка директорий"""
-    print(f"📁 Создаем директорию: {OUTPUT_DIR}")
+    print(f" Создаем директорию: {OUTPUT_DIR}")
     try:
         os.makedirs(OUTPUT_DIR, exist_ok=True)
-        print(f"✅ Директория {OUTPUT_DIR} создана/существует")
+        print(f" Директория {OUTPUT_DIR} создана/существует")
     except Exception as e:
         print(f"❌ Ошибка создания директории: {e}")
         raise
@@ -88,22 +69,22 @@ def count_hltb_data(hltb_data):
 def extract_games_list(html_file):
     """Извлекает список игр из HTML файла"""
     try:
-        log_message(f"📖 Читаем файл {html_file}...")
+        log_message(f" Читаем файл {html_file}...")
         with open(html_file, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        log_message(f"📄 Файл прочитан, размер: {len(content)} символов")
+        log_message(f" Файл прочитан, размер: {len(content)} символов")
         
         # Находим начало и конец массива gamesList
-        log_message("🔍 Ищем 'const gamesList = ['...")
+        log_message(" Ищем 'const gamesList = ['...")
         start = content.find('const gamesList = [')
         if start == -1:
             raise ValueError("Не найден const gamesList в HTML файле")
         
-        log_message(f"✅ Найден const gamesList на позиции {start}")
+        log_message(f" Найден const gamesList на позиции {start}")
         
         # Ищем закрывающую скобку массива
-        log_message("🔍 Ищем закрывающую скобку массива...")
+        log_message(" Ищем закрывающую скобку массива...")
         bracket_count = 0
         end = start
         for i, char in enumerate(content[start:], start):
@@ -118,18 +99,18 @@ def extract_games_list(html_file):
         if bracket_count != 0:
             raise ValueError("Не найден конец массива gamesList")
         
-        log_message(f"✅ Найден конец массива на позиции {end}")
+        log_message(f" Найден конец массива на позиции {end}")
         
         # Извлекаем JSON
-        log_message("✂️ Извлекаем JSON...")
+        log_message("Извлекаем JSON...")
         games_json = content[start:end]
         games_json = games_json.replace('const gamesList = ', '')
         
-        log_message(f"📝 JSON извлечен, размер: {len(games_json)} символов")
-        log_message("🔄 Парсим JSON...")
+        log_message(f" JSON извлечен, размер: {len(games_json)} символов")
+        log_message(" Парсим JSON...")
         
         games_list = json.loads(games_json)
-        log_message(f"✅ Извлечено {len(games_list)} игр из HTML файла")
+        log_message(f" Извлечено {len(games_list)} игр из HTML файла")
         return games_list
         
     except Exception as e:
@@ -221,7 +202,7 @@ def search_game_on_hltb(page, game_title, game_year=None):
     for attempt in range(max_attempts):
         try:
             if attempt > 0:
-                log_message(f"🔄 Попытка {attempt + 1}/{max_attempts} для '{game_title}'")
+                log_message(f" Попытка {attempt + 1}/{max_attempts} для '{game_title}'")
                 if isinstance(delays[attempt], tuple):
                     min_delay, max_delay = delays[attempt]
                     log_message(f"⏳ Пауза {min_delay}-{max_delay} секунд...")
@@ -258,9 +239,9 @@ def search_game_on_hltb(page, game_title, game_year=None):
                     return extract_data_from_selected_game(page, best_result['selected_link'])
             
         except Exception as e:
-            log_message(f"❌ Ошибка попытки {attempt + 1} для '{game_title}': {e}")
+            log_message(f" Ошибка попытки {attempt + 1} для '{game_title}': {e}")
             if attempt == max_attempts - 1:
-                log_message(f"💥 Все попытки исчерпаны для '{game_title}'")
+                log_message(f" Все попытки исчерпаны для '{game_title}'")
                 return None
     
     return None
@@ -283,7 +264,7 @@ def search_game_links_only(page, game_title):
             log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
             return None
         elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
-            log_message("⚠️ Cloudflare проверка при поиске - ждем...")
+            log_message(" Cloudflare проверка при поиске - ждем...")
             time.sleep(5)
             page_content = page.content()
             if "checking your browser" in page_content.lower():
@@ -343,7 +324,7 @@ def extract_data_from_selected_game(page, selected_link):
             log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
             return None
         elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
-            log_message("⚠️ Cloudflare проверка на странице игры - ждем...")
+            log_message(" Cloudflare проверка на странице игры - ждем...")
             time.sleep(5)
             page_content = page.content()
             if "checking your browser" in page_content.lower():
@@ -404,11 +385,11 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
             if same_score_count > 1:
                 # Если несколько кандидатов с одинаковой схожестью, берем их все (до 3)
                 top_candidates = all_candidates[:min(3, same_score_count)]
-                log_message(f"🎯 Найдено {same_score_count} точных совпадений, извлекаем год для топ-{len(top_candidates)} кандидатов")
+                log_message(f" Найдено {same_score_count} точных совпадений, извлекаем год для топ-{len(top_candidates)} кандидатов")
             else:
                 # Если только один точный кандидат, берем его + еще 2 лучших
                 top_candidates = all_candidates[:3]
-                log_message(f"🎯 Найдено точное совпадение, извлекаем год для топ-3 кандидатов")
+                log_message(f" Найдено точное совпадение, извлекаем год для топ-3 кандидатов")
         else:
             top_candidates = all_candidates[:3]  # Топ-3 кандидата
         
@@ -416,7 +397,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
         for candidate in top_candidates:
             game_year = extract_year_from_game_page(page, candidate['link'])
             candidate['year'] = game_year
-            log_message(f"🔍 Кандидат: '{candidate['link']['text']}' (схожесть: {candidate['score']:.3f}, год: {game_year})")
+            log_message(f" Кандидат: '{candidate['link']['text']}' (схожесть: {candidate['score']:.3f}, год: {game_year})")
             
             # Небольшая пауза между запросами для снижения нагрузки
             if len(top_candidates) > 1:
@@ -537,16 +518,16 @@ def extract_year_from_game_page(page, link):
         return year
         
     except Exception as e:
-        log_message(f"⚠️ Ошибка извлечения года для {link['text']}: {e}")
+        log_message(f" Ошибка извлечения года для {link['text']}: {e}")
         # Пробуем еще раз с меньшим таймаутом
         try:
-            log_message(f"🔄 Повторная попытка извлечения года для '{link['text']}'...")
+            log_message(f" Повторная попытка извлечения года для '{link['text']}'...")
             page.goto(full_url, timeout=8000)  # Еще меньше таймаут
             page.wait_for_load_state("domcontentloaded", timeout=5000)  # Еще меньше таймаут
             year = extract_release_year_from_page(page)
             return year
         except Exception as e2:
-            log_message(f"⚠️ Повторная ошибка извлечения года для {link['text']}: {e2}")
+            log_message(f" Повторная ошибка извлечения года для {link['text']}: {e2}")
     return None
 
 def search_game_single_attempt(page, game_title):
@@ -568,7 +549,7 @@ def search_game_single_attempt(page, game_title):
             log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
             return None
         elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
-            log_message("⚠️ Cloudflare проверка при поиске - ждем...")
+            log_message(" Cloudflare проверка при поиске - ждем...")
             time.sleep(5)
             page_content = page.content()
             if "checking your browser" in page_content.lower():
@@ -604,11 +585,11 @@ def search_game_single_attempt(page, game_title):
         best_url = best_match.get_attribute("href")
         
         # Логируем выбор
-        log_message(f"🎯 Выбрано: '{best_title}' (схожесть: {similarity:.2f})")
+        log_message(f" Выбрано: '{best_title}' (схожесть: {similarity:.2f})")
         
         # Если схожесть меньше 0.6, возвращаем None для попытки альтернативного названия
         if similarity < 0.6:
-            log_message(f"⚠️  Низкая схожесть ({similarity:.2f}), пробуем альтернативное название")
+            log_message(f"  Низкая схожесть ({similarity:.2f}), пробуем альтернативное название")
             return None
         
         # Переходим на страницу выбранной игры
@@ -623,7 +604,7 @@ def search_game_single_attempt(page, game_title):
             log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
             return None
         elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
-            log_message("⚠️ Cloudflare проверка на странице игры - ждем...")
+            log_message(" Cloudflare проверка на странице игры - ждем...")
             time.sleep(5)
             page_content = page.content()
             if "checking your browser" in page_content.lower():
@@ -702,12 +683,12 @@ def extract_primary_title(game_title):
         # Если части без пробелов (например "Gold/Silver/Crystal"), объединяем с "and"
         if all(" " not in part for part in parts):
             primary = f"{parts[0]} and {parts[1]}"
-            log_message(f"📝 Объединяем части: '{game_title}' -> '{primary}'")
+            log_message(f" Объединяем части: '{game_title}' -> '{primary}'")
             return primary
         else:
             # Если есть пробелы, берем только первую часть
             primary = parts[0]
-            log_message(f"📝 Извлекаем основное название: '{game_title}' -> '{primary}'")
+            log_message(f" Извлекаем основное название: '{game_title}' -> '{primary}'")
             return primary
     
     return game_title
@@ -722,7 +703,7 @@ def extract_alternative_title(game_title):
     # Если части без пробелов, возвращаем вторую часть
     if len(parts) >= 2 and all(" " not in part for part in parts):
         alternative = parts[1]
-        log_message(f"📝 Альтернативное название: '{game_title}' -> '{alternative}'")
+        log_message(f" Альтернативное название: '{game_title}' -> '{alternative}'")
         return alternative
     
     return None
@@ -764,7 +745,7 @@ def generate_alternative_titles(game_title):
     if " / " in game_title:
         # Слеш с пробелами - два отдельных названия (НЕ включаем оригинал)
         parts = [part.strip() for part in game_title.split(" / ")]
-        log_message(f"📝 Обрабатываем слеш с пробелами: {parts}")
+        log_message(f" Обрабатываем слеш с пробелами: {parts}")
         
         # Порядок: A, B, A римские, B римские, A амперсанд, B амперсанд, A без скобок, B без скобок
         for part in parts:
@@ -794,14 +775,14 @@ def generate_alternative_titles(game_title):
     elif "/" in game_title and " / " not in game_title:
         # Слеш без пробелов - определяем базовую часть
         parts = [part.strip() for part in game_title.split("/")]
-        log_message(f"📝 Обрабатываем слеш без пробелов: {parts}")
+        log_message(f" Обрабатываем слеш без пробелов: {parts}")
         
         # Добавляем оригинал
         alternatives.append(game_title)
         
         # Определяем базовую часть (префикс)
         base = determine_base_part(parts)
-        log_message(f"📝 Базовая часть: '{base}'")
+        log_message(f" Базовая часть: '{base}'")
         
         if base:
             # Новый порядок: все вместе, парные, одиночные
@@ -1140,7 +1121,7 @@ def extract_release_year_from_page(page):
                                     extract_release_year_from_page.year_cache[page_url] = year_int
                                     return year_int
         except Exception as e:
-            log_message(f"⚠️ Ошибка извлечения года из JSON: {e}")
+            log_message(f" Ошибка извлечения года из JSON: {e}")
         
         # Если JSON не сработал, ищем в HTML тексте
         try:
@@ -1169,7 +1150,7 @@ def extract_release_year_from_page(page):
                     extract_release_year_from_page.year_cache[page_url] = earliest_year
                     return earliest_year
         except Exception as e:
-            log_message(f"⚠️ Ошибка извлечения года из JSON: {e}")
+            log_message(f" Ошибка извлечения года из JSON: {e}")
         
         # Пытаемся извлечь год из HTML
         try:
@@ -1204,14 +1185,14 @@ def extract_release_year_from_page(page):
                 extract_release_year_from_page.year_cache[page_url] = earliest_year
                 return earliest_year
         except Exception as e:
-            log_message(f"⚠️ Ошибка извлечения года из HTML: {e}")
+            log_message(f" Ошибка извлечения года из HTML: {e}")
         
         # Если ничего не найдено
         extract_release_year_from_page.year_cache[page_url] = None
         return None
         
     except Exception as e:
-        log_message(f"❌ Ошибка извлечения года релиза: {e}")
+        log_message(f" Ошибка извлечения года релиза: {e}")
         return None
 
 def normalize_title_for_comparison(title):
@@ -1240,7 +1221,7 @@ def normalize_title_for_comparison(title):
         return normalized
         
     except Exception as e:
-        log_message(f"❌ Ошибка нормализации названия: {e}")
+        log_message(f" Ошибка нормализации названия: {e}")
         return title
 
 def extract_hltb_data_from_page(page):
@@ -1275,10 +1256,13 @@ def extract_hltb_data_from_page(page):
         if store_links:
             hltb_data["stores"] = store_links
         
+        # Добавляем ссылку на страницу HLTB
+        hltb_data["hltb_url"] = page.url
+        
         return hltb_data if hltb_data else None
         
     except Exception as e:
-        log_message(f"❌ Ошибка извлечения данных со страницы: {e}")
+        log_message(f" Ошибка извлечения данных со страницы: {e}")
         return None
 
 def extract_top_block_data(page):
@@ -1289,7 +1273,7 @@ def extract_top_block_data(page):
         # Ищем блок с игровыми статистиками
         game_stats = page.locator('.GameStats_game_times__KHrRY')
         if game_stats.count() == 0:
-            log_message("❌ Блок GameStats не найден")
+            log_message(" Блок GameStats не найден")
             return None
         
         # Получаем все элементы списка
@@ -1329,13 +1313,13 @@ def extract_top_block_data(page):
                             top_data["ms"] = single_data
                             
             except Exception as e:
-                log_message(f"⚠️ Ошибка обработки элемента статистики {i}: {e}")
+                log_message(f" Ошибка обработки элемента статистики {i}: {e}")
                 continue
         
         return top_data if top_data else None
         
     except Exception as e:
-        log_message(f"❌ Ошибка извлечения данных из верхних блоков: {e}")
+        log_message(f" Ошибка извлечения данных из верхних блоков: {e}")
         return None
 
 def extract_time_from_h5(time_text):
@@ -1379,11 +1363,11 @@ def extract_time_from_h5(time_text):
             
             return {"t": formatted_time}
         
-        log_message("❌ Время не найдено")
+        log_message(" Время не найдено")
         return None
         
     except Exception as e:
-        log_message(f"❌ Ошибка извлечения времени: {e}")
+        log_message(f" Ошибка извлечения времени: {e}")
         return None
 
 def extract_table_data(page):
@@ -1424,17 +1408,17 @@ def extract_table_data(page):
                                 table_data["vs"] = extract_hltb_row_data(row_text)
                                 
                         except Exception as e:
-                            log_message(f"⚠️ Ошибка обработки строки {row_idx}: {e}")
+                            log_message(f" Ошибка обработки строки {row_idx}: {e}")
                             continue
                             
             except Exception as e:
-                log_message(f"⚠️ Ошибка обработки таблицы {table_idx}: {e}")
+                log_message(f" Ошибка обработки таблицы {table_idx}: {e}")
                 continue
         
         return table_data if table_data else None
         
     except Exception as e:
-        log_message(f"❌ Ошибка извлечения данных из таблиц: {e}")
+        log_message(f" Ошибка извлечения данных из таблиц: {e}")
         return None
 
 def extract_store_links(page):
@@ -1481,7 +1465,7 @@ def extract_store_links(page):
         return store_links if store_links else None
         
     except Exception as e:
-        log_message(f"❌ Ошибка извлечения ссылок на магазины: {e}")
+        log_message(f" Ошибка извлечения ссылок на магазины: {e}")
         return None
 
 def extract_hltb_row_data(row_text):
@@ -1568,7 +1552,7 @@ def extract_hltb_row_data(row_text):
         return result
         
     except Exception as e:
-        log_message(f"❌ Ошибка извлечения данных из строки: {e}")
+        log_message(f" Ошибка извлечения данных из строки: {e}")
         return None
 
 def calculate_average_time(time1_str, time2_str):
@@ -1635,7 +1619,7 @@ def calculate_average_time(time1_str, time2_str):
             return f"{int(avg_minutes)}m"
             
     except Exception as e:
-        log_message(f"❌ Ошибка вычисления среднего времени: {e}")
+        log_message(f" Ошибка вычисления среднего времени: {e}")
         return time1_str or time2_str
 
 
@@ -1674,7 +1658,7 @@ def determine_error_type(page, game_title):
         return "Неизвестная ошибка"
         
     except Exception as e:
-        log_message(f"❌ Ошибка определения типа ошибки: {e}")
+        log_message(f" Ошибка определения типа ошибки: {e}")
         return "Ошибка анализа страницы"
 
 def extract_time_and_polled_from_row(row_text):
@@ -1717,7 +1701,7 @@ def extract_time_and_polled_from_row(row_text):
             return result
         return None
     except Exception as e:
-        log_message(f"❌ Ошибка извлечения данных из строки: {e}")
+        log_message(f" Ошибка извлечения данных из строки: {e}")
         return None
 
 def parse_polled_number(polled_str):
@@ -1757,12 +1741,12 @@ def save_results(games_data):
         categories, total_polled, na_count = count_hltb_data(games_data)
         successful = len([g for g in games_data if "hltb" in g])
         
-        log_message(f"💾 Результаты сохранены в {OUTPUT_FILE}")
-        log_message(f"📊 Статистика: {successful}/{len(games_data)} игр с данными HLTB")
-        log_message(f"📊 Main Story: {categories['ms']} ({total_polled['ms']} голосов), Main+Extras: {categories['mpe']} ({total_polled['mpe']} голосов)")
-        log_message(f"📊 Completionist: {categories['comp']} ({total_polled['comp']} голосов)")
-        log_message(f"📊 Co-Op: {categories['coop']} ({total_polled['coop']} голосов), Vs: {categories['vs']} ({total_polled['vs']} голосов)")
-        log_message(f"📊 N/A (не найдено): {na_count} игр")
+        log_message(f" Результаты сохранены в {OUTPUT_FILE}")
+        log_message(f" Статистика: {successful}/{len(games_data)} игр с данными HLTB")
+        log_message(f" Main Story: {categories['ms']} ({total_polled['ms']} голосов), Main+Extras: {categories['mpe']} ({total_polled['mpe']} голосов)")
+        log_message(f" Completionist: {categories['comp']} ({total_polled['comp']} голосов)")
+        log_message(f" Co-Op: {categories['coop']} ({total_polled['coop']} голосов), Vs: {categories['vs']} ({total_polled['vs']} голосов)")
+        log_message(f" N/A (не найдено): {na_count} игр")
         
     except Exception as e:
         log_message(f"❌ Ошибка сохранения результатов: {e}")
@@ -1810,19 +1794,19 @@ def update_html_with_hltb(html_file, hltb_data):
 def main():
     """Основная функция воркера"""
     print("🔧 Функция main() вызвана")
-    log_message("🚀 Запуск HLTB Worker")
-    log_message(f"📁 Рабочая директория: {os.getcwd()}")
-    log_message(f"📄 Ищем файл: {GAMES_LIST_FILE}")
+    log_message(" Запуск HLTB Worker")
+    log_message(f" Рабочая директория: {os.getcwd()}")
+    log_message(f" Ищем файл: {GAMES_LIST_FILE}")
     
     # Проверяем существование файла
     if not os.path.exists(GAMES_LIST_FILE):
         log_message(f"❌ Файл {GAMES_LIST_FILE} не найден!")
         return
     
-    log_message(f"✅ Файл {GAMES_LIST_FILE} найден, размер: {os.path.getsize(GAMES_LIST_FILE)} байт")
+    log_message(f" Файл {GAMES_LIST_FILE} найден, размер: {os.path.getsize(GAMES_LIST_FILE)} байт")
     
     setup_directories()
-    log_message("📁 Директории настроены")
+    log_message(" Директории настроены")
     
     try:
         log_message("🔍 Начинаем извлечение списка игр...")
@@ -1834,40 +1818,40 @@ def main():
         start_index = 0
         
         # Запускаем браузер
-        log_message("🌐 Запускаем Playwright...")
+        log_message(" Запускаем Playwright...")
         with sync_playwright() as p:
-            log_message("🚀 Запускаем Chromium...")
+            log_message(" Запускаем Chromium...")
             browser = p.chromium.launch(headless=True)
-            log_message("✅ Chromium запущен")
+            log_message(" Chromium запущен")
             
-            log_message("🔧 Создаем контекст браузера...")
+            log_message(" Создаем контекст браузера...")
             context = browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
                 viewport={"width": 1280, "height": 800},
                 locale="en-US"
             )
-            log_message("✅ Контекст создан")
+            log_message(" Контекст создан")
             
-            log_message("📄 Создаем новую страницу...")
+            log_message(" Создаем новую страницу...")
             page = context.new_page()
-            log_message("✅ Страница создана")
+            log_message(" Страница создана")
             
             # Проверяем доступность сайта и возможный бан IP
-            log_message("🔍 Проверяем доступность HowLongToBeat.com...")
+            log_message(" Проверяем доступность HowLongToBeat.com...")
             try:
                 page.goto(BASE_URL, timeout=15000)
                 page.wait_for_load_state("domcontentloaded", timeout=10000)
                 
                 # Проверяем заголовок страницы
                 title = page.title()
-                log_message(f"📄 Заголовок страницы: {title}")
+                log_message(f" Заголовок страницы: {title}")
                 
                 # Проверяем наличие основных элементов
                 search_box = page.locator('input[type="search"], input[name="q"]')
                 if search_box.count() > 0:
-                    log_message("✅ Поисковая строка найдена - сайт доступен")
+                    log_message(" Поисковая строка найдена - сайт доступен")
                 else:
-                    log_message("⚠️ Поисковая строка не найдена - возможны проблемы")
+                    log_message(" Поисковая строка не найдена - возможны проблемы")
                 
                 # Проверяем на блокировку
                 page_content = page.content()
@@ -1875,18 +1859,18 @@ def main():
                     log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP! Сайт заблокировал доступ")
                     return
                 elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
-                    log_message("⚠️ Cloudflare проверка браузера - ждем...")
+                    log_message(" Cloudflare проверка браузера - ждем...")
                     time.sleep(5)
                     page_content = page.content()
                     if "checking your browser" in page_content.lower():
                         log_message("❌ Cloudflare блокирует доступ")
                         return
                 
-                log_message("✅ Сайт доступен, начинаем обработку игр")
+                log_message(" Сайт доступен, начинаем обработку игр")
                 
             except Exception as e:
-                log_message(f"❌ Ошибка проверки доступности сайта: {e}")
-                log_message("⚠️ Продолжаем работу, но возможны проблемы...")
+                log_message(f" Ошибка проверки доступности сайта: {e}")
+                log_message(" Продолжаем работу, но возможны проблемы...")
             
             start_time = time.time()
             processed_count = 0
@@ -1923,8 +1907,8 @@ def main():
                         
                         # Если много блокировок подряд - останавливаемся
                         if blocked_count >= 3:
-                            log_message("💥 Слишком много блокировок подряд! Останавливаем работу.")
-                            log_message("🔄 Рекомендуется подождать и попробовать позже.")
+                            log_message(" Слишком много блокировок подряд! Останавливаем работу.")
+                            log_message(" Рекомендуется подождать и попробовать позже.")
                             break
                 
                 # Вежливая задержка убрана - достаточно задержек в процессе поиска
@@ -1943,22 +1927,22 @@ def main():
         
         # Финальная статистика
         successful = len([g for g in games_list if "hltb" in g])
-        log_message(f"🎉 Завершено! Обработано {successful}/{total_games} игр ({successful/total_games*100:.1f}%)")
+        log_message(f" Завершено! Обработано {successful}/{total_games} игр ({successful/total_games*100:.1f}%)")
         
         # HTML файл не обновляется - только сохраняем данные в JSON
-        log_message("📄 Данные сохранены в JSON файл, HTML не обновляется")
+        log_message(" Данные сохранены в JSON файл, HTML не обновляется")
         
     except Exception as e:
-        log_message(f"💥 Критическая ошибка: {e}")
+        log_message(f" Критическая ошибка: {e}")
         raise
 
 if __name__ == "__main__":
-    print("🎯 Запускаем main()...")
+    print(" Запускаем main()...")
     try:
         main()
         print("✅ main() завершен успешно")
     except Exception as e:
-        print(f"💥 Критическая ошибка в main(): {e}")
+        print(f" Критическая ошибка в main(): {e}")
         import traceback
         traceback.print_exc()
         raise
