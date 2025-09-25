@@ -173,6 +173,10 @@ def round_time(time_str):
     if not time_str or time_str == "N/A":
         return None
     
+    # Если время только в минутах (без часов), оставляем как есть
+    if time_str.endswith('m') and 'h' not in time_str:
+        return time_str
+    
     hours, minutes = parse_time_to_hours(time_str)
     
     # Убеждаемся, что hours - целое число
