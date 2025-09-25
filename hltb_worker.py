@@ -1514,12 +1514,13 @@ def extract_hltb_row_data(row_text):
         if time_part == row_text:  # Если не сработало, пробуем с табами
             time_part = re.sub(r'^[A-Za-z\s/\+]+\t+\d+(?:\.\d+)?[Kk]?\t+', '', row_text)
         
+        
         # Парсим времена в правильном порядке: Average, Median, Rushed, Leisure
         # Формат: "5h 7m 5h 2h 45m 9h 1m"
         
         # Используем более точный подход - ищем все времена по порядку их появления
         # Объединенный паттерн для всех форматов времени (поддерживаем табы и пробелы)
-        combined_pattern = r'(\d+h\s*\d+m|\d+(?:\.\d+)?[½]?\s*Hours?|\d+h)'
+        combined_pattern = r'(\d+h\s*\d+m|\d+(?:\.\d+)?[½]?\s*Hours?|\d+h|\d+m)'
         
         # Ищем все времена в порядке их появления в строке
         matches = re.findall(combined_pattern, time_part)
