@@ -217,7 +217,6 @@ def search_game_on_hltb(page, game_title, game_year=None):
     
     # Генерируем все альтернативные названия
     alternative_titles = generate_alternative_titles(game_title)
-    log_message(f"🔄 Альтернативные названия для '{game_title}': {alternative_titles}")
     
     for attempt in range(max_attempts):
         try:
@@ -269,7 +268,6 @@ def search_game_on_hltb(page, game_title, game_year=None):
 def search_game_links_only(page, game_title):
     """Ищет только ссылки на игры без перехода на страницу"""
     try:
-        log_message(f"🔍 Ищем ссылки для: '{game_title}'")
         
         # Кодируем название для URL
         safe_title = quote(game_title, safe="")
@@ -304,7 +302,6 @@ def search_game_links_only(page, game_title):
             found_count = game_links.count()
         
         if found_count > 10:
-            log_message(f"📊 Найдено {found_count} результатов, ждем дополнительную загрузку...")
             random_delay(5, 8)
             found_count = game_links.count()
         
@@ -434,10 +431,6 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
             abs(x['year'] - original_year) if x['year'] is not None else 999  # Потом по разнице в годах
         ))
         
-        # Логируем всех кандидатов
-        log_message(f"📊 Всего кандидатов: {len(candidates_with_years)}")
-        for i, candidate in enumerate(candidates_with_years[:10], 1):  # Показываем первые 10
-            log_message(f"📊 {i}. {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
         
         # Приоритет 1: название >= 0.8 + год идентичный
         for candidate in candidates_with_years:
@@ -600,7 +593,6 @@ def search_game_single_attempt(page, game_title):
         
         # Если много результатов, ждем дольше для полной загрузки
         if found_count > 10:
-            log_message(f"📊 Найдено {found_count} результатов, ждем дополнительную загрузку...")
             random_delay(5, 8)  # Дополнительная задержка для большого количества результатов
             found_count = game_links.count()  # Пересчитываем после ожидания
         
@@ -865,7 +857,6 @@ def generate_alternative_titles(game_title):
                     alternatives.append(part)
     else:
         # Обычное название без слешей
-        log_message(f"📝 Обрабатываем обычное название: {game_title}")
         
         # Добавляем оригинал
         alternatives.append(game_title)
@@ -889,7 +880,6 @@ def generate_alternative_titles(game_title):
         if alt and alt not in unique_alternatives:
             unique_alternatives.append(alt)
     
-    log_message(f"🔄 Сгенерировано {len(unique_alternatives)} альтернативных названий")
     return unique_alternatives
 
 def generate_roman_variants(title):
@@ -1232,7 +1222,6 @@ def extract_hltb_data_from_page(page):
         table_data = extract_table_data(page)
         if table_data:
             hltb_data.update(table_data)
-            log_message(f"📊 Найдены данные в таблицах: {list(table_data.keys())}")
         
         # Если есть только верхние блоки (без таблиц с ms/mpe/comp), используем только их
         if top_block_data and not table_data:
@@ -1258,7 +1247,6 @@ def extract_hltb_data_from_page(page):
                 if key != "stores" and isinstance(value, dict) and "t" in value:
                     categories.append(f"{key}: {value['t']}")
             if categories:
-                log_message(f"📊 Итоговые категории: {', '.join(categories)}")
         
         return hltb_data if hltb_data else None
         
@@ -1281,7 +1269,6 @@ def extract_top_block_data(page):
         stats_items = game_stats.locator('li')
         item_count = stats_items.count()
         
-        log_message(f"📊 Найдено {item_count} элементов статистики")
         
         for i in range(item_count):
             try:
@@ -1295,7 +1282,6 @@ def extract_top_block_data(page):
                     category = category_element.inner_text().strip()
                     time_text = time_element.inner_text().strip()
                     
-                    log_message(f"📊 Категория: '{category}', Время: '{time_text}'")
                     
                     # Пропускаем пустые значения
                     if time_text == "--" or not time_text:
@@ -1397,7 +1383,6 @@ def extract_table_data(page):
                 
                 # Проверяем, содержит ли таблица нужные ключевые слова
                 if any(keyword in table_text for keyword in ["Main Story", "Main + Extras", "Completionist", "Co-Op", "Competitive", "Vs."]):
-                    log_message(f"📊 Обрабатываем таблицу {table_idx + 1}")
                     
                     # Получаем все строки таблицы
                     rows = table.locator("tr")
@@ -1475,7 +1460,6 @@ def extract_store_links(page):
                 continue
         
         if store_links:
-            log_message(f"🛒 Найдены ссылки на магазины: {list(store_links.keys())}")
         
         return store_links if store_links else None
         
