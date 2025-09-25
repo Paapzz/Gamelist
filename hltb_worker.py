@@ -255,8 +255,8 @@ def search_game_links_only(page, game_title):
         search_url = f"{BASE_URL}/?q={safe_title}"
         
         # Переходим на страницу поиска
-        page.goto(search_url, timeout=20000)
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        page.goto(search_url, timeout=15000)
+        page.wait_for_load_state("domcontentloaded", timeout=10000)
         
         # Проверяем на блокировку
         page_content = page.content()
@@ -315,8 +315,8 @@ def extract_data_from_selected_game(page, selected_link):
         # Переходим на страницу выбранной игры
         full_url = f"{BASE_URL}{selected_link['href']}"
         
-        page.goto(full_url, timeout=20000)
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        page.goto(full_url, timeout=15000)
+        page.wait_for_load_state("domcontentloaded", timeout=10000)
         
         # Проверяем на блокировку на странице игры
         page_content = page.content()
@@ -494,26 +494,37 @@ def find_best_link_in_result(game_links, original_title):
 def extract_year_from_game_page(page, link):
     """Извлекает год релиза со страницы игры"""
     try:
-        # Кэш для часто встречающихся игр
+        # Глобальный кэш для часто встречающихся игр
         if not hasattr(extract_year_from_game_page, 'url_cache'):
             extract_year_from_game_page.url_cache = {}
         
+        # Дополнительный кэш для быстрого доступа
+        if not hasattr(extract_year_from_game_page, 'quick_cache'):
+            extract_year_from_game_page.quick_cache = {}
+        
         full_url = f"{BASE_URL}{link['href']}"
         
-        # Проверяем кэш
+        # Проверяем быстрый кэш
+        if full_url in extract_year_from_game_page.quick_cache:
+            return extract_year_from_game_page.quick_cache[full_url]
+        
+        # Проверяем основной кэш
         if full_url in extract_year_from_game_page.url_cache:
             cached_year = extract_year_from_game_page.url_cache[full_url]
+            # Сохраняем в быстрый кэш для следующего раза
+            extract_year_from_game_page.quick_cache[full_url] = cached_year
             return cached_year
         
         # Переходим на страницу игры
-        page.goto(full_url, timeout=15000)  # Уменьшаем таймаут до 15 секунд
-        page.wait_for_load_state("domcontentloaded", timeout=10000)  # Уменьшаем таймаут до 10 секунд
+        page.goto(full_url, timeout=10000)  # Уменьшаем таймаут до 10 секунд
+        page.wait_for_load_state("domcontentloaded", timeout=5000)  # Уменьшаем таймаут до 5 секунд
         
         # Извлекаем год
         year = extract_release_year_from_page(page)
         
-        # Сохраняем в кэш
+        # Сохраняем в оба кэша
         extract_year_from_game_page.url_cache[full_url] = year
+        extract_year_from_game_page.quick_cache[full_url] = year
         
         return year
         
@@ -522,8 +533,8 @@ def extract_year_from_game_page(page, link):
         # Пробуем еще раз с меньшим таймаутом
         try:
             log_message(f" Повторная попытка извлечения года для '{link['text']}'...")
-            page.goto(full_url, timeout=8000)  # Еще меньше таймаут
-            page.wait_for_load_state("domcontentloaded", timeout=5000)  # Еще меньше таймаут
+            page.goto(full_url, timeout=5000)  # Еще меньше таймаут
+            page.wait_for_load_state("domcontentloaded", timeout=3000)  # Еще меньше таймаут
             year = extract_release_year_from_page(page)
             return year
         except Exception as e2:
@@ -540,8 +551,8 @@ def search_game_single_attempt(page, game_title):
         search_url = f"{BASE_URL}/?q={safe_title}"
         
         # Переходим на страницу поиска
-        page.goto(search_url, timeout=20000)
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        page.goto(search_url, timeout=15000)
+        page.wait_for_load_state("domcontentloaded", timeout=10000)
         
         # Проверяем на блокировку после перехода
         page_content = page.content()
@@ -595,8 +606,8 @@ def search_game_single_attempt(page, game_title):
         # Переходим на страницу выбранной игры
         full_url = f"{BASE_URL}{best_url}"
         
-        page.goto(full_url, timeout=20000)
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        page.goto(full_url, timeout=15000)
+        page.wait_for_load_state("domcontentloaded", timeout=10000)
         
         # Проверяем на блокировку на странице игры
         page_content = page.content()
@@ -1092,10 +1103,23 @@ def extract_release_year_from_page(page):
         if not hasattr(extract_release_year_from_page, 'year_cache'):
             extract_release_year_from_page.year_cache = {}
         
+        # Быстрый кэш для часто запрашиваемых страниц
+        if not hasattr(extract_release_year_from_page, 'quick_cache'):
+            extract_release_year_from_page.quick_cache = {}
+        
         # Проверяем кэш
         page_url = page.url
+        
+        # Проверяем быстрый кэш
+        if page_url in extract_release_year_from_page.quick_cache:
+            return extract_release_year_from_page.quick_cache[page_url]
+        
+        # Проверяем основной кэш
         if page_url in extract_release_year_from_page.year_cache:
-            return extract_release_year_from_page.year_cache[page_url]
+            year = extract_release_year_from_page.year_cache[page_url]
+            # Сохраняем в быстрый кэш
+            extract_release_year_from_page.quick_cache[page_url] = year
+            return year
         
         # Пытаемся извлечь год из JSON данных
         try:
@@ -1121,6 +1145,7 @@ def extract_release_year_from_page(page):
                                 year_int = int(year)
                                 if 1950 <= year_int <= 2030:  # Разумный диапазон годов
                                     extract_release_year_from_page.year_cache[page_url] = year_int
+                                    extract_release_year_from_page.quick_cache[page_url] = year_int
                                     return year_int
         except Exception as e:
             log_message(f" Ошибка извлечения года из JSON: {e}")
@@ -1139,6 +1164,7 @@ def extract_release_year_from_page(page):
                     # Берем самый ранний год
                     earliest_year = min(years)
                     extract_release_year_from_page.year_cache[page_url] = earliest_year
+                    extract_release_year_from_page.quick_cache[page_url] = earliest_year
                     return earliest_year
             
             # Паттерн для простых годов
@@ -1150,6 +1176,7 @@ def extract_release_year_from_page(page):
                     # Берем самый ранний год
                     earliest_year = min(years)
                     extract_release_year_from_page.year_cache[page_url] = earliest_year
+                    extract_release_year_from_page.quick_cache[page_url] = earliest_year
                     return earliest_year
         except Exception as e:
             log_message(f"⚠️ Ошибка извлечения года из JSON: {e}")
@@ -1191,6 +1218,7 @@ def extract_release_year_from_page(page):
         
         # Если ничего не найдено
         extract_release_year_from_page.year_cache[page_url] = None
+        extract_release_year_from_page.quick_cache[page_url] = None
         return None
         
     except Exception as e:
