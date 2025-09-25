@@ -1103,6 +1103,7 @@ def calculate_title_similarity(title1, title2, year1=None, year2=None):
         
 def extract_release_year_from_page(page):
     """Извлекает год релиза со страницы игры HLTB"""
+    import re
     try:
         # Кэш для хранения извлеченных годов
         if not hasattr(extract_release_year_from_page, 'year_cache'):
@@ -1190,7 +1191,6 @@ def extract_release_year_from_page(page):
                     text = element.text_content()
                     if text:
                         # Ищем 4-значный год
-                        import re
                         year_match = re.search(r'\b(19|20)\d{2}\b', text)
                         if year_match:
                             year = int(year_match.group())
