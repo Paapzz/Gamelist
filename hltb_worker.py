@@ -1240,14 +1240,6 @@ def extract_hltb_data_from_page(page):
         if store_links:
             hltb_data["stores"] = store_links
         
-        # Логируем итоговые результаты
-        if hltb_data:
-            categories = []
-            for key, value in hltb_data.items():
-                if key != "stores" and isinstance(value, dict) and "t" in value:
-                    categories.append(f"{key}: {value['t']}")
-            if categories:
-        
         return hltb_data if hltb_data else None
         
     except Exception as e:
@@ -1458,8 +1450,6 @@ def extract_store_links(page):
                         store_links[store_name] = href
             except:
                 continue
-        
-        if store_links:
         
         return store_links if store_links else None
         
