@@ -102,7 +102,7 @@ def extract_games_list(html_file):
         log_message(f" Найден конец массива на позиции {end}")
         
         # Извлекаем JSON
-        log_message("Извлекаем JSON...")
+        log_message(" Извлекаем JSON...")
         games_json = content[start:end]
         games_json = games_json.replace('const gamesList = ', '')
         
@@ -234,7 +234,7 @@ def search_game_on_hltb(page, game_title, game_year=None):
             if all_results:
                 best_result = find_best_result_with_year(page, all_results, game_title, game_year)
                 if best_result:
-                    log_message(f"🏆 Лучший результат: '{best_result['title']}' (схожесть: {best_result['score']:.2f})")
+                    log_message(f" Лучший результат: '{best_result['title']}' (схожесть: {best_result['score']:.2f})")
                     # Теперь извлекаем данные с выбранной страницы
                     return extract_data_from_selected_game(page, best_result['selected_link'])
             
@@ -385,7 +385,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
             if same_score_count > 1:
                 # Если несколько кандидатов с одинаковой схожестью, берем их все (до 3)
                 top_candidates = all_candidates[:min(3, same_score_count)]
-                log_message(f" Найдено {same_score_count} точных совпадений, извлекаем год для топ-{len(top_candidates)} кандидатов")
+                log_message(f" -Найдено {same_score_count} точных совпадений, извлекаем год для топ-{len(top_candidates)} кандидатов")
             else:
                 # Если только один точный кандидат, берем его + еще 2 лучших
                 top_candidates = all_candidates[:3]
@@ -416,7 +416,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
         # Приоритет 1: название >= 0.8 + год идентичный
         for candidate in candidates_with_years:
             if candidate['score'] >= 0.8 and candidate['year'] == original_year:
-                log_message(f"✅ ПРИОРИТЕТ 1: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
+                log_message(f" -ПРИОРИТЕТ 1: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
                 return {
                     'title': candidate['title'],
                     'score': candidate['score'],
@@ -426,7 +426,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
         # Приоритет 2: название >= 0.8 + год ближайший в меньшую сторону
         for candidate in candidates_with_years:
             if candidate['score'] >= 0.8 and candidate['year'] is not None and candidate['year'] < original_year:
-                log_message(f"✅ ПРИОРИТЕТ 2: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
+                log_message(f" -ПРИОРИТЕТ 2: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
                 return {
                     'title': candidate['title'],
                     'score': candidate['score'],
@@ -438,7 +438,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
         best_score_without_year = max([c['score'] for c in candidates_with_years if c['year'] is None], default=0)
         for candidate in candidates_with_years:
             if candidate['score'] >= 0.8 and candidate['year'] is not None and candidate['score'] >= best_score_without_year:
-                log_message(f"✅ ПРИОРИТЕТ 3: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
+                log_message(f" -ПРИОРИТЕТ 3: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
                 return {
                     'title': candidate['title'],
                     'score': candidate['score'],
@@ -448,7 +448,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
         # Приоритет 4: название >= 0.6 + год идентичный
         for candidate in candidates_with_years:
             if candidate['score'] >= 0.6 and candidate['year'] == original_year:
-                log_message(f"✅ ПРИОРИТЕТ 4: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
+                log_message(f" -ПРИОРИТЕТ 4: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
                 return {
                     'title': candidate['title'],
                     'score': candidate['score'],
@@ -458,7 +458,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
         # Если ничего не подошло, возвращаем лучший по схожести
         best_candidate = candidates_with_years[0] if candidates_with_years else None
         if best_candidate:
-            log_message(f"✅ Лучший по схожести: {best_candidate['link']['text']} (схожесть: {best_candidate['score']:.3f}, год: {best_candidate['year']})")
+            log_message(f" -Лучший по схожести: {best_candidate['link']['text']} (схожесть: {best_candidate['score']:.3f}, год: {best_candidate['year']})")
             return {
                 'title': best_candidate['title'],
                 'score': best_candidate['score'],
@@ -1842,7 +1842,7 @@ def main():
     log_message(" Директории настроены")
     
     try:
-        log_message("🔍 Начинаем извлечение списка игр...")
+        log_message(" Начинаем извлечение списка игр...")
         # Извлекаем список игр
         games_list = extract_games_list(GAMES_LIST_FILE)
         total_games = len(games_list)
