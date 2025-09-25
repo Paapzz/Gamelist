@@ -967,11 +967,11 @@ def determine_base_part(parts):
         return None
     
     # Ищем общий префикс
-            first_part = parts[0]
+    first_part = parts[0]
     if " " not in first_part:
         return None
     
-                words = first_part.split()
+    words = first_part.split()
     if len(words) < 2:
         return None
     
@@ -991,7 +991,7 @@ def determine_base_part(parts):
     
     # Если не нашли общий префикс, пробуем найти базовую часть по-другому
     # Для случаев типа "Pokémon Red/Blue/Dark" - база это "Pokémon"
-                    if len(parts) >= 2:
+    if len(parts) >= 2:
         # Берем первое слово из первой части как потенциальную базу
         first_word = words[0]
         # Для случаев типа "Pokémon Red/Blue/Dark" - база это "Pokémon"
@@ -1110,7 +1110,7 @@ def calculate_title_similarity(title1, title2, year1=None, year2=None):
         
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
-            return 0.0
+        return 0.0
         
 def extract_release_year_from_page(page):
     """Извлекает год релиза со страницы игры HLTB"""
@@ -1178,12 +1178,12 @@ def extract_release_year_from_page(page):
                     earliest_year = min(years)
                     extract_release_year_from_page.year_cache[page_url] = earliest_year
                     return earliest_year
-    except Exception as e:
+        except Exception as e:
             log_message(f"⚠️ Ошибка извлечения года из HTML: {e}")
         
-        # Если ничего не найдено
-        extract_release_year_from_page.year_cache[page_url] = None
-        return None
+            # Если ничего не найдено
+            extract_release_year_from_page.year_cache[page_url] = None
+            return None
         
     except Exception as e:
         log_message(f"❌ Ошибка извлечения года релиза: {e}")
@@ -1425,7 +1425,7 @@ def extract_table_data(page):
         
         return table_data if table_data else None
         
-                    except Exception as e:
+    except Exception as e:
         log_message(f"❌ Ошибка извлечения данных из таблиц: {e}")
         return None
 
