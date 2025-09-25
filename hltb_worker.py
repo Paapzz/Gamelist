@@ -1215,9 +1215,15 @@ def extract_release_year_from_page(page):
         return None
 
 def normalize_title_for_comparison(title):
-    """Нормализует название для сравнения, конвертируя римские цифры в арабские"""
+    """Нормализует название для сравнения, конвертируя римские цифры в арабские и убирая скобки"""
     try:
         import re
+        
+        # Сначала убираем содержимое в скобках
+        normalized = re.sub(r'\([^)]*\)', '', title).strip()
+        
+        # Убираем лишние пробелы
+        normalized = re.sub(r'\s+', ' ', normalized).strip()
         
         # Словарь для конвертации римских цифр в арабские
         roman_to_arabic = {
@@ -1226,7 +1232,6 @@ def normalize_title_for_comparison(title):
         }
         
         # Заменяем римские цифры на арабские
-        normalized = title
         for roman, arabic in roman_to_arabic.items():
             # Ищем римские цифры как отдельные слова
             pattern = r'\b' + roman + r'\b'
