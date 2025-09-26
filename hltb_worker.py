@@ -200,7 +200,7 @@ def retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5
     
     for retry in range(max_retries):
         try:
-            log_message(f"🔄 Попытка {retry + 1}/{max_retries} для '{game_title}'")
+            log_message(f" -Попытка {retry + 1}/{max_retries} для '{game_title}'")
             
             # Ищем данные на HLTB
             hltb_data = search_game_on_hltb(page, game_title, game_year)
@@ -309,7 +309,7 @@ def search_game_links_only(page, game_title):
         
         # Переходим на страницу поиска
         page.goto(search_url, timeout=15000)
-        page.wait_for_load_state("domcontentloaded", timeout=10000)
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
         
         # Проверяем на блокировку
         page_content = page.content()
@@ -327,7 +327,7 @@ def search_game_links_only(page, game_title):
                 return None
         
         # Ждем загрузки результатов поиска
-        random_delay(3, 5)
+        random_delay(5, 8)
         
         # Ищем все ссылки на игры
         game_links = page.locator('a[href^="/game/"]')
@@ -371,7 +371,7 @@ def extract_data_from_selected_game(page, selected_link):
         full_url = f"{BASE_URL}{selected_link['href']}"
         
         page.goto(full_url, timeout=15000)
-        page.wait_for_load_state("domcontentloaded", timeout=10000)
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
         
         # Проверяем на блокировку на странице игры
         page_content = page.content()
@@ -389,7 +389,7 @@ def extract_data_from_selected_game(page, selected_link):
                 return None
         
         # Ждем загрузки страницы
-        random_delay(3, 5)
+        random_delay(5, 8)
         
         # Извлекаем данные HLTB
         return extract_hltb_data_from_page(page)
@@ -458,7 +458,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
             
             # Небольшая пауза между запросами для снижения нагрузки
             if len(top_candidates) > 1:
-                time.sleep(random.uniform(0.5, 1.5))  # 0.5-1.5 секунды между запросами
+                time.sleep(random.uniform(3, 4))  # 3-4 секунды между запросами
         
         # Добавляем остальных кандидатов без года
         candidates_with_years = top_candidates + all_candidates[len(top_candidates):]
@@ -609,7 +609,7 @@ def search_game_single_attempt(page, game_title):
         
         # Переходим на страницу поиска
         page.goto(search_url, timeout=15000)
-        page.wait_for_load_state("domcontentloaded", timeout=10000)
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
         
         # Проверяем на блокировку после перехода
         page_content = page.content()
@@ -627,7 +627,7 @@ def search_game_single_attempt(page, game_title):
                 return None
         
         # Ждем загрузки результатов поиска (React контент)
-        random_delay(3, 5)  # Случайная задержка 3-5 секунд
+        random_delay(5, 8)  # Случайная задержка 5-8 секунд
         
         # Ищем все ссылки на игры
         game_links = page.locator('a[href^="/game/"]')
@@ -666,7 +666,7 @@ def search_game_single_attempt(page, game_title):
         full_url = f"{BASE_URL}{best_url}"
         
         page.goto(full_url, timeout=15000)
-        page.wait_for_load_state("domcontentloaded", timeout=10000)
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
         
         # Проверяем на блокировку на странице игры
         page_content = page.content()
@@ -684,7 +684,7 @@ def search_game_single_attempt(page, game_title):
                 return None
         
         # Ждем загрузки данных игры (React контент)
-        random_delay(3, 5)  # Увеличена задержка для стабильности
+        random_delay(5, 8)  # Увеличена задержка для стабильности
         
         # Извлекаем данные из таблицы
         hltb_data = extract_hltb_data_from_page(page)
@@ -1925,7 +1925,7 @@ def main():
             log_message(" Проверяем доступность HowLongToBeat.com...")
             try:
                 page.goto(BASE_URL, timeout=15000)
-                page.wait_for_load_state("domcontentloaded", timeout=10000)
+                page.wait_for_load_state("domcontentloaded", timeout=15000)
                 
                 # Проверяем заголовок страницы
                 title = page.title()
