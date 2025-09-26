@@ -15,7 +15,29 @@ GAMES_LIST_FILE = "index111.html"
 OUTPUT_DIR = "hltb_data"
 OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
 
+# Настройки чанков (для разделения работы на 2 части)
+CHUNK_INDEX = int(os.environ.get('CHUNK_INDEX', '0'))  # Индекс чанка (0 или 1)
+CHUNK_SIZE = 500  # Размер чанка - 500 игр
+
 # Задержки (убрана вежливая задержка между играми и перерывы)
+
+def get_chunk_games(games_list):
+    """Возвращает чанк игр для обработки (0-500 или 501-1000)"""
+    total_games = len(games_list)
+    
+    # Вычисляем границы чанка
+    start_index = CHUNK_INDEX * CHUNK_SIZE
+    end_index = min(start_index + CHUNK_SIZE, total_games)
+    
+    # Проверяем, что чанк не выходит за границы
+    if start_index >= total_games:
+        log_message(f"⚠️ Чанк {CHUNK_INDEX} выходит за границы списка игр")
+        return [], 0, 0
+    
+    chunk_games = games_list[start_index:end_index]
+    log_message(f"📊 Чанк {CHUNK_INDEX}: игры {start_index+1}-{end_index} из {total_games}")
+    
+    return chunk_games, start_index, end_index
 
 def setup_directories():
     """Настройка директорий"""
@@ -952,7 +974,6 @@ def determine_base_part(parts):
         if base_found:
             return potential_base
     
-    
     # Если не нашли общий префикс, пробуем найти базовую часть по-другому
     # Для случаев типа "Pokémon Red/Blue/Dark" - база это "Pokémon"
     if len(parts) >= 2:
@@ -1818,6 +1839,7 @@ def main():
     log_message(" Запуск HLTB Worker")
     log_message(f" Рабочая директория: {os.getcwd()}")
     log_message(f" Ищем файл: {GAMES_LIST_FILE}")
+    log_message(f" Настройки чанков: CHUNK_INDEX={CHUNK_INDEX}, CHUNK_SIZE={CHUNK_SIZE}")
     
     # Проверяем существование файла
     if not os.path.exists(GAMES_LIST_FILE):
@@ -1831,12 +1853,20 @@ def main():
     
     try:
         log_message(" Начинаем извлечение списка игр...")
-        # Извлекаем список игр
-        games_list = extract_games_list(GAMES_LIST_FILE)
-        total_games = len(games_list)
+        # Извлекаем полный список игр
+        all_games = extract_games_list(GAMES_LIST_FILE)
+        total_games = len(all_games)
         log_message(f"✅ Извлечено {total_games} игр")
         
-        start_index = 0
+        # Получаем чанк для обработки
+        games_list, start_index, end_index = get_chunk_games(all_games)
+        chunk_games_count = len(games_list)
+        
+        if chunk_games_count == 0:
+            log_message("⚠️ Нет игр для обработки в этом чанке")
+            return
+        
+        log_message(f"🎯 Обрабатываем чанк {CHUNK_INDEX}: {chunk_games_count} игр")
         
         # Запускаем браузер
         log_message(" Запускаем Playwright...")
@@ -1898,12 +1928,14 @@ def main():
             blocked_count = 0  # Счетчик блокировок
             
             # Обрабатываем игры
-            for i in range(0, total_games):
+            for i in range(0, chunk_games_count):
                 game = games_list[i]
                 game_title = game["title"]
                 game_year = game.get("year")  # Получаем год из данных игры
                 
-                log_message(f"🎮🎮🎮 Обрабатываю {i+1}/{total_games}: {game_title} ({game_year})")
+                # Показываем глобальный номер игры (с учетом чанка)
+                global_game_number = start_index + i + 1
+                log_message(f"🎮🎮🎮 Обрабатываю {global_game_number}/{total_games}: {game_title} ({game_year})")
                 
                 # Ищем данные на HLTB
                 hltb_data = search_game_on_hltb(page, game_title, game_year)
@@ -1938,7 +1970,7 @@ def main():
                 
                 # Логируем прогресс каждые 50 игр
                 if (i + 1) % 50 == 0:
-                    log_progress(i + 1, total_games, start_time)
+                    log_progress(i + 1, chunk_games_count, start_time)
             
             browser.close()
         
@@ -1947,7 +1979,8 @@ def main():
         
         # Обновляем HTML файл с новыми данными HLTB
         log_message("🔄 Обновляем HTML файл с данными HLTB...")
-        html_updated = update_html_with_hltb(GAMES_LIST_FILE, games_list)
+        # Для обновления HTML используем полный список игр
+        html_updated = update_html_with_hltb(GAMES_LIST_FILE, all_games)
         if html_updated:
             log_message("✅ HTML файл успешно обновлен")
         else:
@@ -1955,7 +1988,7 @@ def main():
         
         # Финальная статистика
         successful = len([g for g in games_list if "hltb" in g])
-        log_message(f" Завершено! Обработано {successful}/{total_games} игр ({successful/total_games*100:.1f}%)")
+        log_message(f" Завершено! Обработано {successful}/{chunk_games_count} игр в чанке {CHUNK_INDEX} ({successful/chunk_games_count*100:.1f}%)")
         
     except Exception as e:
         log_message(f" Критическая ошибка: {e}")
