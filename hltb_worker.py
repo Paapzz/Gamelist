@@ -1809,8 +1809,15 @@ def update_html_with_hltb(html_file, hltb_data):
         if end == 1:
             raise ValueError("Не найден конец массива gamesList")
         
-        # Создаем компактный JSON с HLTB данными (в одну строку)
-        new_games_list = json.dumps(hltb_data, separators=(',', ':'), ensure_ascii=False)
+        # Создаем JSON с HLTB данными (каждая игра на отдельной строке)
+        formatted_games = []
+        for game in hltb_data:
+            # Каждая игра в одну строку с отступом
+            game_json = json.dumps(game, separators=(',', ':'), ensure_ascii=False)
+            formatted_games.append(f'    {game_json}')
+        
+        # Объединяем все игры с запятыми и переносами строк
+        new_games_list = '[\n' + ',\n'.join(formatted_games) + '\n]'
         new_content = content[:start] + f'const gamesList = {new_games_list}' + content[end:]
         
         # Сохраняем обновленный HTML
