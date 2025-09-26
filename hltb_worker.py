@@ -18,6 +18,7 @@ CHUNK_INDEX = int(os.environ.get('CHUNK_INDEX', '0'))  # Индекс чанка
 CHUNK_SIZE = 500  # Размер чанка - 500 игр
 
 # Задержки (убрана вежливая задержка между играми и перерывы)
+# Глобальные переменные удалены - больше не нужны
 
 def get_chunk_games(games_list):
     """Возвращает чанк игр для обработки (0-500 или 501-1000)"""
@@ -192,10 +193,61 @@ def random_delay(min_seconds, max_seconds):
     time.sleep(delay)
 
 
+def retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5):
+    """Пытается получить данные игры с ретраями при блокировках"""
+    # Задержки между попытками: 30-60-120-180-300 секунд
+    delays = [30, 60, 120, 180, 300]
+    
+    for retry in range(max_retries):
+        try:
+            log_message(f"🔄 Попытка {retry + 1}/{max_retries} для '{game_title}'")
+            
+            # Ищем данные на HLTB
+            hltb_data = search_game_on_hltb(page, game_title, game_year)
+            
+            if hltb_data:
+                log_message(f"✅ Успешно получены данные для '{game_title}'")
+                return hltb_data
+            else:
+                # Проверяем, была ли блокировка
+                page_content = page.content().lower()
+                if "blocked" in page_content or "access denied" in page_content:
+                    log_message(f"🚫 Блокировка при попытке {retry + 1} для '{game_title}'")
+                    
+                    # Если это не последняя попытка, делаем задержку
+                    if retry < max_retries - 1:
+                        delay = delays[retry]
+                        log_message(f"⏳ Повторная попытка через {delay} секунд...")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        log_message(f"❌ Все {max_retries} попыток исчерпаны для '{game_title}' - блокировка")
+                        return None
+                else:
+                    # Не блокировка, а просто не найдены данные
+                    log_message(f"⚠️ Данные не найдены для '{game_title}' (попытка {retry + 1})")
+                    return None
+                    
+        except Exception as e:
+            log_message(f"❌ Ошибка при попытке {retry + 1} для '{game_title}': {e}")
+            if retry < max_retries - 1:
+                # Делаем задержку перед следующей попыткой
+                delay = delays[retry]
+                log_message(f"⏳ Повторная попытка через {delay} секунд...")
+                time.sleep(delay)
+            else:
+                log_message(f"❌ Все {max_retries} попыток исчерпаны для '{game_title}' - ошибка")
+                return None
+    
+    return None
+
+
 def search_game_on_hltb(page, game_title, game_year=None):
     """Ищет игру на HLTB и возвращает данные с повторными попытками, учитывая год релиза"""
     max_attempts = 3
     delays = [0, (15, 18), (65, 70)]  # Паузы между попытками в секундах
+    
+    # Стандартные задержки между попытками
     
     # Генерируем все альтернативные названия
     alternative_titles = generate_alternative_titles(game_title)
@@ -263,6 +315,8 @@ def search_game_links_only(page, game_title):
         page_content = page.content()
         if "blocked" in page_content.lower() or "access denied" in page_content.lower():
             log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
+            # При блокировке делаем адаптивную задержку
+            adaptive_delay_for_blocking()
             return None
         elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
             log_message(" Cloudflare проверка при поиске - ждем...")
@@ -323,6 +377,8 @@ def extract_data_from_selected_game(page, selected_link):
         page_content = page.content()
         if "blocked" in page_content.lower() or "access denied" in page_content.lower():
             log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
+            # При блокировке делаем адаптивную задержку
+            adaptive_delay_for_blocking()
             return None
         elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
             log_message(" Cloudflare проверка на странице игры - ждем...")
@@ -559,6 +615,8 @@ def search_game_single_attempt(page, game_title):
         page_content = page.content()
         if "blocked" in page_content.lower() or "access denied" in page_content.lower():
             log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
+            # При блокировке делаем адаптивную задержку
+            adaptive_delay_for_blocking()
             return None
         elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
             log_message(" Cloudflare проверка при поиске - ждем...")
@@ -614,6 +672,8 @@ def search_game_single_attempt(page, game_title):
         page_content = page.content()
         if "blocked" in page_content.lower() or "access denied" in page_content.lower():
             log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
+            # При блокировке делаем адаптивную задержку
+            adaptive_delay_for_blocking()
             return None
         elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
             log_message(" Cloudflare проверка на странице игры - ждем...")
@@ -793,7 +853,7 @@ def generate_alternative_titles(game_title):
         alternatives.append(game_title)
         
         # Определяем базовую часть (префикс)
-        base = determine_base_part(parts)
+        base = determine_base_part_new(parts)
         log_message(f" Базовая часть: '{base}'")
         
         if base:
@@ -944,12 +1004,12 @@ def remove_parentheses(title):
     no_parens = re.sub(r'\s+', ' ', no_parens).strip()
     return no_parens if no_parens != title else None
 
-def determine_base_part(parts):
+def determine_base_part_new(parts):
     """Определяет базовую часть для названий со слешем без пробелов"""
     if not parts or len(parts) < 2:
         return None
     
-    # Ищем общий префикс
+    # Простая реализация - берем первое слово из первой части
     first_part = parts[0]
     if " " not in first_part:
         return None
@@ -958,32 +1018,8 @@ def determine_base_part(parts):
     if len(words) < 2:
         return None
     
-    # Пробуем разные варианты базовой части
-    for i in range(1, len(words)):
-        potential_base = " ".join(words[:i])
-        
-        # Проверяем, есть ли эта база в других частях
-        base_found = True
-        for part in parts[1:]:
-            if not part.startswith(potential_base):
-                base_found = False
-                break
-        
-        if base_found:
-            return potential_base
-    
-    # Если не нашли общий префикс, пробуем найти базовую часть по-другому
-    # Для случаев типа "Pokémon Red/Blue/Dark" - база это "Pokémon"
-    if len(parts) >= 2:
-        # Берем первое слово из первой части как потенциальную базу
-        first_word = words[0]
-        # Для случаев типа "Pokémon Red/Blue/Dark" - база это "Pokémon"
-        # Проверяем, что другие части короткие (скорее всего это варианты)
-        short_parts = all(len(part.split()) <= 2 for part in parts[1:])
-        if short_parts:
-            return first_word
-    
-    return None
+    # Возвращаем первое слово как базовую часть
+    return words[0]
 
 def simplify_title(title):
     """Упрощает название, убирая лишние слова"""
@@ -1906,6 +1942,8 @@ def main():
                 page_content = page.content()
                 if "blocked" in page_content.lower() or "access denied" in page_content.lower():
                     log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP! Сайт заблокировал доступ")
+                    # При блокировке делаем адаптивную задержку
+                    adaptive_delay_for_blocking()
                     return
                 elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
                     log_message(" Cloudflare проверка браузера - ждем...")
@@ -1923,7 +1961,6 @@ def main():
             
             start_time = time.time()
             processed_count = 0
-            blocked_count = 0  # Счетчик блокировок
             
             # Обрабатываем игры
             for i in range(0, chunk_games_count):
@@ -1935,13 +1972,12 @@ def main():
                 global_game_number = start_index + i + 1
                 log_message(f"🎮🎮🎮 Обрабатываю {global_game_number}/{total_games}: {game_title} ({game_year})")
                 
-                # Ищем данные на HLTB
-                hltb_data = search_game_on_hltb(page, game_title, game_year)
+                # Ищем данные на HLTB с ретраями при блокировках (5 попыток)
+                hltb_data = retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5)
                 
                 if hltb_data:
                     game["hltb"] = hltb_data
                     processed_count += 1
-                    blocked_count = 0  # Сбрасываем счетчик блокировок при успехе
                     log_message(f"✅✅✅ Найдены данные: {hltb_data}")
                 else:
                     # Определяем тип ошибки
@@ -1950,17 +1986,6 @@ def main():
                     # Записываем N/A если данные не найдены
                     game["hltb"] = {"ms": "N/A", "mpe": "N/A", "comp": "N/A"}
                     log_message(f"⚠️  {error_type} для: {game_title} - записано N/A")
-                    
-                    # Проверяем, не было ли блокировки
-                    if error_type == "IP блокировка":
-                        blocked_count += 1
-                        log_message(f"🚫 Блокировка #{blocked_count}")
-                        
-                        # Если много блокировок подряд - останавливаемся
-                        if blocked_count >= 3:
-                            log_message(" Слишком много блокировок подряд! Останавливаем работу.")
-                            log_message(" Рекомендуется подождать и попробовать позже.")
-                            break
                 
                 # Вежливая задержка убрана - достаточно задержек в процессе поиска
                 
