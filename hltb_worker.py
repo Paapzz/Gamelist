@@ -15,11 +15,7 @@ GAMES_LIST_FILE = "index111.html"
 OUTPUT_DIR = "hltb_data"
 OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
 
-# Задержки (убрана вежливая задержка между играми)
-BREAK_INTERVAL_MIN = 8 * 60  # 8 минут в секундах
-BREAK_INTERVAL_MAX = 10 * 60  # 10 минут в секундах
-BREAK_DURATION_MIN = 40  # 40 секунд
-BREAK_DURATION_MAX = 80  # 80 секунд
+# Задержки (убрана вежливая задержка между играми и перерывы)
 
 def setup_directories():
     """Настройка директорий"""
@@ -175,21 +171,6 @@ def random_delay(min_seconds, max_seconds):
     delay = random.uniform(min_seconds, max_seconds)
     time.sleep(delay)
 
-def check_break_time(start_time, games_processed):
-    """Проверяет, нужен ли перерыв"""
-    elapsed_seconds = time.time() - start_time
-    
-    # Рандомный интервал между перерывами
-    break_interval = random.randint(BREAK_INTERVAL_MIN, BREAK_INTERVAL_MAX)
-    
-    if elapsed_seconds >= break_interval:
-        # Рандомная длительность перерыва
-        break_duration = random.randint(BREAK_DURATION_MIN, BREAK_DURATION_MAX)
-        log_message(f"⏸️  Перерыв {break_duration} секунд... (обработано {games_processed} игр)")
-        time.sleep(break_duration)
-        return time.time()  # Обновляем время начала
-    
-    return start_time
 
 def search_game_on_hltb(page, game_title, game_year=None):
     """Ищет игру на HLTB и возвращает данные с повторными попытками, учитывая год релиза"""
@@ -1953,8 +1934,7 @@ def main():
                 
                 # Вежливая задержка убрана - достаточно задержек в процессе поиска
                 
-                # Проверяем перерыв
-                start_time = check_break_time(start_time, i + 1)
+                # Перерывы убраны для ускорения работы
                 
                 # Логируем прогресс каждые 50 игр
                 if (i + 1) % 50 == 0:
