@@ -69,7 +69,7 @@ jobs:
                   print(pkg, "NOT INSTALLED:", e)
           PY
 
-      - name: Run HLTB worker (Chunk 0: games 1-500)
+      - name: "Run HLTB worker (Chunk 0: games 1-500)"
         env:
           HLTB_DEBUG: ${{ env.HLTB_DEBUG }}
           CHUNK_INDEX: ${{ env.CHUNK_INDEX }}
@@ -247,7 +247,7 @@ jobs:
                   print(pkg, "NOT INSTALLED:", e)
           PY
 
-      - name: Run HLTB worker (Chunk 1: games 501-1000)
+      - name: "Run HLTB worker (Chunk 1: games 501-1000)"
         env:
           HLTB_DEBUG: ${{ env.HLTB_DEBUG }}
           CHUNK_INDEX: ${{ env.CHUNK_INDEX }}
