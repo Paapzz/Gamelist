@@ -573,8 +573,8 @@ def extract_year_from_game_page(page, link):
             return cached_year
         
         # Переходим на страницу игры
-        page.goto(full_url, timeout=10000)  # Уменьшаем таймаут до 10 секунд
-        page.wait_for_load_state("domcontentloaded", timeout=5000)  # Уменьшаем таймаут до 5 секунд
+        page.goto(full_url, timeout=15000)  # Увеличиваем таймаут до 15 секунд
+        page.wait_for_load_state("domcontentloaded", timeout=15000)  # Увеличиваем таймаут до 15 секунд
         
         # Извлекаем год
         year = extract_release_year_from_page(page)
@@ -587,11 +587,11 @@ def extract_year_from_game_page(page, link):
         
     except Exception as e:
         log_message(f" Ошибка извлечения года для {link['text']}: {e}")
-        # Пробуем еще раз с меньшим таймаутом
+        # Пробуем еще раз с увеличенным таймаутом
         try:
             log_message(f" Повторная попытка извлечения года для '{link['text']}'...")
-            page.goto(full_url, timeout=5000)  # Еще меньше таймаут
-            page.wait_for_load_state("domcontentloaded", timeout=3000)  # Еще меньше таймаут
+            page.goto(full_url, timeout=15000)  # Увеличиваем таймаут для повторной попытки
+            page.wait_for_load_state("domcontentloaded", timeout=10000)  # Увеличиваем таймаут для повторной попытки
             year = extract_release_year_from_page(page)
             return year
         except Exception as e2:
