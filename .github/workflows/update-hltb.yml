@@ -12,10 +12,9 @@ permissions:
   contents: write
 
 jobs:
-  # Первый чанк: игры 1-500
+  # Чанк 0: игры 1-350
   run-hltb-chunk-0:
     runs-on: ubuntu-latest
-    # Защита от вечных запусков — ограничиваем 6 часов (360 минут)
     timeout-minutes: 360
     concurrency:
       group: hltb-worker-${{ github.run_id }}-chunk-0
@@ -25,7 +24,7 @@ jobs:
       PYTHONUNBUFFERED: 1
       HLTB_DEBUG: "true"
       CHUNK_INDEX: "0"
-      CHUNK_SIZE: "500"
+      CHUNK_SIZE: "350"
 
     steps:
       - name: Checkout (with token for push)
@@ -69,7 +68,7 @@ jobs:
                   print(pkg, "NOT INSTALLED:", e)
           PY
 
-      - name: "Run HLTB worker (Chunk 0: games 1-500)"
+      - name: "Run HLTB worker (Chunk 0: games 1-350)"
         env:
           HLTB_DEBUG: ${{ env.HLTB_DEBUG }}
           CHUNK_INDEX: ${{ env.CHUNK_INDEX }}
@@ -82,7 +81,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hltb-debug-dumps
+          name: hltb-debug-dumps-chunk-0
           path: |
             debug_*.json
             hltb_debug.log
@@ -93,7 +92,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hltb-data
+          name: hltb-data-chunk-0
           path: |
             hltb_data/*.json
           if-no-files-found: warn
@@ -115,7 +114,6 @@ jobs:
             git add hltb_data/*.json
             CHANGED=1
           fi
-          # Добавляем обновленный HTML файл
           if [ -f index111.html ]; then
             git add index111.html
             CHANGED=1
@@ -130,7 +128,7 @@ jobs:
             exit 0
           fi
 
-          COMMIT_MSG="HLTB worker: chunk 0 (games 1-500) $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          COMMIT_MSG="HLTB worker: chunk 0 (games 1-350) $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           
           if git diff --cached --quiet; then
             echo "No changes staged for commit"
@@ -157,7 +155,6 @@ jobs:
           if ls hltb_data/*.json 1> /dev/null 2>&1; then
             git add hltb_data/*.json
           fi
-          # Добавляем обновленный HTML файл
           if [ -f index111.html ]; then
             git add index111.html
           fi
@@ -188,22 +185,20 @@ jobs:
             exit 0
           fi
 
-  # Второй чанк: игры 501-1000
+  # Чанк 1: игры 351-700
   run-hltb-chunk-1:
     runs-on: ubuntu-latest
-    # Защита от вечных запусков — ограничиваем 6 часов (360 минут)
     timeout-minutes: 360
     concurrency:
       group: hltb-worker-${{ github.run_id }}-chunk-1
       cancel-in-progress: false
-    # Запускается только после успешного завершения первого чанка
     needs: run-hltb-chunk-0
 
     env:
       PYTHONUNBUFFERED: 1
       HLTB_DEBUG: "true"
       CHUNK_INDEX: "1"
-      CHUNK_SIZE: "500"
+      CHUNK_SIZE: "350"
 
     steps:
       - name: Checkout (with token for push)
@@ -247,7 +242,7 @@ jobs:
                   print(pkg, "NOT INSTALLED:", e)
           PY
 
-      - name: "Run HLTB worker (Chunk 1: games 501-1000)"
+      - name: "Run HLTB worker (Chunk 1: games 351-700)"
         env:
           HLTB_DEBUG: ${{ env.HLTB_DEBUG }}
           CHUNK_INDEX: ${{ env.CHUNK_INDEX }}
@@ -293,7 +288,6 @@ jobs:
             git add hltb_data/*.json
             CHANGED=1
           fi
-          # Добавляем обновленный HTML файл
           if [ -f index111.html ]; then
             git add index111.html
             CHANGED=1
@@ -308,7 +302,7 @@ jobs:
             exit 0
           fi
 
-          COMMIT_MSG="HLTB worker: chunk 1 (games 501-1000) $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          COMMIT_MSG="HLTB worker: chunk 1 (games 351-700) $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           
           if git diff --cached --quiet; then
             echo "No changes staged for commit"
@@ -335,7 +329,180 @@ jobs:
           if ls hltb_data/*.json 1> /dev/null 2>&1; then
             git add hltb_data/*.json
           fi
-          # Добавляем обновленный HTML файл
+          if [ -f index111.html ]; then
+            git add index111.html
+          fi
+          if [ -f progress.json ]; then
+            git add progress.json
+          fi
+
+          if git diff --cached --quiet; then
+            echo "No post-merge changes to commit"
+          else
+            git commit -m "${COMMIT_MSG} (post-merge)"
+          fi
+
+          set +e
+          git push origin HEAD:main
+          PUSH_RC=$?
+          set -e
+
+          if [ $PUSH_RC -eq 0 ]; then
+            echo "✅ Pushed results to main"
+            exit 0
+          else
+            echo "⚠️ Push to main failed (RC=$PUSH_RC). Creating fallback branch and pushing there."
+            BRANCH="hltb-worker-fallback-$(date -u +%Y%m%d%H%M%S)"
+            git checkout -b "${BRANCH}"
+            git push origin "${BRANCH}"
+            echo "🔀 Pushed fallback branch: ${BRANCH}. Please merge manually."
+            exit 0
+          fi
+
+  # Чанк 2: игры 701-1000
+  run-hltb-chunk-2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    concurrency:
+      group: hltb-worker-${{ github.run_id }}-chunk-2
+      cancel-in-progress: false
+    needs: run-hltb-chunk-1
+
+    env:
+      PYTHONUNBUFFERED: 1
+      HLTB_DEBUG: "true"
+      CHUNK_INDEX: "2"
+      CHUNK_SIZE: "350"
+
+    steps:
+      - name: Checkout (with token for push)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-hltb-worker
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install required Python packages
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install playwright pyee requests
+
+      - name: Install Playwright browsers
+        run: |
+          python -m playwright install chromium
+
+      - name: Show basic versions (non-fatal)
+        run: |
+          python -V
+          python - <<'PY'
+          import importlib
+          for pkg in ("playwright","pyee","requests"):
+              try:
+                  mod = importlib.import_module(pkg)
+                  print(pkg, getattr(mod, "__version__", "ok"))
+              except Exception as e:
+                  print(pkg, "NOT INSTALLED:", e)
+          PY
+
+      - name: "Run HLTB worker (Chunk 2: games 701-1000)"
+        env:
+          HLTB_DEBUG: ${{ env.HLTB_DEBUG }}
+          CHUNK_INDEX: ${{ env.CHUNK_INDEX }}
+          CHUNK_SIZE: ${{ env.CHUNK_SIZE }}
+        run: |
+          echo "Starting hltb_worker.py (DEBUG=${HLTB_DEBUG}, CHUNK_INDEX=${CHUNK_INDEX}, CHUNK_SIZE=${CHUNK_SIZE})"
+          python hltb_worker.py
+
+      - name: Upload debug dumps (if any)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hltb-debug-dumps-chunk-2
+          path: |
+            debug_*.json
+            hltb_debug.log
+            progress.json
+          if-no-files-found: warn
+
+      - name: Upload hltb data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hltb-data-chunk-2
+          path: |
+            hltb_data/*.json
+          if-no-files-found: warn
+
+      - name: Commit & push results (Chunk 2)
+        if: always()
+        env:
+          GIT_AUTHOR_NAME: "HLTB Worker"
+          GIT_AUTHOR_EMAIL: "hltb-worker@users.noreply.github.com"
+        run: |
+          set -euo pipefail
+          echo "Preparing to commit results for chunk 2..."
+          git config user.name "${GIT_AUTHOR_NAME}"
+          git config user.email "${GIT_AUTHOR_EMAIL}"
+          git checkout main
+
+          CHANGED=0
+          if ls hltb_data/*.json 1> /dev/null 2>&1; then
+            git add hltb_data/*.json
+            CHANGED=1
+          fi
+          if [ -f index111.html ]; then
+            git add index111.html
+            CHANGED=1
+          fi
+          if [ -f progress.json ]; then
+            git add progress.json
+            CHANGED=1
+          fi
+
+          if [ "$CHANGED" -eq 0 ]; then
+            echo "No output files to commit. Exiting."
+            exit 0
+          fi
+
+          COMMIT_MSG="HLTB worker: chunk 2 (games 701-1000) $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          
+          if git diff --cached --quiet; then
+            echo "No changes staged for commit"
+          else
+            git commit -m "${COMMIT_MSG}"
+          fi
+
+          git fetch origin main
+
+          set +e
+          git merge --no-edit -s recursive -X ours origin/main
+          MERGE_RC=$?
+          set -e
+
+          if [ $MERGE_RC -ne 0 ]; then
+            echo "⚠️ Merge returned non-zero rc=${MERGE_RC}. Will create fallback branch to avoid overwriting remote unexpectedly."
+            BRANCH="hltb-worker-fallback-$(date -u +%Y%m%d%H%M%S)"
+            git checkout -b "${BRANCH}"
+            git push origin "${BRANCH}"
+            echo "🔀 Pushed fallback branch: ${BRANCH}. Please review and merge manually."
+            exit 0
+          fi
+
+          if ls hltb_data/*.json 1> /dev/null 2>&1; then
+            git add hltb_data/*.json
+          fi
           if [ -f index111.html ]; then
             git add index111.html
           fi
