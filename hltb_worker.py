@@ -13,15 +13,15 @@ GAMES_LIST_FILE = "index111.html"
 OUTPUT_DIR = "hltb_data"
 OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
 
-# Настройки чанков (для разделения работы на 2 части)
-CHUNK_INDEX = int(os.environ.get('CHUNK_INDEX', '0'))  # Индекс чанка (0 или 1)
-CHUNK_SIZE = 500  # Размер чанка - 500 игр
+# Настройки чанков (для разделения работы на 3 части)
+CHUNK_INDEX = int(os.environ.get('CHUNK_INDEX', '0'))  # Индекс чанка (0, 1 или 2)
+CHUNK_SIZE = 350  # Размер чанка - 350 игр
 
 # Задержки (убрана вежливая задержка между играми и перерывы)
 # Глобальные переменные удалены - больше не нужны
 
 def get_chunk_games(games_list):
-    """Возвращает чанк игр для обработки (0-500 или 501-1000)"""
+    """Возвращает чанк игр для обработки (0-350, 351-700, 701-1000)"""
     total_games = len(games_list)
     
     # Вычисляем границы чанка
@@ -922,6 +922,22 @@ def generate_alternative_titles(game_title):
         no_parens = remove_parentheses(game_title)
         if no_parens and no_parens not in alternatives:
             alternatives.append(no_parens)
+        
+        # Добавляем упрощенные варианты для названий с двоеточием
+        if ":" in game_title:
+            # Для "Lumines: Puzzle Fusion" добавляем "Lumines"
+            simplified = game_title.split(":")[0].strip()
+            if simplified and simplified not in alternatives:
+                alternatives.append(simplified)
+                log_message(f" Добавлен упрощенный вариант: '{simplified}'")
+        
+        # Добавляем варианты без подзаголовков в скобках
+        if "(" in game_title and ")" in game_title:
+            # Для "Game (Subtitle)" добавляем "Game"
+            no_subtitle = game_title.split("(")[0].strip()
+            if no_subtitle and no_subtitle not in alternatives:
+                alternatives.append(no_subtitle)
+                log_message(f" Добавлен вариант без подзаголовка: '{no_subtitle}'")
     
     # Убираем дубликаты, сохраняя порядок
     unique_alternatives = []
@@ -1010,11 +1026,11 @@ def determine_base_part_new(parts):
         return None
     
     # Простая реализация - берем первое слово из первой части
-    first_part = parts[0]
+            first_part = parts[0]
     if " " not in first_part:
         return None
     
-    words = first_part.split()
+                words = first_part.split()
     if len(words) < 2:
         return None
     
@@ -1129,7 +1145,7 @@ def calculate_title_similarity(title1, title2, year1=None, year2=None):
         
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
-        return 0.0
+            return 0.0
         
 def extract_release_year_from_page(page):
     """Извлекает год релиза со страницы игры HLTB"""
@@ -1183,7 +1199,7 @@ def extract_release_year_from_page(page):
                                     extract_release_year_from_page.year_cache[page_url] = year_int
                                     extract_release_year_from_page.quick_cache[page_url] = year_int
                                     return year_int
-        except Exception as e:
+    except Exception as e:
             log_message(f" Ошибка извлечения года из JSON: {e}")
         
         # Если JSON не сработал, ищем в HTML тексте
@@ -1486,7 +1502,7 @@ def extract_table_data(page):
         
         return table_data if table_data else None
         
-    except Exception as e:
+                    except Exception as e:
         log_message(f"❌ Ошибка извлечения данных из таблиц: {e}")
         return None
 
