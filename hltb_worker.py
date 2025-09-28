@@ -1141,11 +1141,11 @@ def determine_base_part_new(parts):
         return None
     
     # Простая реализация - берем первое слово из первой части
-            first_part = parts[0]
+    first_part = parts[0]
     if " " not in first_part:
         return None
     
-                words = first_part.split()
+    words = first_part.split()
     if len(words) < 2:
         return None
     
@@ -1260,7 +1260,7 @@ def calculate_title_similarity(title1, title2, year1=None, year2=None):
         
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
-            return 0.0
+        return 0.0
         
 def extract_release_year_from_page(page):
     """Извлекает год релиза со страницы игры HLTB"""
@@ -1314,7 +1314,7 @@ def extract_release_year_from_page(page):
                                     extract_release_year_from_page.year_cache[page_url] = year_int
                                     extract_release_year_from_page.quick_cache[page_url] = year_int
                                     return year_int
-    except Exception as e:
+        except Exception as e:
             log_message(f" Ошибка извлечения года из JSON: {e}")
         
         # Если JSON не сработал, ищем в HTML тексте
@@ -1617,7 +1617,7 @@ def extract_table_data(page):
         
         return table_data if table_data else None
         
-                    except Exception as e:
+    except Exception as e:
         log_message(f"❌ Ошибка извлечения данных из таблиц: {e}")
         return None
 
