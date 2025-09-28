@@ -201,6 +201,49 @@ def progressive_delay_for_blocking():
 
 
 
+def extract_data_by_hltb_id(page, hltb_id):
+    """Извлекает данные игры напрямую по HLTB ID"""
+    try:
+        log_message(f"🔗 Извлекаем данные по ID {hltb_id}...")
+        
+        # Переходим напрямую на страницу игры
+        game_url = f"{BASE_URL}/game/{hltb_id}"
+        page.goto(game_url, timeout=15000)
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        
+        # Проверяем на блокировку
+        page_content = page.content()
+        if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+            log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при прямом доступе!")
+            progressive_delay_for_blocking()
+            return None
+        elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
+            log_message(" Cloudflare проверка при прямом доступе - ждем...")
+            time.sleep(10)
+            page_content = page.content()
+            if "checking your browser" in page_content.lower():
+                log_message("❌ Cloudflare блокирует прямой доступ")
+                return None
+        
+        # Ждем загрузки страницы
+        random_delay(3, 5)
+        
+        # Извлекаем данные HLTB
+        hltb_data = extract_hltb_data_from_page(page)
+        
+        if hltb_data:
+            # Убеждаемся, что ID сохранен
+            hltb_data["hltb_id"] = hltb_id
+            log_message(f"✅ Данные извлечены по ID {hltb_id}")
+            return hltb_data
+        else:
+            log_message(f"⚠️ Не удалось извлечь данные по ID {hltb_id}")
+            return None
+            
+    except Exception as e:
+        log_message(f"❌ Ошибка извлечения данных по ID {hltb_id}: {e}")
+        return None
+
 def retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5):
     """Пытается получить данные игры с ретраями при блокировках"""
     # Задержки между попытками: 30-60-120-180-300 секунд
@@ -1098,11 +1141,11 @@ def determine_base_part_new(parts):
         return None
     
     # Простая реализация - берем первое слово из первой части
-    first_part = parts[0]
+            first_part = parts[0]
     if " " not in first_part:
         return None
     
-    words = first_part.split()
+                words = first_part.split()
     if len(words) < 2:
         return None
     
@@ -1217,7 +1260,7 @@ def calculate_title_similarity(title1, title2, year1=None, year2=None):
         
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
-        return 0.0
+            return 0.0
         
 def extract_release_year_from_page(page):
     """Извлекает год релиза со страницы игры HLTB"""
@@ -1271,7 +1314,7 @@ def extract_release_year_from_page(page):
                                     extract_release_year_from_page.year_cache[page_url] = year_int
                                     extract_release_year_from_page.quick_cache[page_url] = year_int
                                     return year_int
-        except Exception as e:
+    except Exception as e:
             log_message(f" Ошибка извлечения года из JSON: {e}")
         
         # Если JSON не сработал, ищем в HTML тексте
@@ -1574,7 +1617,7 @@ def extract_table_data(page):
         
         return table_data if table_data else None
         
-    except Exception as e:
+                    except Exception as e:
         log_message(f"❌ Ошибка извлечения данных из таблиц: {e}")
         return None
 
@@ -2059,6 +2102,8 @@ def main():
             
             start_time = time.time()
             processed_count = 0
+            direct_id_count = 0  # Счетчик игр обработанных по ID
+            search_count = 0     # Счетчик игр обработанных через поиск
             
             # Обрабатываем игры
             for i in range(0, chunk_games_count):
@@ -2070,20 +2115,56 @@ def main():
                 global_game_number = start_index + i + 1
                 log_message(f"🎮🎮🎮 Обрабатываю {global_game_number}/{total_games}: {game_title} ({game_year})")
                 
-                # Ищем данные на HLTB с ретраями при блокировках (5 попыток)
-                hltb_data = retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5)
+                # Проверяем, есть ли уже HLTB данные с ID
+                existing_hltb = game.get("hltb")
+                hltb_id = None
                 
-                if hltb_data:
-                    game["hltb"] = hltb_data
-                    processed_count += 1
-                    log_message(f"✅✅✅ Найдены данные: {hltb_data}")
-                else:
-                    # Определяем тип ошибки
-                    error_type = determine_error_type(page, game_title)
+                if existing_hltb and isinstance(existing_hltb, dict):
+                    hltb_id = existing_hltb.get("hltb_id")
+                
+                if hltb_id:
+                    # Если есть ID, пытаемся извлечь данные напрямую
+                    log_message(f"🚀 Найден существующий HLTB ID {hltb_id}, извлекаем данные напрямую...")
+                    hltb_data = extract_data_by_hltb_id(page, hltb_id)
                     
-                    # Записываем N/A если данные не найдены
-                    game["hltb"] = {"ms": "N/A", "mpe": "N/A", "comp": "N/A"}
-                    log_message(f"⚠️  {error_type} для: {game_title} - записано N/A")
+                    if hltb_data:
+                        game["hltb"] = hltb_data
+                        processed_count += 1
+                        direct_id_count += 1
+                        log_message(f"✅✅✅ Данные обновлены по ID: {hltb_data}")
+                    else:
+                        # Если не удалось извлечь по ID, пробуем обычный поиск
+                        log_message(f"⚠️ Не удалось извлечь по ID {hltb_id}, пробуем обычный поиск...")
+                        hltb_data = retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5)
+                        
+                        if hltb_data:
+                            game["hltb"] = hltb_data
+                            processed_count += 1
+                            search_count += 1
+                            log_message(f"✅✅✅ Найдены данные через поиск: {hltb_data}")
+                        else:
+                            # Определяем тип ошибки
+                            error_type = determine_error_type(page, game_title)
+                            
+                            # Записываем N/A если данные не найдены
+                            game["hltb"] = {"ms": "N/A", "mpe": "N/A", "comp": "N/A", "hltb_id": hltb_id}
+                            log_message(f"⚠️  {error_type} для: {game_title} - записано N/A (сохранен ID {hltb_id})")
+                else:
+                    # Если нет ID, ищем данные на HLTB с ретраями при блокировках (5 попыток)
+                    hltb_data = retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5)
+                    
+                    if hltb_data:
+                        game["hltb"] = hltb_data
+                        processed_count += 1
+                        search_count += 1
+                        log_message(f"✅✅✅ Найдены данные: {hltb_data}")
+                    else:
+                        # Определяем тип ошибки
+                        error_type = determine_error_type(page, game_title)
+                        
+                        # Записываем N/A если данные не найдены
+                        game["hltb"] = {"ms": "N/A", "mpe": "N/A", "comp": "N/A"}
+                        log_message(f"⚠️  {error_type} для: {game_title} - записано N/A")
                 
                 # Вежливая задержка убрана - достаточно задержек в процессе поиска
                 
@@ -2134,6 +2215,10 @@ def main():
         # Финальная статистика
         successful = len([g for g in games_list if "hltb" in g])
         log_message(f" Завершено! Обработано {successful}/{chunk_games_count} игр в чанке {CHUNK_INDEX} ({successful/chunk_games_count*100:.1f}%)")
+        log_message(f"📊 Оптимизация: {direct_id_count} игр обработано по ID, {search_count} игр через поиск")
+        if direct_id_count > 0:
+            optimization_percent = (direct_id_count / (direct_id_count + search_count)) * 100
+            log_message(f"⚡ Экономия времени: {optimization_percent:.1f}% игр обработано без поиска")
         
     except Exception as e:
         log_message(f" Критическая ошибка: {e}")
