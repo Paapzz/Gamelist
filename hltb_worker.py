@@ -34,7 +34,7 @@ def get_chunk_games(games_list):
         return [], 0, 0
     
     chunk_games = games_list[start_index:end_index]
-    log_message(f"📊 Чанк {CHUNK_INDEX}: игры {start_index+1}-{end_index} из {total_games}")
+    log_message(f" Чанк {CHUNK_INDEX}: игры {start_index+1}-{end_index} из {total_games}")
     
     return chunk_games, start_index, end_index
 
@@ -196,52 +196,85 @@ def progressive_delay_for_blocking():
     """Прогрессивная задержка при обнаружении блокировки IP"""
     delays = [30, 60, 120, 180, 300]  # 30 сек - 5 минут
     delay = random.choice(delays)
-    log_message(f"⏳ Прогрессивная задержка при блокировке: {delay} секунд")
+    log_message(f"Задержка при блокировке: {delay} секунд")
     time.sleep(delay)
 
 
 
 def extract_data_by_hltb_id(page, hltb_id):
-    """Извлекает данные игры напрямую по HLTB ID"""
+    """Извлекает данные игры напрямую по HLTB ID с повторными попытками при таймаутах"""
     try:
-        log_message(f"🔗 Извлекаем данные по ID {hltb_id}...")
+        log_message(f" -Извлекаем данные по ID {hltb_id}...")
         
-        # Переходим напрямую на страницу игры
         game_url = f"{BASE_URL}/game/{hltb_id}"
-        page.goto(game_url, timeout=15000)
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
         
-        # Проверяем на блокировку
-        page_content = page.content()
-        if "blocked" in page_content.lower() or "access denied" in page_content.lower():
-            log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при прямом доступе!")
-            progressive_delay_for_blocking()
-            return None
-        elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
-            log_message(" Cloudflare проверка при прямом доступе - ждем...")
-            time.sleep(10)
-            page_content = page.content()
-            if "checking your browser" in page_content.lower():
-                log_message("❌ Cloudflare блокирует прямой доступ")
-                return None
+        # Пробуем извлечь данные с повторными попытками при таймаутах
+        max_attempts = 3
+        delays = [10, 30, 60]  # Паузы между попытками: 15, 30, 60 секунд
         
-        # Ждем загрузки страницы
-        random_delay(3, 5)
+        for attempt in range(max_attempts):
+            try:
+                if attempt > 0:
+                    log_message(f" Повторная попытка {attempt + 1}/{max_attempts} извлечения данных по ID {hltb_id}...")
+                log_message(f" Пауза {delays[attempt]} секунд перед попыткой {attempt + 1}...")
+                time.sleep(delays[attempt])
+                
+                # Переходим напрямую на страницу игры с увеличенным таймаутом
+                page.goto(game_url, timeout=20000)  # Увеличиваем таймаут до 20 секунд
+                page.wait_for_load_state("domcontentloaded", timeout=20000)  # Увеличиваем таймаут до 20 секунд
+                
+                # Проверяем на блокировку
+                page_content = page.content()
+                if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+                    log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при прямом доступе!")
+                    progressive_delay_for_blocking()
+                    return None
+                elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
+                    log_message(" Cloudflare проверка при прямом доступе - ждем...")
+                    time.sleep(10)
+                    page_content = page.content()
+                    if "checking your browser" in page_content.lower():
+                        log_message("❌ Cloudflare блокирует прямой доступ")
+                        return None
+                
+                # Ждем загрузки страницы
+                random_delay(3, 5)
+                
+                # Извлекаем данные HLTB
+                hltb_data = extract_hltb_data_from_page(page)
+                
+                if hltb_data:
+                    # Убеждаемся, что ID сохранен
+                    hltb_data["hltb_id"] = hltb_id
+                    if attempt > 0:
+                        log_message(f"✅ Данные извлечены по ID {hltb_id} с попытки {attempt + 1}")
+                    else:
+                        log_message(f"✅ Данные извлечены по ID {hltb_id}")
+                    return hltb_data
+                else:
+                    if attempt == max_attempts - 1:
+                        log_message(f"⚠️ Не удалось извлечь данные по ID {hltb_id} после всех попыток")
+                        return None
+                    else:
+                        log_message(f"⚠️ Не удалось извлечь данные по ID {hltb_id} (попытка {attempt + 1})")
+                        continue
+                
+            except Exception as e:
+                error_msg = str(e)
+                if "Timeout" in error_msg:
+                    log_message(f" Таймаут при извлечении данных по ID {hltb_id} (попытка {attempt + 1}): {e}")
+                    if attempt == max_attempts - 1:
+                        log_message(f"❌ Все {max_attempts} попыток исчерпаны для извлечения данных по ID {hltb_id} - таймауты")
+                        return None
+                else:
+                    log_message(f"❌ Ошибка извлечения данных по ID {hltb_id} (попытка {attempt + 1}): {e}")
+                    if attempt == max_attempts - 1:
+                        return None
         
-        # Извлекаем данные HLTB
-        hltb_data = extract_hltb_data_from_page(page)
-        
-        if hltb_data:
-            # Убеждаемся, что ID сохранен
-            hltb_data["hltb_id"] = hltb_id
-            log_message(f"✅ Данные извлечены по ID {hltb_id}")
-            return hltb_data
-        else:
-            log_message(f"⚠️ Не удалось извлечь данные по ID {hltb_id}")
-            return None
+        return None
             
     except Exception as e:
-        log_message(f"❌ Ошибка извлечения данных по ID {hltb_id}: {e}")
+        log_message(f"❌ Критическая ошибка извлечения данных по ID {hltb_id}: {e}")
         return None
 
 def retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5):
@@ -268,7 +301,7 @@ def retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5
                     # Если это не последняя попытка, делаем задержку
                     if retry < max_retries - 1:
                         delay = delays[retry]
-                        log_message(f"⏳ Повторная попытка через {delay} секунд...")
+                        log_message(f" Повторная попытка через {delay} секунд...")
                         time.sleep(delay)
                         continue
                     else:
@@ -284,7 +317,7 @@ def retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5
             if retry < max_retries - 1:
                 # Делаем задержку перед следующей попыткой
                 delay = delays[retry]
-                log_message(f"⏳ Повторная попытка через {delay} секунд...")
+                log_message(f" Повторная попытка через {delay} секунд...")
                 time.sleep(delay)
             else:
                 log_message(f"❌ Все {max_retries} попыток исчерпаны для '{game_title}' - ошибка")
@@ -309,10 +342,10 @@ def search_game_on_hltb(page, game_title, game_year=None):
                 log_message(f" Попытка {attempt + 1}/{max_attempts} для '{game_title}'")
                 if isinstance(delays[attempt], tuple):
                     min_delay, max_delay = delays[attempt]
-                    log_message(f"⏳ Пауза {min_delay}-{max_delay} секунд...")
+                    log_message(f" Пауза {min_delay}-{max_delay} секунд...")
                     random_delay(min_delay, max_delay)
                 else:
-                    log_message(f"⏳ Пауза {delays[attempt]} секунд...")
+                    log_message(f" Пауза {delays[attempt]} секунд...")
                     time.sleep(delays[attempt])
             
             # Пробуем все альтернативные названия и собираем все результаты
@@ -418,37 +451,67 @@ def search_game_links_only(page, game_title):
         return None
 
 def extract_data_from_selected_game(page, selected_link):
-    """Извлекает данные с выбранной страницы игры"""
+    """Извлекает данные с выбранной страницы игры с повторными попытками при таймаутах"""
     try:
-        # Переходим на страницу выбранной игры
         full_url = f"{BASE_URL}{selected_link['href']}"
         
-        page.goto(full_url, timeout=15000)
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        # Пробуем извлечь данные с повторными попытками при таймаутах
+        max_attempts = 3
+        delays = [10, 30, 60]  # Паузы между попытками: 15, 30, 60 секунд
         
-        # Проверяем на блокировку на странице игры
-        page_content = page.content()
-        if "blocked" in page_content.lower() or "access denied" in page_content.lower():
-            log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
-            # При блокировке делаем прогрессивную задержку
-            progressive_delay_for_blocking()
-            return None
-        elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
-            log_message(" Cloudflare проверка на странице игры - ждем...")
-            time.sleep(10)
-            page_content = page.content()
-            if "checking your browser" in page_content.lower():
-                log_message("❌ Cloudflare блокирует страницу игры")
-                return None
+        for attempt in range(max_attempts):
+            try:
+                if attempt > 0:
+                    log_message(f" Повторная попытка {attempt + 1}/{max_attempts} извлечения данных с страницы игры...")
+                log_message(f" Пауза {delays[attempt]} секунд перед попыткой {attempt + 1}...")
+                time.sleep(delays[attempt])
+                
+                # Переходим на страницу выбранной игры с увеличенным таймаутом
+                page.goto(full_url, timeout=20000)  # Увеличиваем таймаут до 20 секунд
+                page.wait_for_load_state("domcontentloaded", timeout=20000)  # Увеличиваем таймаут до 20 секунд
+                
+                # Проверяем на блокировку на странице игры
+                page_content = page.content()
+                if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+                    log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
+                    # При блокировке делаем прогрессивную задержку
+                    progressive_delay_for_blocking()
+                    return None
+                elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
+                    log_message(" Cloudflare проверка на странице игры - ждем...")
+                    time.sleep(10)
+                    page_content = page.content()
+                    if "checking your browser" in page_content.lower():
+                        log_message("❌ Cloudflare блокирует страницу игры")
+                        return None
+                
+                # Ждем загрузки страницы
+                random_delay(5, 8)
+                
+                # Извлекаем данные HLTB
+                hltb_data = extract_hltb_data_from_page(page)
+                
+                if attempt > 0 and hltb_data:
+                    log_message(f"✅ Успешно извлечены данные с попытки {attempt + 1}")
+                
+                return hltb_data
+                
+            except Exception as e:
+                error_msg = str(e)
+                if "Timeout" in error_msg:
+                    log_message(f" Таймаут при извлечении данных с страницы игры (попытка {attempt + 1}): {e}")
+                    if attempt == max_attempts - 1:
+                        log_message(f"❌ Все {max_attempts} попыток исчерпаны для извлечения данных с страницы игры - таймауты")
+                        return None
+                else:
+                    log_message(f"❌ Ошибка извлечения данных с страницы игры (попытка {attempt + 1}): {e}")
+                    if attempt == max_attempts - 1:
+                        return None
         
-        # Ждем загрузки страницы
-        random_delay(5, 8)
-        
-        # Извлекаем данные HLTB
-        return extract_hltb_data_from_page(page)
+        return None
         
     except Exception as e:
-        log_message(f"❌ Ошибка извлечения данных с страницы игры: {e}")
+        log_message(f"❌ Критическая ошибка извлечения данных с страницы игры: {e}")
         return None
 
 def find_best_result_with_year(page, all_results, original_title, original_year):
@@ -602,7 +665,7 @@ def find_best_link_in_result(game_links, original_title):
     return best_link
 
 def extract_year_from_game_page(page, link):
-    """Извлекает год релиза со страницы игры"""
+    """Извлекает год релиза со страницы игры с повторными попытками при таймаутах"""
     try:
         # Глобальный кэш для часто встречающихся игр
         if not hasattr(extract_year_from_game_page, 'url_cache'):
@@ -625,36 +688,55 @@ def extract_year_from_game_page(page, link):
             extract_year_from_game_page.quick_cache[full_url] = cached_year
             return cached_year
         
-        # Переходим на страницу игры
-        page.goto(full_url, timeout=15000)  # Увеличиваем таймаут до 15 секунд
-        page.wait_for_load_state("domcontentloaded", timeout=15000)  # Увеличиваем таймаут до 15 секунд
+        # Пробуем извлечь год с повторными попытками при таймаутах
+        max_attempts = 3
+        delays = [10, 30, 60]  # Паузы между попытками: 15, 30, 60 секунд
         
-        # Извлекаем год
-        year = extract_release_year_from_page(page)
+        for attempt in range(max_attempts):
+            try:
+                if attempt > 0:
+                    log_message(f" Повторная попытка {attempt + 1}/{max_attempts} извлечения года для '{link['text']}'...")
+                log_message(f" Пауза {delays[attempt]} секунд перед попыткой {attempt + 1}...")
+                time.sleep(delays[attempt])
+                
+                # Переходим на страницу игры с увеличенным таймаутом
+                page.goto(full_url, timeout=20000)  # Увеличиваем таймаут до 20 секунд
+                page.wait_for_load_state("domcontentloaded", timeout=20000)  # Увеличиваем таймаут до 20 секунд
+                
+                # Извлекаем год
+                year = extract_release_year_from_page(page)
+                
+                # Сохраняем в оба кэша
+                extract_year_from_game_page.url_cache[full_url] = year
+                extract_year_from_game_page.quick_cache[full_url] = year
+                
+                if attempt > 0:
+                    log_message(f"✅ Успешно извлечен год для '{link['text']}' с попытки {attempt + 1}")
+                
+                return year
+                
+            except Exception as e:
+                error_msg = str(e)
+                if "Timeout" in error_msg:
+                    log_message(f" Таймаут при извлечении года для '{link['text']}' (попытка {attempt + 1}): {e}")
+                    if attempt == max_attempts - 1:
+                        log_message(f"❌ Все {max_attempts} попыток исчерпаны для извлечения года '{link['text']}' - таймауты")
+                        return None
+                else:
+                    log_message(f"❌ Ошибка извлечения года для '{link['text']}' (попытка {attempt + 1}): {e}")
+                    if attempt == max_attempts - 1:
+                        return None
         
-        # Сохраняем в оба кэша
-        extract_year_from_game_page.url_cache[full_url] = year
-        extract_year_from_game_page.quick_cache[full_url] = year
-        
-        return year
+        return None
         
     except Exception as e:
-        log_message(f" Ошибка извлечения года для {link['text']}: {e}")
-        # Пробуем еще раз с увеличенным таймаутом
-        try:
-            log_message(f" Повторная попытка извлечения года для '{link['text']}'...")
-            page.goto(full_url, timeout=15000)  # Увеличиваем таймаут для повторной попытки
-            page.wait_for_load_state("domcontentloaded", timeout=10000)  # Увеличиваем таймаут для повторной попытки
-            year = extract_release_year_from_page(page)
-            return year
-        except Exception as e2:
-            log_message(f" Повторная ошибка извлечения года для {link['text']}: {e2}")
-    return None
+        log_message(f"❌ Критическая ошибка извлечения года для {link['text']}: {e}")
+        return None
 
 def search_game_single_attempt(page, game_title):
     """Одна попытка поиска игры на HLTB"""
     try:
-        log_message(f"🔍 Ищем: '{game_title}'")
+        log_message(f" -Ищем: '{game_title}'")
         
         # Кодируем название для URL
         safe_title = quote(game_title, safe="")
@@ -1444,7 +1526,7 @@ def extract_hltb_data_from_page(page):
             # Проверяем, есть ли в таблицах данные о single player (ms/mpe/comp)
             has_single_player_data = any(key in table_data for key in ["ms", "mpe", "comp"])
             if not has_single_player_data:
-                log_message("🎮 В таблицах нет single player данных, используем только верхние блоки")
+                log_message(" В таблицах нет single player данных, используем только верхние блоки")
                 # Удаляем данные из таблиц, оставляем только верхние блоки
                 hltb_data = top_block_data.copy()
         
@@ -2041,7 +2123,7 @@ def main():
             log_message("⚠️ Нет игр для обработки в этом чанке")
             return
         
-        log_message(f"🎯 Обрабатываем чанк {CHUNK_INDEX}: {chunk_games_count} игр")
+        log_message(f" Обрабатываем чанк {CHUNK_INDEX}: {chunk_games_count} игр")
         
         # Запускаем браузер
         log_message(" Запускаем Playwright...")
@@ -2124,7 +2206,7 @@ def main():
                 
                 if hltb_id:
                     # Если есть ID, пытаемся извлечь данные напрямую
-                    log_message(f"🚀 Найден существующий HLTB ID {hltb_id}, извлекаем данные напрямую...")
+                    log_message(f" -Найден существующий HLTB ID {hltb_id}, извлекаем данные напрямую...")
                     hltb_data = extract_data_by_hltb_id(page, hltb_id)
                     
                     if hltb_data:
@@ -2203,7 +2285,7 @@ def main():
                         updated_all_games[global_index]["hltb"] = processed_game["hltb"]
                         updated_count += 1
         
-        log_message(f"📝 Обновлено {updated_count} игр, пропущено {skipped_count} игр в полном списке (позиции {start_index+1}-{start_index+len(games_list)})")
+        log_message(f" Обновлено {updated_count} игр, пропущено {skipped_count} игр в полном списке (позиции {start_index+1}-{start_index+len(games_list)})")
         
         # Обновляем HTML с полным списком игр
         html_updated = update_html_with_hltb(GAMES_LIST_FILE, updated_all_games)
@@ -2215,10 +2297,10 @@ def main():
         # Финальная статистика
         successful = len([g for g in games_list if "hltb" in g])
         log_message(f" Завершено! Обработано {successful}/{chunk_games_count} игр в чанке {CHUNK_INDEX} ({successful/chunk_games_count*100:.1f}%)")
-        log_message(f"📊 Оптимизация: {direct_id_count} игр обработано по ID, {search_count} игр через поиск")
+        log_message(f" Оптимизация: {direct_id_count} игр обработано по ID, {search_count} игр через поиск")
         if direct_id_count > 0:
             optimization_percent = (direct_id_count / (direct_id_count + search_count)) * 100
-            log_message(f"⚡ Экономия времени: {optimization_percent:.1f}% игр обработано без поиска")
+            log_message(f" Экономия времени: {optimization_percent:.1f}% игр обработано без поиска")
         
     except Exception as e:
         log_message(f" Критическая ошибка: {e}")
