@@ -192,6 +192,14 @@ def random_delay(min_seconds, max_seconds):
     delay = random.uniform(min_seconds, max_seconds)
     time.sleep(delay)
 
+def progressive_delay_for_blocking():
+    """Прогрессивная задержка при обнаружении блокировки IP"""
+    delays = [30, 60, 120, 180, 300]  # 30 сек - 5 минут
+    delay = random.choice(delays)
+    log_message(f"⏳ Прогрессивная задержка при блокировке: {delay} секунд")
+    time.sleep(delay)
+
+
 
 def retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5):
     """Пытается получить данные игры с ретраями при блокировках"""
@@ -320,12 +328,12 @@ def search_game_links_only(page, game_title):
         page_content = page.content()
         if "blocked" in page_content.lower() or "access denied" in page_content.lower():
             log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
-            # При блокировке делаем адаптивную задержку
-            adaptive_delay_for_blocking()
+            # При блокировке делаем прогрессивную задержку
+            progressive_delay_for_blocking()
             return None
         elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
             log_message(" Cloudflare проверка при поиске - ждем...")
-            time.sleep(5)
+            time.sleep(10)
             page_content = page.content()
             if "checking your browser" in page_content.lower():
                 log_message("❌ Cloudflare блокирует поиск")
@@ -382,12 +390,12 @@ def extract_data_from_selected_game(page, selected_link):
         page_content = page.content()
         if "blocked" in page_content.lower() or "access denied" in page_content.lower():
             log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
-            # При блокировке делаем адаптивную задержку
-            adaptive_delay_for_blocking()
+            # При блокировке делаем прогрессивную задержку
+            progressive_delay_for_blocking()
             return None
         elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
             log_message(" Cloudflare проверка на странице игры - ждем...")
-            time.sleep(5)
+            time.sleep(10)
             page_content = page.content()
             if "checking your browser" in page_content.lower():
                 log_message("❌ Cloudflare блокирует страницу игры")
@@ -620,12 +628,12 @@ def search_game_single_attempt(page, game_title):
         page_content = page.content()
         if "blocked" in page_content.lower() or "access denied" in page_content.lower():
             log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
-            # При блокировке делаем адаптивную задержку
-            adaptive_delay_for_blocking()
+            # При блокировке делаем прогрессивную задержку
+            progressive_delay_for_blocking()
             return None
         elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
             log_message(" Cloudflare проверка при поиске - ждем...")
-            time.sleep(5)
+            time.sleep(10)
             page_content = page.content()
             if "checking your browser" in page_content.lower():
                 log_message("❌ Cloudflare блокирует поиск")
@@ -677,12 +685,12 @@ def search_game_single_attempt(page, game_title):
         page_content = page.content()
         if "blocked" in page_content.lower() or "access denied" in page_content.lower():
             log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
-            # При блокировке делаем адаптивную задержку
-            adaptive_delay_for_blocking()
+            # При блокировке делаем прогрессивную задержку
+            progressive_delay_for_blocking()
             return None
         elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
             log_message(" Cloudflare проверка на странице игры - ждем...")
-            time.sleep(5)
+            time.sleep(10)
             page_content = page.content()
             if "checking your browser" in page_content.lower():
                 log_message("❌ Cloudflare блокирует страницу игры")
@@ -1104,11 +1112,11 @@ def determine_base_part_new(parts):
         return None
     
     # Простая реализация - берем первое слово из первой части
-            first_part = parts[0]
+    first_part = parts[0]
     if " " not in first_part:
         return None
     
-                words = first_part.split()
+    words = first_part.split()
     if len(words) < 2:
         return None
     
@@ -1223,7 +1231,7 @@ def calculate_title_similarity(title1, title2, year1=None, year2=None):
         
     except Exception as e:
         log_message(f"❌ Ошибка вычисления схожести: {e}")
-            return 0.0
+        return 0.0
         
 def extract_release_year_from_page(page):
     """Извлекает год релиза со страницы игры HLTB"""
@@ -1277,7 +1285,7 @@ def extract_release_year_from_page(page):
                                     extract_release_year_from_page.year_cache[page_url] = year_int
                                     extract_release_year_from_page.quick_cache[page_url] = year_int
                                     return year_int
-    except Exception as e:
+        except Exception as e:
             log_message(f" Ошибка извлечения года из JSON: {e}")
         
         # Если JSON не сработал, ищем в HTML тексте
@@ -1580,7 +1588,7 @@ def extract_table_data(page):
         
         return table_data if table_data else None
         
-                    except Exception as e:
+    except Exception as e:
         log_message(f"❌ Ошибка извлечения данных из таблиц: {e}")
         return None
 
@@ -2046,12 +2054,12 @@ def main():
                 page_content = page.content()
                 if "blocked" in page_content.lower() or "access denied" in page_content.lower():
                     log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP! Сайт заблокировал доступ")
-                    # При блокировке делаем адаптивную задержку
-                    adaptive_delay_for_blocking()
+                    # При блокировке делаем прогрессивную задержку
+                    progressive_delay_for_blocking()
                     return
                 elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
                     log_message(" Cloudflare проверка браузера - ждем...")
-                    time.sleep(5)
+                    time.sleep(10)
                     page_content = page.content()
                     if "checking your browser" in page_content.lower():
                         log_message("❌ Cloudflare блокирует доступ")
