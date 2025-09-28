@@ -268,9 +268,11 @@ def search_game_on_hltb(page, game_title, game_year=None):
             all_results = []
             
             for alt_title in alternative_titles:
+                log_message(f"🔍 Ищем по альтернативе: '{alt_title}'")
                 # Ищем только ссылки, не переходя на страницу
                 game_links = search_game_links_only(page, alt_title)
                 if game_links:
+                    log_message(f"✅ Найдено {len(game_links)} результатов для '{alt_title}'")
                     # Вычисляем схожесть между оригинальным названием и альтернативным
                     score = calculate_title_similarity(
                         clean_title_for_comparison(game_title),
@@ -282,6 +284,8 @@ def search_game_on_hltb(page, game_title, game_year=None):
                         'score': score,
                         'title': alt_title
                     })
+                else:
+                    log_message(f"❌ Не найдено результатов для '{alt_title}'")
             
             # Если есть результаты, выбираем лучший с учетом года
             if all_results:
@@ -302,6 +306,7 @@ def search_game_on_hltb(page, game_title, game_year=None):
 def search_game_links_only(page, game_title):
     """Ищет только ссылки на игры без перехода на страницу"""
     try:
+        log_message(f"🔍 Поиск ссылок для: '{game_title}'")
         
         # Кодируем название для URL
         safe_title = quote(game_title, safe="")
@@ -938,6 +943,13 @@ def generate_alternative_titles(game_title):
             if no_subtitle and no_subtitle not in alternatives:
                 alternatives.append(no_subtitle)
                 log_message(f" Добавлен вариант без подзаголовка: '{no_subtitle}'")
+        
+        # Добавляем варианты для аббревиатур
+        abbreviation_variants = generate_abbreviation_variants(game_title)
+        for variant in abbreviation_variants:
+            if variant and variant not in alternatives:
+                alternatives.append(variant)
+                log_message(f" Добавлен вариант аббревиатуры: '{variant}'")
     
     # Убираем дубликаты, сохраняя порядок
     unique_alternatives = []
@@ -946,6 +958,56 @@ def generate_alternative_titles(game_title):
             unique_alternatives.append(alt)
     
     return unique_alternatives
+
+def generate_abbreviation_variants(title):
+    """Генерирует варианты для аббревиатур типа F.E.A.R. First Encounter Assault Recon"""
+    variants = []
+    import re
+    
+    # Ищем паттерн аббревиатуры: буквы с точками, за которыми следует расшифровка
+    # Пример: "F.E.A.R. First Encounter Assault Recon" -> "F.E.A.R."
+    abbreviation_pattern = r'^([A-Z](?:\.[A-Z]\.?)*)\s+(.+)$'
+    match = re.match(abbreviation_pattern, title)
+    
+    if match:
+        abbreviation = match.group(1)
+        expansion = match.group(2)
+        
+        # Добавляем саму аббревиатуру
+        variants.append(abbreviation)
+        
+        # Добавляем аббревиатуру без точек
+        no_dots = abbreviation.replace('.', '')
+        if no_dots != abbreviation:
+            variants.append(no_dots)
+        
+        # Добавляем аббревиатуру с пробелами вместо точек
+        with_spaces = abbreviation.replace('.', ' ')
+        if with_spaces != abbreviation:
+            variants.append(with_spaces)
+        
+        # Добавляем только первое слово из расшифровки
+        first_word = expansion.split()[0] if expansion.split() else ""
+        if first_word and first_word != abbreviation:
+            variants.append(first_word)
+    
+    # Ищем паттерн с дефисом: "F.E.A.R. - First Encounter Assault Recon"
+    dash_pattern = r'^([A-Z](?:\.[A-Z]\.?)*)\s*-\s*(.+)$'
+    match = re.match(dash_pattern, title)
+    
+    if match:
+        abbreviation = match.group(1)
+        expansion = match.group(2)
+        
+        # Добавляем саму аббревиатуру
+        variants.append(abbreviation)
+        
+        # Добавляем аббревиатуру без точек
+        no_dots = abbreviation.replace('.', '')
+        if no_dots != abbreviation:
+            variants.append(no_dots)
+    
+    return variants
 
 def generate_roman_variants(title):
     """Генерирует варианты с римскими/арабскими цифрами"""
@@ -1532,6 +1594,16 @@ def extract_store_links(page):
                 if link_element.count() > 0:
                     href = link_element.get_attribute("href")
                     if href:
+                        # Специальная проверка для магазинов - не сохраняем если цена N/A
+                        if store_name in ["steam", "epic", "gog", "humble", "itch", "origin", "uplay", "battlenet", "psn", "xbox", "nintendo"]:
+                            # Ищем цену в кнопке магазина
+                            price_element = link_element.locator('.StoreButton_price__agxuh')
+                            if price_element.count() > 0:
+                                price_text = price_element.inner_text().strip()
+                                if price_text == "N/A":
+                                    log_message(f" {store_name.title()} ссылка пропущена - цена N/A")
+                                    continue
+                        
                         # Очищаем реферальные ссылки для GOG
                         if store_name == "gog" and "adtraction.com" in href:
                             # Извлекаем прямую ссылку из реферальной
@@ -2018,8 +2090,32 @@ def main():
         
         # Обновляем HTML файл с новыми данными HLTB
         log_message("🔄 Обновляем HTML файл с данными HLTB...")
-        # Для обновления HTML используем полный список игр
-        html_updated = update_html_with_hltb(GAMES_LIST_FILE, all_games)
+        
+        # Создаем полный список игр с обновленными данными HLTB
+        updated_all_games = all_games.copy()
+        
+        # Обновляем только обработанные игры в полном списке
+        updated_count = 0
+        skipped_count = 0
+        for i, processed_game in enumerate(games_list):
+            global_index = start_index + i
+            if global_index < len(updated_all_games):
+                # Копируем HLTB данные из обработанной игры
+                if "hltb" in processed_game:
+                    # Проверяем, есть ли уже HLTB данные в полном списке
+                    if "hltb" in updated_all_games[global_index]:
+                        # Если уже есть данные, пропускаем (не перезаписываем)
+                        skipped_count += 1
+                        log_message(f"⚠️ Игра {global_index+1} уже имеет HLTB данные, пропускаем")
+                    else:
+                        # Добавляем новые HLTB данные
+                        updated_all_games[global_index]["hltb"] = processed_game["hltb"]
+                        updated_count += 1
+        
+        log_message(f"📝 Обновлено {updated_count} игр, пропущено {skipped_count} игр в полном списке (позиции {start_index+1}-{start_index+len(games_list)})")
+        
+        # Обновляем HTML с полным списком игр
+        html_updated = update_html_with_hltb(GAMES_LIST_FILE, updated_all_games)
         if html_updated:
             log_message("✅ HTML файл успешно обновлен")
         else:
