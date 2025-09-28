@@ -276,11 +276,9 @@ def search_game_on_hltb(page, game_title, game_year=None):
             all_results = []
             
             for alt_title in alternative_titles:
-                log_message(f"🔍 Ищем по альтернативе: '{alt_title}'")
                 # Ищем только ссылки, не переходя на страницу
                 game_links = search_game_links_only(page, alt_title)
                 if game_links:
-                    log_message(f"✅ Найдено {len(game_links)} результатов для '{alt_title}'")
                     # Вычисляем схожесть между оригинальным названием и альтернативным
                     score = calculate_title_similarity(
                         clean_title_for_comparison(game_title),
@@ -314,7 +312,6 @@ def search_game_on_hltb(page, game_title, game_year=None):
 def search_game_links_only(page, game_title):
     """Ищет только ссылки на игры без перехода на страницу"""
     try:
-        log_message(f"🔍 Поиск ссылок для: '{game_title}'")
         
         # Кодируем название для URL
         safe_title = quote(game_title, safe="")
@@ -768,12 +765,10 @@ def extract_primary_title(game_title):
         # Если части без пробелов (например "Gold/Silver/Crystal"), объединяем с "and"
         if all(" " not in part for part in parts):
             primary = f"{parts[0]} and {parts[1]}"
-            log_message(f" Объединяем части: '{game_title}' -> '{primary}'")
             return primary
         else:
             # Если есть пробелы, берем только первую часть
             primary = parts[0]
-            log_message(f" Извлекаем основное название: '{game_title}' -> '{primary}'")
             return primary
     
     return game_title
@@ -788,7 +783,6 @@ def extract_alternative_title(game_title):
     # Если части без пробелов, возвращаем вторую часть
     if len(parts) >= 2 and all(" " not in part for part in parts):
         alternative = parts[1]
-        log_message(f" Альтернативное название: '{game_title}' -> '{alternative}'")
         return alternative
     
     return None
@@ -830,7 +824,6 @@ def generate_alternative_titles(game_title):
     if " / " in game_title:
         # Слеш с пробелами - два отдельных названия (НЕ включаем оригинал)
         parts = [part.strip() for part in game_title.split(" / ")]
-        log_message(f" Обрабатываем слеш с пробелами: {parts}")
         
         # Порядок: A, B, A римские, B римские, A амперсанд, B амперсанд, A без скобок, B без скобок
         for part in parts:
@@ -863,7 +856,6 @@ def generate_alternative_titles(game_title):
                 simplified = part.split(":")[0].strip()
                 if simplified and simplified not in alternatives:
                     alternatives.append(simplified)
-                    log_message(f" Добавлен упрощенный вариант из части: '{simplified}'")
         
         # Варианты без подзаголовков в скобках для каждой части
         for part in parts:
@@ -871,19 +863,16 @@ def generate_alternative_titles(game_title):
                 no_subtitle = part.split("(")[0].strip()
                 if no_subtitle and no_subtitle not in alternatives:
                     alternatives.append(no_subtitle)
-                    log_message(f" Добавлен вариант без подзаголовка из части: '{no_subtitle}'")
                 
     elif "/" in game_title and " / " not in game_title:
         # Слеш без пробелов - определяем базовую часть
         parts = [part.strip() for part in game_title.split("/")]
-        log_message(f" Обрабатываем слеш без пробелов: {parts}")
         
         # Добавляем оригинал
         alternatives.append(game_title)
         
         # Определяем базовую часть (префикс)
         base = determine_base_part_new(parts)
-        log_message(f" Базовая часть: '{base}'")
         
         if base:
             # Новый порядок: все вместе, парные, одиночные
@@ -958,7 +947,6 @@ def generate_alternative_titles(game_title):
             simplified = game_title.split(":")[0].strip()
             if simplified and simplified not in alternatives:
                 alternatives.append(simplified)
-                log_message(f" Добавлен упрощенный вариант: '{simplified}'")
         
         # Добавляем варианты без подзаголовков в скобках
         if "(" in game_title and ")" in game_title:
@@ -966,14 +954,12 @@ def generate_alternative_titles(game_title):
             no_subtitle = game_title.split("(")[0].strip()
             if no_subtitle and no_subtitle not in alternatives:
                 alternatives.append(no_subtitle)
-                log_message(f" Добавлен вариант без подзаголовка: '{no_subtitle}'")
         
         # Добавляем варианты для аббревиатур
         abbreviation_variants = generate_abbreviation_variants(game_title)
         for variant in abbreviation_variants:
             if variant and variant not in alternatives:
                 alternatives.append(variant)
-                log_message(f" Добавлен вариант аббревиатуры: '{variant}'")
     
     # Убираем дубликаты, сохраняя порядок
     unique_alternatives = []
