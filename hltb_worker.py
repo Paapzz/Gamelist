@@ -210,32 +210,44 @@ def extract_data_by_hltb_id(page, hltb_id):
         
         # Пробуем извлечь данные с повторными попытками при таймаутах
         max_attempts = 3
-        delays = [10, 30, 60]  # Паузы между попытками: 15, 30, 60 секунд
+        timeouts = [20000, 25000, 30000]  # Увеличивающиеся таймауты: 20с, 25с, 30с
         
         for attempt in range(max_attempts):
             try:
                 if attempt > 0:
                     log_message(f" Повторная попытка {attempt + 1}/{max_attempts} извлечения данных по ID {hltb_id}...")
-                log_message(f" Пауза {delays[attempt]} секунд перед попыткой {attempt + 1}...")
-                time.sleep(delays[attempt])
                 
-                # Переходим напрямую на страницу игры с увеличенным таймаутом
-                page.goto(game_url, timeout=20000)  # Увеличиваем таймаут до 20 секунд
-                page.wait_for_load_state("domcontentloaded", timeout=20000)  # Увеличиваем таймаут до 20 секунд
+                # Рандомная пауза 1-3 секунды перед попыткой
+                random_delay(1, 3)
+                
+                # Переходим напрямую на страницу игры с увеличивающимся таймаутом
+                page.goto(game_url, wait_until="domcontentloaded", timeout=timeouts[attempt])
+                
+                # Ждем появления таблиц с увеличивающимся таймаутом
+                page.wait_for_selector('table', timeout=8000)
                 
                 # Проверяем на блокировку
                 page_content = page.content()
                 if "blocked" in page_content.lower() or "access denied" in page_content.lower():
                     log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при прямом доступе!")
                     progressive_delay_for_blocking()
-                    return None
+                    if attempt < max_attempts - 1:
+                        log_message(f" Повторная попытка после блокировки (попытка {attempt + 2})...")
+                        continue
+                    else:
+                        log_message("❌ Блокировка IP - все попытки исчерпаны")
+                        return None
                 elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
                     log_message(" Cloudflare проверка при прямом доступе - ждем...")
                     time.sleep(10)
                     page_content = page.content()
                     if "checking your browser" in page_content.lower():
                         log_message("❌ Cloudflare блокирует прямой доступ")
-                        return None
+                        if attempt < max_attempts - 1:
+                            log_message(f" Повторная попытка после Cloudflare (попытка {attempt + 2})...")
+                            continue
+                        else:
+                            return None
                 
                 # Ждем загрузки страницы
                 random_delay(3, 5)
@@ -388,66 +400,105 @@ def search_game_on_hltb(page, game_title, game_year=None):
 def search_game_links_only(page, game_title):
     """Ищет только ссылки на игры без перехода на страницу"""
     try:
-        
         # Кодируем название для URL
         safe_title = quote(game_title, safe="")
         search_url = f"{BASE_URL}/?q={safe_title}"
         
-        # Переходим на страницу поиска
-        page.goto(search_url, timeout=15000)
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        # Пробуем поиск с повторными попытками при таймаутах
+        max_attempts = 3
+        timeouts = [15000, 20000, 25000]  # Увеличивающиеся таймауты: 15с, 20с, 25с
         
-        # Проверяем на блокировку
-        page_content = page.content()
-        if "blocked" in page_content.lower() or "access denied" in page_content.lower():
-            log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
-            # При блокировке делаем прогрессивную задержку
-            progressive_delay_for_blocking()
-            return None
-        elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
-            log_message(" Cloudflare проверка при поиске - ждем...")
-            time.sleep(10)
-            page_content = page.content()
-            if "checking your browser" in page_content.lower():
-                log_message("❌ Cloudflare блокирует поиск")
-                return None
+        for attempt in range(max_attempts):
+            try:
+                if attempt > 0:
+                    log_message(f" Повторная попытка {attempt + 1}/{max_attempts} поиска для '{game_title}'...")
+                
+                # Переходим на страницу поиска с увеличивающимся таймаутом
+                page.goto(search_url, wait_until="domcontentloaded", timeout=timeouts[attempt])
+                
+                # Проверяем на блокировку
+                page_content = page.content()
+                if "blocked" in page_content.lower() or "access denied" in page_content.lower():
+                    log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
+                    # При блокировке делаем прогрессивную задержку
+                    progressive_delay_for_blocking()
+                    if attempt < max_attempts - 1:
+                        log_message(f" Повторная попытка после блокировки (попытка {attempt + 2})...")
+                        continue
+                    else:
+                        return None
+                elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
+                    log_message(" Cloudflare проверка при поиске - ждем...")
+                    time.sleep(10)
+                    page_content = page.content()
+                    if "checking your browser" in page_content.lower():
+                        log_message("❌ Cloudflare блокирует поиск")
+                        if attempt < max_attempts - 1:
+                            log_message(f" Повторная попытка после Cloudflare (попытка {attempt + 2})...")
+                            continue
+                        else:
+                            return None
+                
+                # Ждем появления результатов поиска с увеличивающимся таймаутом
+                page.wait_for_selector('a[href^="/game/"]', timeout=timeouts[attempt])
+                
+                # Ждем загрузки результатов поиска
+                random_delay(5, 8)
+                
+                # Ищем все ссылки на игры
+                game_links = page.locator('a[href^="/game/"]')
+                found_count = game_links.count()
+                
+                if found_count == 0:
+                    random_delay(2, 4)
+                    found_count = game_links.count()
+                
+                if found_count > 10:
+                    random_delay(5, 8)
+                    found_count = game_links.count()
+                
+                if found_count == 0:
+                    if attempt == max_attempts - 1:
+                        return None
+                    else:
+                        log_message(f" Результаты не найдены (попытка {attempt + 1}), пробуем снова...")
+                        continue
+                
+                # Возвращаем все найденные ссылки
+                links_data = []
+                for i in range(min(found_count, 10)):  # Берем первые 10 результатов
+                    link = game_links.nth(i)
+                    link_text = link.inner_text().strip()
+                    link_href = link.get_attribute("href")
+                    
+                    if link_text and link_href:
+                        links_data.append({
+                            'text': link_text,
+                            'href': link_href,
+                            'element': link
+                        })
+                
+                if attempt > 0:
+                    log_message(f"✅ Поиск успешен с попытки {attempt + 1}")
+                
+                return links_data
+                
+            except Exception as e:
+                error_msg = str(e)
+                if "Timeout" in error_msg:
+                    log_message(f" Таймаут при поиске '{game_title}' (попытка {attempt + 1}): {e}")
+                    if attempt == max_attempts - 1:
+                        log_message(f"❌ Все {max_attempts} попыток исчерпаны для поиска '{game_title}' - таймауты")
+                        return None
+                else:
+                    log_message(f"❌ Ошибка поиска '{game_title}' (попытка {attempt + 1}): {e}")
+                    if attempt == max_attempts - 1:
+                        return None
         
-        # Ждем загрузки результатов поиска
-        random_delay(5, 8)
-        
-        # Ищем все ссылки на игры
-        game_links = page.locator('a[href^="/game/"]')
-        found_count = game_links.count()
-        
-        if found_count == 0:
-            random_delay(2, 4)
-            found_count = game_links.count()
-        
-        if found_count > 10:
-            random_delay(5, 8)
-            found_count = game_links.count()
-        
-        if found_count == 0:
-            return None
-        
-        # Возвращаем все найденные ссылки
-        links_data = []
-        for i in range(min(found_count, 10)):  # Берем первые 10 результатов
-            link = game_links.nth(i)
-            link_text = link.inner_text().strip()
-            link_href = link.get_attribute("href")
-            
-            if link_text and link_href:
-                links_data.append({
-                    'text': link_text,
-                    'href': link_href,
-                    'element': link
-                })
-        
-        return links_data
+        return None
         
     except Exception as e:
-        log_message(f"❌ Ошибка поиска ссылок для '{game_title}': {e}")
+        log_message(f"❌ Критическая ошибка поиска ссылок для '{game_title}': {e}")
         return None
 
 def extract_data_from_selected_game(page, selected_link):
@@ -457,33 +508,45 @@ def extract_data_from_selected_game(page, selected_link):
         
         # Пробуем извлечь данные с повторными попытками при таймаутах
         max_attempts = 3
-        delays = [10, 30, 60]  # Паузы между попытками: 15, 30, 60 секунд
+        timeouts = [20000, 25000, 30000]  # Увеличивающиеся таймауты: 20с, 25с, 30с
         
         for attempt in range(max_attempts):
             try:
                 if attempt > 0:
                     log_message(f" Повторная попытка {attempt + 1}/{max_attempts} извлечения данных с страницы игры...")
-                log_message(f" Пауза {delays[attempt]} секунд перед попыткой {attempt + 1}...")
-                time.sleep(delays[attempt])
                 
-                # Переходим на страницу выбранной игры с увеличенным таймаутом
-                page.goto(full_url, timeout=20000)  # Увеличиваем таймаут до 20 секунд
-                page.wait_for_load_state("domcontentloaded", timeout=20000)  # Увеличиваем таймаут до 20 секунд
+                # Рандомная пауза 1-3 секунды перед попыткой
+                random_delay(1, 3)
+                
+                # Переходим на страницу выбранной игры с увеличивающимся таймаутом
+                page.goto(full_url, wait_until="domcontentloaded", timeout=timeouts[attempt])
+                
+                # Ждем появления таблиц с увеличивающимся таймаутом
+                page.wait_for_selector('table', timeout=8000)
                 
                 # Проверяем на блокировку на странице игры
                 page_content = page.content()
                 if "blocked" in page_content.lower() or "access denied" in page_content.lower():
                     log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP на странице игры!")
-                    # При блокировке делаем прогрессивную задержку
+                    # При блокировке делаем прогрессивную задержку и пробуем снова
                     progressive_delay_for_blocking()
-                    return None
+                    if attempt < max_attempts - 1:
+                        log_message(f" Повторная попытка после блокировки (попытка {attempt + 2})...")
+                        continue
+                    else:
+                        log_message("❌ Блокировка IP - все попытки исчерпаны")
+                        return None
                 elif "cloudflare" in page_content.lower() and "checking your browser" in page_content.lower():
                     log_message(" Cloudflare проверка на странице игры - ждем...")
                     time.sleep(10)
                     page_content = page.content()
                     if "checking your browser" in page_content.lower():
                         log_message("❌ Cloudflare блокирует страницу игры")
-                        return None
+                        if attempt < max_attempts - 1:
+                            log_message(f" Повторная попытка после Cloudflare (попытка {attempt + 2})...")
+                            continue
+                        else:
+                            return None
                 
                 # Ждем загрузки страницы
                 random_delay(5, 8)
@@ -567,14 +630,14 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
             top_candidates = all_candidates[:3]  # Топ-3 кандидата
         
         # Извлекаем год только для выбранных кандидатов
-        for candidate in top_candidates:
+        for i, candidate in enumerate(top_candidates):
             game_year = extract_year_from_game_page(page, candidate['link'])
             candidate['year'] = game_year
             log_message(f" Кандидат: '{candidate['link']['text']}' (схожесть: {candidate['score']:.3f}, год: {game_year})")
             
-            # Небольшая пауза между запросами для снижения нагрузки
-            if len(top_candidates) > 1:
-                time.sleep(random.uniform(3, 4))  # 3-4 секунды между запросами
+            # Небольшая пауза между запросами для снижения нагрузки (только между кандидатами)
+            if i < len(top_candidates) - 1:  # Не делаем паузу после последнего кандидата
+                time.sleep(random.uniform(2, 3))  # 2-3 секунды между запросами
         
         # Добавляем остальных кандидатов без года
         candidates_with_years = top_candidates + all_candidates[len(top_candidates):]
@@ -690,18 +753,21 @@ def extract_year_from_game_page(page, link):
         
         # Пробуем извлечь год с повторными попытками при таймаутах
         max_attempts = 3
-        delays = [10, 30, 60]  # Паузы между попытками: 15, 30, 60 секунд
+        timeouts = [15000, 20000, 25000]  # Увеличивающиеся таймауты: 15с, 20с, 25с
         
         for attempt in range(max_attempts):
             try:
                 if attempt > 0:
                     log_message(f" Повторная попытка {attempt + 1}/{max_attempts} извлечения года для '{link['text']}'...")
-                log_message(f" Пауза {delays[attempt]} секунд перед попыткой {attempt + 1}...")
-                time.sleep(delays[attempt])
                 
-                # Переходим на страницу игры с увеличенным таймаутом
-                page.goto(full_url, timeout=20000)  # Увеличиваем таймаут до 20 секунд
-                page.wait_for_load_state("domcontentloaded", timeout=20000)  # Увеличиваем таймаут до 20 секунд
+                # Рандомная пауза 1-3 секунды перед попыткой
+                random_delay(1, 3)
+                
+                # Переходим на страницу игры с увеличивающимся таймаутом
+                page.goto(full_url, wait_until="domcontentloaded", timeout=timeouts[attempt])
+                
+                # Ждем появления таблиц с увеличивающимся таймаутом
+                page.wait_for_selector('table', timeout=8000)
                 
                 # Извлекаем год
                 year = extract_release_year_from_page(page)
