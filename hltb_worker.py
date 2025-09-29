@@ -418,6 +418,20 @@ def search_game_links_only(page, game_title):
                 
                 # Проверяем на блокировку и капчу
                 page_content = page.content()
+                
+                # Диагностика: проверяем что именно на странице
+                if "captcha" in page_content.lower():
+                    log_message(f" Найдено слово 'captcha' на странице, проверяем контекст...")
+                    # Ищем контекст вокруг слова captcha
+                    import re
+                    captcha_context = re.findall(r'.{0,50}captcha.{0,50}', page_content.lower())
+                    for context in captcha_context[:3]:  # Показываем первые 3 вхождения
+                        log_message(f" Контекст: '{context.strip()}'")
+                    
+                    # ВРЕМЕННО: отключаем проверку на капчу для диагностики
+                    log_message(" ВРЕМЕННО: пропускаем проверку на капчу для диагностики")
+                    # Продолжаем выполнение без проверки на капчу
+                
                 if "blocked" in page_content.lower() or "access denied" in page_content.lower():
                     log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
                     # При блокировке делаем прогрессивную задержку
@@ -438,14 +452,30 @@ def search_game_links_only(page, game_title):
                             continue
                         else:
                             return None
-                elif "captcha" in page_content.lower() or "robot" in page_content.lower():
-                    log_message("❌ ОБНАРУЖЕНА КАПЧА при поиске!")
-                    if attempt < max_attempts - 1:
-                        log_message(f" Повторная попытка после капчи (попытка {attempt + 2})...")
-                        time.sleep(30)  # Дополнительная пауза при капче
-                        continue
-                    else:
-                        return None
+                # Проверяем на реальную капчу через элементы страницы
+                captcha_elements = page.locator('[class*="captcha"], [id*="captcha"], iframe[src*="captcha"], .g-recaptcha, .hcaptcha')
+                has_captcha_element = captcha_elements.count() > 0
+                
+                # Проверяем на текстовые признаки капчи
+                has_captcha_text = ("captcha" in page_content.lower() and ("solve" in page_content.lower() or "verify" in page_content.lower() or "challenge" in page_content.lower())) or ("robot" in page_content.lower() and "detected" in page_content.lower())
+                
+                # ВРЕМЕННО ОТКЛЮЧЕНО: проверка на капчу для диагностики
+                # if has_captcha_element or has_captcha_text:
+                #     log_message("❌ ОБНАРУЖЕНА КАПЧА при поиске!")
+                #     if has_captcha_element:
+                #         log_message(f" Найдено {captcha_elements.count()} элементов капчи на странице")
+                #     if attempt < max_attempts - 1:
+                #         log_message(f" Повторная попытка после капчи (попытка {attempt + 2})...")
+                #         time.sleep(30)  # Дополнительная пауза при капче
+                #         continue
+                #     else:
+                #         return None
+                
+                # ВРЕМЕННО: логируем информацию о капче, но не останавливаем выполнение
+                if has_captcha_element:
+                    log_message(f" Найдено {captcha_elements.count()} элементов капчи на странице (игнорируем)")
+                if has_captcha_text:
+                    log_message(" Найдены текстовые признаки капчи (игнорируем)")
                 elif "rate limit" in page_content.lower() or "too many requests" in page_content.lower():
                     log_message("❌ ОБНАРУЖЕНО ОГРАНИЧЕНИЕ СКОРОСТИ при поиске!")
                     if attempt < max_attempts - 1:
@@ -457,6 +487,15 @@ def search_game_links_only(page, game_title):
                 
                 # Ждем загрузки результатов поиска
                 random_delay(3, 5)
+                
+                # Дополнительная диагностика: проверяем что на странице
+                log_message(f" Проверяем содержимое страницы поиска...")
+                page_text_length = len(page_content)
+                log_message(f" Размер содержимого страницы: {page_text_length} символов")
+                
+                # Проверяем есть ли JavaScript ошибки
+                js_errors = page.evaluate("() => { return window.console && window.console.error ? 'Есть JS ошибки' : 'Нет JS ошибок'; }")
+                log_message(f" JavaScript ошибки: {js_errors}")
                 
                 # Пробуем дождаться появления результатов с несколькими попытками
                 max_wait_attempts = 3
