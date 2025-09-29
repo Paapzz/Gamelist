@@ -400,8 +400,11 @@ def search_game_on_hltb(page, game_title, game_year=None):
 def search_game_links_only(page, game_title):
     """Ищет только ссылки на игры без перехода на страницу"""
     try:
-        # Кодируем название для URL
+        # Кодируем название для URL (исправляем двойное кодирование)
         safe_title = quote(game_title, safe="")
+        # Убираем двойное кодирование если оно есть
+        if "%25" in safe_title:
+            safe_title = safe_title.replace("%25", "%")
         search_url = f"{BASE_URL}/?q={safe_title}"
         
         # Пробуем поиск с повторными попытками при таймаутах
@@ -497,6 +500,17 @@ def search_game_links_only(page, game_title):
                 js_errors = page.evaluate("() => { return window.console && window.console.error ? 'Есть JS ошибки' : 'Нет JS ошибок'; }")
                 log_message(f" JavaScript ошибки: {js_errors}")
                 
+                # Если есть JS ошибки, ждем дольше для стабилизации
+                if js_errors == "Есть JS ошибки":
+                    log_message(" Обнаружены JS ошибки, ждем дополнительную стабилизацию...")
+                    time.sleep(5)  # Дополнительная пауза при JS ошибках
+                    
+                    # Пробуем исправить JS ошибки перезагрузкой страницы
+                    if attempt < max_attempts - 1:
+                        log_message(" Пробуем исправить JS ошибки перезагрузкой страницы...")
+                        page.reload(wait_until="domcontentloaded", timeout=timeouts[attempt])
+                        time.sleep(3)  # Дополнительная пауза после перезагрузки
+                
                 # Пробуем дождаться появления результатов с несколькими попытками
                 max_wait_attempts = 3
                 found_count = 0
@@ -513,7 +527,11 @@ def search_game_links_only(page, game_title):
                     
                     if wait_attempt < max_wait_attempts - 1:
                         log_message(f" Результаты не найдены, ждем еще... (попытка {wait_attempt + 1}/{max_wait_attempts})")
-                        random_delay(3, 5)
+                        # Увеличиваем задержку если есть JS ошибки
+                        if js_errors == "Есть JS ошибки":
+                            random_delay(5, 8)  # Больше времени при JS ошибках
+                        else:
+                            random_delay(3, 5)  # Обычная задержка
                 
                 # Если результатов нет, ждем еще и пробуем снова
                 if found_count == 0:
@@ -525,21 +543,21 @@ def search_game_links_only(page, game_title):
                 if found_count == 0:
                     log_message(f" Пробуем альтернативные селекторы...")
                     
-                # Диагностика: проверяем что на странице
-                page_title = page.title()
-                log_message(f" Заголовок страницы: {page_title}")
-                
-                # Проверяем URL страницы
-                current_url = page.url
-                log_message(f" Текущий URL: {current_url}")
-                
-                # Проверяем есть ли поисковая строка на странице
-                search_input = page.locator('input[type="search"], input[name="q"]')
-                if search_input.count() > 0:
-                    search_value = search_input.get_attribute("value")
-                    log_message(f" Значение в поисковой строке: '{search_value}'")
-                else:
-                    log_message(" Поисковая строка не найдена на странице")
+                    # Диагностика: проверяем что на странице
+                    page_title = page.title()
+                    log_message(f" Заголовок страницы: {page_title}")
+                    
+                    # Проверяем URL страницы
+                    current_url = page.url
+                    log_message(f" Текущий URL: {current_url}")
+                    
+                    # Проверяем есть ли поисковая строка на странице
+                    search_input = page.locator('input[type="search"], input[name="q"]')
+                    if search_input.count() > 0:
+                        search_value = search_input.get_attribute("value")
+                        log_message(f" Значение в поисковой строке: '{search_value}'")
+                    else:
+                        log_message(" Поисковая строка не найдена на странице")
                     
                     # Проверяем есть ли сообщения об ошибках
                     error_selectors = [
