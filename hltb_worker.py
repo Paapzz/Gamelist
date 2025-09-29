@@ -947,8 +947,11 @@ def search_game_single_attempt(page, game_title):
     try:
         log_message(f" -Ищем: '{game_title}'")
         
-        # Кодируем название для URL
+        # Кодируем название для URL (исправляем двойное кодирование)
         safe_title = quote(game_title, safe="")
+        # Убираем двойное кодирование если оно есть
+        if "%25" in safe_title:
+            safe_title = safe_title.replace("%25", "%")
         search_url = f"{BASE_URL}/?q={safe_title}"
         
         # Переходим на страницу поиска
