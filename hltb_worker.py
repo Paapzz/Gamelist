@@ -210,7 +210,7 @@ def extract_data_by_hltb_id(page, hltb_id):
         
         # Пробуем извлечь данные с повторными попытками при таймаутах
         max_attempts = 3
-        timeouts = [20000, 25000, 30000]  # Увеличивающиеся таймауты: 20с, 25с, 30с
+        timeouts = [12000, 15000, 18000]  # Уменьшены таймауты: 12с, 15с, 18с
         
         for attempt in range(max_attempts):
             try:
@@ -409,7 +409,7 @@ def search_game_links_only(page, game_title):
         
         # Пробуем поиск с повторными попытками при таймаутах
         max_attempts = 3
-        timeouts = [15000, 20000, 25000]  # Увеличивающиеся таймауты: 15с, 20с, 25с
+        timeouts = [10000, 12000, 15000]  # Уменьшены таймауты: 10с, 12с, 15с
         
         for attempt in range(max_attempts):
             try:
@@ -489,7 +489,7 @@ def search_game_links_only(page, game_title):
                         return None
                 
                 # Ждем загрузки результатов поиска
-                random_delay(3, 5)
+                random_delay(1, 2)  # Уменьшено с 3-5 до 1-2 сек
                 
                 # Дополнительная диагностика: проверяем что на странице
                 log_message(f" Проверяем содержимое страницы поиска...")
@@ -503,16 +503,16 @@ def search_game_links_only(page, game_title):
                 # Если есть JS ошибки, ждем дольше для стабилизации
                 if js_errors == "Есть JS ошибки":
                     log_message(" Обнаружены JS ошибки, ждем дополнительную стабилизацию...")
-                    time.sleep(5)  # Дополнительная пауза при JS ошибках
+                    time.sleep(2)  # Уменьшено с 5 до 2 сек
                     
                     # Пробуем исправить JS ошибки перезагрузкой страницы
                     if attempt < max_attempts - 1:
                         log_message(" Пробуем исправить JS ошибки перезагрузкой страницы...")
                         page.reload(wait_until="domcontentloaded", timeout=timeouts[attempt])
-                        time.sleep(3)  # Дополнительная пауза после перезагрузки
+                        time.sleep(1)  # Уменьшено с 3 до 1 сек
                 
                 # Пробуем дождаться появления результатов с несколькими попытками
-                max_wait_attempts = 3
+                max_wait_attempts = 2  # Уменьшено с 3 до 2
                 found_count = 0
                 game_links = None
                 
@@ -529,14 +529,14 @@ def search_game_links_only(page, game_title):
                         log_message(f" Результаты не найдены, ждем еще... (попытка {wait_attempt + 1}/{max_wait_attempts})")
                         # Увеличиваем задержку если есть JS ошибки
                         if js_errors == "Есть JS ошибки":
-                            random_delay(5, 8)  # Больше времени при JS ошибках
+                            random_delay(2, 4)  # Уменьшено с 5-8 до 2-4 сек
                         else:
-                            random_delay(3, 5)  # Обычная задержка
+                            random_delay(1, 3)  # Уменьшено с 3-5 до 1-3 сек
                 
                 # Если результатов нет, ждем еще и пробуем снова
                 if found_count == 0:
                     log_message(f" Результаты не найдены сразу, ждем еще...")
-                    random_delay(5, 8)
+                    random_delay(2, 4)  # Уменьшено с 5-8 до 2-4 сек
                     found_count = game_links.count()
                 
                 # Если все еще нет результатов, пробуем альтернативные селекторы
@@ -651,7 +651,7 @@ def extract_data_from_selected_game(page, selected_link):
         
         # Пробуем извлечь данные с повторными попытками при таймаутах
         max_attempts = 3
-        timeouts = [20000, 25000, 30000]  # Увеличивающиеся таймауты: 20с, 25с, 30с
+        timeouts = [12000, 15000, 18000]  # Уменьшены таймауты: 12с, 15с, 18с
         
         for attempt in range(max_attempts):
             try:
@@ -896,7 +896,7 @@ def extract_year_from_game_page(page, link):
         
         # Пробуем извлечь год с повторными попытками при таймаутах
         max_attempts = 3
-        timeouts = [15000, 20000, 25000]  # Увеличивающиеся таймауты: 15с, 20с, 25с
+        timeouts = [10000, 12000, 15000]  # Уменьшены таймауты: 10с, 12с, 15с
         
         for attempt in range(max_attempts):
             try:
@@ -955,8 +955,8 @@ def search_game_single_attempt(page, game_title):
         search_url = f"{BASE_URL}/?q={safe_title}"
         
         # Переходим на страницу поиска
-        page.goto(search_url, timeout=15000)
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        page.goto(search_url, timeout=10000)  # Уменьшено с 15000 до 10000
+        page.wait_for_load_state("domcontentloaded", timeout=10000)  # Уменьшено с 15000 до 10000
         
         # Проверяем на блокировку после перехода
         page_content = page.content()
