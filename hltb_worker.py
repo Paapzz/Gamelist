@@ -416,7 +416,7 @@ def search_game_links_only(page, game_title):
                 # Переходим на страницу поиска с увеличивающимся таймаутом
                 page.goto(search_url, wait_until="domcontentloaded", timeout=timeouts[attempt])
                 
-                # Проверяем на блокировку
+                # Проверяем на блокировку и капчу
                 page_content = page.content()
                 if "blocked" in page_content.lower() or "access denied" in page_content.lower():
                     log_message("❌ ОБНАРУЖЕНА БЛОКИРОВКА IP при поиске!")
@@ -438,27 +438,113 @@ def search_game_links_only(page, game_title):
                             continue
                         else:
                             return None
-                
-                # Ждем появления результатов поиска с увеличивающимся таймаутом
-                page.wait_for_selector('a[href^="/game/"]', timeout=timeouts[attempt])
+                elif "captcha" in page_content.lower() or "robot" in page_content.lower():
+                    log_message("❌ ОБНАРУЖЕНА КАПЧА при поиске!")
+                    if attempt < max_attempts - 1:
+                        log_message(f" Повторная попытка после капчи (попытка {attempt + 2})...")
+                        time.sleep(30)  # Дополнительная пауза при капче
+                        continue
+                    else:
+                        return None
+                elif "rate limit" in page_content.lower() or "too many requests" in page_content.lower():
+                    log_message("❌ ОБНАРУЖЕНО ОГРАНИЧЕНИЕ СКОРОСТИ при поиске!")
+                    if attempt < max_attempts - 1:
+                        log_message(f" Повторная попытка после ограничения скорости (попытка {attempt + 2})...")
+                        time.sleep(60)  # Дополнительная пауза при ограничении скорости
+                        continue
+                    else:
+                        return None
                 
                 # Ждем загрузки результатов поиска
-                random_delay(5, 8)
+                random_delay(3, 5)
                 
-                # Ищем все ссылки на игры
-                game_links = page.locator('a[href^="/game/"]')
-                found_count = game_links.count()
+                # Пробуем дождаться появления результатов с несколькими попытками
+                max_wait_attempts = 3
+                found_count = 0
+                game_links = None
                 
+                for wait_attempt in range(max_wait_attempts):
+                    # Ищем все ссылки на игры
+                    game_links = page.locator('a[href^="/game/"]')
+                    found_count = game_links.count()
+                    
+                    if found_count > 0:
+                        log_message(f" Найдено {found_count} результатов на попытке ожидания {wait_attempt + 1}")
+                        break
+                    
+                    if wait_attempt < max_wait_attempts - 1:
+                        log_message(f" Результаты не найдены, ждем еще... (попытка {wait_attempt + 1}/{max_wait_attempts})")
+                        random_delay(3, 5)
+                
+                # Если результатов нет, ждем еще и пробуем снова
                 if found_count == 0:
-                    random_delay(2, 4)
+                    log_message(f" Результаты не найдены сразу, ждем еще...")
+                    random_delay(5, 8)
                     found_count = game_links.count()
                 
+                # Если все еще нет результатов, пробуем альтернативные селекторы
+                if found_count == 0:
+                    log_message(f" Пробуем альтернативные селекторы...")
+                    
+                # Диагностика: проверяем что на странице
+                page_title = page.title()
+                log_message(f" Заголовок страницы: {page_title}")
+                
+                # Проверяем URL страницы
+                current_url = page.url
+                log_message(f" Текущий URL: {current_url}")
+                
+                # Проверяем есть ли поисковая строка на странице
+                search_input = page.locator('input[type="search"], input[name="q"]')
+                if search_input.count() > 0:
+                    search_value = search_input.get_attribute("value")
+                    log_message(f" Значение в поисковой строке: '{search_value}'")
+                else:
+                    log_message(" Поисковая строка не найдена на странице")
+                    
+                    # Проверяем есть ли сообщения об ошибках
+                    error_selectors = [
+                        '.error', '.no-results', '.not-found', 
+                        '[class*="error"]', '[class*="no-results"]'
+                    ]
+                    for error_selector in error_selectors:
+                        error_elements = page.locator(error_selector)
+                        if error_elements.count() > 0:
+                            error_text = error_elements.first.inner_text()
+                            log_message(f" Найдено сообщение об ошибке: {error_text}")
+                    
+                    # Пробуем другие возможные селекторы для результатов поиска
+                    alternative_selectors = [
+                        'a[href*="/game/"]',
+                        '.search-result a',
+                        '.game-link',
+                        'a[href^="/game"]',
+                        'a[href*="game"]',
+                        '.result a',
+                        '[data-testid*="game"] a',
+                        'a[href*="howlongtobeat.com/game/"]',
+                        '.game-title a',
+                        '.search-item a',
+                        'a[href*="/game"]'
+                    ]
+                    
+                    for selector in alternative_selectors:
+                        alt_links = page.locator(selector)
+                        alt_count = alt_links.count()
+                        if alt_count > 0:
+                            log_message(f" Найдено {alt_count} результатов с селектором '{selector}'")
+                            game_links = alt_links
+                            found_count = alt_count
+                            break
+                
+                # Если много результатов, ждем дольше для полной загрузки
                 if found_count > 10:
-                    random_delay(5, 8)
+                    random_delay(3, 5)
                     found_count = game_links.count()
                 
                 if found_count == 0:
                     if attempt == max_attempts - 1:
+                        log_message(f" Результаты не найдены после всех попыток и селекторов")
                         return None
                     else:
                         log_message(f" Результаты не найдены (попытка {attempt + 1}), пробуем снова...")
