@@ -208,7 +208,6 @@ def is_valid_gog_link(page, gog_url):
         try:
             age_verification = page.locator('text=Age verification').first
             if age_verification.count() > 0:
-                log_message(f" GOG ссылка валидна: обнаружена страница проверки возраста")
                 page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
                 return True
         except:
@@ -231,10 +230,7 @@ def is_valid_gog_link(page, gog_url):
         try:
             # Проверяем заголовок страницы
             page_title = page.title()
-            log_message(f" GOG заголовок страницы: '{page_title}'")
-            
             if "Browse" in page_title or "Games" in page_title or "Catalog" in page_title:
-                log_message(f" GOG ссылка невалидна: страница каталога (заголовок: {page_title})")
                 page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
                 return False
             
@@ -242,37 +238,24 @@ def is_valid_gog_link(page, gog_url):
             game_title = page.locator('h1').first
             if game_title.count() > 0:
                 title_text = game_title.text_content()
-                log_message(f" GOG заголовок H1: '{title_text}'")
-                
                 # Если заголовок содержит "Browse" или "Games", это каталог
                 if "Browse" in title_text or "Games" in title_text or "All games" in title_text:
-                    log_message(f" GOG ссылка невалидна: страница каталога (H1: {title_text})")
                     page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
                     return False
             
             # Проверяем наличие кнопок покупки (характерно для страницы игры)
             buy_buttons = page.locator('text=Buy now, text=Add to cart, text=Install, text=Play').first
-            buy_count = buy_buttons.count()
-            log_message(f" GOG кнопки покупки найдено: {buy_count}")
-            
-            if buy_count == 0:
+            if buy_buttons.count() == 0:
                 # Если нет кнопок покупки, проверяем, есть ли элементы каталога
                 catalog_elements = page.locator('text=Browse games, text=All games, text=New releases').first
-                catalog_count = catalog_elements.count()
-                log_message(f" GOG элементы каталога найдено: {catalog_count}")
-                
-                if catalog_count > 0:
-                    log_message(f" GOG ссылка невалидна: обнаружены элементы каталога")
+                if catalog_elements.count() > 0:
                     page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
                     return False
-        except Exception as e:
-            log_message(f" GOG ошибка проверки содержимого: {e}")
+        except:
             pass
         
         # Возвращаемся на исходную страницу
         page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
-        
-        log_message(f" GOG проверка: {gog_url} → {current_url}")
         
         # Проверяем, что мы не на главной странице GOG или странице каталога
         invalid_urls = [
@@ -284,7 +267,6 @@ def is_valid_gog_link(page, gog_url):
         ]
         
         if current_url in invalid_urls:
-            log_message(f" GOG ссылка невалидна: перенаправление на {current_url}")
             return False
         
         # Проверяем, что URL содержит путь к игре (не главная страница или каталог)
@@ -293,25 +275,20 @@ def is_valid_gog_link(page, gog_url):
             current_url.endswith("/en/") or
             current_url.endswith("/games") or
             current_url.endswith("/games/")):
-            log_message(f" GOG ссылка невалидна: заканчивается на /en или /games")
             return False
         
         # Если URL содержит /game/ или /en/game/, то это валидная ссылка на игру
         if "/game/" in current_url or "/en/game/" in current_url:
-            log_message(f" GOG ссылка валидна: содержит /game/")
             return True
         
         # Если URL изменился с исходного, но не на главную - считаем валидным
         if current_url != gog_url and "gog.com" in current_url:
-            log_message(f" GOG ссылка валидна: URL изменился, но остался на gog.com")
             return True
         
-        log_message(f" GOG ссылка невалидна: неопределенный случай")
         return False
         
     except Exception as e:
         # В случае ошибки считаем ссылку невалидной
-        log_message(f" Ошибка проверки GOG ссылки: {e}")
         return False
 
 def progressive_delay_for_blocking():
@@ -501,7 +478,7 @@ def search_game_on_hltb(page, game_title, game_year=None):
                         'title': alt_title
                     })
                 else:
-                    log_message(f"❌ Не найдено результатов для '{alt_title}'")
+                    log_message(f" -Не найдено результатов для '{alt_title}'")
             
             # Если есть результаты, выбираем лучший с учетом года
             if all_results:
@@ -897,15 +874,18 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
                     'selected_link': candidate['link']
                 }
         
-        # Приоритет 2: название >= 0.8 + год ближайший в меньшую сторону
-        for candidate in candidates_with_years:
-            if candidate['score'] >= 0.8 and candidate['year'] is not None and candidate['year'] < original_year:
-                log_message(f" -ПРИОРИТЕТ 2: {candidate['link']['text']} (схожесть: {candidate['score']:.3f}, год: {candidate['year']})")
-                return {
-                    'title': candidate['title'],
-                    'score': candidate['score'],
-                    'selected_link': candidate['link']
-                }
+        # Приоритет 2: название >= 0.8 + самый ранний год (меньше оригинального)
+        early_year_candidates = [c for c in candidates_with_years if c['score'] >= 0.8 and c['year'] is not None and c['year'] < original_year]
+        if early_year_candidates:
+            # Сортируем по году (самый ранний первый)
+            early_year_candidates.sort(key=lambda x: x['year'])
+            best_early = early_year_candidates[0]
+            log_message(f" -ПРИОРИТЕТ 2: {best_early['link']['text']} (схожесть: {best_early['score']:.3f}, год: {best_early['year']})")
+            return {
+                'title': best_early['title'],
+                'score': best_early['score'],
+                'selected_link': best_early['link']
+            }
         
         # Приоритет 3: название >= 0.8 + год ближайший в любую сторону
         # Но только если нет кандидатов с более высокой схожестью без года
@@ -1840,10 +1820,7 @@ def extract_hltb_data_from_page(page):
         # Собираем ссылки на магазины
         store_links = extract_store_links(page)
         if store_links:
-            log_message(f" Сохранены ссылки на магазины: {list(store_links.keys())}")
             hltb_data["stores"] = store_links
-        else:
-            log_message(f" Ссылки на магазины не найдены")
         
         # Добавляем ID игры из URL HLTB
         import re
@@ -2062,12 +2039,8 @@ def extract_store_links(page):
                         
                         # Проверяем валидность GOG ссылки
                         if store_name == "gog":
-                            log_message(f" Проверяем GOG ссылку: {href}")
                             if not is_valid_gog_link(page, href):
-                                log_message(f" GOG ссылка недействительна, пропускаем: {href}")
                                 continue
-                            else:
-                                log_message(f" GOG ссылка валидна: {href}")
                         
                         store_links[store_name] = href
             except:
