@@ -1798,7 +1798,10 @@ def extract_hltb_data_from_page(page):
         # Собираем ссылки на магазины
         store_links = extract_store_links(page)
         if store_links:
+            log_message(f" Сохранены ссылки на магазины: {list(store_links.keys())}")
             hltb_data["stores"] = store_links
+        else:
+            log_message(f" Ссылки на магазины не найдены")
         
         # Добавляем ID игры из URL HLTB
         import re
