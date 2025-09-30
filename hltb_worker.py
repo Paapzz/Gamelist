@@ -210,6 +210,8 @@ def is_valid_gog_link(page, gog_url):
         # Возвращаемся на исходную страницу
         page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
         
+        log_message(f" GOG проверка: {gog_url} → {current_url}")
+        
         # Проверяем, что мы не на главной странице GOG или странице каталога
         invalid_urls = [
             "https://www.gog.com/",
@@ -220,6 +222,7 @@ def is_valid_gog_link(page, gog_url):
         ]
         
         if current_url in invalid_urls:
+            log_message(f" GOG ссылка невалидна: перенаправление на {current_url}")
             return False
         
         # Проверяем, что URL содержит путь к игре (не главная страница или каталог)
@@ -228,16 +231,20 @@ def is_valid_gog_link(page, gog_url):
             current_url.endswith("/en/") or
             current_url.endswith("/games") or
             current_url.endswith("/games/")):
+            log_message(f" GOG ссылка невалидна: заканчивается на /en или /games")
             return False
         
         # Если URL содержит /game/ или /en/game/, то это валидная ссылка на игру
         if "/game/" in current_url or "/en/game/" in current_url:
+            log_message(f" GOG ссылка валидна: содержит /game/")
             return True
         
         # Если URL изменился с исходного, но не на главную - считаем валидным
         if current_url != gog_url and "gog.com" in current_url:
+            log_message(f" GOG ссылка валидна: URL изменился, но остался на gog.com")
             return True
         
+        log_message(f" GOG ссылка невалидна: неопределенный случай")
         return False
         
     except Exception as e:
@@ -628,7 +635,6 @@ def search_game_links_only(page, game_title):
                 
                 if found_count == 0:
                     if attempt == max_attempts - 1:
-                        log_message(f" Результаты не найдены после всех попыток и селекторов")
                         return None
                     else:
                         pass  # Убрали логи повторных попыток
@@ -1991,9 +1997,12 @@ def extract_store_links(page):
                         
                         # Проверяем валидность GOG ссылки
                         if store_name == "gog":
+                            log_message(f" Проверяем GOG ссылку: {href}")
                             if not is_valid_gog_link(page, href):
                                 log_message(f" GOG ссылка недействительна, пропускаем: {href}")
                                 continue
+                            else:
+                                log_message(f" GOG ссылка валидна: {href}")
                         
                         store_links[store_name] = href
             except:
