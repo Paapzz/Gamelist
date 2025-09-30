@@ -201,10 +201,16 @@ def is_valid_gog_link(page, gog_url):
         # Переходим по GOG ссылке
         page.goto(gog_url, timeout=10000, wait_until="domcontentloaded")
         
-        # Ждем немного для загрузки
+        # Ждем загрузки DOM
         time.sleep(2)
         
-        # Получаем текущий URL после перехода
+        # Ждем полной загрузки страницы (включая JavaScript)
+        page.wait_for_load_state("networkidle", timeout=15000)
+        
+        # Дополнительная пауза для JavaScript перенаправлений
+        time.sleep(3)
+        
+        # Получаем текущий URL после всех перенаправлений
         current_url = page.url
         
         # Возвращаемся на исходную страницу
