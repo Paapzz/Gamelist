@@ -229,13 +229,30 @@ def is_valid_gog_link(page, gog_url):
         
         # Дополнительная проверка содержимого страницы
         try:
+            # Проверяем заголовок страницы
+            page_title = page.title()
+            if "Browse" in page_title or "Games" in page_title or "Catalog" in page_title:
+                log_message(f" GOG ссылка невалидна: страница каталога (заголовок: {page_title})")
+                page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
+                return False
+            
             # Проверяем, есть ли на странице элементы, характерные для страницы игры
             game_title = page.locator('h1').first
             if game_title.count() > 0:
                 title_text = game_title.text_content()
                 # Если заголовок содержит "Browse" или "Games", это каталог
-                if "Browse" in title_text or "Games" in title_text:
-                    log_message(f" GOG ссылка невалидна: страница каталога (заголовок: {title_text})")
+                if "Browse" in title_text or "Games" in title_text or "All games" in title_text:
+                    log_message(f" GOG ссылка невалидна: страница каталога (H1: {title_text})")
+                    page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
+                    return False
+            
+            # Проверяем наличие кнопок покупки (характерно для страницы игры)
+            buy_buttons = page.locator('text=Buy now, text=Add to cart, text=Install, text=Play').first
+            if buy_buttons.count() == 0:
+                # Если нет кнопок покупки, проверяем, есть ли элементы каталога
+                catalog_elements = page.locator('text=Browse games, text=All games, text=New releases').first
+                if catalog_elements.count() > 0:
+                    log_message(f" GOG ссылка невалидна: обнаружены элементы каталога")
                     page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
                     return False
         except:
