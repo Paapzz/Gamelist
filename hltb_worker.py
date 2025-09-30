@@ -204,11 +204,25 @@ def is_valid_gog_link(page, gog_url):
         # Ждем загрузки DOM
         time.sleep(2)
         
+        # Проверяем, есть ли страница проверки возраста
+        try:
+            age_verification = page.locator('text=Age verification').first
+            if age_verification.count() > 0:
+                log_message(f" GOG ссылка валидна: обнаружена страница проверки возраста")
+                page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
+                return True
+        except:
+            pass
+        
         # Ждем полной загрузки страницы (включая JavaScript)
-        page.wait_for_load_state("networkidle", timeout=15000)
+        try:
+            page.wait_for_load_state("networkidle", timeout=10000)
+        except:
+            # Если таймаут, продолжаем проверку
+            pass
         
         # Дополнительная пауза для JavaScript перенаправлений
-        time.sleep(5)
+        time.sleep(3)
         
         # Получаем текущий URL после всех перенаправлений
         current_url = page.url
