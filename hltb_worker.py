@@ -826,7 +826,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
                     'year': None
                 })
         
-        # Сортируем по схожести и берем только топ-3 для извлечения года
+        # Сортируем по схожести
         all_candidates.sort(key=lambda x: -x['score'])
         
         # Определяем количество кандидатов для извлечения года
@@ -834,15 +834,15 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
             # Для точных совпадений проверяем, есть ли несколько кандидатов с одинаковой схожестью
             same_score_count = sum(1 for c in all_candidates if c['score'] >= 0.99)
             if same_score_count > 1:
-                # Если несколько кандидатов с одинаковой схожестью, берем их все (до 3)
-                top_candidates = all_candidates[:min(3, same_score_count)]
+                # Если несколько кандидатов с одинаковой схожестью, берем их все (до 5)
+                top_candidates = all_candidates[:min(5, same_score_count)]
                 log_message(f" -Найдено {same_score_count} точных совпадений, извлекаем год для топ-{len(top_candidates)} кандидатов")
             else:
-                # Если только один точный кандидат, берем его + еще 2 лучших
-                top_candidates = all_candidates[:3]
+                # Если только один точный кандидат, берем его + еще 4 лучших
+                top_candidates = all_candidates[:5]
                 pass  # Убрали избыточный лог
         else:
-            top_candidates = all_candidates[:3]  # Топ-3 кандидата
+            top_candidates = all_candidates[:5]  # Топ-5 кандидатов
         
         # Извлекаем год только для выбранных кандидатов
         for i, candidate in enumerate(top_candidates):
@@ -853,6 +853,11 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
             # Небольшая пауза между запросами для снижения нагрузки (только между кандидатами)
             if i < len(top_candidates) - 1:  # Не делаем паузу после последнего кандидата
                 time.sleep(random.uniform(2, 3))  # 2-3 секунды между запросами
+        
+        # После извлечения года сортируем кандидатов по близости к искомому году
+        if original_year is not None:
+            # Сортируем по близости к искомому году (сначала ближайшие)
+            top_candidates.sort(key=lambda x: abs(x.get('year', 9999) - original_year) if x.get('year') is not None else 9999)
         
         # Добавляем остальных кандидатов без года
         candidates_with_years = top_candidates + all_candidates[len(top_candidates):]
