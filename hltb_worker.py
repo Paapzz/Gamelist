@@ -192,6 +192,59 @@ def random_delay(min_seconds, max_seconds):
     delay = random.uniform(min_seconds, max_seconds)
     time.sleep(delay)
 
+def is_valid_gog_link(page, gog_url):
+    """Проверяет валидность GOG ссылки - не перенаправляет ли на главную страницу"""
+    try:
+        # Сохраняем текущий URL
+        original_url = page.url
+        
+        # Переходим по GOG ссылке
+        page.goto(gog_url, timeout=10000, wait_until="domcontentloaded")
+        
+        # Ждем немного для загрузки
+        time.sleep(2)
+        
+        # Получаем текущий URL после перехода
+        current_url = page.url
+        
+        # Возвращаемся на исходную страницу
+        page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
+        
+        # Проверяем, что мы не на главной странице GOG или странице каталога
+        invalid_urls = [
+            "https://www.gog.com/",
+            "https://www.gog.com/en", 
+            "https://www.gog.com/en/",
+            "https://www.gog.com/en/games",
+            "https://www.gog.com/en/games/"
+        ]
+        
+        if current_url in invalid_urls:
+            return False
+        
+        # Проверяем, что URL содержит путь к игре (не главная страница или каталог)
+        if (current_url == "https://www.gog.com/" or 
+            current_url.endswith("/en") or 
+            current_url.endswith("/en/") or
+            current_url.endswith("/games") or
+            current_url.endswith("/games/")):
+            return False
+        
+        # Если URL содержит /game/ или /en/game/, то это валидная ссылка на игру
+        if "/game/" in current_url or "/en/game/" in current_url:
+            return True
+        
+        # Если URL изменился с исходного, но не на главную - считаем валидным
+        if current_url != gog_url and "gog.com" in current_url:
+            return True
+        
+        return False
+        
+    except Exception as e:
+        # В случае ошибки считаем ссылку невалидной
+        log_message(f" Ошибка проверки GOG ссылки: {e}")
+        return False
+
 def progressive_delay_for_blocking():
     """Прогрессивная задержка при обнаружении блокировки IP"""
     delays = [30, 60, 120, 180, 300]  # 30 сек - 5 минут
@@ -385,7 +438,7 @@ def search_game_on_hltb(page, game_title, game_year=None):
             if all_results:
                 best_result = find_best_result_with_year(page, all_results, game_title, game_year)
                 if best_result:
-                    log_message(f" Лучший результат: '{best_result['title']}' (схожесть: {best_result['score']:.2f})")
+                    pass  # Убрали избыточный лог
                     # Теперь извлекаем данные с выбранной страницы
                     return extract_data_from_selected_game(page, best_result['selected_link'])
             
@@ -414,7 +467,7 @@ def search_game_links_only(page, game_title):
         for attempt in range(max_attempts):
             try:
                 if attempt > 0:
-                    log_message(f" Повторная попытка {attempt + 1}/{max_attempts} поиска для '{game_title}'...")
+                    pass  # Убрали логи повторных попыток
                 
                 # Переходим на страницу поиска с увеличивающимся таймаутом
                 page.goto(search_url, wait_until="domcontentloaded", timeout=timeouts[attempt])
@@ -491,23 +544,15 @@ def search_game_links_only(page, game_title):
                 # Ждем загрузки результатов поиска
                 random_delay(1, 2)  # Уменьшено с 3-5 до 1-2 сек
                 
-                # Дополнительная диагностика: проверяем что на странице
-                log_message(f" Проверяем содержимое страницы поиска...")
-                page_text_length = len(page_content)
-                log_message(f" Размер содержимого страницы: {page_text_length} символов")
-                
                 # Проверяем есть ли JavaScript ошибки
                 js_errors = page.evaluate("() => { return window.console && window.console.error ? 'Есть JS ошибки' : 'Нет JS ошибок'; }")
-                log_message(f" JavaScript ошибки: {js_errors}")
                 
                 # Если есть JS ошибки, ждем дольше для стабилизации
                 if js_errors == "Есть JS ошибки":
-                    log_message(" Обнаружены JS ошибки, ждем дополнительную стабилизацию...")
                     time.sleep(2)  # Уменьшено с 5 до 2 сек
                     
                     # Пробуем исправить JS ошибки перезагрузкой страницы
                     if attempt < max_attempts - 1:
-                        log_message(" Пробуем исправить JS ошибки перезагрузкой страницы...")
                         page.reload(wait_until="domcontentloaded", timeout=timeouts[attempt])
                         time.sleep(1)  # Уменьшено с 3 до 1 сек
                 
@@ -522,11 +567,10 @@ def search_game_links_only(page, game_title):
                     found_count = game_links.count()
                     
                     if found_count > 0:
-                        log_message(f" Найдено {found_count} результатов на попытке ожидания {wait_attempt + 1}")
                         break
                     
                     if wait_attempt < max_wait_attempts - 1:
-                        log_message(f" Результаты не найдены, ждем еще... (попытка {wait_attempt + 1}/{max_wait_attempts})")
+                        pass  # Убрали логи ожидания
                         # Увеличиваем задержку если есть JS ошибки
                         if js_errors == "Есть JS ошибки":
                             random_delay(2, 4)  # Уменьшено с 5-8 до 2-4 сек
@@ -535,29 +579,12 @@ def search_game_links_only(page, game_title):
                 
                 # Если результатов нет, ждем еще и пробуем снова
                 if found_count == 0:
-                    log_message(f" Результаты не найдены сразу, ждем еще...")
                     random_delay(2, 4)  # Уменьшено с 5-8 до 2-4 сек
                     found_count = game_links.count()
                 
                 # Если все еще нет результатов, пробуем альтернативные селекторы
                 if found_count == 0:
-                    log_message(f" Пробуем альтернативные селекторы...")
-                    
-                    # Диагностика: проверяем что на странице
-                    page_title = page.title()
-                    log_message(f" Заголовок страницы: {page_title}")
-                    
-                    # Проверяем URL страницы
-                    current_url = page.url
-                    log_message(f" Текущий URL: {current_url}")
-                    
-                    # Проверяем есть ли поисковая строка на странице
-                    search_input = page.locator('input[type="search"], input[name="q"]')
-                    if search_input.count() > 0:
-                        search_value = search_input.get_attribute("value")
-                        log_message(f" Значение в поисковой строке: '{search_value}'")
-                    else:
-                        log_message(" Поисковая строка не найдена на странице")
+                    pass  # Убрали диагностические логи
                     
                     # Проверяем есть ли сообщения об ошибках
                     error_selectors = [
@@ -604,7 +631,7 @@ def search_game_links_only(page, game_title):
                         log_message(f" Результаты не найдены после всех попыток и селекторов")
                         return None
                     else:
-                        log_message(f" Результаты не найдены (попытка {attempt + 1}), пробуем снова...")
+                        pass  # Убрали логи повторных попыток
                         continue
                 
                 # Возвращаем все найденные ссылки
@@ -768,7 +795,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
             else:
                 # Если только один точный кандидат, берем его + еще 2 лучших
                 top_candidates = all_candidates[:3]
-                log_message(f" Найдено точное совпадение, извлекаем год для топ-3 кандидатов")
+                pass  # Убрали избыточный лог
         else:
             top_candidates = all_candidates[:3]  # Топ-3 кандидата
         
@@ -1948,7 +1975,7 @@ def extract_store_links(page):
                             if price_element.count() > 0:
                                 price_text = price_element.inner_text().strip()
                                 if price_text == "N/A":
-                                    log_message(f" {store_name.title()} ссылка пропущена - цена N/A")
+                                    pass  # Убрали избыточный лог
                                     continue
                         
                         # Очищаем реферальные ссылки для GOG
@@ -1961,6 +1988,12 @@ def extract_store_links(page):
                                 # Декодируем URL
                                 from urllib.parse import unquote
                                 href = unquote(href)
+                        
+                        # Проверяем валидность GOG ссылки
+                        if store_name == "gog":
+                            if not is_valid_gog_link(page, href):
+                                log_message(f" GOG ссылка недействительна, пропускаем: {href}")
+                                continue
                         
                         store_links[store_name] = href
             except:
@@ -2276,9 +2309,10 @@ def update_html_with_hltb(html_file, hltb_data):
         if start == -1:
             raise ValueError("Не найден const gamesList в HTML файле")
         
-        end = content.find('];', start) + 2
-        if end == 1:
+        end = content.find('];', start)
+        if end == -1:
             raise ValueError("Не найден конец массива gamesList")
+        end += 2  # Добавляем 2 для включения '];'
         
         # Создаем JSON с HLTB данными (каждая игра на отдельной строке)
         formatted_games = []
@@ -2417,8 +2451,8 @@ def main():
                     hltb_id = existing_hltb.get("hltb_id")
                 
                 if hltb_id:
-                    # Если есть ID, пытаемся извлечь данные напрямую
-                    log_message(f" -Найден существующий HLTB ID {hltb_id}, извлекаем данные напрямую...")
+                    # Если есть ID, пытаемся извлечь актуальные данные напрямую
+                    log_message(f" -Найден существующий HLTB ID {hltb_id}, обновляем актуальные данные...")
                     hltb_data = extract_data_by_hltb_id(page, hltb_id)
                     
                     if hltb_data:
@@ -2435,7 +2469,7 @@ def main():
                             game["hltb"] = hltb_data
                             processed_count += 1
                             search_count += 1
-                            log_message(f"✅✅✅ Найдены данные через поиск: {hltb_data}")
+                            log_message(f"✅✅✅ Данные обновлены через поиск: {hltb_data}")
                         else:
                             # Определяем тип ошибки
                             error_type = determine_error_type(page, game_title)
@@ -2445,13 +2479,14 @@ def main():
                             log_message(f"⚠️  {error_type} для: {game_title} - записано N/A (сохранен ID {hltb_id})")
                 else:
                     # Если нет ID, ищем данные на HLTB с ретраями при блокировках (5 попыток)
+                    log_message(f" -Ищем новые HLTB данные для '{game_title}'...")
                     hltb_data = retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5)
                     
                     if hltb_data:
                         game["hltb"] = hltb_data
                         processed_count += 1
                         search_count += 1
-                        log_message(f"✅✅✅ Найдены данные: {hltb_data}")
+                        log_message(f"✅✅✅ Найдены новые данные: {hltb_data}")
                     else:
                         # Определяем тип ошибки
                         error_type = determine_error_type(page, game_title)
@@ -2479,7 +2514,7 @@ def main():
         # Создаем полный список игр с обновленными данными HLTB
         updated_all_games = all_games.copy()
         
-        # Обновляем только обработанные игры в полном списке
+        # Обновляем все обработанные игры в полном списке
         updated_count = 0
         skipped_count = 0
         for i, processed_game in enumerate(games_list):
@@ -2487,15 +2522,16 @@ def main():
             if global_index < len(updated_all_games):
                 # Копируем HLTB данные из обработанной игры
                 if "hltb" in processed_game:
-                    # Проверяем, есть ли уже HLTB данные в полном списке
-                    if "hltb" in updated_all_games[global_index]:
-                        # Если уже есть данные, пропускаем (не перезаписываем)
-                        skipped_count += 1
-                        log_message(f"⚠️ Игра {global_index+1} уже имеет HLTB данные, пропускаем")
+                    # Всегда обновляем HLTB данные (включая существующие)
+                    old_hltb = updated_all_games[global_index].get("hltb")
+                    updated_all_games[global_index]["hltb"] = processed_game["hltb"]
+                    
+                    if old_hltb:
+                        log_message(f"🔄 Игра {global_index+1} обновлена актуальными HLTB данными")
                     else:
-                        # Добавляем новые HLTB данные
-                        updated_all_games[global_index]["hltb"] = processed_game["hltb"]
-                        updated_count += 1
+                        log_message(f"➕ Игра {global_index+1} получила новые HLTB данные")
+                    
+                    updated_count += 1
         
         log_message(f" Обновлено {updated_count} игр, пропущено {skipped_count} игр в полном списке (позиции {start_index+1}-{start_index+len(games_list)})")
         
