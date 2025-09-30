@@ -208,10 +208,24 @@ def is_valid_gog_link(page, gog_url):
         page.wait_for_load_state("networkidle", timeout=15000)
         
         # Дополнительная пауза для JavaScript перенаправлений
-        time.sleep(3)
+        time.sleep(5)
         
         # Получаем текущий URL после всех перенаправлений
         current_url = page.url
+        
+        # Дополнительная проверка содержимого страницы
+        try:
+            # Проверяем, есть ли на странице элементы, характерные для страницы игры
+            game_title = page.locator('h1').first
+            if game_title.count() > 0:
+                title_text = game_title.text_content()
+                # Если заголовок содержит "Browse" или "Games", это каталог
+                if "Browse" in title_text or "Games" in title_text:
+                    log_message(f" GOG ссылка невалидна: страница каталога (заголовок: {title_text})")
+                    page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
+                    return False
+        except:
+            pass
         
         # Возвращаемся на исходную страницу
         page.goto(original_url, timeout=10000, wait_until="domcontentloaded")
