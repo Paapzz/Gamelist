@@ -1,17 +1,21 @@
-name: Update HLTB (TEST MODE - 9 games)
+name: Update HLTB
 
 on:
-  # ТЕСТОВЫЙ РЕЖИМ - только ручной запуск
+  # Запуск раз в год - 20 января в 00:00 UTC
+  schedule:
+    - cron: '0 0 20 1 *'
+  
+  # Ручной запуск
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  # Чанк 0: игры 1-3 (ТЕСТОВЫЙ РЕЖИМ)
+  # Чанк 0: игры 1-350
   run-hltb-chunk-0:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 360
     concurrency:
       group: hltb-worker-${{ github.run_id }}-chunk-0
       cancel-in-progress: false
@@ -20,7 +24,7 @@ jobs:
       PYTHONUNBUFFERED: 1
       HLTB_DEBUG: "true"
       CHUNK_INDEX: "0"
-      CHUNK_SIZE: "3"
+      CHUNK_SIZE: "350"
 
     steps:
       - name: Checkout (with token for push)
@@ -64,13 +68,13 @@ jobs:
                   print(pkg, "NOT INSTALLED:", e)
           PY
 
-      - name: "Run HLTB worker (Chunk 0: games 1-3) - TEST MODE"
+      - name: "Run HLTB worker (Chunk 0: games 1-350)"
         env:
           HLTB_DEBUG: ${{ env.HLTB_DEBUG }}
           CHUNK_INDEX: ${{ env.CHUNK_INDEX }}
           CHUNK_SIZE: ${{ env.CHUNK_SIZE }}
         run: |
-          echo "Starting hltb_worker.py (DEBUG=${HLTB_DEBUG}, CHUNK_INDEX=${CHUNK_INDEX}, CHUNK_SIZE=${CHUNK_SIZE}) - TEST MODE"
+          echo "Starting hltb_worker.py (DEBUG=${HLTB_DEBUG}, CHUNK_INDEX=${CHUNK_INDEX}, CHUNK_SIZE=${CHUNK_SIZE})"
           python hltb_worker.py
 
       - name: Upload debug dumps (if any)
@@ -124,7 +128,7 @@ jobs:
             exit 0
           fi
 
-          COMMIT_MSG="HLTB worker: chunk 0 (games 1-3) TEST MODE $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          COMMIT_MSG="HLTB worker: chunk 0 (games 1-350) $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           
           if git diff --cached --quiet; then
             echo "No changes staged for commit"
@@ -181,10 +185,10 @@ jobs:
             exit 0
           fi
 
-  # Чанк 1: игры 4-6 (ТЕСТОВЫЙ РЕЖИМ)
+  # Чанк 1: игры 351-700
   run-hltb-chunk-1:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 360
     concurrency:
       group: hltb-worker-${{ github.run_id }}-chunk-1
       cancel-in-progress: false
@@ -194,7 +198,7 @@ jobs:
       PYTHONUNBUFFERED: 1
       HLTB_DEBUG: "true"
       CHUNK_INDEX: "1"
-      CHUNK_SIZE: "3"
+      CHUNK_SIZE: "350"
 
     steps:
       - name: Checkout (with token for push)
@@ -244,13 +248,13 @@ jobs:
                   print(pkg, "NOT INSTALLED:", e)
           PY
 
-      - name: "Run HLTB worker (Chunk 1: games 4-6) - TEST MODE"
+      - name: "Run HLTB worker (Chunk 1: games 351-700)"
         env:
           HLTB_DEBUG: ${{ env.HLTB_DEBUG }}
           CHUNK_INDEX: ${{ env.CHUNK_INDEX }}
           CHUNK_SIZE: ${{ env.CHUNK_SIZE }}
         run: |
-          echo "Starting hltb_worker.py (DEBUG=${HLTB_DEBUG}, CHUNK_INDEX=${CHUNK_INDEX}, CHUNK_SIZE=${CHUNK_SIZE}) - TEST MODE"
+          echo "Starting hltb_worker.py (DEBUG=${HLTB_DEBUG}, CHUNK_INDEX=${CHUNK_INDEX}, CHUNK_SIZE=${CHUNK_SIZE})"
           python hltb_worker.py
 
       - name: Upload debug dumps (if any)
@@ -304,7 +308,7 @@ jobs:
             exit 0
           fi
 
-          COMMIT_MSG="HLTB worker: chunk 1 (games 4-6) TEST MODE $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          COMMIT_MSG="HLTB worker: chunk 1 (games 351-700) $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           
           if git diff --cached --quiet; then
             echo "No changes staged for commit"
@@ -361,10 +365,10 @@ jobs:
             exit 0
           fi
 
-  # Чанк 2: игры 7-9 (ТЕСТОВЫЙ РЕЖИМ)
+  # Чанк 2: игры 701-1000
   run-hltb-chunk-2:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 360
     concurrency:
       group: hltb-worker-${{ github.run_id }}-chunk-2
       cancel-in-progress: false
@@ -374,7 +378,7 @@ jobs:
       PYTHONUNBUFFERED: 1
       HLTB_DEBUG: "true"
       CHUNK_INDEX: "2"
-      CHUNK_SIZE: "3"
+      CHUNK_SIZE: "350"
 
     steps:
       - name: Checkout (with token for push)
@@ -424,13 +428,13 @@ jobs:
                   print(pkg, "NOT INSTALLED:", e)
           PY
 
-      - name: "Run HLTB worker (Chunk 2: games 7-9) - TEST MODE"
+      - name: "Run HLTB worker (Chunk 2: games 701-1000)"
         env:
           HLTB_DEBUG: ${{ env.HLTB_DEBUG }}
           CHUNK_INDEX: ${{ env.CHUNK_INDEX }}
           CHUNK_SIZE: ${{ env.CHUNK_SIZE }}
         run: |
-          echo "Starting hltb_worker.py (DEBUG=${HLTB_DEBUG}, CHUNK_INDEX=${CHUNK_INDEX}, CHUNK_SIZE=${CHUNK_SIZE}) - TEST MODE"
+          echo "Starting hltb_worker.py (DEBUG=${HLTB_DEBUG}, CHUNK_INDEX=${CHUNK_INDEX}, CHUNK_SIZE=${CHUNK_SIZE})"
           python hltb_worker.py
 
       - name: Upload debug dumps (if any)
@@ -484,7 +488,7 @@ jobs:
             exit 0
           fi
 
-          COMMIT_MSG="HLTB worker: chunk 2 (games 7-9) TEST MODE $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          COMMIT_MSG="HLTB worker: chunk 2 (games 701-1000) $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           
           if git diff --cached --quiet; then
             echo "No changes staged for commit"
