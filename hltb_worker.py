@@ -15,7 +15,7 @@ OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
 
 # Настройки чанков (для разделения работы на 3 части)
 CHUNK_INDEX = int(os.environ.get('CHUNK_INDEX', '0'))  # Индекс чанка (0, 1 или 2)
-CHUNK_SIZE = 350  # Размер чанка - 350 игр
+CHUNK_SIZE = 3  # Размер чанка - 3 игры (ТЕСТОВЫЙ РЕЖИМ)
 
 # Задержки (убрана вежливая задержка между играми и перерывы)
 # Глобальные переменные удалены - больше не нужны
@@ -2356,15 +2356,25 @@ def update_html_with_hltb(html_file, hltb_data):
         with open(html_file, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # Находим и заменяем gamesList
+        # Находим начало массива gamesList
         start = content.find('const gamesList = [')
         if start == -1:
             raise ValueError("Не найден const gamesList в HTML файле")
         
-        end = content.find('];', start)
-        if end == -1:
+        # Ищем закрывающую скобку массива (как в extract_games_list)
+        bracket_count = 0
+        end = start
+        for i, char in enumerate(content[start:], start):
+            if char == '[':
+                bracket_count += 1
+            elif char == ']':
+                bracket_count -= 1
+                if bracket_count == 0:
+                    end = i + 1
+                    break
+        
+        if bracket_count != 0:
             raise ValueError("Не найден конец массива gamesList")
-        end += 2  # Добавляем 2 для включения '];'
         
         # Создаем JSON с HLTB данными (каждая игра на отдельной строке)
         formatted_games = []
@@ -2381,11 +2391,11 @@ def update_html_with_hltb(html_file, hltb_data):
         with open(html_file, 'w', encoding='utf-8') as f:
             f.write(new_content)
         
-        log_message(f"✅ HTML файл обновлен: {html_file}")
+        log_message(f"[OK] HTML файл обновлен: {html_file}")
         return True
         
     except Exception as e:
-        log_message(f"❌ Ошибка обновления HTML: {e}")
+        log_message(f"[ERROR] Ошибка обновления HTML: {e}")
         return False
 
 def main():
