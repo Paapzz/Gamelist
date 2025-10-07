@@ -9174,18 +9174,30 @@ function createButtonsForCell(cell, game) {
         const gameId = cell.dataset.gameId;
         if (gameId) {
             const game = state.games.find(g => g.id && g.id.toString() === gameId.toString());
-            const originalGame = gamesList.find(g => g.number && g.number.toString() === gameId.toString());
             
-            if (game && originalGame) {
-                const gameWithHLTB = {
-                    ...game,
-                    hltb: originalGame.hltb
-                };
-                
-                if (selectedGameId) {
-                    replaceGameInfoModal(gameWithHLTB, e);
+            if (game) {
+                // Для добавленных игр используем их собственные данные
+                if (game.isCustom) {
+                    if (selectedGameId) {
+                        replaceGameInfoModal(game, e);
+                    } else {
+                        showGameInfoModal(game, e);
+                    }
                 } else {
-                    showGameInfoModal(gameWithHLTB, e);
+                    // Для обычных игр ищем HLTB данные в gamesList
+                    const originalGame = gamesList.find(g => g.number && g.number.toString() === gameId.toString());
+                    if (originalGame) {
+                        const gameWithHLTB = {
+                            ...game,
+                            hltb: originalGame.hltb
+                        };
+                        
+                        if (selectedGameId) {
+                            replaceGameInfoModal(gameWithHLTB, e);
+                        } else {
+                            showGameInfoModal(gameWithHLTB, e);
+                        }
+                    }
                 }
             }
         }
@@ -9440,18 +9452,30 @@ function updateGameCell(game) {
             const gameId = cell.dataset.gameId;
             if (gameId) {
                 const game = state.games.find(g => g.id && g.id.toString() === gameId.toString());
-                const originalGame = gamesList.find(g => g.number && g.number.toString() === gameId.toString());
                 
-                if (game && originalGame) {
-                    const gameWithHLTB = {
-                        ...game,
-                        hltb: originalGame.hltb
-                    };
-                    
-                    if (selectedGameId) {
-                        replaceGameInfoModal(gameWithHLTB, e);
+                if (game) {
+                    // Для добавленных игр используем их собственные данные
+                    if (game.isCustom) {
+                        if (selectedGameId) {
+                            replaceGameInfoModal(game, e);
+                        } else {
+                            showGameInfoModal(game, e);
+                        }
                     } else {
-                        showGameInfoModal(gameWithHLTB, e);
+                        // Для обычных игр ищем HLTB данные в gamesList
+                        const originalGame = gamesList.find(g => g.number && g.number.toString() === gameId.toString());
+                        if (originalGame) {
+                            const gameWithHLTB = {
+                                ...game,
+                                hltb: originalGame.hltb
+                            };
+                            
+                            if (selectedGameId) {
+                                replaceGameInfoModal(gameWithHLTB, e);
+                            } else {
+                                showGameInfoModal(gameWithHLTB, e);
+                            }
+                        }
                     }
                 }
             }
