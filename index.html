@@ -9558,6 +9558,7 @@ function isDuplicateGame(newGame) {
     const normalizedNewName = normalizeGameName(newGame.name);
     const newGameNumber = getGameNumber(newGame.name);
     if (isSpecialVersion(newGame.name)) {
+        console.log('[Duplicate Check] Специальная версия:', newGame.name);
         return true;
     }
 
@@ -9567,8 +9568,23 @@ function isDuplicateGame(newGame) {
 
         const namesMatch = normalizedExistingName === normalizedNewName;
         const numberMatch = newGameNumber === existingGameNumber;
+        const levenshteinDist = levenshteinDistance(normalizedExistingName, normalizedNewName);
+        const similarNames = levenshteinDist <= 1;
 
-        const similarNames = levenshteinDistance(normalizedExistingName, normalizedNewName) <= 1;
+        if (namesMatch || similarNames) {
+            console.log('[Duplicate Check] Найден дубликат:', {
+                newGame: newGame.name,
+                existingGame: game.name,
+                normalizedNew: normalizedNewName,
+                normalizedExisting: normalizedExistingName,
+                namesMatch,
+                levenshteinDistance: levenshteinDist,
+                similarNames,
+                newGameNumber,
+                existingGameNumber,
+                numberMatch
+            });
+        }
 
         return (namesMatch || similarNames) && (newGameNumber === null || numberMatch);
     });
