@@ -17,13 +17,14 @@ CHUNK_SIZE = 350
 
 
 def get_chunk_games(games_list):
+    """Возвращает чанк игр для обработки (0-350, 351-700, 701-1000)"""
     total_games = len(games_list)
     
     start_index = CHUNK_INDEX * CHUNK_SIZE
     end_index = min(start_index + CHUNK_SIZE, total_games)
     
     if start_index >= total_games:
-        log_message(f"⚠ Чанк {CHUNK_INDEX} выходит за границы списка")
+        log_message(f"⚠️ Чанк {CHUNK_INDEX} выходит за границы списка игр")
         return [], 0, 0
     
     chunk_games = games_list[start_index:end_index]
@@ -32,6 +33,7 @@ def get_chunk_games(games_list):
     return chunk_games, start_index, end_index
 
 def setup_directories():
+    """Настройка директорий"""
     print(f" Создаем директорию: {OUTPUT_DIR}")
     try:
         os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -41,6 +43,7 @@ def setup_directories():
         raise
     
 def log_message(message):
+    """Логирование только в консоль"""
     try:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_entry = f"[{timestamp}] {message}"
@@ -50,6 +53,7 @@ def log_message(message):
         print(f"Сообщение: {message}")
 
 def count_hltb_data(hltb_data):
+    """Подсчитывает количество данных HLTB по категориям"""
     categories = {"ms": 0, "mpe": 0, "comp": 0, "coop": 0, "vs": 0}
     total_polled = {"ms": 0, "mpe": 0, "comp": 0, "coop": 0, "vs": 0}
     na_count = 0
@@ -72,6 +76,7 @@ def count_hltb_data(hltb_data):
     return categories, total_polled, na_count
 
 def extract_games_list(html_file):
+    """Извлекает список игр из HTML файла"""
     try:
         log_message(f" Читаем файл {html_file}...")
         with open(html_file, 'r', encoding='utf-8') as f:
@@ -119,6 +124,7 @@ def extract_games_list(html_file):
         raise
 
 def parse_time_to_hours(time_str):
+    """Парсит время в формате 'Xh Ym' или 'X Hours' в часы и минуты"""
     if not time_str or time_str == "N/A":
         return 0, 0
     
@@ -145,6 +151,7 @@ def parse_time_to_hours(time_str):
     return hours, minutes
 
 def round_time(time_str):
+    """Округляет время к ближайшему значению"""
     if not time_str or time_str == "N/A":
         return None
     
@@ -163,10 +170,12 @@ def round_time(time_str):
         return f"{hours + 1}h"
 
 def random_delay(min_seconds, max_seconds):
+    """Случайная задержка в указанном диапазоне"""
     delay = random.uniform(min_seconds, max_seconds)
     time.sleep(delay)
 
 def is_valid_gog_link(page, gog_url):
+    """Проверяет валидность GOG ссылки - не перенаправляет ли на главную страницу"""
     try:
         original_url = page.url
         
@@ -245,6 +254,7 @@ def is_valid_gog_link(page, gog_url):
         return False
 
 def progressive_delay_for_blocking():
+    """Прогрессивная задержка при обнаружении блокировки IP"""
     delays = [30, 60, 120, 180, 300]
     delay = random.choice(delays)
     log_message(f"Задержка при блокировке: {delay} секунд")
@@ -253,6 +263,7 @@ def progressive_delay_for_blocking():
 
 
 def extract_data_by_hltb_id(page, hltb_id):
+    """Извлекает данные игры напрямую по HLTB ID с повторными попытками при таймаутах"""
     try:
         log_message(f" -Извлекаем данные по ID {hltb_id}...")
         
@@ -332,6 +343,7 @@ def extract_data_by_hltb_id(page, hltb_id):
         return None
 
 def retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5):
+    """Пытается получить данные игры с ретраями при блокировках"""
     delays = [30, 60, 120, 180, 300]
     
     for retry in range(max_retries):
@@ -374,6 +386,7 @@ def retry_game_with_blocking_handling(page, game_title, game_year, max_retries=5
 
 
 def search_game_on_hltb(page, game_title, game_year=None):
+    """Ищет игру на HLTB и возвращает данные с повторными попытками, учитывая год релиза"""
     max_attempts = 3
     delays = [0, (15, 18), (65, 70)]
     
@@ -425,6 +438,7 @@ def search_game_on_hltb(page, game_title, game_year=None):
     return None
 
 def search_game_links_only(page, game_title):
+    """Ищет только ссылки на игры без перехода на страницу"""
     try:
         safe_title = quote(game_title, safe="")
         if "%25" in safe_title:
@@ -447,7 +461,7 @@ def search_game_links_only(page, game_title):
                     log_message(f" Найдено слово 'captcha' на странице, проверяем контекст...")
                     import re
                     captcha_context = re.findall(r'.{0,50}captcha.{0,50}', page_content.lower())
-                    for context in captcha_context[:3]:  # Показываем первые 3 вхождения
+                    for context in captcha_context[:3]:
                         log_message(f" Контекст: '{context.strip()}'")
                     
                     log_message(" ВРЕМЕННО: пропускаем проверку на капчу для диагностики")
@@ -571,7 +585,7 @@ def search_game_links_only(page, game_title):
                         continue
                 
                 links_data = []
-                for i in range(min(found_count, 10)):  # Берем первые 10 результатов
+                for i in range(min(found_count, 10)):
                     link = game_links.nth(i)
                     link_text = link.inner_text().strip()
                     link_href = link.get_attribute("href")
@@ -607,6 +621,7 @@ def search_game_links_only(page, game_title):
         return None
 
 def extract_data_from_selected_game(page, selected_link):
+    """Извлекает данные с выбранной страницы игры с повторными попытками при таймаутах"""
     try:
         full_url = f"{BASE_URL}{selected_link['href']}"
         
@@ -674,6 +689,7 @@ def extract_data_from_selected_game(page, selected_link):
         return None
 
 def find_best_result_with_year(page, all_results, original_title, original_year):
+    """Выбирает лучший результат из всех найденных с учетом года релиза"""
     try:
         if not all_results:
             return None
@@ -720,7 +736,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
             candidate['year'] = game_year
             log_message(f" Кандидат: '{candidate['link']['text']}' (схожесть: {candidate['score']:.3f}, год: {game_year})")
             
-            if i < len(top_candidates) - 1:  # Не делаем паузу после последнего кандидата
+            if i < len(top_candidates) - 1:
                 time.sleep(random.uniform(2, 3))
         
         if original_year is not None:
@@ -789,6 +805,7 @@ def find_best_result_with_year(page, all_results, original_title, original_year)
         return None
 
 def find_best_link_in_result(game_links, original_title):
+    """Находит лучшую ссылку в результате поиска"""
     if not game_links:
         return None
     
@@ -808,6 +825,7 @@ def find_best_link_in_result(game_links, original_title):
     return best_link
 
 def extract_year_from_game_page(page, link):
+    """Извлекает год релиза со страницы игры с повторными попытками при таймаутах"""
     try:
         if not hasattr(extract_year_from_game_page, 'url_cache'):
             extract_year_from_game_page.url_cache = {}
@@ -868,6 +886,7 @@ def extract_year_from_game_page(page, link):
         return None
 
 def search_game_single_attempt(page, game_title):
+    """Одна попытка поиска игры на HLTB"""
     try:
         log_message(f" -Ищем: '{game_title}'")
         
@@ -948,6 +967,7 @@ def search_game_single_attempt(page, game_title):
         return None
 
 def find_best_match(page, game_links, original_title):
+    """Находит наиболее подходящий результат из списка найденных игр"""
     try:
         best_match = None
         best_score = 0
@@ -955,7 +975,7 @@ def find_best_match(page, game_links, original_title):
         
         original_clean = clean_title_for_comparison(original_title)
         
-        for i in range(min(game_links.count(), 10)):  # Проверяем первые 10 результатов
+        for i in range(min(game_links.count(), 10)):
             link = game_links.nth(i)
             link_text = link.inner_text().strip()
             
@@ -982,12 +1002,14 @@ def find_best_match(page, game_links, original_title):
         return game_links.first if game_links.count() > 0 else None, "", 0
 
 def clean_title_for_comparison(title):
+    """Очищает название игры для сравнения"""
     import re
     cleaned = re.sub(r'[^\w\s]', '', title.lower())
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
     return cleaned
 
 def extract_primary_title(game_title):
+    """Извлекает основное название игры из названия с альтернативными вариантами"""
     if not game_title:
         return game_title
     
@@ -1003,7 +1025,8 @@ def extract_primary_title(game_title):
     
     return game_title
 
-def extract_alternative_title(game_title)
+def extract_alternative_title(game_title):
+    """Извлекает альтернативное название для поиска"""
     if not game_title or "/" not in game_title:
         return None
     
@@ -1016,6 +1039,7 @@ def extract_alternative_title(game_title)
     return None
 
 def convert_arabic_to_roman(num_str):
+    """Конвертирует арабские цифры в римские"""
     try:
         num = int(num_str)
         if num == 1:
@@ -1044,6 +1068,7 @@ def convert_arabic_to_roman(num_str):
         return num_str
 
 def generate_alternative_titles(game_title):
+    """Генерирует альтернативные варианты названия для поиска"""
     alternatives = []
     
     if " / " in game_title:
@@ -1165,6 +1190,7 @@ def generate_alternative_titles(game_title):
     return unique_alternatives
 
 def generate_abbreviation_variants(title):
+    """Генерирует варианты для аббревиатур типа F.E.A.R. First Encounter Assault Recon"""
     variants = []
     import re
     
@@ -1205,6 +1231,7 @@ def generate_abbreviation_variants(title):
     return variants
 
 def generate_roman_variants(title):
+    """Генерирует варианты с римскими/арабскими цифрами"""
     variants = []
     import re
     
@@ -1231,6 +1258,7 @@ def generate_roman_variants(title):
     return variants
 
 def generate_ampersand_variants(title):
+    """Генерирует варианты с амперсандом"""
     variants = []
     
     if "&" in title:
@@ -1260,12 +1288,14 @@ def generate_ampersand_variants(title):
     return variants
 
 def remove_parentheses(title):
+    """Убирает содержимое в скобках"""
     import re
     no_parens = re.sub(r'\([^)]*\)', '', title).strip()
     no_parens = re.sub(r'\s+', ' ', no_parens).strip()
     return no_parens if no_parens != title else None
 
 def determine_base_part_new(parts):
+    """Определяет базовую часть для названий со слешем без пробелов"""
     if not parts or len(parts) < 2:
         return None
     
@@ -1280,12 +1310,14 @@ def determine_base_part_new(parts):
     return words[0]
 
 def simplify_title(title):
+    """Упрощает название, убирая лишние слова"""
     import re
     simplified = re.sub(r'\b(the|of|and)\b', '', title, flags=re.IGNORECASE)
     simplified = re.sub(r'\s+', ' ', simplified).strip()
     return simplified if simplified != title else None
 
 def convert_roman_to_arabic(roman):
+    """Конвертирует римские цифры в арабские"""
     roman_to_arabic = {
         'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
         'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10'
@@ -1293,6 +1325,7 @@ def convert_roman_to_arabic(roman):
     return roman_to_arabic.get(roman, roman)
 
 def jaro_distance(s1, s2):
+    """Вычисляет Jaro-схожесть (базовая метрика для Jaro-Winkler)."""
     if s1 == s2:
         return 1.0
     len1, len2 = len(s1), len(s2)
@@ -1324,8 +1357,9 @@ def jaro_distance(s1, s2):
     return (match / len1 + match / len2 + (match - t) / match) / 3.0
 
 def jaro_winkler_similarity(s1, s2):
+    """Jaro-Winkler: Jaro + бонус за префикс (до 4 символов)."""
     jaro = jaro_distance(s1, s2)
-    if jaro > 0.7:  # Только если базовая схожесть высокая
+    if jaro > 0.7:
         prefix = 0
         min_len = min(len(s1), len(s2))
         for i in range(min_len):
@@ -1338,6 +1372,7 @@ def jaro_winkler_similarity(s1, s2):
     return jaro
 
 def calculate_title_similarity(title1, title2, year1=None, year2=None):
+    """Вычисляет схожесть между двумя названиями игр используя Jaro-Winkler с учетом года"""
     try:
         normalized1 = normalize_title_for_comparison(title1)
         normalized2 = normalize_title_for_comparison(title2)
@@ -1350,7 +1385,7 @@ def calculate_title_similarity(title1, title2, year1=None, year2=None):
         len1, len2 = len(normalized1), len(normalized2)
         if len1 > 0 and len2 > 0:
             length_ratio = min(len1, len2) / max(len1, len2)
-            if length_ratio < 0.7:  # Если разница в длине больше 30%
+            if length_ratio < 0.7:
                 similarity *= length_ratio
         
         if year1 is not None and year2 is not None:
@@ -1375,6 +1410,7 @@ def calculate_title_similarity(title1, title2, year1=None, year2=None):
         return 0.0
         
 def extract_release_year_from_page(page):
+    """Извлекает год релиза со страницы игры HLTB"""
     import re
     try:
         if not hasattr(extract_release_year_from_page, 'year_cache'):
@@ -1394,7 +1430,7 @@ def extract_release_year_from_page(page):
             return year
         
         try:
-            json_script = page.locator('script
+            json_script = page.locator('script#__NEXT_DATA__').first
             if json_script.count() > 0:
                 json_text = json_script.text_content()
                 import json
@@ -1410,7 +1446,7 @@ def extract_release_year_from_page(page):
                             year = game_data[field]
                             if isinstance(year, (int, str)) and str(year).isdigit():
                                 year_int = int(year)
-                                if 1950 <= year_int <= 2030:  # Разумный диапазон годов
+                                if 1950 <= year_int <= 2030:
                                     extract_release_year_from_page.year_cache[page_url] = year_int
                                     extract_release_year_from_page.quick_cache[page_url] = year_int
                                     return year_int
@@ -1480,6 +1516,7 @@ def extract_release_year_from_page(page):
         return None
 
 def normalize_title_for_comparison(title):
+    """Нормализует название для сравнения, конвертируя римские цифры в арабские и убирая скобки"""
     try:
         import re
         
@@ -1503,6 +1540,7 @@ def normalize_title_for_comparison(title):
         return title
 
 def extract_hltb_data_from_page(page):
+    """Извлекает данные HLTB со страницы игры"""
     try:
         hltb_data = {}
         
@@ -1538,6 +1576,7 @@ def extract_hltb_data_from_page(page):
         return None
 
 def extract_top_block_data(page):
+    """Извлекает данные из верхних блоков (Single, Co-Op, Vs.)"""
     try:
         top_data = {}
         
@@ -1589,6 +1628,7 @@ def extract_top_block_data(page):
         return None
 
 def extract_time_from_h5(time_text):
+    """Извлекает время из текста h5 элемента"""
     try:
         import re
         
@@ -1632,6 +1672,7 @@ def extract_time_from_h5(time_text):
         return None
 
 def extract_table_data(page):
+    """Извлекает данные из таблиц"""
     try:
         table_data = {}
         
@@ -1678,6 +1719,7 @@ def extract_table_data(page):
         return None
 
 def extract_store_links(page):
+    """Извлекает ссылки на магазины со страницы игры"""
     try:
         store_links = {}
         
@@ -1732,6 +1774,7 @@ def extract_store_links(page):
         return None
 
 def extract_hltb_row_data(row_text):
+    """Извлекает данные из строки таблицы HLTB (новый формат)"""
     try:
         import re
         
@@ -1753,7 +1796,7 @@ def extract_hltb_row_data(row_text):
         times = []
         
         time_part = re.sub(r'^[A-Za-z\s/\+]+\s+\d+(?:\.\d+)?[Kk]?\s+', '', row_text)
-        if time_part == row_text:  # Если не сработало, пробуем с табами
+        if time_part == row_text:
             time_part = re.sub(r'^[A-Za-z\s/\+]+\t+\d+(?:\.\d+)?[Kk]?\t+', '', row_text)
         
         
@@ -1797,6 +1840,7 @@ def extract_hltb_row_data(row_text):
         return None
 
 def calculate_average_time(time1_str, time2_str):
+    """Вычисляет среднее время между двумя временными значениями"""
     try:
         def parse_time_to_minutes(time_str):
             if not time_str:
@@ -1854,6 +1898,7 @@ def calculate_average_time(time1_str, time2_str):
 
 
 def determine_error_type(page, game_title):
+    """Определяет тип ошибки при поиске игры"""
     try:
         page_content = page.content().lower()
         
@@ -1884,6 +1929,7 @@ def determine_error_type(page, game_title):
         return "Ошибка анализа страницы"
 
 def extract_time_and_polled_from_row(row_text):
+    """Извлекает время и количество голосов из строки таблицы"""
     try:
         time_match = re.search(r'(\d+h\s*\d*m)', row_text)
         if time_match:
@@ -1920,6 +1966,7 @@ def extract_time_and_polled_from_row(row_text):
         return None
 
 def parse_polled_number(polled_str):
+    """Парсит число голосов из строки"""
     try:
         if 'K' in polled_str.upper():
             return int(float(polled_str.upper().replace('K', '')) * 1000)
@@ -1929,6 +1976,7 @@ def parse_polled_number(polled_str):
         return None
 
 def extract_time_from_row(row_text):
+    """Извлекает только время из строки таблицы (для обратной совместимости)"""
     try:
         time_match = re.search(r'(\d+h\s*\d*m)', row_text)
         if time_match:
@@ -1940,6 +1988,7 @@ def extract_time_from_row(row_text):
 
 
 def save_results(games_data):
+    """Сохраняет финальные результаты в компактном формате"""
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             for i, game in enumerate(games_data):
@@ -1962,6 +2011,7 @@ def save_results(games_data):
         raise
 
 def log_progress(current, total, start_time):
+    """Логирует прогресс выполнения"""
     elapsed = time.time() - start_time
     rate = current / elapsed * 60 if elapsed > 0 else 0
     eta = (total - current) / rate if rate > 0 else 0
@@ -1969,6 +2019,7 @@ def log_progress(current, total, start_time):
     log_message(f"📊 {current}/{total} | {rate:.1f} игр/мин | ETA: {eta:.0f} мин")
 
 def update_html_with_hltb(html_file, hltb_data):
+    """Обновляет HTML файл с новыми данными HLTB в компактном формате"""
     try:
         with open(html_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -2010,6 +2061,7 @@ def update_html_with_hltb(html_file, hltb_data):
         return False
 
 def main():
+    """Основная функция воркера"""
     print("🔧 Функция main() вызвана")
     log_message(" Запуск HLTB Worker")
     log_message(f" Рабочая директория: {os.getcwd()}")
