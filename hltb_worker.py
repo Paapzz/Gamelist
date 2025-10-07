@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 
 # Конфигурация
 BASE_URL = "https://howlongtobeat.com"
-GAMES_LIST_FILE = "index111.html"
+GAMES_LIST_FILE = "index.html"
 OUTPUT_DIR = "hltb_data"
 OUTPUT_FILE = f"{OUTPUT_DIR}/hltb_data.json"
 
