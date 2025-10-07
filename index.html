@@ -5803,6 +5803,7 @@ async function addGameFromIndex(indexGame, event) {
             genres: fullGame.genres ? fullGame.genres.map(g => g.name) : [],
             platforms: fullGame.platforms ? fullGame.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
             imageUrl: fullGame.cover ? convertImageUrl(fullGame.cover.url) : (fullGame.image_url || fullGame.imageUrl || DEFAULT_GAME_IMAGE),
+            hltb: null,
             isCustom: true,
             importedFromApi: true,
             completed: false,
@@ -5870,6 +5871,7 @@ function addGameFromSearch(game, event) {
         genres: game.genres ? game.genres.map(g => g.name) : [],
         platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
         imageUrl: game.cover ? convertImageUrl(game.cover.url) : (game.image_url || game.imageUrl || DEFAULT_GAME_IMAGE),
+        hltb: null,
         isCustom: true,
         importedFromApi: true,
         completed: false,
@@ -8957,6 +8959,7 @@ function addNewGame(gameData) {
         const newGame = {
             id: Date.now(),
             ...gameData,
+            hltb: gameData.hltb || null,
             isCustom: true,
             importedFromApi: gameData.importedFromApi || false,
             completed: false,
@@ -9013,6 +9016,7 @@ document.getElementById('addGameForm').addEventListener('submit', function(e) {
         platforms: document.getElementById('gamePlatforms').value.split(',').map(p => p.trim()).filter(p => p),
         genres: document.getElementById('gameGenres').value.split(',').map(g => g.trim()).filter(g => g),
         imageUrl: document.getElementById('gameImageUrl').value.trim() || null,
+        hltb: null,
     };
 
     addNewGame(gameData);
