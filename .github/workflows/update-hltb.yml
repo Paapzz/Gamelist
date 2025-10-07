@@ -114,8 +114,8 @@ jobs:
             git add hltb_data/*.json
             CHANGED=1
           fi
-          if [ -f index111.html ]; then
-            git add index111.html
+          if [ -f index.html ]; then
+            git add index.html
             CHANGED=1
           fi
           if [ -f progress.json ]; then
@@ -155,8 +155,8 @@ jobs:
           if ls hltb_data/*.json 1> /dev/null 2>&1; then
             git add hltb_data/*.json
           fi
-          if [ -f index111.html ]; then
-            git add index111.html
+          if [ -f index.html ]; then
+            git add index.html
           fi
           if [ -f progress.json ]; then
             git add progress.json
@@ -294,8 +294,8 @@ jobs:
             git add hltb_data/*.json
             CHANGED=1
           fi
-          if [ -f index111.html ]; then
-            git add index111.html
+          if [ -f index.html ]; then
+            git add index.html
             CHANGED=1
           fi
           if [ -f progress.json ]; then
@@ -335,8 +335,8 @@ jobs:
           if ls hltb_data/*.json 1> /dev/null 2>&1; then
             git add hltb_data/*.json
           fi
-          if [ -f index111.html ]; then
-            git add index111.html
+          if [ -f index.html ]; then
+            git add index.html
           fi
           if [ -f progress.json ]; then
             git add progress.json
@@ -474,8 +474,8 @@ jobs:
             git add hltb_data/*.json
             CHANGED=1
           fi
-          if [ -f index111.html ]; then
-            git add index111.html
+          if [ -f index.html ]; then
+            git add index.html
             CHANGED=1
           fi
           if [ -f progress.json ]; then
@@ -515,8 +515,8 @@ jobs:
           if ls hltb_data/*.json 1> /dev/null 2>&1; then
             git add hltb_data/*.json
           fi
-          if [ -f index111.html ]; then
-            git add index111.html
+          if [ -f index.html ]; then
+            git add index.html
           fi
           if [ -f progress.json ]; then
             git add progress.json
