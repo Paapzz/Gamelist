@@ -1,6 +1,7 @@
 name: Update HLTB
 
 on:
+  #20 января в 00:00 UTC
   schedule:
     - cron: '0 0 20 1 *'
   
@@ -10,6 +11,7 @@ permissions:
   contents: write
 
 jobs:
+  # Чанк 0: игры 1-350
   run-hltb-chunk-0:
     runs-on: ubuntu-latest
     timeout-minutes: 360
@@ -129,7 +131,7 @@ jobs:
           if git diff --cached --name-only | grep -q '^index.html$'; then MSG_PARTS+=("index.html"); fi
           if git diff --cached --name-only | grep -q '^hltb_data/'; then MSG_PARTS+=("hltb_data"); fi
           if git diff --cached --name-only | grep -q '^progress.json$'; then MSG_PARTS+=("progress.json"); fi
-          if [ ${
+          if [ ${#MSG_PARTS[@]} -eq 0 ]; then
             COMMIT_MSG="Update"
           else
             COMMIT_MSG="Update ${MSG_PARTS[*]}"
@@ -153,7 +155,7 @@ jobs:
             BRANCH="hltb-worker-fallback-$(date -u +%Y%m%d%H%M%S)"
             git checkout -b "${BRANCH}"
             git push origin "${BRANCH}"
-            echo "Pushed fallback branch: ${BRANCH}. Please review and merge manually."
+            echo "🔀 Pushed fallback branch: ${BRANCH}. Please review and merge manually."
             exit 0
           fi
 
@@ -186,10 +188,11 @@ jobs:
             BRANCH="hltb-worker-fallback-$(date -u +%Y%m%d%H%M%S)"
             git checkout -b "${BRANCH}"
             git push origin "${BRANCH}"
-            echo "Pushed fallback branch: ${BRANCH}. Please merge manually."
+            echo "🔀 Pushed fallback branch: ${BRANCH}. Please merge manually."
             exit 0
           fi
 
+  # Чанк 1: игры 351-700
   run-hltb-chunk-1:
     runs-on: ubuntu-latest
     timeout-minutes: 360
@@ -316,7 +319,7 @@ jobs:
           if git diff --cached --name-only | grep -q '^index.html$'; then MSG_PARTS+=("index.html"); fi
           if git diff --cached --name-only | grep -q '^hltb_data/'; then MSG_PARTS+=("hltb_data"); fi
           if git diff --cached --name-only | grep -q '^progress.json$'; then MSG_PARTS+=("progress.json"); fi
-          if [ ${
+          if [ ${#MSG_PARTS[@]} -eq 0 ]; then
             COMMIT_MSG="Update"
           else
             COMMIT_MSG="Update ${MSG_PARTS[*]}"
@@ -340,7 +343,7 @@ jobs:
             BRANCH="hltb-worker-fallback-$(date -u +%Y%m%d%H%M%S)"
             git checkout -b "${BRANCH}"
             git push origin "${BRANCH}"
-            echo "Pushed fallback branch: ${BRANCH}. Please review and merge manually."
+            echo "🔀 Pushed fallback branch: ${BRANCH}. Please review and merge manually."
             exit 0
           fi
 
@@ -373,10 +376,11 @@ jobs:
             BRANCH="hltb-worker-fallback-$(date -u +%Y%m%d%H%M%S)"
             git checkout -b "${BRANCH}"
             git push origin "${BRANCH}"
-            echo "Pushed fallback branch: ${BRANCH}. Please merge manually."
+            echo "🔀 Pushed fallback branch: ${BRANCH}. Please merge manually."
             exit 0
           fi
 
+  # Чанк 2: игры 701-1000
   run-hltb-chunk-2:
     runs-on: ubuntu-latest
     timeout-minutes: 360
@@ -503,7 +507,7 @@ jobs:
           if git diff --cached --name-only | grep -q '^index.html$'; then MSG_PARTS+=("index.html"); fi
           if git diff --cached --name-only | grep -q '^hltb_data/'; then MSG_PARTS+=("hltb_data"); fi
           if git diff --cached --name-only | grep -q '^progress.json$'; then MSG_PARTS+=("progress.json"); fi
-          if [ ${
+          if [ ${#MSG_PARTS[@]} -eq 0 ]; then
             COMMIT_MSG="Update"
           else
             COMMIT_MSG="Update ${MSG_PARTS[*]}"
@@ -560,6 +564,6 @@ jobs:
             BRANCH="hltb-worker-fallback-$(date -u +%Y%m%d%H%M%S)"
             git checkout -b "${BRANCH}"
             git push origin "${BRANCH}"
-            echo "Pushed fallback branch: ${BRANCH}. Please merge manually."
+            echo "🔀 Pushed fallback branch: ${BRANCH}. Please merge manually."
             exit 0
           fi
