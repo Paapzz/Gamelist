@@ -9141,10 +9141,11 @@ function createButtonsForCell(cell, game) {
             const game = state.games.find(g => g.id && g.id.toString() === gameId.toString());
             const originalGame = gamesList.find(g => g.number && g.number.toString() === gameId.toString());
             
-            if (game && originalGame) {
+            if (game) {
+                // Для добавленных игр используем hltb из game, для оригинальных - из originalGame
                 const gameWithHLTB = {
                     ...game,
-                    hltb: originalGame.hltb
+                    hltb: originalGame ? originalGame.hltb : game.hltb
                 };
                 
                 if (selectedGameId) {
@@ -9244,6 +9245,10 @@ function createCell(game) {
 
 
     updateCellSizeOptimized(cell, game.inProgress);
+    
+    // Создаем кнопки для ячейки (включая кнопку информации)
+    createButtonsForCell(cell, game);
+    
     return cell;
 }
 
@@ -9544,12 +9549,28 @@ function isRemakeOrRemaster(existingName, newName) {
 }
 
 function isSpecialVersion(name) {
+    // Проверяем только если это действительно специальная версия существующей игры
     const specialVersions = [
-        'hd', 'remake', 'remaster', 'remastered', 'definitive edition',
+        'remake', 'remaster', 'remastered', 'definitive edition',
         'special edition', 'complete edition', 'directors cut',
         'game of the year', 'goty', 'enhanced edition', 'anniversary edition',
         'collectors edition', 'extended edition', 'gold edition', 'platinum edition'
     ];
+    
+    // HD считаем специальной версией только если есть базовая игра без HD
+    const hasHD = /\bhd\b/i.test(name);
+    if (hasHD) {
+        const baseName = name.replace(/\bhd\b/gi, '').trim();
+        const hasBaseGame = state.games.some(game => {
+            const normalizedBase = normalizeGameName(baseName);
+            const normalizedGame = normalizeGameName(game.name);
+            return normalizedBase === normalizedGame && !/\bhd\b/i.test(game.name);
+        });
+        if (hasBaseGame) {
+            return true;
+        }
+    }
+    
     const regex = new RegExp(`\\b(${specialVersions.join('|')})\\b`, 'i');
     return regex.test(name);
 }
@@ -9558,7 +9579,6 @@ function isDuplicateGame(newGame) {
     const normalizedNewName = normalizeGameName(newGame.name);
     const newGameNumber = getGameNumber(newGame.name);
     if (isSpecialVersion(newGame.name)) {
-        console.log('[Duplicate Check] Специальная версия:', newGame.name);
         return true;
     }
 
@@ -9568,23 +9588,8 @@ function isDuplicateGame(newGame) {
 
         const namesMatch = normalizedExistingName === normalizedNewName;
         const numberMatch = newGameNumber === existingGameNumber;
-        const levenshteinDist = levenshteinDistance(normalizedExistingName, normalizedNewName);
-        const similarNames = levenshteinDist <= 1;
 
-        if (namesMatch || similarNames) {
-            console.log('[Duplicate Check] Найден дубликат:', {
-                newGame: newGame.name,
-                existingGame: game.name,
-                normalizedNew: normalizedNewName,
-                normalizedExisting: normalizedExistingName,
-                namesMatch,
-                levenshteinDistance: levenshteinDist,
-                similarNames,
-                newGameNumber,
-                existingGameNumber,
-                numberMatch
-            });
-        }
+        const similarNames = levenshteinDistance(normalizedExistingName, normalizedNewName) <= 1;
 
         return (namesMatch || similarNames) && (newGameNumber === null || numberMatch);
     });
