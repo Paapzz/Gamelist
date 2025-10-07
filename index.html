@@ -5803,6 +5803,7 @@ async function addGameFromIndex(indexGame, event) {
             genres: fullGame.genres ? fullGame.genres.map(g => g.name) : [],
             platforms: fullGame.platforms ? fullGame.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
             imageUrl: fullGame.cover ? convertImageUrl(fullGame.cover.url) : (fullGame.image_url || fullGame.imageUrl || DEFAULT_GAME_IMAGE),
+            hltb: null,
             isCustom: true,
             importedFromApi: true,
             completed: false,
@@ -5870,6 +5871,7 @@ function addGameFromSearch(game, event) {
         genres: game.genres ? game.genres.map(g => g.name) : [],
         platforms: game.platforms ? game.platforms.map(p => getPlatformName(p.id)).filter(p => p !== null && p !== "") : [],
         imageUrl: game.cover ? convertImageUrl(game.cover.url) : (game.image_url || game.imageUrl || DEFAULT_GAME_IMAGE),
+        hltb: null,
         isCustom: true,
         importedFromApi: true,
         completed: false,
@@ -6411,6 +6413,33 @@ function hidePreview() {
     }, 1000);
 }
 
+    function generateCustomGameTable(game) {
+        let detailsHTML = '';
+        if (game.genres && game.genres.length > 0) {
+            detailsHTML += `<span class="detail-label">Жанры:</span> ${game.genres.join(', ')}`;
+        }
+        if (game.platforms && game.platforms.length > 0) {
+            if (detailsHTML) detailsHTML += '<br>';
+            detailsHTML += `<span class="detail-label">Платформы:</span> ${game.platforms.join(', ')}`;
+        }
+        if (game.year) {
+            if (detailsHTML) detailsHTML += '<br>';
+            detailsHTML += `<span class="detail-label">Год:</span> ${game.year}`;
+        }
+        
+        let tableHTML = `<div class="game-info-top">`;
+        tableHTML += `<div class="game-title-hltb" onclick="copyGameName('${game.name.replace(/'/g, "\\'")}', event)">${game.name}</div>`;
+        if (detailsHTML) {
+            tableHTML += `<div class="game-details">${detailsHTML}</div>`;
+        }
+        tableHTML += `</div>`;
+        
+        tableHTML += `<div class="game-info-middle">`;
+        tableHTML += `<p style="color: #888; font-style: italic; margin: 5px 0 120px 0;">Нет информации о времени прохождения</p>`;
+        tableHTML += `</div>`;
+        return tableHTML;
+    }
+
     function generateHLTBTable(game) {
         
         let detailsHTML = '';
@@ -6627,7 +6656,11 @@ function showGameInfoModal(game, event = null) {
     }
     
     const gameInfoBody = gameInfoModal.querySelector('.game-info-body');
+    if (game.isCustom && !game.hltb) {
+        gameInfoBody.innerHTML = generateCustomGameTable(game);
+    } else {
     gameInfoBody.innerHTML = generateHLTBTable(game);
+    }
     
 }
 
@@ -8549,7 +8582,11 @@ function showRandomGameInfo(game) {
     gameInfoModal.style.opacity = '1';
     
     const gameInfoBody = gameInfoModal.querySelector('.game-info-body');
-    gameInfoBody.innerHTML = generateHLTBTable(game);
+    if (game.isCustom && !game.hltb) {
+        gameInfoBody.innerHTML = generateCustomGameTable(game);
+    } else {
+        gameInfoBody.innerHTML = generateHLTBTable(game);
+    }
     
     selectedGameId = game.id;
 }
@@ -8957,6 +8994,7 @@ function addNewGame(gameData) {
         const newGame = {
             id: Date.now(),
             ...gameData,
+            hltb: gameData.hltb || null,
             isCustom: true,
             importedFromApi: gameData.importedFromApi || false,
             completed: false,
@@ -9013,6 +9051,7 @@ document.getElementById('addGameForm').addEventListener('submit', function(e) {
         platforms: document.getElementById('gamePlatforms').value.split(',').map(p => p.trim()).filter(p => p),
         genres: document.getElementById('gameGenres').value.split(',').map(g => g.trim()).filter(g => g),
         imageUrl: document.getElementById('gameImageUrl').value.trim() || null,
+        hltb: null,
     };
 
     addNewGame(gameData);
@@ -9135,18 +9174,30 @@ function createButtonsForCell(cell, game) {
         const gameId = cell.dataset.gameId;
         if (gameId) {
             const game = state.games.find(g => g.id && g.id.toString() === gameId.toString());
-            const originalGame = gamesList.find(g => g.number && g.number.toString() === gameId.toString());
             
-            if (game && originalGame) {
-                const gameWithHLTB = {
-                    ...game,
-                    hltb: originalGame.hltb
-                };
-                
-                if (selectedGameId) {
-                    replaceGameInfoModal(gameWithHLTB, e);
+            if (game) {
+                // Для добавленных игр используем их собственные данные
+                if (game.isCustom) {
+                    if (selectedGameId) {
+                        replaceGameInfoModal(game, e);
+                    } else {
+                        showGameInfoModal(game, e);
+                    }
                 } else {
-                    showGameInfoModal(gameWithHLTB, e);
+                    // Для обычных игр ищем HLTB данные в gamesList
+                    const originalGame = gamesList.find(g => g.number && g.number.toString() === gameId.toString());
+                    if (originalGame) {
+                        const gameWithHLTB = {
+                            ...game,
+                            hltb: originalGame.hltb
+                        };
+                        
+                        if (selectedGameId) {
+                            replaceGameInfoModal(gameWithHLTB, e);
+                        } else {
+                            showGameInfoModal(gameWithHLTB, e);
+                        }
+                    }
                 }
             }
         }
@@ -9401,18 +9452,30 @@ function updateGameCell(game) {
             const gameId = cell.dataset.gameId;
             if (gameId) {
                 const game = state.games.find(g => g.id && g.id.toString() === gameId.toString());
-                const originalGame = gamesList.find(g => g.number && g.number.toString() === gameId.toString());
                 
-                if (game && originalGame) {
-                    const gameWithHLTB = {
-                        ...game,
-                        hltb: originalGame.hltb
-                    };
-                    
-                    if (selectedGameId) {
-                        replaceGameInfoModal(gameWithHLTB, e);
+                if (game) {
+                    // Для добавленных игр используем их собственные данные
+                    if (game.isCustom) {
+                        if (selectedGameId) {
+                            replaceGameInfoModal(game, e);
+                        } else {
+                            showGameInfoModal(game, e);
+                        }
                     } else {
-                        showGameInfoModal(gameWithHLTB, e);
+                        // Для обычных игр ищем HLTB данные в gamesList
+                        const originalGame = gamesList.find(g => g.number && g.number.toString() === gameId.toString());
+                        if (originalGame) {
+                            const gameWithHLTB = {
+                                ...game,
+                                hltb: originalGame.hltb
+                            };
+                            
+                            if (selectedGameId) {
+                                replaceGameInfoModal(gameWithHLTB, e);
+                            } else {
+                                showGameInfoModal(gameWithHLTB, e);
+                            }
+                        }
                     }
                 }
             }
@@ -9541,7 +9604,7 @@ function isRemakeOrRemaster(existingName, newName) {
 
 function isSpecialVersion(name) {
     const specialVersions = [
-        'hd', 'remake', 'remaster', 'remastered', 'definitive edition',
+        'remake', 'remaster', 'remastered', 'definitive edition',
         'special edition', 'complete edition', 'directors cut',
         'game of the year', 'goty', 'enhanced edition', 'anniversary edition',
         'collectors edition', 'extended edition', 'gold edition', 'platinum edition'
