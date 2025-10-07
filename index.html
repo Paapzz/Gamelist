@@ -6210,10 +6210,16 @@ function calculateRelevance(gameName, searchTerm) {
         const titleTokens = gameNameLower.split(/[^a-z0-9]+/).filter(Boolean);
         const hasEdition = titleTokens.some(t => editionKeywords.has(t));
         
+        // Исключаем Premium Edition и Collector's Edition из поиска
+        const isExcludedEdition = titleTokens.some(t => ['premium', 'collector'].includes(t));
+        if (isExcludedEdition) {
+            return -10000; // Полностью исключаем из результатов
+        }
+        
         // Определяем тип игры для приоритизации
         const isOriginal = !hasEdition && !titleTokens.some(t => ['remake', 'remaster', 'remastered'].includes(t));
         const isRemakeRemaster = titleTokens.some(t => ['remake', 'remaster', 'remastered'].includes(t));
-        const isSpecialEdition = titleTokens.some(t => ['premium', 'collector', 'bundle'].includes(t));
+        const isSpecialEdition = titleTokens.some(t => ['bundle'].includes(t));
         const isRegularEdition = hasEdition && !isSpecialEdition && !isRemakeRemaster;
         
         // Приоритизация по типам
@@ -6224,7 +6230,7 @@ function calculateRelevance(gameName, searchTerm) {
         } else if (isRegularEdition) {
             relevance += 100; // Обычные издания - третий приоритет
         } else if (isSpecialEdition) {
-            relevance -= 200; // Премиум/коллекторские - низший приоритет
+            relevance -= 200; // Bundle - низший приоритет
         }
         
         // Дополнительный штраф для издания без номера при поиске без номера
@@ -9684,7 +9690,21 @@ function isSpecialVersion(name) {
 function isDuplicateGame(newGame) {
     const normalizedNewName = normalizeGameName(newGame.name);
     const newGameNumber = getGameNumber(newGame.name);
+    
+    // Логируем для диагностики проблемных игр
+    if (newGame.name.toLowerCase().includes('ngolf') || newGame.name.toLowerCase().includes('goty')) {
+        console.log('[Duplicate Check] Проверка игры:', {
+            gameName: newGame.name,
+            normalizedName: normalizedNewName,
+            gameNumber: newGameNumber,
+            isSpecialVersion: isSpecialVersion(newGame.name)
+        });
+    }
+    
     if (isSpecialVersion(newGame.name)) {
+        if (newGame.name.toLowerCase().includes('ngolf') || newGame.name.toLowerCase().includes('goty')) {
+            console.log('[Duplicate Check] Игра считается специальной версией:', newGame.name);
+        }
         return true;
     }
 
@@ -9694,13 +9714,32 @@ function isDuplicateGame(newGame) {
 
         const namesMatch = normalizedExistingName === normalizedNewName;
         const numberMatch = newGameNumber === existingGameNumber;
+        const levenshteinDist = levenshteinDistance(normalizedExistingName, normalizedNewName);
+        const similarNames = levenshteinDist <= 1;
 
-        const similarNames = levenshteinDistance(normalizedExistingName, normalizedNewName) <= 1;
+        // Логируем для проблемных игр
+        if ((newGame.name.toLowerCase().includes('ngolf') || newGame.name.toLowerCase().includes('goty')) && (namesMatch || similarNames)) {
+            console.log('[Duplicate Check] Найден потенциальный дубликат:', {
+                newGame: newGame.name,
+                existingGame: game.name,
+                normalizedNew: normalizedNewName,
+                normalizedExisting: normalizedExistingName,
+                namesMatch,
+                levenshteinDistance: levenshteinDist,
+                similarNames,
+                newGameNumber,
+                existingGameNumber,
+                numberMatch
+            });
+        }
 
         return (namesMatch || similarNames) && (newGameNumber === null || numberMatch);
     });
 
     if (existingGame) {
+        if (newGame.name.toLowerCase().includes('ngolf') || newGame.name.toLowerCase().includes('goty')) {
+            console.log('[Duplicate Check] Игра определена как дубликат:', newGame.name, '→', existingGame.name);
+        }
         return true;
     }
 
