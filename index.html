@@ -6136,57 +6136,56 @@ function calculateRelevance(gameName, searchTerm) {
     const gameNameLower = normalizeText(gameName.toLowerCase());
 
     function calc(termLower, termWords) {
-    let relevance = 0;
+        let relevance = 0;
         const normalizedTermLower = normalizeText(termLower);
+        
+        // Базовое совпадение
         if (termWords.length === 1) {
             if (gameNameLower === normalizedTermLower) {
-            relevance += 1000;
-        }
-            else if (gameNameLower.startsWith(normalizedTermLower)) {
-            relevance += 500;
-        }
-            else if (gameNameLower.split(' ').some(word => word.startsWith(normalizedTermLower))) {
-            relevance += 200;
-        }
-            else if (gameNameLower.includes(normalizedTermLower)) {
-            relevance += 100;
-        }
-    }
-    else {
+                relevance += 1000;
+            } else if (gameNameLower.startsWith(normalizedTermLower)) {
+                relevance += 500;
+            } else if (gameNameLower.split(' ').some(word => word.startsWith(normalizedTermLower))) {
+                relevance += 200;
+            } else if (gameNameLower.includes(normalizedTermLower)) {
+                relevance += 100;
+            }
+        } else {
             if (gameNameLower === normalizedTermLower) {
-            relevance += 1000;
-        }
-            else if (gameNameLower.includes(normalizedTermLower)) {
-            relevance += 800;
-        }
-        else {
-            let matchedWords = 0;
-            let matchedAtStart = 0;
+                relevance += 1000;
+            } else if (gameNameLower.includes(normalizedTermLower)) {
+                relevance += 800;
+            } else {
+                let matchedWords = 0;
+                let matchedAtStart = 0;
 
-            const gameWords = gameNameLower.split(/\s+/);
+                const gameWords = gameNameLower.split(/\s+/);
                 for (const queryWord of termWords) {
-                if (gameNameLower.includes(normalizeText(queryWord))) {
-                    matchedWords++;
-                    if (gameWords.some(word => word.startsWith(normalizeText(queryWord)))) {
-                        matchedAtStart++;
+                    if (gameNameLower.includes(normalizeText(queryWord))) {
+                        matchedWords++;
+                        if (gameWords.some(word => word.startsWith(normalizeText(queryWord)))) {
+                            matchedAtStart++;
+                        }
                     }
                 }
-            }
                 relevance += (matchedWords / termWords.length) * 500;
                 relevance += (matchedAtStart / termWords.length) * 300;
             }
         }
 
+        // Штраф за разницу в длине
         const lengthDifference = Math.abs(gameNameLower.length - normalizedTermLower.length);
-    relevance -= lengthDifference;
+        relevance -= lengthDifference;
 
-    const gameWords = gameNameLower.split(/\s+/);
+        // Бонус за точные совпадения слов
+        const gameWords = gameNameLower.split(/\s+/);
         for (const queryWord of termWords) {
-        if (gameWords.includes(normalizeText(queryWord))) {
-            relevance += 50;
+            if (gameWords.includes(normalizeText(queryWord))) {
+                relevance += 50;
+            }
         }
-    }
 
+        // Логика для серий игр
         const seriesInfoCalc = getSeriesInfo(gameNameLower);
         const gamePartNorm = seriesInfoCalc.noNumber ? 1 : seriesInfoCalc.part;
         const termPart = extractPartNumber(normalizedTermLower);
@@ -6205,13 +6204,35 @@ function calculateRelevance(gameName, searchTerm) {
         } else if (termPart != null && gamePartNorm == null) {
             relevance -= 100;
         }
+
+        // Новая логика приоритизации версий
         const editionKeywords = new Set(['definitive','remaster','remastered','bundle','premium','online','ultimate','deluxe','special','collector','collection','complete','anniversary','director','intergrade','intermission','twin','pack','story','enhanced']);
         const titleTokens = gameNameLower.split(/[^a-z0-9]+/).filter(Boolean);
         const hasEdition = titleTokens.some(t => editionKeywords.has(t));
+        
+        // Определяем тип игры для приоритизации
+        const isOriginal = !hasEdition && !titleTokens.some(t => ['remake', 'remaster', 'remastered'].includes(t));
+        const isRemakeRemaster = titleTokens.some(t => ['remake', 'remaster', 'remastered'].includes(t));
+        const isSpecialEdition = titleTokens.some(t => ['premium', 'collector', 'bundle'].includes(t));
+        const isRegularEdition = hasEdition && !isSpecialEdition && !isRemakeRemaster;
+        
+        // Приоритизация по типам
+        if (isOriginal) {
+            relevance += 500; // Оригинальные игры - высший приоритет
+        } else if (isRemakeRemaster) {
+            relevance += 300; // Ремейки/ремастеры - второй приоритет
+        } else if (isRegularEdition) {
+            relevance += 100; // Обычные издания - третий приоритет
+        } else if (isSpecialEdition) {
+            relevance -= 200; // Премиум/коллекторские - низший приоритет
+        }
+        
+        // Дополнительный штраф для издания без номера при поиске без номера
         if (termPart == null && hasEdition) {
             relevance -= 200;
         }
-    return relevance;
+        
+        return relevance;
     }
 
     const lower = normalizeText(searchTerm.toLowerCase());
