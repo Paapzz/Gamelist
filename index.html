@@ -209,6 +209,34 @@ body {
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(6, 98, 189, 0.3);
     filter: brightness(1.1) !important;
 }
+#loadHLTBButton {
+    background-color: #4CAF50;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    padding: 4px 8px;
+    font-size: 14px;
+}
+#loadHLTBButton:hover {
+    background-color: #45a049;
+    outline: 2px solid rgba(255, 255, 255, 0.664);
+    outline-offset: -2px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(76, 175, 80, 0.3);
+    filter: brightness(1.1) !important;
+}
+#showLogsButton {
+    background-color: #ff9800;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    padding: 4px 8px;
+    font-size: 14px;
+}
+#showLogsButton:hover {
+    background-color: #e68900;
+    outline: 2px solid rgba(255, 255, 255, 0.664);
+    outline-offset: -2px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 152, 0, 0.3);
+    filter: brightness(1.1) !important;
+}
 #codeButton {
     background-color: #2a2a2a;
 }
@@ -2036,6 +2064,40 @@ body {
 #cancelAddGame:active {
     transform: translateY(0);
 }
+
+/* Стили для данных HLTB */
+.hltb-data-table {
+    margin: 10px 0;
+}
+
+.hltb-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #333;
+}
+
+.hltb-row:last-child {
+    border-bottom: none;
+}
+
+.hltb-category {
+    color: #fff;
+    font-weight: bold;
+    flex: 1;
+}
+
+.hltb-time {
+    color: #4CAF50;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.hltb-polled {
+    color: #888;
+    font-size: 0.9em;
+}
 .custom-game-item {
     display: flex;
     justify-content: space-between;
@@ -2454,6 +2516,8 @@ button:hover,
     <button id="codeButton">КОД</button>
     <button id="inProgressButton">В очередь</button>
     <button id="addGameButton">Добавить игру</button>
+    <button id="loadHLTBButton" onclick="loadHLTBDataForAllCustomGames()" title="Загрузить данные HLTB для всех пользовательских игр">HLTB</button>
+    <button id="showLogsButton" onclick="showHLTBLogs()" title="Показать логи HLTB сервиса">Логи</button>
     <button id="resetButton">Сброс</button>
 </div>
 </div>
@@ -6468,38 +6532,124 @@ function hidePreview() {
     }, 1000);
 }
 
-function generateCustomGameTable(game) {
-    let detailsHTML = '';
-    if (game.genres && game.genres.length > 0) {
-        detailsHTML += `<span class="detail-label">Жанры:</span> ${game.genres.join(', ')}`;
-    }
-    if (game.platforms && game.platforms.length > 0) {
-        if (detailsHTML) detailsHTML += '<br>';
-        detailsHTML += `<span class="detail-label">Платформы:</span> ${game.platforms.join(', ')}`;
+    function generateCustomGameTable(game) {
+        let detailsHTML = '';
+        if (game.genres && game.genres.length > 0) {
+            detailsHTML += `<span class="detail-label">Жанры:</span> ${game.genres.join(', ')}`;
+        }
+        if (game.platforms && game.platforms.length > 0) {
+            if (detailsHTML) detailsHTML += '<br>';
+            detailsHTML += `<span class="detail-label">Платформы:</span> ${game.platforms.join(', ')}`;
+        }
+        
+        let tableHTML = `<div class="game-info-top">`;
+        tableHTML += `<div class="game-title-hltb" onclick="copyGameName('${game.name.replace(/'/g, "\\'")}', event)">${game.name}</div>`;
+        if (detailsHTML) {
+            tableHTML += `<div class="game-details">${detailsHTML}</div>`;
+        }
+        tableHTML += `</div>`;
+        
+        tableHTML += `<div class="game-info-middle">`;
+        
+        // Проверяем статус загрузки данных HLTB
+        if (game.hltb) {
+            // Данные HLTB загружены - показываем их
+            tableHTML += generateHLTBDataTable(game.hltb);
+        } else if (game.isCustom && !game.hltb) {
+            // Проверяем, идет ли загрузка
+            const isLoading = checkIfHLTBLoading(game);
+            if (isLoading) {
+                tableHTML += `<p style="color: #4CAF50; font-style: italic; margin: 5px 0 120px 0;">🔄 Загружается, подождите...</p>`;
+            } else {
+                tableHTML += `<p style="color: #888; font-style: italic; margin: 5px 0 120px 0;">Нет информации о времени прохождения</p>`;
+            }
+        } else {
+            tableHTML += `<p style="color: #888; font-style: italic; margin: 5px 0 120px 0;">Нет информации о времени прохождения</p>`;
+        }
+        
+        tableHTML += `</div>`;
+        return tableHTML;
     }
     
-    let tableHTML = `<div class="game-info-top">`;
-    tableHTML += `<div class="game-title-hltb" onclick="copyGameName('${game.name.replace(/'/g, "\\'")}', event)">${game.name}</div>`;
-    if (detailsHTML) {
-        tableHTML += `<div class="game-details">${detailsHTML}</div>`;
+    // Функция для проверки, идет ли загрузка данных HLTB
+    function checkIfHLTBLoading(game) {
+        // Проверяем логи HLTB сервиса на наличие активной загрузки для этой игры
+        const logs = hltbService.getLogs();
+        const gameName = game.name;
+        
+        // Ищем последние логи для этой игры
+        const recentLogs = logs.filter(log => 
+            log.includes(gameName) && 
+            (log.includes('🔍 Поиск игры') || log.includes('🚀 Начинаем загрузку'))
+        );
+        
+        if (recentLogs.length === 0) return false;
+        
+        const lastLog = recentLogs[recentLogs.length - 1];
+        const logTime = new Date(lastLog.match(/\[(.*?)\]/)?.[1]);
+        const now = new Date();
+        
+        // Если последний лог загрузки был менее 30 секунд назад, считаем что загрузка идет
+        return (now - logTime) < 30000;
     }
-    tableHTML += `</div>`;
     
-    tableHTML += `<div class="game-info-middle">`;
-    
-    // Проверяем статус загрузки HLTB данных
-    if (game.hltbLoading) {
-        tableHTML += `<p style="color: #4CAF50; font-style: italic; margin: 5px 0 120px 0;">🔄 Загружается, подождите...</p>`;
-    } else if (game.hltb && game.hltb.ms !== "N/A") {
-        // Если есть данные HLTB, показываем их
-        tableHTML += generateHLTBTable(game);
-    } else {
-        tableHTML += `<p style="color: #888; font-style: italic; margin: 5px 0 120px 0;">Нет информации о времени прохождения</p>`;
+    // Функция для генерации таблицы данных HLTB
+    function generateHLTBDataTable(hltbData) {
+        let tableHTML = '<div class="hltb-data-table">';
+        
+        // Single Player данные
+        if (hltbData.ms) {
+            tableHTML += `<div class="hltb-row">
+                <span class="hltb-category">Single-Player:</span>
+                <span class="hltb-time">${hltbData.ms.t}ч</span>
+                ${hltbData.ms.p ? `<span class="hltb-polled">(${hltbData.ms.p})</span>` : ''}
+            </div>`;
+        }
+        
+        // Main + Extra данные
+        if (hltbData.mpe) {
+            tableHTML += `<div class="hltb-row">
+                <span class="hltb-category">Main + Extra:</span>
+                <span class="hltb-time">${hltbData.mpe.t}ч</span>
+                ${hltbData.mpe.p ? `<span class="hltb-polled">(${hltbData.mpe.p})</span>` : ''}
+            </div>`;
+        }
+        
+        // Completionist данные
+        if (hltbData.comp) {
+            tableHTML += `<div class="hltb-row">
+                <span class="hltb-category">Completionist:</span>
+                <span class="hltb-time">${hltbData.comp.t}ч</span>
+                ${hltbData.comp.p ? `<span class="hltb-polled">(${hltbData.comp.p})</span>` : ''}
+            </div>`;
+        }
+        
+        // Co-Op данные
+        if (hltbData.coop) {
+            tableHTML += `<div class="hltb-row">
+                <span class="hltb-category">Co-Op:</span>
+                <span class="hltb-time">${hltbData.coop.t}ч</span>
+                ${hltbData.coop.p ? `<span class="hltb-polled">(${hltbData.coop.p})</span>` : ''}
+            </div>`;
+        }
+        
+        // Vs. данные
+        if (hltbData.vs) {
+            tableHTML += `<div class="hltb-row">
+                <span class="hltb-category">Vs.:</span>
+                <span class="hltb-time">${hltbData.vs.t}ч</span>
+                ${hltbData.vs.p ? `<span class="hltb-polled">(${hltbData.vs.p})</span>` : ''}
+            </div>`;
+        }
+        
+        // Если нет данных, показываем сообщение
+        if (!hltbData.ms && !hltbData.mpe && !hltbData.comp && !hltbData.coop && !hltbData.vs) {
+            tableHTML += `<p style="color: #888; font-style: italic; margin: 5px 0 120px 0;">Нет информации о времени прохождения</p>`;
+        }
+        
+        tableHTML += '</div>';
+        return tableHTML;
     }
-    
-    tableHTML += `</div>`;
-    return tableHTML;
-}
 
     function generateHLTBTable(game) {
         
@@ -8908,6 +9058,582 @@ const customGameList = document.getElementById('customGameList');
 
 let customGames = JSON.parse(localStorage.getItem('customGames')) || [];
 
+// HLTB Service для сбора данных с HowLongToBeat
+class HLTBService {
+    constructor() {
+        this.baseUrl = 'https://howlongtobeat.com';
+        this.logs = [];
+        this.maxRetries = 3;
+        this.delayBetweenRequests = 2000; // 2 секунды между запросами
+    }
+
+    log(message) {
+        const timestamp = new Date().toLocaleString('ru-RU');
+        const logEntry = `[${timestamp}] ${message}`;
+        this.logs.push(logEntry);
+        console.log(logEntry);
+        
+        // Ограничиваем количество логов для предотвращения утечек памяти
+        if (this.logs.length > 1000) {
+            this.logs = this.logs.slice(-500); // Оставляем последние 500 записей
+        }
+    }
+
+    async searchGame(gameTitle, gameYear = null) {
+        this.log(`🔍 Поиск игры: "${gameTitle}"${gameYear ? ` (${gameYear})` : ''}`);
+        
+        try {
+            // Генерируем альтернативные названия
+            const alternativeTitles = this.generateAlternativeTitles(gameTitle);
+            this.log(`📝 Сгенерировано ${alternativeTitles.length} вариантов названий`);
+            
+            for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+                if (attempt > 0) {
+                    this.log(`🔄 Попытка ${attempt + 1}/${this.maxRetries}`);
+                    await this.delay(this.delayBetweenRequests * attempt);
+                }
+                
+                for (const altTitle of alternativeTitles) {
+                    try {
+                        const searchResults = await this.searchGameLinks(altTitle);
+                        if (searchResults && searchResults.length > 0) {
+                            this.log(`✅ Найдено ${searchResults.length} результатов для "${altTitle}"`);
+                            
+                            const bestMatch = this.findBestMatch(searchResults, gameTitle, gameYear);
+                            if (bestMatch) {
+                                this.log(`🎯 Лучшее совпадение найдено: "${bestMatch.title}"`);
+                                const gameData = await this.extractGameData(bestMatch.url);
+                                if (gameData) {
+                                    this.log(`✅ Данные успешно извлечены для "${gameTitle}"`);
+                                    return gameData;
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        this.log(`❌ Ошибка поиска для "${altTitle}": ${error.message}`);
+                        continue;
+                    }
+                }
+            }
+            
+            this.log(`❌ Не удалось найти данные для "${gameTitle}"`);
+            return null;
+            
+        } catch (error) {
+            this.log(`❌ Критическая ошибка поиска: ${error.message}`);
+            return null;
+        }
+    }
+
+    async searchGameLinks(gameTitle) {
+        try {
+            const encodedTitle = encodeURIComponent(gameTitle);
+            const searchUrl = `${this.baseUrl}/?q=${encodedTitle}`;
+            
+            this.log(`🌐 Запрос к: ${searchUrl}`);
+            
+            const response = await fetch(searchUrl, {
+                method: 'GET',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1'
+                },
+                mode: 'cors',
+                credentials: 'omit'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const html = await response.text();
+            
+            // Проверяем на блокировку
+            if (html.toLowerCase().includes('captcha') || 
+                html.toLowerCase().includes('blocked') || 
+                html.toLowerCase().includes('access denied') ||
+                html.toLowerCase().includes('cloudflare')) {
+                this.log(`⚠️ Обнаружена блокировка или капча`);
+                throw new Error('Blocked or captcha detected');
+            }
+            
+            return this.parseSearchResults(html, gameTitle);
+            
+        } catch (error) {
+            if (error.name === 'TypeError' && error.message.includes('CORS')) {
+                this.log(`❌ Ошибка CORS: ${error.message}`);
+                throw new Error('CORS error - возможно, нужен прокси-сервер');
+            }
+            this.log(`❌ Ошибка поиска ссылок: ${error.message}`);
+            throw error;
+        }
+    }
+
+    parseSearchResults(html, originalTitle) {
+        const results = [];
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Ищем ссылки на игры в результатах поиска
+        const gameLinks = doc.querySelectorAll('a[href*="/game/"]');
+        
+        gameLinks.forEach(link => {
+            const href = link.getAttribute('href');
+            const title = link.textContent?.trim();
+            const url = href.startsWith('http') ? href : `${this.baseUrl}${href}`;
+            
+            if (title && href) {
+                results.push({
+                    title: title,
+                    url: url,
+                    similarity: this.calculateSimilarity(originalTitle, title)
+                });
+            }
+        });
+        
+        // Сортируем по схожести
+        return results.sort((a, b) => b.similarity - a.similarity);
+    }
+
+    findBestMatch(results, originalTitle, originalYear) {
+        if (!results || results.length === 0) return null;
+        
+        let bestMatch = null;
+        let bestScore = 0;
+        
+        for (const result of results) {
+            const score = this.calculateSimilarity(originalTitle, result.title);
+            
+            // Бонус за точное совпадение года (если есть)
+            if (originalYear) {
+                const yearMatch = result.title.match(/\b(19|20)\d{2}\b/);
+                if (yearMatch) {
+                    const foundYear = parseInt(yearMatch[0]);
+                    const yearDiff = Math.abs(originalYear - foundYear);
+                    if (yearDiff <= 1) {
+                        score += 0.1;
+                    }
+                }
+            }
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = result;
+            }
+        }
+        
+        return bestScore > 0.3 ? bestMatch : null; // Минимальный порог схожести
+    }
+
+    async extractGameData(gameUrl) {
+        try {
+            this.log(`📊 Извлечение данных с: ${gameUrl}`);
+            
+            const response = await fetch(gameUrl, {
+                method: 'GET',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const html = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            const gameData = {
+                hltb_id: this.extractHltbId(gameUrl),
+                ms: this.extractTimeData(doc, 'Single-Player'),
+                mpe: this.extractTimeData(doc, 'Main + Extra'),
+                comp: this.extractTimeData(doc, 'Completionist'),
+                coop: this.extractTimeData(doc, 'Co-Op'),
+                vs: this.extractTimeData(doc, 'Vs.'),
+                stores: this.extractStoreLinks(doc)
+            };
+            
+            // Проверяем, есть ли хотя бы какие-то данные
+            const hasData = Object.values(gameData).some(value => 
+                value && typeof value === 'object' && Object.keys(value).length > 0
+            );
+            
+            if (hasData) {
+                this.log(`✅ Данные извлечены: ${JSON.stringify(gameData)}`);
+                return gameData;
+            } else {
+                this.log(`⚠️ Данные не найдены на странице`);
+                return null;
+            }
+            
+        } catch (error) {
+            this.log(`❌ Ошибка извлечения данных: ${error.message}`);
+            return null;
+        }
+    }
+
+    extractHltbId(url) {
+        const match = url.match(/\/game\/(\d+)/);
+        return match ? match[1] : null;
+    }
+
+    extractTimeData(doc, category) {
+        try {
+            // Ищем блоки с временем прохождения
+            const timeBlocks = doc.querySelectorAll('.GameStats_game_times__KHrRY li');
+            
+            for (const block of timeBlocks) {
+                const categoryElement = block.querySelector('h4');
+                const timeElement = block.querySelector('h5');
+                
+                if (categoryElement && timeElement) {
+                    const blockCategory = categoryElement.textContent.trim();
+                    const timeText = timeElement.textContent.trim();
+                    
+                    if (blockCategory === category && timeText && timeText !== '--') {
+                        return this.parseTimeText(timeText);
+                    }
+                }
+            }
+            
+            return null;
+        } catch (error) {
+            this.log(`❌ Ошибка извлечения времени для ${category}: ${error.message}`);
+            return null;
+        }
+    }
+
+    parseTimeText(timeText) {
+        try {
+            // Парсим время в формате "X Hours" или "X Y Hours"
+            const hoursMatch = timeText.match(/(\d+(?:\.\d+)?)\s*Hours?/i);
+            if (hoursMatch) {
+                const hours = parseFloat(hoursMatch[1]);
+                return {
+                    t: Math.round(hours * 10) / 10, // Округляем до 1 знака
+                    p: this.extractPolledNumber(timeText)
+                };
+            }
+            return null;
+        } catch (error) {
+            this.log(`❌ Ошибка парсинга времени: ${error.message}`);
+            return null;
+        }
+    }
+
+    extractPolledNumber(text) {
+        try {
+            const polledMatch = text.match(/\((\d+)\)/);
+            return polledMatch ? parseInt(polledMatch[1]) : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    extractStoreLinks(doc) {
+        try {
+            const storeLinks = [];
+            const links = doc.querySelectorAll('a[href*="store"]');
+            
+            links.forEach(link => {
+                const href = link.getAttribute('href');
+                const text = link.textContent?.trim();
+                if (href && text) {
+                    storeLinks.push({
+                        name: text,
+                        url: href.startsWith('http') ? href : `${this.baseUrl}${href}`
+                    });
+                }
+            });
+            
+            return storeLinks.length > 0 ? storeLinks : null;
+        } catch (error) {
+            this.log(`❌ Ошибка извлечения ссылок на магазины: ${error.message}`);
+            return null;
+        }
+    }
+
+    generateAlternativeTitles(title) {
+        const alternatives = [title];
+        
+        // Убираем скобки и их содержимое
+        const withoutParentheses = title.replace(/\([^)]*\)/g, '').trim();
+        if (withoutParentheses !== title) {
+            alternatives.push(withoutParentheses);
+        }
+        
+        // Заменяем & на and
+        const withAnd = title.replace(/&/g, 'and');
+        if (withAnd !== title) {
+            alternatives.push(withAnd);
+        }
+        
+        // Заменяем and на &
+        const withAmpersand = title.replace(/\band\b/g, '&');
+        if (withAmpersand !== title) {
+            alternatives.push(withAmpersand);
+        }
+        
+        // Убираем двоеточие и все после него
+        const beforeColon = title.split(':')[0].trim();
+        if (beforeColon !== title) {
+            alternatives.push(beforeColon);
+        }
+        
+        // Убираем дефис и все после него
+        const beforeDash = title.split(' - ')[0].trim();
+        if (beforeDash !== title) {
+            alternatives.push(beforeDash);
+        }
+        
+        return [...new Set(alternatives)]; // Убираем дубликаты
+    }
+
+    calculateSimilarity(title1, title2) {
+        try {
+            const normalized1 = this.normalizeTitle(title1);
+            const normalized2 = this.normalizeTitle(title2);
+            
+            // Простой алгоритм схожести на основе Jaro-Winkler
+            const jaro = this.jaroSimilarity(normalized1, normalized2);
+            const winkler = this.winklerBonus(normalized1, normalized2, jaro);
+            
+            return Math.min(1.0, jaro + winkler);
+        } catch (error) {
+            this.log(`❌ Ошибка вычисления схожести: ${error.message}`);
+            return 0;
+        }
+    }
+
+    normalizeTitle(title) {
+        return title.toLowerCase()
+            .replace(/[^\w\s]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    jaroSimilarity(s1, s2) {
+        if (s1 === s2) return 1.0;
+        if (!s1 || !s2) return 0.0;
+        
+        const matchWindow = Math.floor(Math.max(s1.length, s2.length) / 2) - 1;
+        const s1Matches = new Array(s1.length).fill(false);
+        const s2Matches = new Array(s2.length).fill(false);
+        
+        let matches = 0;
+        let transpositions = 0;
+        
+        // Находим совпадения
+        for (let i = 0; i < s1.length; i++) {
+            const start = Math.max(0, i - matchWindow);
+            const end = Math.min(i + matchWindow + 1, s2.length);
+            
+            for (let j = start; j < end; j++) {
+                if (s2Matches[j] || s1[i] !== s2[j]) continue;
+                s1Matches[i] = true;
+                s2Matches[j] = true;
+                matches++;
+                break;
+            }
+        }
+        
+        if (matches === 0) return 0.0;
+        
+        // Находим транспозиции
+        let k = 0;
+        for (let i = 0; i < s1.length; i++) {
+            if (!s1Matches[i]) continue;
+            while (!s2Matches[k]) k++;
+            if (s1[i] !== s2[k]) transpositions++;
+            k++;
+        }
+        
+        return (matches / s1.length + matches / s2.length + (matches - transpositions / 2) / matches) / 3;
+    }
+
+    winklerBonus(s1, s2, jaro) {
+        if (jaro < 0.7) return 0;
+        
+        let prefix = 0;
+        const maxPrefix = Math.min(4, Math.min(s1.length, s2.length));
+        
+        for (let i = 0; i < maxPrefix; i++) {
+            if (s1[i] === s2[i]) prefix++;
+            else break;
+        }
+        
+        return prefix * 0.1 * (1 - jaro);
+    }
+
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    getLogs() {
+        return this.logs;
+    }
+
+    clearLogs() {
+        this.logs = [];
+    }
+}
+
+// Создаем глобальный экземпляр сервиса
+const hltbService = new HLTBService();
+
+// Функция для принудительной загрузки данных HLTB для всех пользовательских игр
+async function loadHLTBDataForAllCustomGames() {
+    const customGames = state.games.filter(game => game.isCustom && !game.hltb);
+    
+    if (customGames.length === 0) {
+        hltbService.log('ℹ️ Нет пользовательских игр без данных HLTB');
+        return;
+    }
+    
+    hltbService.log(`🚀 Начинаем загрузку данных HLTB для ${customGames.length} игр`);
+    
+    for (let i = 0; i < customGames.length; i++) {
+        const game = customGames[i];
+        hltbService.log(`📊 Обрабатываем игру ${i + 1}/${customGames.length}: "${game.name}"`);
+        
+        try {
+            await loadHLTBDataInBackground(game);
+            
+            // Пауза между запросами для избежания блокировки
+            if (i < customGames.length - 1) {
+                await hltbService.delay(3000); // 3 секунды между играми
+            }
+        } catch (error) {
+            hltbService.log(`❌ Ошибка обработки игры "${game.name}": ${error.message}`);
+        }
+    }
+    
+    hltbService.log('✅ Загрузка данных HLTB завершена');
+}
+
+// Функция для показа логов HLTB сервиса
+function showHLTBLogs() {
+    const logs = hltbService.getLogs();
+    if (logs.length === 0) {
+        alert('Логи HLTB сервиса пусты');
+        return;
+    }
+    
+    const logsText = logs.join('\n');
+    console.log('=== ЛОГИ HLTB СЕРВИСА ===');
+    console.log(logsText);
+    
+    // Создаем модальное окно для показа логов
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    `;
+    
+    const content = document.createElement('div');
+    content.style.cssText = `
+        background: #333;
+        color: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        max-width: 80%;
+        max-height: 80%;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+    `;
+    content.textContent = logsText;
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Закрыть';
+    closeBtn.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #f44336;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+    `;
+    
+    closeBtn.onclick = () => {
+        document.body.removeChild(modal);
+    };
+    
+    modal.appendChild(content);
+    content.appendChild(closeBtn);
+    document.body.appendChild(modal);
+}
+
+// Функция для очистки логов HLTB сервиса
+function clearHLTBLogs() {
+    hltbService.clearLogs();
+    console.log('Логи HLTB сервиса очищены');
+}
+
+// Функция для экспорта логов HLTB сервиса в файл
+function exportHLTBLogs() {
+    const logs = hltbService.getLogs();
+    if (logs.length === 0) {
+        alert('Логи HLTB сервиса пусты');
+        return;
+    }
+    
+    const logsText = logs.join('\n');
+    const blob = new Blob([logsText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hltb_logs_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    console.log('Логи HLTB сервиса экспортированы');
+}
+
+// Функция для принудительного обновления данных HLTB для конкретной игры
+async function refreshHLTBDataForGame(gameId) {
+    const game = state.games.find(g => g.id === gameId);
+    if (!game) {
+        hltbService.log(`❌ Игра с ID ${gameId} не найдена`);
+        return;
+    }
+    
+    if (!game.isCustom) {
+        hltbService.log(`⚠️ Игра "${game.name}" не является пользовательской`);
+        return;
+    }
+    
+    hltbService.log(`🔄 Принудительное обновление данных HLTB для "${game.name}"`);
+    
+    // Очищаем старые данные
+    game.hltb = null;
+    saveGames();
+    updateVisibleGames();
+    
+    // Загружаем новые данные
+    await loadHLTBDataInBackground(game);
+}
+
 function deleteAllApiGames() {
     if (confirm('Вы уверены, что хотите удалить все добавленные игры?')) {
         const initialCount = state.games.length;
@@ -9063,9 +9789,6 @@ function addNewGame(gameData) {
         games = state.games;
         const cell = createCell(newGame);
         insertCellInOrder(cell);
-        
-        // Запускаем фоновую загрузку HLTB данных для новой игры
-        loadHLTBDataInBackground(newGame);
     }
 
     saveGamesImmediately();
@@ -9611,282 +10334,6 @@ function normalizeGameName(name) {
     
     return convertedWords.join(' ');
 }
-
-// HLTB API функции для фоновой загрузки данных
-const HLTB_API_BASE = 'https://howlongtobeat.com';
-const HLTB_CACHE_KEY = 'hltb_cache';
-const HLTB_CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 дней
-
-function loadHLTBDataInBackground(game) {
-    // Проверяем, есть ли уже данные HLTB
-    if (game.hltb && game.hltb.ms !== "N/A") {
-        return;
-    }
-    
-    // Проверяем кеш
-    const cachedData = getHLTBCachedData(game.name);
-    if (cachedData) {
-        updateGameHLTBData(game.id, cachedData);
-        return;
-    }
-    
-    // Устанавливаем флаг загрузки
-    game.hltbLoading = true;
-    saveGames();
-    
-    // Запускаем поиск в фоне
-    setTimeout(() => {
-        searchHLTBData(game);
-    }, 1000 + Math.random() * 2000); // Случайная задержка 1-3 секунды
-}
-
-function getHLTBCachedData(gameName) {
-    try {
-        const cache = JSON.parse(localStorage.getItem(HLTB_CACHE_KEY) || '{}');
-        const normalizedName = normalizeGameName(gameName);
-        
-        for (const [key, data] of Object.entries(cache)) {
-            if (normalizeGameName(key) === normalizedName) {
-                if (Date.now() - data.timestamp < HLTB_CACHE_EXPIRY) {
-                    return data.hltb;
-                }
-            }
-        }
-        return null;
-    } catch (e) {
-        return null;
-    }
-}
-
-function setHLTBCachedData(gameName, hltbData) {
-    try {
-        const cache = JSON.parse(localStorage.getItem(HLTB_CACHE_KEY) || '{}');
-        cache[gameName] = {
-            hltb: hltbData,
-            timestamp: Date.now()
-        };
-        localStorage.setItem(HLTB_CACHE_KEY, JSON.stringify(cache));
-    } catch (e) {
-        console.warn('Не удалось сохранить HLTB данные в кеш:', e);
-    }
-}
-
-async function searchHLTBData(game) {
-    try {
-        console.log(`[HLTB Background] Поиск данных для: ${game.name}`);
-        
-        // Ищем игру на HLTB
-        const searchResults = await searchGameOnHLTB(game.name, game.year);
-        
-        if (searchResults && searchResults.length > 0) {
-            // Выбираем лучший результат
-            const bestResult = findBestHLTBResult(searchResults, game.name, game.year);
-            
-            if (bestResult) {
-                // Получаем детальные данные
-                const hltbData = await getHLTBGameData(bestResult.id);
-                
-                if (hltbData) {
-                    // Сохраняем в кеш
-                    setHLTBCachedData(game.name, hltbData);
-                    
-                    // Обновляем игру
-                    updateGameHLTBData(game.id, hltbData);
-                    
-                    console.log(`[HLTB Background] ✅ Данные загружены для: ${game.name}`, hltbData);
-                } else {
-                    // Данные не найдены
-                    finishHLTBLoading(game.id, { ms: "N/A", mpe: "N/A", comp: "N/A" });
-                }
-            } else {
-                // Подходящий результат не найден
-                finishHLTBLoading(game.id, { ms: "N/A", mpe: "N/A", comp: "N/A" });
-            }
-        } else {
-            console.log(`[HLTB Background] ⚠️ Игра не найдена: ${game.name}`);
-            // Сохраняем N/A в кеш, чтобы не искать повторно
-            setHLTBCachedData(game.name, { ms: "N/A", mpe: "N/A", comp: "N/A" });
-            finishHLTBLoading(game.id, { ms: "N/A", mpe: "N/A", comp: "N/A" });
-        }
-    } catch (error) {
-        console.warn(`[HLTB Background] ❌ Ошибка поиска для ${game.name}:`, error);
-        // При ошибке тоже снимаем флаг загрузки
-        finishHLTBLoading(game.id, { ms: "N/A", mpe: "N/A", comp: "N/A" });
-    }
-}
-
-async function searchGameOnHLTB(gameName, gameYear) {
-    try {
-        const searchUrl = `${HLTB_API_BASE}/api/search`;
-        const searchData = {
-            searchType: "games",
-            searchTerms: [gameName],
-            searchPage: 1,
-            size: 20,
-            sort: 0,
-            filter: 0
-        };
-        
-        const response = await fetch(searchUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            },
-            body: JSON.stringify(searchData)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        return data.data || [];
-        
-    } catch (error) {
-        console.warn(`[HLTB Background] Ошибка поиска:`, error);
-        return [];
-    }
-}
-
-function findBestHLTBResult(results, gameName, gameYear) {
-    if (!results || results.length === 0) return null;
-    
-    const normalizedName = normalizeGameName(gameName);
-    let bestResult = null;
-    let bestScore = 0;
-    
-    for (const result of results) {
-        const resultName = result.game_name || result.name || '';
-        const resultYear = result.release_world || result.release_date;
-        
-        // Вычисляем схожесть названия
-        const nameScore = calculateTitleSimilarity(normalizedName, normalizeGameName(resultName));
-        
-        // Бонус за совпадение года
-        let yearBonus = 0;
-        if (gameYear && resultYear) {
-            const yearDiff = Math.abs(gameYear - resultYear);
-            if (yearDiff === 0) yearBonus = 0.2;
-            else if (yearDiff <= 1) yearBonus = 0.1;
-            else if (yearDiff <= 2) yearBonus = 0.05;
-        }
-        
-        const totalScore = nameScore + yearBonus;
-        
-        if (totalScore > bestScore) {
-            bestScore = totalScore;
-            bestResult = result;
-        }
-    }
-    
-    // Возвращаем результат только если схожесть достаточно высокая
-    return bestScore >= 0.6 ? bestResult : null;
-}
-
-async function getHLTBGameData(gameId) {
-    try {
-        const gameUrl = `${HLTB_API_BASE}/api/game`;
-        const gameData = {
-            gameId: gameId
-        };
-        
-        const response = await fetch(gameUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            },
-            body: JSON.stringify(gameData)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data && data.data) {
-            const game = data.data;
-            const hltbData = {};
-            
-            // Извлекаем данные о времени прохождения
-            if (game.comp_main) {
-                hltbData.ms = formatHLTBTime(game.comp_main);
-            }
-            if (game.comp_plus) {
-                hltbData.mpe = formatHLTBTime(game.comp_plus);
-            }
-            if (game.comp_100) {
-                hltbData.comp = formatHLTBTime(game.comp_100);
-            }
-            if (game.comp_coop) {
-                hltbData.coop = formatHLTBTime(game.comp_coop);
-            }
-            if (game.comp_vs) {
-                hltbData.vs = formatHLTBTime(game.comp_vs);
-            }
-            
-            hltbData.hltb_id = gameId;
-            
-            return Object.keys(hltbData).length > 1 ? hltbData : null;
-        }
-        
-        return null;
-        
-    } catch (error) {
-        console.warn(`[HLTB Background] Ошибка получения данных игры:`, error);
-        return null;
-    }
-}
-
-function formatHLTBTime(timeData) {
-    if (!timeData || !timeData.increment) return null;
-    
-    const hours = Math.floor(timeData.increment / 3600);
-    const minutes = Math.floor((timeData.increment % 3600) / 60);
-    
-    if (hours > 0) {
-        if (minutes > 0) {
-            return `${hours}h ${minutes}m`;
-        } else {
-            return `${hours}h`;
-        }
-    } else {
-        return `${minutes}m`;
-    }
-}
-
-function updateGameHLTBData(gameId, hltbData) {
-    const game = state.games.find(g => g.id === gameId);
-    if (game) {
-        game.hltb = hltbData;
-        game.hltbLoading = false; // Снимаем флаг загрузки
-        saveGames();
-        
-        // Обновляем отображение, если игра видна
-        const cell = document.querySelector(`[data-game-id="${gameId}"]`);
-        if (cell) {
-            // Обновляем кнопку информации, если она есть
-            const infoButton = cell.querySelector('.blue-button');
-            if (infoButton && hltbData.ms !== "N/A") {
-                infoButton.style.opacity = '1';
-                infoButton.title = 'Данные HLTB загружены';
-            }
-        }
-    }
-}
-
-function finishHLTBLoading(gameId, hltbData) {
-    const game = state.games.find(g => g.id === gameId);
-    if (game) {
-        game.hltb = hltbData;
-        game.hltbLoading = false; // Снимаем флаг загрузки
-        saveGames();
-        
-        console.log(`[HLTB Background] ⚠️ Загрузка завершена для: ${game.name} - данные не найдены`);
-    }
-}
 function getGameNumber(name) {
     const arabicMatch = name.match(/\d+$/);
     if (arabicMatch) {
@@ -10319,6 +10766,43 @@ function addNewGame(game) {
     updateVisibleGames();
 
     saveGames();
+    
+    // Запускаем фоновую загрузку данных HLTB для пользовательских игр
+    if (game.isCustom && !game.hltb) {
+        loadHLTBDataInBackground(game);
+    }
+}
+
+// Функция для фоновой загрузки данных HLTB
+async function loadHLTBDataInBackground(game) {
+    try {
+        hltbService.log(`🚀 Начинаем загрузку данных HLTB для "${game.name}"`);
+        
+        // Извлекаем год из названия игры или используем переданный год
+        const yearMatch = game.name.match(/\b(19|20)\d{2}\b/);
+        const gameYear = yearMatch ? parseInt(yearMatch[0]) : null;
+        
+        // Ищем данные на HLTB
+        const hltbData = await hltbService.searchGame(game.name, gameYear);
+        
+        if (hltbData) {
+            // Обновляем игру с полученными данными
+            game.hltb = hltbData;
+            
+            // Сохраняем в localStorage
+            saveGames();
+            
+            hltbService.log(`✅ Данные HLTB успешно загружены и сохранены для "${game.name}"`);
+            
+            // Обновляем отображение, если игра сейчас видна
+            updateVisibleGames();
+        } else {
+            hltbService.log(`⚠️ Данные HLTB не найдены для "${game.name}"`);
+        }
+        
+    } catch (error) {
+        hltbService.log(`❌ Ошибка загрузки данных HLTB для "${game.name}": ${error.message}`);
+    }
 }
 
 function convertImageUrl(url) {
