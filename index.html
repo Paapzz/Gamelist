@@ -197,6 +197,17 @@ body {
 }
 #addGameButton {
     background-color: #0662bd;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    padding: 4px 8px;
+    font-size: 14px;
+}
+#addGameButton:hover {
+    background-color: #0662bd;
+    border: 2px solid rgba(255, 255, 255, 0.664);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
+    transform: scale(1.01) !important;
+    filter: brightness(1.1) !important;
 }
 #codeButton {
     background-color: #2a2a2a;
@@ -204,7 +215,7 @@ body {
 #codeButton:hover {
     background-color: #424242;
 }
-#togglePreview:hover, #resetButton:hover, #filtersButton:hover, #clearSearchButton:hover, #resetFiltersButton:hover, #randomButton:hover, #importFromApiButton:hover, #addGameButton:hover, #customGameListButton:hover, #codeButton:hover {
+#togglePreview:hover, #resetButton:hover, #filtersButton:hover, #clearSearchButton:hover, #resetFiltersButton:hover, #randomButton:hover, #importFromApiButton:hover, #customGameListButton:hover, #codeButton:hover {
     transform: scale(1.05);
     filter: brightness(1.1);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
@@ -4122,7 +4133,7 @@ const gamesList = [
     {"number":715,"title":"Mortal Kombat 11","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co20mh.jpg","year":2019,"genres":["Action","Fighting"],"platforms":["Nintendo Switch","PlayStation 4","Windows PC","Xbox One"],"hltb":{"ms":{"t":"6.5h","p":542,"r":"4.5h","l":"12h"},"mpe":{"t":"18.5h","p":259,"r":"11.5h","l":"100.5h"},"comp":{"t":"62h","p":67,"r":"38h","l":"121h"},"coop":{"t":"8h","min":"13h","max":"45h"},"vs":{"t":"7h","p":32,"min":"23h","max":"523h"},"stores":{"steam":"https://store.steampowered.com/app/976310/"},"hltb_id":"62931"}},
     {"number":716,"title":"GTR 2: FIA GT Racing Game","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co86ce.jpg","year":2006,"genres":["Racing","Simulator","Sport"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"12.5h","p":4,"r":"10h","l":"16h"},"comp":{"t":"23h","p":2,"r":"23h","l":"23h"},"stores":{"steam":"https://store.steampowered.com/app/8790/"},"hltb_id":"4143"}},
     {"number":717,"title":"Stunt Car Racer / Stunt Track Racer","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6yjd.jpg","year":1989,"genres":["Action","Racing"],"platforms":["Amiga","Amstrad CPC","Atari ST/STE","Commodore 64/128","DOS","ZX Spectrum"],"hltb":{"ms":{"t":"2.5h","p":2,"r":"2.5h","l":"2.5h"},"hltb_id":"19370"}},
-    {"number":718,"title":"Brothers: A Tale of Two Sons","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1rro.jpg","year":2013,"genres":["Action","Adventure","Indie","Puzzle","Stealth"],"platforms":["PlayStation 3","Windows PC","Xbox 360"],"hltb":{"ms":{"t":"3h","p":2300,"r":"2h","l":"4.5h"},"mpe":{"t":"3.5h","p":840,"r":"3h","l":"6h"},"comp":{"t":"4h","p":1300,"r":"3h","l":"7.5h"},"stores":{"steam":"https://store.steampowered.com/app/225080/","gog":"https://www.gog.com/en/game/brothers_a_tale_of_two_sons"},"hltb_id":"12660"}},
+    {"number":718,"title":"Brothers: A Tale of Two Sons","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1rro.jpg","year":2013,"genres":["Action","Adventure","Indie","Puzzle","Stealth"],"platforms":["PlayStation 3","Windows PC","Xbox 360"],"hltb":{"ms":{"t":"3h","p":2300,"r":"2h","l":"4.5h"},"mpe":{"t":"3.5h","p":839,"r":"3h","l":"6h"},"comp":{"t":"4h","p":1300,"r":"3h","l":"7.5h"},"stores":{"steam":"https://store.steampowered.com/app/225080/","gog":"https://www.gog.com/en/game/brothers_a_tale_of_two_sons"},"hltb_id":"12660"}},
     {"number":719,"title":"Monster Hunter Freedom 2 / Unite","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co406l.jpg","year":2007,"genres":["Action","Open world","Role-playing (RPG)","Sandbox","Strategy"],"platforms":["PlayStation Portable"],"hltb":{"ms":{"t":"36h","p":11,"r":"26h","l":"48h"},"mpe":{"t":"72.5h","p":8,"r":"49h","l":"99h"},"comp":{"t":"219.5h","p":5,"r":"136h","l":"336.5h"},"hltb_id":"6150"}},
     {"number":720,"title":"South Park: The Stick of Truth","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1v8x.jpg","year":2014,"genres":["Action","Adventure","Open world","Role-playing (RPG)","Strategy"],"platforms":["PlayStation 3","Windows PC","Xbox 360"],"hltb":{"ms":{"t":"11.5h","p":1300,"r":"8h","l":"15.5h"},"mpe":{"t":"14.5h","p":2200,"r":"10.5h","l":"29.5h"},"comp":{"t":"21h","p":606,"r":"16h","l":"39.5h"},"stores":{"steam":"https://store.steampowered.com/app/213670/"},"hltb_id":"8833"}},
     {"number":721,"title":"Harvest Moon","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co43o8.jpg","year":1996,"genres":["Adventure","Role-playing (RPG)","Sandbox","Simulator","Strategy"],"platforms":["Super Nintendo Entertainment System"],"hltb":{"ms":{"t":"24.5h","p":17,"r":"18h","l":"30h"},"mpe":{"t":"33h","p":14,"r":"22.5h","l":"76.5h"},"comp":{"t":"38.5h","p":8,"r":"28h","l":"45h"},"hltb_id":"4318"}},
@@ -4146,7 +4157,7 @@ const gamesList = [
     {"number":739,"title":"Golden Axe","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co25qt.jpg","year":1989,"genres":["Action","Arcade","Hack and slash/Beat 'em up"],"platforms":["Arcade","Sega Master System","Sega Mega Drive / Genesis"],"hltb":{"ms":{"t":"1h","p":207,"r":"39m","l":"3.5h"},"mpe":{"t":"1.5h","p":22,"r":"1h","l":"5h"},"comp":{"t":"1.5h","p":35,"r":"1h","l":"8.5h"},"hltb_id":"3994"}},
     {"number":740,"title":"Hi-Fi Rush","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6219.jpg","year":2023,"genres":["Action","Adventure","Hack and slash/Beat 'em up","Music","Platform"],"platforms":["PlayStation 5","Windows PC","Xbox Series X/S"],"hltb":{"ms":{"t":"11h","p":1600,"r":"8.5h","l":"16h"},"mpe":{"t":"14h","p":824,"r":"10.5h","l":"28.5h"},"comp":{"t":"59.5h","p":32,"r":"44h","l":"77.5h"},"stores":{"steam":"https://store.steampowered.com/app/1817230/"},"hltb_id":"122891"}},
     {"number":741,"title":"Bomberman / Atomic Punk / Dynablaster","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co3imm.jpg","year":1991,"genres":["Action","Arcade"],"platforms":["Arcade"],"hltb":{"ms":{"t":"2.5h","p":15,"r":"1.5h","l":"3h"},"hltb_id":"713"}},
-    {"number":742,"title":"Gears of War 3","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2a21.jpg","year":2011,"genres":["Action","Horror","Shooter"],"platforms":["Xbox 360"],"hltb":{"ms":{"t":"9.5h","p":556,"r":"7.5h","l":"12.5h"},"mpe":{"t":"12.5h","p":178,"r":"10h","l":"31.5h"},"comp":{"t":"19.5h","p":19,"r":"14h","l":"46h"},"coop":{"t":"12h","p":57,"min":"6h","max":"51h"},"vs":{"t":"69h","p":29,"min":"35h","max":"884h"},"hltb_id":"3865"}},
+    {"number":742,"title":"Gears of War 3","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2a21.jpg","year":2011,"genres":["Action","Horror","Shooter"],"platforms":["Xbox 360"],"hltb":{"ms":{"t":"9.5h","p":555,"r":"7.5h","l":"12.5h"},"mpe":{"t":"12.5h","p":178,"r":"10h","l":"31.5h"},"comp":{"t":"19.5h","p":19,"r":"14h","l":"46h"},"coop":{"t":"12h","p":57,"min":"6h","max":"51h"},"vs":{"t":"69h","p":29,"min":"35h","max":"884h"},"hltb_id":"3865"}},
     {"number":743,"title":"DuckTales","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co3wks.jpg","year":1989,"genres":["Platform"],"platforms":["Game Boy","Nintendo Entertainment System"],"hltb":{"ms":{"t":"1.5h","p":166,"r":"47m","l":"3h"},"mpe":{"t":"2h","p":33,"r":"1.5h","l":"3.5h"},"comp":{"t":"2.5h","p":28,"r":"1.5h","l":"7h"},"hltb_id":"2908"}},
     {"number":744,"title":"Burnout Revenge","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2nhp.jpg","year":2005,"genres":["Action","Racing"],"platforms":["PlayStation 2","Xbox","Xbox 360"],"hltb":{"ms":{"t":"16.5h","p":42,"r":"12h","l":"19h"},"mpe":{"t":"20h","p":33,"r":"14.5h","l":"26h"},"comp":{"t":"33h","p":26,"r":"24h","l":"46.5h"},"hltb_id":"1411"}},
     {"number":745,"title":"F-Zero X","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co53i2.jpg","year":1998,"genres":["Action","Arcade","Racing"],"platforms":["Nintendo 64"],"hltb":{"ms":{"t":"5h","p":55,"r":"3h","l":"10.5h"},"mpe":{"t":"8.5h","p":17,"r":"6h","l":"10.5h"},"comp":{"t":"14h","p":8,"r":"11.5h","l":"16h"},"hltb_id":"3290"}},
@@ -4155,7 +4166,7 @@ const gamesList = [
     {"number":748,"title":"Skate 2","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co5x8f.jpg","year":2009,"genres":["Open world","Racing","Sandbox","Simulator","Sport"],"platforms":["PlayStation 3","Xbox 360"],"hltb":{"ms":{"t":"17.5h","p":17,"r":"13h","l":"21.5h"},"mpe":{"t":"25.5h","p":27,"r":"18.5h","l":"41.5h"},"comp":{"t":"66h","p":6,"r":"46h","l":"107.5h"},"hltb_id":"8598"}},
     {"number":749,"title":"Blade Runner","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1zz1.jpg","year":1997,"genres":["Adventure","Point-and-click"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"7.5h","p":68,"r":"5h","l":"11h"},"mpe":{"t":"10.5h","p":22,"r":"7h","l":"19h"},"comp":{"t":"22h","p":12,"r":"16.5h","l":"46h"},"stores":{"steam":"https://store.steampowered.com/app/1678420/"},"hltb_id":"1121"}},
     {"number":750,"title":"Breakout","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co94iu.jpg","year":1976,"genres":["Action","Arcade"],"platforms":["Arcade","Atari 2600"],"hltb":{"ms":{"t":"29m","p":7,"r":"19m","l":"44m"},"hltb_id":"19125"}},
-    {"number":751,"title":"Cocoon","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4v2z.jpg","year":2023,"genres":["Adventure","Indie","Puzzle"],"platforms":["Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"5h","p":829,"r":"3.5h","l":"7h"},"mpe":{"t":"5.5h","p":594,"r":"4h","l":"9.5h"},"comp":{"t":"5.5h","p":582,"r":"4h","l":"8.5h"},"stores":{"steam":"https://store.steampowered.com/app/1497440/"},"hltb_id":"109239"}},
+    {"number":751,"title":"Cocoon","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4v2z.jpg","year":2023,"genres":["Adventure","Indie","Puzzle"],"platforms":["Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"5h","p":827,"r":"3.5h","l":"7h"},"mpe":{"t":"5.5h","p":593,"r":"4h","l":"9.5h"},"comp":{"t":"5.5h","p":581,"r":"4h","l":"8.5h"},"stores":{"steam":"https://store.steampowered.com/app/1497440/"},"hltb_id":"109239"}},
     {"number":752,"title":"Among Us","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6kqt.jpg","year":2018,"genres":["Action","Indie","Party","Stealth","Strategy","Survival"],"platforms":["Android","iPhone","Windows PC"],"hltb":{"coop":{"t":"19h"},"vs":{"t":"19h"},"stores":{"steam":"https://store.steampowered.com/app/945360/"},"hltb_id":"74207"}},
     {"number":753,"title":"Battlefield 3","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1xbu.jpg","year":2011,"genres":["Action","Shooter","Stealth"],"platforms":["PlayStation 3","Windows PC","Xbox 360"],"hltb":{"ms":{"t":"6h","p":1000,"r":"4.5h","l":"9.5h"},"mpe":{"t":"11.5h","p":203,"r":"8h","l":"56h"},"comp":{"t":"62h","p":50,"r":"34.5h","l":"315h"},"stores":{"steam":"https://store.steampowered.com/app/1238820/"},"hltb_id":"941"}},
     {"number":754,"title":"Strider / Strider Hiryū","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2e4x.jpg","year":1989,"genres":["Action","Arcade","Platform"],"platforms":["Amiga","Amstrad CPC","Arcade","Atari ST/STE","Sega Mega Drive / Genesis"],"hltb":{"ms":{"t":"1.5h","p":71},"mpe":{"t":"3h","p":5,"r":"2h","l":"3.5h"},"comp":{"t":"2h","p":12,"r":"1.5h","l":"3.5h"},"hltb_id":"9261"}},
@@ -4175,13 +4186,13 @@ const gamesList = [
     {"number":768,"title":"Championship Manager 3","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6dfl.jpg","year":1999,"genres":["Sport","Strategy"],"platforms":["Windows PC"],"hltb":{"hltb_id":"15724"}},
     {"number":769,"title":"1080° Snowboarding","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2f8m.jpg","year":1998,"genres":["Action","Racing","Sport"],"platforms":["Nintendo 64"],"hltb":{"ms":{"t":"3h","p":33,"r":"1.5h","l":"6.5h"},"mpe":{"t":"8.5h","p":11,"r":"6.5h","l":"22h"},"comp":{"t":"12.5h","p":11,"r":"7.5h","l":"18.5h"},"hltb_id":"41"}},
     {"number":770,"title":"Empire: Total War","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co214k.jpg","year":2009,"genres":["4X (explore, expand, exploit, and exterminate)","Real Time Strategy (RTS)","Strategy","Tactical","Turn-based strategy (TBS)"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"22.5h","p":36,"r":"13h","l":"32h"},"mpe":{"t":"80h","p":33,"r":"44h","l":"285h"},"comp":{"t":"99.5h","p":14,"r":"68h","l":"143h"},"hltb_id":"3110"}},
-    {"number":771,"title":"The Rise of the Golden Idol","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co7h9f.jpg","year":2024,"genres":["Adventure","Indie","Point-and-click","Puzzle"],"platforms":["Android","Apple Macintosh","iPhone","Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"11.5h","p":66,"r":"9h","l":"15h"},"mpe":{"t":"12.5h","p":25,"r":"11h","l":"14h"},"comp":{"t":"12.5h","p":135,"r":"10h","l":"22.5h"},"stores":{"steam":"https://store.steampowered.com/app/2716400/"},"hltb_id":"141823"}},
-    {"number":772,"title":"World of Goo","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co24jz.jpg","year":2008,"genres":["Indie","Puzzle","Sandbox","Simulator","Strategy"],"platforms":["Android","Apple Macintosh","iPhone","Linux","Nintendo Wii","Windows PC"],"hltb":{"ms":{"t":"6h","p":282,"r":"4h","l":"10h"},"mpe":{"t":"8h","p":149,"r":"5h","l":"14h"},"comp":{"t":"14h","p":48,"r":"10.5h","l":"27.5h"},"stores":{"steam":"https://store.steampowered.com/app/22000/","gog":"https://www.gog.com/en/game/world_of_goo"},"hltb_id":"11283"}},
+    {"number":771,"title":"The Rise of the Golden Idol","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co7h9f.jpg","year":2024,"genres":["Adventure","Indie","Point-and-click","Puzzle"],"platforms":["Android","Apple Macintosh","iPhone","Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"11.5h","p":66,"r":"9h","l":"15h"},"mpe":{"t":"12.5h","p":25,"r":"11h","l":"14h"},"comp":{"t":"12.5h","p":135,"r":"10h","l":"22.5h"},"hltb_id":"141823"}},
+    {"number":772,"title":"World of Goo","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co24jz.jpg","year":2008,"genres":["Indie","Puzzle","Sandbox","Simulator","Strategy"],"platforms":["Android","Apple Macintosh","iPhone","Linux","Nintendo Wii","Windows PC"],"hltb":{"ms":{"t":"6h","p":282,"r":"4h","l":"10h"},"mpe":{"t":"8h","p":149,"r":"5h","l":"14h"},"comp":{"t":"14h","p":48,"r":"10.5h","l":"27.5h"},"stores":{"gog":"https://www.gog.com/en/game/world_of_goo"},"hltb_id":"11283"}},
     {"number":773,"title":"NBA 2K11","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2gih.jpg","year":2010,"genres":["Sport"],"platforms":["Nintendo Wii","PlayStation 2","PlayStation 3","PlayStation Portable","Windows PC","Xbox 360"],"hltb":{"ms":{"t":"35h","p":10,"r":"22h","l":"115.5h"},"mpe":{"t":"161h","p":6,"r":"90.5h","l":"430.5h"},"comp":{"t":"100h","p":1,"r":"100h","l":"100h"},"hltb_id":"6428"}},
     {"number":774,"title":"Halo Infinite","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2dto.jpg","year":2021,"genres":["Action","Adventure","Open world","Shooter"],"platforms":["Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"11.5h","p":496,"r":"8h","l":"17h"},"mpe":{"t":"19.5h","p":932,"r":"13h","l":"42h"},"comp":{"t":"29.5h","p":181,"r":"22.5h","l":"141.5h"},"coop":{"t":"18.5h","p":32,"min":"10h","max":"59h"},"vs":{"t":"122h","p":111,"min":"40h","max":"1445h"},"stores":{"steam":"https://store.steampowered.com/app/1240440/"},"hltb_id":"57454"}},
     {"number":775,"title":"Animal Crossing: Wild World","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co3wms.jpg","year":2005,"genres":["Open world","Sandbox","Simulator"],"platforms":["Nintendo DS"],"hltb":{"ms":{"t":"68h","p":43,"r":"44h","l":"134h"},"mpe":{"t":"132.5h","p":36,"r":"79h","l":"277h"},"comp":{"t":"386h","p":18,"r":"232h","l":"568h"},"hltb_id":"475"}},
     {"number":776,"title":"Smash TV","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co5j51.jpg","year":1990,"genres":["Action","Arcade","Shooter","Survival"],"platforms":["Amiga","Amstrad CPC","Arcade","Atari ST/STE","Commodore 64/128","Nintendo Entertainment System","Sega Master System","Sega Mega Drive / Genesis","Super Nintendo Entertainment System","ZX Spectrum"],"hltb":{"ms":{"t":"1.5h","p":32,"r":"1h","l":"3h"},"mpe":{"t":"3h","p":4,"r":"2.5h","l":"5h"},"comp":{"t":"2h","p":8,"r":"1.5h","l":"2.5h"},"hltb_id":"8661"}},
-    {"number":777,"title":"Horizon Forbidden West","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2gvu.jpg","year":2022,"genres":["Action","Adventure","Open world","Role-playing (RPG)"],"platforms":["PlayStation 4","PlayStation 5"],"hltb":{"ms":{"t":"29h","p":517,"r":"19.5h","l":"45.5h"},"mpe":{"t":"62.5h","p":1600,"r":"40h","l":"134h"},"comp":{"t":"90h","p":982,"r":"64h","l":"170h"},"stores":{"steam":"https://store.steampowered.com/app/2420110/"},"hltb_id":"79775"}},
+    {"number":777,"title":"Horizon Forbidden West","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2gvu.jpg","year":2022,"genres":["Action","Adventure","Open world","Role-playing (RPG)"],"platforms":["PlayStation 4","PlayStation 5"],"hltb":{"ms":{"t":"29h","p":517,"r":"19.5h","l":"45.5h"},"mpe":{"t":"62.5h","p":1600,"r":"40h","l":"134h"},"comp":{"t":"90h","p":982,"r":"64h","l":"170h"},"hltb_id":"79775"}},
     {"number":778,"title":"Fire Emblem Fates","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6i98.jpg","year":2015,"genres":["Role-playing (RPG)","Strategy","Turn-based strategy (TBS)"],"platforms":["Nintendo 3DS"],"hltb":{"ms":{"t":"26.5h","p":224,"r":"19h","l":"40.5h"},"mpe":{"t":"43.5h","p":273,"r":"29.5h","l":"128.5h"},"comp":{"t":"73.5h","p":31,"r":"52h","l":"112h"},"hltb_id":"28381"}},
     {"number":779,"title":"Amplitude","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1wwi.jpg","year":2003,"genres":["Action","Adventure","Music","Party"],"platforms":["PlayStation 2"],"hltb":{"ms":{"t":"5h","p":8,"r":"3h","l":"6.5h"},"mpe":{"t":"17.5h","p":7,"r":"10h","l":"23.5h"},"comp":{"t":"192.5h","p":2,"r":"114h","l":"271.5h"},"hltb_id":"445"}},
     {"number":780,"title":"Twisted Metal 2 / Twisted Metal: World Tour / Twisted Metal EX","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co9412.jpg","year":1996,"genres":["Action","Fighting","Horror","Racing","Shooter","Survival"],"platforms":["PlayStation","Windows PC"],"hltb":{"ms":{"t":"4h","p":41,"r":"2.5h","l":"7h"},"mpe":{"t":"9.5h","p":12,"r":"7h","l":"11.5h"},"comp":{"t":"17h","p":9,"r":"11.5h","l":"31h"},"hltb_id":"10722"}},
@@ -4191,10 +4202,10 @@ const gamesList = [
     {"number":784,"title":"The Oregon Trail","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6rqi.jpg","year":1985,"genres":["Simulator","Survival"],"platforms":["Apple II","Apple Macintosh","DOS","Windows PC"],"hltb":{"ms":{"t":"1.5h","p":48},"mpe":{"t":"1.5h","p":3,"r":"1h","l":"2h"},"comp":{"t":"3.5h","p":5,"r":"2h","l":"4.5h"},"hltb_id":"10123"}},
     {"number":785,"title":"Jet Set Willy","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co50jb.jpg","year":1984,"genres":["Action","Adventure","Arcade","Platform"],"platforms":["Atari 8-bit","Commodore 64/128","ZX Spectrum"],"hltb":{"ms":{"t":"1.5h","p":1,"r":"1.5h","l":"1.5h"},"mpe":{"t":"4h","p":1,"r":"4h","l":"4h"},"comp":{"t":"2.5h","p":1,"r":"2.5h","l":"2.5h"},"hltb_id":"19335"}},
     {"number":786,"title":"Jak II: Renegade","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2agi.jpg","year":2003,"genres":["Action","Adventure","Open world","Platform","Shooter"],"platforms":["PlayStation 2"],"hltb":{"ms":{"t":"16.5h","p":228,"r":"11.5h","l":"26h"},"mpe":{"t":"18h","p":148,"r":"13.5h","l":"30.5h"},"comp":{"t":"21.5h","p":109,"r":"15.5h","l":"61h"},"hltb_id":"4801"}},
-    {"number":787,"title":"Saints Row IV","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1nrn.jpg","year":2013,"genres":["Action","Adventure","Open world","Sandbox","Shooter"],"platforms":["PlayStation 3","PlayStation 4","Windows PC","Xbox 360","Xbox One"],"hltb":{"ms":{"t":"15.5h","p":491,"r":"10.5h","l":"26.5h"},"mpe":{"t":"24.5h","p":935,"r":"17h","l":"49h"},"comp":{"t":"36.5h","p":304,"r":"26h","l":"72h"},"stores":{"steam":"https://store.steampowered.com/app/206420/"},"hltb_id":"12650"}},
+    {"number":787,"title":"Saints Row IV","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1nrn.jpg","year":2013,"genres":["Action","Adventure","Open world","Sandbox","Shooter"],"platforms":["PlayStation 3","PlayStation 4","Windows PC","Xbox 360","Xbox One"],"hltb":{"ms":{"t":"15.5h","p":491,"r":"10.5h","l":"26.5h"},"mpe":{"t":"24.5h","p":934,"r":"17h","l":"49h"},"comp":{"t":"36.5h","p":304,"r":"26h","l":"72h"},"stores":{"steam":"https://store.steampowered.com/app/206420/"},"hltb_id":"12650"}},
     {"number":788,"title":"Metroid Prime 3: Corruption","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1wwp.jpg","year":2007,"genres":["Action","Adventure","Platform","Shooter"],"platforms":["Nintendo Wii"],"hltb":{"ms":{"t":"13.5h","p":141,"r":"10.5h","l":"17h"},"mpe":{"t":"15h","p":144,"r":"11.5h","l":"26.5h"},"comp":{"t":"17h","p":92,"r":"12.5h","l":"27.5h"},"hltb_id":"5955"}},
     {"number":789,"title":"Warlords","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co671u.jpg","year":1980,"genres":["Action","Arcade","Shooter"],"platforms":["Arcade","Atari 2600"],"hltb":{"hltb_id":"18997"}},
-    {"number":790,"title":"Baba Is You","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2hqt.jpg","year":2019,"genres":["Action","Indie","Puzzle","Strategy"],"platforms":["Apple Macintosh","Linux","Nintendo Switch","Windows PC"],"hltb":{"ms":{"t":"7.5h","p":118,"r":"5h","l":"17h"},"mpe":{"t":"21.5h","p":146,"r":"12h","l":"53h"},"comp":{"t":"46h","p":134,"r":"30.5h","l":"124.5h"},"stores":{"steam":"https://store.steampowered.com/app/736260/","itch":"https://hempuli.itch.io/baba?ac=uXJTAGDC8vG"},"hltb_id":"52538"}},
+    {"number":790,"title":"Baba Is You","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2hqt.jpg","year":2019,"genres":["Action","Indie","Puzzle","Strategy"],"platforms":["Apple Macintosh","Linux","Nintendo Switch","Windows PC"],"hltb":{"ms":{"t":"7.5h","p":118,"r":"5h","l":"17h"},"mpe":{"t":"21h","p":145,"r":"12h","l":"53h"},"comp":{"t":"46h","p":134,"r":"30.5h","l":"124.5h"},"stores":{"itch":"https://hempuli.itch.io/baba?ac=uXJTAGDC8vG"},"hltb_id":"52538"}},
     {"number":791,"title":"Professor Layton and the Curious Village","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1wtd.jpg","year":2007,"genres":["Point-and-click","Puzzle","Visual Novel"],"platforms":["Nintendo DS"],"hltb":{"ms":{"t":"11.5h","p":361,"r":"8h","l":"33.5h"},"mpe":{"t":"13.5h","p":372,"r":"10h","l":"36h"},"comp":{"t":"14h","p":288,"r":"9h","l":"37h"},"hltb_id":"7337"}},
     {"number":792,"title":"Pilotwings 64","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co5iq6.jpg","year":1996,"genres":["Action","Racing","Simulator","Sport"],"platforms":["Nintendo 64"],"hltb":{"ms":{"t":"5h","p":35,"r":"3h","l":"8h"},"mpe":{"t":"7h","p":13,"r":"5h","l":"12h"},"comp":{"t":"11h","p":5,"r":"7h","l":"14.5h"},"hltb_id":"7046"}},
     {"number":793,"title":"Madden NFL 2004","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co30uu.jpg","year":2003,"genres":["Simulator","Sport"],"platforms":["Nintendo GameCube","PlayStation 2","Windows PC","Xbox"],"hltb":{"coop":{"t":"15h"},"ms":{"t":"5.5h","p":5,"r":"4h","l":"17.5h"},"mpe":{"t":"25h","p":2,"r":"22.5h","l":"27.5h"},"hltb_id":"5504"}},
@@ -4203,40 +4214,40 @@ const gamesList = [
     {"number":796,"title":"FIFA 09","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2073.jpg","year":2008,"genres":["Sport"],"platforms":["PlayStation 3","Xbox 360"],"hltb":{"ms":{"t":"39h","p":19,"r":"22h","l":"51h"},"coop":{"t":"16h","p":2,"min":"14h","max":"18h"},"vs":{"t":"90h","p":3,"min":"65h","max":"195h"},"mpe":{"t":"79h","p":9,"r":"44.5h","l":"139.5h"},"comp":{"t":"150h","p":1,"r":"150h","l":"150h"},"hltb_id":"3445"}},
     {"number":797,"title":"Wonder Boy III: The Dragon's Trap","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co52cw.jpg","year":1989,"genres":["Action","Platform","Role-playing (RPG)"],"platforms":["Sega Master System","TurboGrafx-16 / PC Engine"],"hltb":{"ms":{"t":"5.5h","p":15,"r":"3.5h","l":"10.5h"},"mpe":{"t":"6h","p":9,"r":"5h","l":"8h"},"comp":{"t":"7h","p":10,"r":"4.5h","l":"13h"},"hltb_id":"11259"}},
     {"number":798,"title":"Frequency","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1ovb.jpg","year":2001,"genres":["Hack and slash/Beat 'em up","Music"],"platforms":["PlayStation 2"],"hltb":{"ms":{"t":"2.5h","p":5,"r":"2h","l":"3.5h"},"comp":{"t":"250h","p":1,"r":"250h","l":"250h"},"hltb_id":"3705"}},
-    {"number":799,"title":"Earthworm Jim","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co20g8.jpg","year":1994,"genres":["Action","Platform","Shooter"],"platforms":["Sega CD","Sega Mega Drive / Genesis","Super Nintendo Entertainment System"],"hltb":{"ms":{"t":"3.5h","p":102,"r":"2h","l":"6.5h"},"mpe":{"t":"4.5h","p":23,"r":"3.5h","l":"8.5h"},"comp":{"t":"4h","p":13,"r":"3.5h","l":"8.5h"},"stores":{"gog":"https://www.gog.com/en/game/earthworm_jim"},"hltb_id":"3036"}},
+    {"number":799,"title":"Earthworm Jim","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co20g8.jpg","year":1994,"genres":["Action","Platform","Shooter"],"platforms":["Sega CD","Sega Mega Drive / Genesis","Super Nintendo Entertainment System"],"hltb":{"ms":{"t":"3.5h","p":102,"r":"2h","l":"6.5h"},"mpe":{"t":"4.5h","p":23,"r":"3.5h","l":"8.5h"},"comp":{"t":"4h","p":13,"r":"3.5h","l":"8.5h"},"hltb_id":"3036"}},
     {"number":800,"title":"Forza Motorsport 3","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co91qf.jpg","year":2009,"genres":["Racing","Simulator","Sport"],"platforms":["Xbox 360"],"hltb":{"ms":{"t":"36.5h","p":28,"r":"27h","l":"50h"},"mpe":{"t":"64h","p":20,"r":"42h","l":"132h"},"comp":{"t":"185.5h","p":18,"r":"135.5h","l":"1122h"},"hltb_id":"3664"}},
     {"number":801,"title":"International Karate +","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co7j5t.jpg","year":1987,"genres":["Action","Fighting","Hack and slash/Beat 'em up"],"platforms":["Amiga","Amstrad CPC","Atari ST/STE","Commodore 64/128","ZX Spectrum"],"hltb":{"ms":{"t":"45m","p":2,"r":"34m","l":"56m"},"mpe":{"t":"26.5h","p":1,"r":"26.5h","l":"26.5h"},"hltb_id":"19361"}},
     {"number":802,"title":"RollerCoaster Tycoon","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2r6q.jpg","year":1999,"genres":["Sandbox","Simulator","Strategy"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"60.5h","p":20,"r":"38h","l":"100h"},"mpe":{"t":"77.5h","p":5,"r":"57.5h","l":"88.5h"},"comp":{"t":"152.5h","p":7,"r":"113.5h","l":"201h"},"hltb_id":"7958"}},
     {"number":803,"title":"A Way Out","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1vca.jpg","year":2018,"genres":["Action","Adventure"],"platforms":["PlayStation 4","Windows PC","Xbox One"],"hltb":{"ms":{"t":"6h","p":1600,"r":"4.5h","l":"8h"},"mpe":{"t":"6.5h","p":722,"r":"5.5h","l":"13h"},"comp":{"t":"7.5h","p":520,"r":"6h","l":"14.5h"},"coop":{"t":"6.5h","p":593,"min":"4h","max":"23h"},"vs":{"t":"30m","p":6},"stores":{"steam":"https://store.steampowered.com/app/1222700/"},"hltb_id":"46386"}},
     {"number":804,"title":"Spy Hunter","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6owb.jpg","year":1984,"genres":["Action","Arcade","Racing","Shooter"],"platforms":["Amstrad CPC","Apple II","Arcade","Atari 2600","Atari 8-bit","BBC Micro","ColecoVision","Commodore 64/128","DOS","Nintendo Entertainment System","ZX Spectrum"],"hltb":{"ms":{"t":"23m","p":7,"r":"13m","l":"28m"},"comp":{"t":"40m","p":1,"r":"40m","l":"40m"},"hltb_id":"8997"}},
-    {"number":805,"title":"Final Fantasy III","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2127.jpg","year":1990,"genres":["Role-playing (RPG)"],"platforms":["Nintendo Entertainment System"],"hltb":{"ms":{"t":"16h","p":191,"r":"12h","l":"32.5h"},"mpe":{"t":"19h","p":206,"r":"13.5h","l":"37h"},"comp":{"t":"18.5h","p":253,"r":"14.5h","l":"47.5h"},"stores":{"steam":"https://store.steampowered.com/app/1173790/"},"hltb_id":"94537"}},
-    {"number":806,"title":"Unpacking","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2879.jpg","year":2021,"genres":["Indie","Simulator"],"platforms":["Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One"],"hltb":{"ms":{"t":"3.5h","p":1100,"r":"2.5h","l":"6.5h"},"mpe":{"t":"4h","p":397,"r":"3h","l":"6h"},"comp":{"t":"4.5h","p":1300,"r":"2.5h","l":"12h"},"stores":{"steam":"https://store.steampowered.com/app/1135690/","gog":"https://www.gog.com/en/game/unpacking"},"hltb_id":"69666"}},
+    {"number":805,"title":"Final Fantasy III","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2127.jpg","year":1990,"genres":["Role-playing (RPG)"],"platforms":["Nintendo Entertainment System"],"hltb":{"ms":{"t":"16h","p":191,"r":"12h","l":"32.5h"},"mpe":{"t":"19h","p":206,"r":"13.5h","l":"37h"},"comp":{"t":"18.5h","p":253,"r":"14.5h","l":"47.5h"},"hltb_id":"94537"}},
+    {"number":806,"title":"Unpacking","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2879.jpg","year":2021,"genres":["Indie","Simulator"],"platforms":["Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One"],"hltb":{"ms":{"t":"3.5h","p":1100,"r":"2.5h","l":"6.5h"},"mpe":{"t":"4h","p":397,"r":"3h","l":"6h"},"comp":{"t":"4.5h","p":1300,"r":"2.5h","l":"12h"},"hltb_id":"69666"}},
     {"number":807,"title":"Nier","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2z64.jpg","year":2010,"genres":["Action","Adventure","Open world","Role-playing (RPG)","Shooter","Simulator","Strategy"],"platforms":["PlayStation 3","Xbox 360"],"hltb":{"ms":{"t":"20.5h","p":220,"r":"15h","l":"32.5h"},"mpe":{"t":"35h","p":295,"r":"25.5h","l":"71h"},"comp":{"t":"66.5h","p":72,"r":"48.5h","l":"90h"},"hltb_id":"6591"}},
     {"number":808,"title":"LittleBigPlanet 2","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2ijw.jpg","year":2011,"genres":["Action","Adventure","Platform","Puzzle","Sandbox"],"platforms":["PlayStation 3"],"hltb":{"ms":{"t":"7h","p":144,"r":"5.5h","l":"9.5h"},"mpe":{"t":"15h","p":77,"r":"10.5h","l":"57.5h"},"comp":{"t":"40.5h","p":20,"r":"27.5h","l":"60h"},"coop":{"t":"39.5h","p":19,"min":"23h","max":"520h"},"vs":{"t":"18h","p":4,"min":"7h","max":"32h"},"hltb_id":"5336"}},
     {"number":809,"title":"Vib-Ribbon","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6xgh.jpg","year":1999,"genres":["Action","Music"],"platforms":["PlayStation"],"hltb":{"ms":{"t":"42m","p":32,"r":"28m","l":"1.5h"},"mpe":{"t":"1h","p":6,"r":"42m","l":"1.5h"},"comp":{"t":"4h","p":2,"r":"3.5h","l":"4.5h"},"hltb_id":"10922"}},
-    {"number":810,"title":"Everything","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co24rj.jpg","year":2017,"genres":["Adventure","Indie","Open world","Role-playing (RPG)","Sandbox","Simulator"],"platforms":["Apple Macintosh","Linux","PlayStation 4","Windows PC"],"hltb":{"ms":{"t":"3h","p":91,"r":"2h","l":"5h"},"mpe":{"t":"5.5h","p":50,"r":"3.5h","l":"18.5h"},"comp":{"t":"18h","p":15,"r":"13h","l":"22.5h"},"stores":{"steam":"https://store.steampowered.com/app/582270/"},"hltb_id":"45196"}},
+    {"number":810,"title":"Everything","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co24rj.jpg","year":2017,"genres":["Adventure","Indie","Open world","Role-playing (RPG)","Sandbox","Simulator"],"platforms":["Apple Macintosh","Linux","PlayStation 4","Windows PC"],"hltb":{"ms":{"t":"3h","p":91,"r":"2h","l":"5h"},"mpe":{"t":"5.5h","p":50,"r":"3.5h","l":"18.5h"},"comp":{"t":"18h","p":15,"r":"13h","l":"22.5h"},"hltb_id":"45196"}},
     {"number":811,"title":"Race Driver: Grid","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co3o2w.jpg","year":2008,"genres":["Racing","Simulator","Sport"],"platforms":["PlayStation 3","Windows PC","Xbox 360"],"hltb":{"ms":{"t":"20h","p":105,"r":"14h","l":"40h"},"mpe":{"t":"24.5h","p":49,"r":"18h","l":"34.5h"},"comp":{"t":"34h","p":60,"r":"24.5h","l":"110.5h"},"hltb_id":"7510"}},
-    {"number":812,"title":"Commandos 2: Men of Courage","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1otp.jpg","year":2001,"genres":["Action","Adventure","Real Time Strategy (RTS)","Shooter","Stealth","Strategy","Tactical"],"platforms":["PlayStation 2","Windows PC","Xbox"],"hltb":{"ms":{"t":"21.5h","p":28,"r":"15h","l":"25.5h"},"mpe":{"t":"33.5h","p":12,"r":"26.5h","l":"66.5h"},"comp":{"t":"32.5h","p":10,"r":"27h","l":"42.5h"},"stores":{"steam":"https://store.steampowered.com/app/6830/","gog":"https://www.gog.com/en/game/commandos_2_hd"},"hltb_id":"1867"}},
+    {"number":812,"title":"Commandos 2: Men of Courage","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1otp.jpg","year":2001,"genres":["Action","Adventure","Real Time Strategy (RTS)","Shooter","Stealth","Strategy","Tactical"],"platforms":["PlayStation 2","Windows PC","Xbox"],"hltb":{"ms":{"t":"21.5h","p":28,"r":"15h","l":"25.5h"},"mpe":{"t":"33.5h","p":12,"r":"26.5h","l":"66.5h"},"comp":{"t":"32.5h","p":10,"r":"27h","l":"42.5h"},"stores":{"gog":"https://www.gog.com/en/game/commandos_2_hd"},"hltb_id":"1867"}},
     {"number":813,"title":"Prey","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co55mn.jpg","year":2006,"genres":["Action","Puzzle","Shooter"],"platforms":["Apple Macintosh","Linux","Windows PC","Xbox 360"],"hltb":{"ms":{"t":"7h","p":264,"r":"5.5h","l":"9.5h"},"mpe":{"t":"8.5h","p":75,"r":"6.5h","l":"11.5h"},"comp":{"t":"10.5h","p":27,"r":"8h","l":"18h"},"hltb_id":"7278"}},
     {"number":814,"title":"Infamous","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co525t.jpg","year":2009,"genres":["Action","Adventure","Open world","Platform","Sandbox","Shooter"],"platforms":["PlayStation 3"],"hltb":{"ms":{"t":"15h","p":312,"r":"11h","l":"19h"},"mpe":{"t":"20h","p":338,"r":"15h","l":"30h"},"comp":{"t":"30.5h","p":116,"r":"24h","l":"40.5h"},"hltb_id":"4674"}},
     {"number":815,"title":"The Hobbit","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co490f.jpg","year":1982,"genres":["Adventure"],"platforms":["Amstrad CPC","Apple II","BBC Micro","Commodore 64/128","DOS","MSX","ZX Spectrum"],"hltb":{"ms":{"t":"1h","p":1,"r":"1h","l":"1h"},"mpe":{"t":"2.5h","p":1,"r":"2.5h","l":"2.5h"},"comp":{"t":"2.5h","p":1,"r":"2.5h","l":"2.5h"},"hltb_id":"19318"}},
     {"number":816,"title":"Super Mario 3D Land","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co21tq.jpg","year":2011,"genres":["Action","Platform"],"platforms":["Nintendo 3DS"],"hltb":{"ms":{"t":"7h","p":892,"r":"5h","l":"42h"},"mpe":{"t":"12.5h","p":667,"r":"7.5h","l":"28.5h"},"comp":{"t":"22.5h","p":584,"r":"14.5h","l":"158.5h"},"hltb_id":"9361"}},
-    {"number":817,"title":"Master of Orion","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4ejt.jpg","year":1993,"genres":["4X (explore, expand, exploit, and exterminate)","Strategy","Turn-based strategy (TBS)"],"platforms":["Apple Macintosh","DOS"],"hltb":{"ms":{"t":"14h","p":15,"r":"9.5h","l":"59.5h"},"mpe":{"t":"30.5h","p":3,"r":"30.5h","l":"32h"},"stores":{"steam":"https://store.steampowered.com/app/410970/"},"hltb_id":"5725"}},
+    {"number":817,"title":"Master of Orion","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4ejt.jpg","year":1993,"genres":["4X (explore, expand, exploit, and exterminate)","Strategy","Turn-based strategy (TBS)"],"platforms":["Apple Macintosh","DOS"],"hltb":{"ms":{"t":"14h","p":15,"r":"9.5h","l":"59.5h"},"mpe":{"t":"30.5h","p":3,"r":"30.5h","l":"32h"},"hltb_id":"5725"}},
     {"number":818,"title":"Pro Evolution Soccer 3 / World Soccer: Winning Eleven 7 International","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co7jvj.jpg","year":2003,"genres":["Sport"],"platforms":["PlayStation 2","Windows PC"],"hltb":{"ms":{"t":"22h","p":5,"r":"16h","l":"31h"},"coop":{"t":"250h","p":1,"min":"250h","max":"250h"},"vs":{"t":"60h","p":2,"min":"60h","max":"60h"},"mpe":{"t":"30h","p":1,"r":"30h","l":"30h"},"comp":{"t":"115.5h","p":5,"r":"102.5h","l":"182.5h"},"hltb_id":"7325"}},
     {"number":819,"title":"Catherine","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co244u.jpg","year":2011,"genres":["Action","Adventure","Horror","Platform","Puzzle"],"platforms":["PlayStation 3","Xbox 360"],"hltb":{"ms":{"t":"13h","p":745,"r":"9.5h","l":"23.5h"},"mpe":{"t":"17.5h","p":314,"r":"12.5h","l":"33.5h"},"comp":{"t":"65h","p":26,"r":"40.5h","l":"126.5h"},"stores":{"steam":"https://store.steampowered.com/app/893180/"},"hltb_id":"1610"}},
     {"number":820,"title":"International Superstar Soccer Deluxe","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co3vl4.jpg","year":1995,"genres":["Sport"],"platforms":["Super Nintendo Entertainment System"],"hltb":{"ms":{"t":"7h","p":16,"r":"4.5h","l":"20.5h"},"vs":{"t":"1h"},"comp":{"t":"41h","p":3,"r":"40.5h","l":"43h"},"hltb_id":"4712"}},
     {"number":821,"title":"Star Raiders","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co38t3.jpg","year":1980,"genres":["Action","Shooter","Simulator"],"platforms":["Atari 2600","Atari 5200","Atari 8-bit"],"hltb":{"ms":{"t":"25m","p":6,"r":"12m","l":"50m"},"mpe":{"t":"2h","p":1,"r":"2h","l":"2h"},"hltb_id":"9050"}},
     {"number":822,"title":"Tomb Raider III: Adventures of Lara Croft","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co3h9u.jpg","year":1998,"genres":["Action","Adventure","Puzzle","Shooter"],"platforms":["Apple Macintosh","PlayStation","Windows PC"],"hltb":{"ms":{"t":"20.5h","p":77,"r":"16h","l":"27.5h"},"mpe":{"t":"23.5h","p":64,"r":"18h","l":"44h"},"comp":{"t":"25h","p":41,"r":"18.5h","l":"46h"},"stores":{"steam":"https://store.steampowered.com/app/225320/"},"hltb_id":"10472"}},
-    {"number":823,"title":"Populous II: Trials of the Olympian Gods","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2by5.jpg","year":1991,"genres":["Real Time Strategy (RTS)","Role-playing (RPG)","Simulator","Strategy"],"platforms":["Amiga","Atari ST/STE","DOS"],"hltb":{"ms":{"t":"17.5h","p":2,"r":"15h","l":"20h"},"mpe":{"t":"16.5h","p":1,"r":"16.5h","l":"16.5h"},"stores":{"steam":"https://store.steampowered.com/app/2616450/","gog":"https://www.gog.com/en/game/populous_2"},"hltb_id":"7223"}},
+    {"number":823,"title":"Populous II: Trials of the Olympian Gods","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2by5.jpg","year":1991,"genres":["Real Time Strategy (RTS)","Role-playing (RPG)","Simulator","Strategy"],"platforms":["Amiga","Atari ST/STE","DOS"],"hltb":{"ms":{"t":"17.5h","p":2,"r":"15h","l":"20h"},"mpe":{"t":"16.5h","p":1,"r":"16.5h","l":"16.5h"},"stores":{"gog":"https://www.gog.com/en/game/populous_2"},"hltb_id":"7223"}},
     {"number":824,"title":"Exile","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co8iom.jpg","year":1988,"genres":["Action","Adventure","Arcade","Open world","Platform"],"platforms":["Amiga","Amiga CD32","Atari ST/STE","BBC Micro","Commodore 64/128"],"hltb":{"ms":{"t":"3.5h","p":6,"r":"3h","l":"4h"},"mpe":{"t":"4.5h","p":1,"r":"4.5h","l":"4.5h"},"hltb_id":"3265"}},
-    {"number":825,"title":"Prince of Persia: The Lost Crown","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6lli.jpg","year":2024,"genres":["Action","Adventure","Platform"],"platforms":["Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"16.5h","p":265,"r":"13h","l":"21h"},"mpe":{"t":"24.5h","p":727,"r":"16.5h","l":"40.5h"},"comp":{"t":"31h","p":411,"r":"25h","l":"54h"},"stores":{"steam":"https://store.steampowered.com/app/2751000/"},"hltb_id":"129785"}},
+    {"number":825,"title":"Prince of Persia: The Lost Crown","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6lli.jpg","year":2024,"genres":["Action","Adventure","Platform"],"platforms":["Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"16.5h","p":265,"r":"13h","l":"21h"},"mpe":{"t":"24.5h","p":727,"r":"16.5h","l":"40.5h"},"comp":{"t":"31h","p":411,"r":"25h","l":"54h"},"hltb_id":"129785"}},
     {"number":826,"title":"FIFA 99","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6w2v.jpg","year":1998,"genres":["Simulator","Sport"],"platforms":["Nintendo 64","PlayStation","Windows PC"],"hltb":{"ms":{"t":"13.5h","p":13,"r":"8h","l":"34.5h"},"vs":{"t":"40h"},"mpe":{"t":"65.5h","p":5,"r":"38h","l":"83h"},"hltb_id":"3441"}},
     {"number":827,"title":"Donkey Kong Country: Tropical Freeze","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1wf2.jpg","year":2014,"genres":["Action","Platform"],"platforms":["Nintendo Wii U"],"hltb":{"ms":{"t":"10.5h","p":668,"r":"7h","l":"18.5h"},"mpe":{"t":"19h","p":419,"r":"12h","l":"45h"},"comp":{"t":"31.5h","p":155,"r":"20.5h","l":"65.5h"},"coop":{"t":"17h","p":22,"min":"11h","max":"41h"},"vs":{"t":"51h","p":1,"min":"51h","max":"51h"},"hltb_id":"2691"}},
     {"number":828,"title":"Fable","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2q4c.jpg","year":2004,"genres":["Action","Adventure","Open world","Role-playing (RPG)","Sandbox"],"platforms":["Windows PC","Xbox"],"hltb":{"ms":{"t":"12.5h","p":82,"r":"8.5h","l":"18.5h"},"mpe":{"t":"20h","p":95,"r":"14h","l":"30h"},"comp":{"t":"34.5h","p":27,"r":"25h","l":"53h"},"hltb_id":"3311"}},
     {"number":829,"title":"Wii Sports Resort","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2may.jpg","year":2009,"genres":["Action","Party","Racing","Shooter","Simulator","Sport"],"platforms":["Nintendo Wii"],"hltb":{"ms":{"t":"9h","p":52,"r":"6.5h","l":"22h"},"mpe":{"t":"41.5h","p":46,"r":"23h","l":"185.5h"},"comp":{"t":"75h","p":11,"r":"46.5h","l":"101.5h"},"coop":{"t":"19h","p":5,"min":"12h","max":"33h"},"vs":{"t":"12.5h","p":11,"min":"7h","max":"28h"},"hltb_id":"11160"}},
     {"number":830,"title":"SWAT 4","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co3xuh.jpg","year":2005,"genres":["Action","Shooter","Stealth","Strategy","Tactical"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"9h","p":44,"r":"6.5h","l":"14.5h"},"mpe":{"t":"13h","p":28,"r":"10.5h","l":"17.5h"},"comp":{"t":"17h","p":9,"r":"15.5h","l":"21.5h"},"stores":{"gog":"https://www.gog.com/en/game/swat_4_gold_edition"},"hltb_id":"9498"}},
-    {"number":831,"title":"Jade Empire","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co21x1.jpg","year":2005,"genres":["Action","Adventure","Role-playing (RPG)"],"platforms":["Xbox"],"hltb":{"ms":{"t":"17.5h","p":41,"r":"13h","l":"24h"},"mpe":{"t":"23.5h","p":63,"r":"18.5h","l":"36h"},"comp":{"t":"30h","p":16,"r":"26.5h","l":"35h"},"hltb_id":"4789"}},
-    {"number":832,"title":"Broken Sword: The Shadow of the Templars","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4wpw.jpg","year":1996,"genres":["Adventure","Point-and-click","Puzzle"],"platforms":["Apple Macintosh","PlayStation","Windows PC"],"hltb":{"ms":{"t":"10h","p":292,"r":"6.5h","l":"14h"},"mpe":{"t":"11h","p":76,"r":"8.5h","l":"15h"},"comp":{"t":"10.5h","p":126,"r":"7h","l":"15h"},"stores":{"steam":"https://store.steampowered.com/app/2544110/","gog":"https://www.gog.com/en/game/broken_sword_directors_cut"},"hltb_id":"1338"}},
+    {"number":831,"title":"Jade Empire","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co21x1.jpg","year":2005,"genres":["Action","Adventure","Role-playing (RPG)"],"platforms":["Xbox"],"hltb":{"ms":{"t":"17.5h","p":41,"r":"13h","l":"24h"},"mpe":{"t":"23.5h","p":62,"r":"18.5h","l":"36.5h"},"comp":{"t":"30h","p":16,"r":"26.5h","l":"35h"},"hltb_id":"4789"}},
+    {"number":832,"title":"Broken Sword: The Shadow of the Templars","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4wpw.jpg","year":1996,"genres":["Adventure","Point-and-click","Puzzle"],"platforms":["Apple Macintosh","PlayStation","Windows PC"],"hltb":{"ms":{"t":"10h","p":292,"r":"6.5h","l":"14h"},"mpe":{"t":"11h","p":76,"r":"8.5h","l":"15h"},"comp":{"t":"10.5h","p":126,"r":"7h","l":"15h"},"stores":{"gog":"https://www.gog.com/en/game/broken_sword_directors_cut"},"hltb_id":"1338"}},
     {"number":833,"title":"Resident Evil Village","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2zpu.jpg","year":2021,"genres":["Action","Adventure","Horror","Shooter","Stealth","Survival"],"platforms":["PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"10h","p":1700,"r":"6h","l":"15h"},"mpe":{"t":"13h","p":2200,"r":"9.5h","l":"51.5h"},"comp":{"t":"38.5h","p":256,"r":"27h","l":"61h"},"stores":{"steam":"https://store.steampowered.com/app/1196590/"},"hltb_id":"80038"}},
     {"number":834,"title":"Genshin Impact","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co480t.jpg","year":2020,"genres":["Action","Adventure","Open world","Role-playing (RPG)"],"platforms":["Android","iPhone","PlayStation 4","Windows PC"],"hltb":{"ms":{"t":"68h","p":51,"r":"49h","l":"234h"},"coop":{"t":"531h"},"mpe":{"t":"238.5h","p":93,"r":"134h","l":"1755h"},"comp":{"t":"808.5h","p":52,"r":"444h","l":"5272h"},"hltb_id":"68133"}},
     {"number":835,"title":"Persona 3 / Shin Megami Tensei: Persona 3","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co5mo6.jpg","year":2006,"genres":["Action","Role-playing (RPG)","Simulator","Turn-based strategy (TBS)","Visual Novel"],"platforms":["PlayStation 2"],"hltb":{"ms":{"t":"81.5h","p":67,"r":"63.5h","l":"102.5h"},"mpe":{"t":"96h","p":71,"r":"75.5h","l":"125.5h"},"comp":{"t":"125.5h","p":9,"r":"113.5h","l":"137h"},"hltb_id":"8440"}},
@@ -4244,7 +4255,7 @@ const gamesList = [
     {"number":837,"title":"Wipeout 3","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4ay7.jpg","year":1999,"genres":["Action","Racing"],"platforms":["PlayStation"],"hltb":{"ms":{"t":"11.5h","p":8,"r":"8h","l":"15h"},"mpe":{"t":"15h","p":1,"r":"15h","l":"15h"},"comp":{"t":"12h","p":1,"r":"12h","l":"12h"},"hltb_id":"11212"}},
     {"number":838,"title":"The Last Express","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2thd.jpg","year":1997,"genres":["Adventure","Point-and-click","Puzzle"],"platforms":["Apple Macintosh","DOS","Windows PC"],"hltb":{"ms":{"t":"7h","p":25,"r":"6h","l":"9.5h"},"mpe":{"t":"8.5h","p":16,"r":"6.5h","l":"10.5h"},"comp":{"t":"11h","p":2,"r":"10.5h","l":"11.5h"},"stores":{"steam":"https://store.steampowered.com/app/252710/","gog":"https://www.gog.com/en/game/last_express_the"},"hltb_id":"9994"}},
     {"number":839,"title":"Mario Bros.","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co21ip.jpg","year":1983,"genres":["Action","Arcade","Platform"],"platforms":["Amstrad CPC","Arcade","Atari 2600","Atari 5200","Commodore 64/128","Fujitsu Micro 7","Nintendo Entertainment System","PC-8800","ZX Spectrum"],"hltb":{"ms":{"t":"1h","p":86,"r":"31m","l":"3.5h"},"mpe":{"t":"1.5h","p":7},"comp":{"t":"2h","p":17,"r":"1h","l":"3.5h"},"hltb_id":"5625"}},
-    {"number":840,"title":"Armored Core VI: Fires of Rubicon","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6ffo.jpg","year":2023,"genres":["Action","Shooter"],"platforms":["PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"17.5h","p":337,"r":"12.5h","l":"29.5h"},"mpe":{"t":"28.5h","p":444,"r":"19.5h","l":"65h"},"comp":{"t":"50.5h","p":225,"r":"35.5h","l":"84.5h"},"stores":{"steam":"https://store.steampowered.com/app/1888160/"},"hltb_id":"118230"}},
+    {"number":840,"title":"Armored Core VI: Fires of Rubicon","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6ffo.jpg","year":2023,"genres":["Action","Shooter"],"platforms":["PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"17.5h","p":336,"r":"12.5h","l":"29.5h"},"mpe":{"t":"28.5h","p":444,"r":"19.5h","l":"65h"},"comp":{"t":"50.5h","p":225,"r":"35.5h","l":"84.5h"},"stores":{"steam":"https://store.steampowered.com/app/1888160/"},"hltb_id":"118230"}},
     {"number":841,"title":"Devil's Crush","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6rtt.jpg","year":1990,"genres":["Action","Arcade","Horror","Pinball"],"platforms":["Sega Mega Drive / Genesis","TurboGrafx-16 / PC Engine"],"hltb":{"ms":{"t":"1.5h","p":15},"comp":{"t":"7.5h","p":3,"r":"4.5h","l":"18h"},"hltb_id":"2505"}},
     {"number":842,"title":"Pokémon Black/White","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1z1x.jpg","year":2010,"genres":["Action","Adventure","Role-playing (RPG)","Turn-based strategy (TBS)"],"platforms":["Nintendo DS"],"hltb":{"ms":{"t":"32h","p":850,"r":"19.5h","l":"60.5h"},"mpe":{"t":"61h","p":594,"r":"39.5h","l":"195.5h"},"comp":{"t":"161h","p":112,"r":"109.5h","l":"400h"},"coop":{"t":"6h","min":"11h","max":"33h"},"vs":{"t":"8.5h","p":6,"min":"4h","max":"17h"},"hltb_id":"7140"}},
     {"number":843,"title":"FlatOut 2 / Ultimate Carnage / Head On","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co97i4.jpg","year":2006,"genres":["Action","Arcade","Racing","Sport"],"platforms":["PlayStation 2","Windows PC","Xbox","Xbox 360"],"hltb":{"ms":{"t":"12.5h","p":70,"r":"10h","l":"20.5h"},"mpe":{"t":"16.5h","p":70,"r":"13.5h","l":"29.5h"},"comp":{"t":"21.5h","p":44,"r":"16.5h","l":"37.5h"},"stores":{"steam":"https://store.steampowered.com/app/2990/","gog":"https://www.gog.com/en/game/flatout_2"},"hltb_id":"3587"}},
@@ -4252,46 +4263,46 @@ const gamesList = [
     {"number":845,"title":"Frostpunk","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/mferu1am1yv5pcy5aplm.jpg","year":2018,"genres":["Indie","Simulator","Strategy","Survival"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"10.5h","p":622,"r":"6.5h","l":"20.5h"},"mpe":{"t":"25h","p":352,"r":"15h","l":"57h"},"comp":{"t":"57h","p":52,"r":"38.5h","l":"166h"},"stores":{"steam":"https://store.steampowered.com/app/323190/","gog":"https://www.gog.com/en/game/frostpunk"},"hltb_id":"41585"}},
     {"number":846,"title":"Ninja Gaiden II: The Dark Sword of Chaos","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co5ubo.jpg","year":1990,"genres":["Action","Adventure","Arcade","Platform"],"platforms":["Arcade","Nintendo Entertainment System"],"hltb":{"ms":{"t":"2.5h","p":78,"r":"1.5h","l":"7h"},"mpe":{"t":"2.5h","p":4,"r":"2.5h","l":"3h"},"comp":{"t":"3h","p":9,"r":"2.5h","l":"3.5h"},"hltb_id":"6627"}},
     {"number":847,"title":"The Need for Speed","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1oiv.jpg","year":1994,"genres":["Racing","Simulator"],"platforms":["3DO Interactive Multiplayer","DOS","PlayStation","Sega Saturn","Windows PC"],"hltb":{"ms":{"t":"2.5h","p":39,"r":"1.5h","l":"4h"},"mpe":{"t":"5.5h","p":9,"r":"4h","l":"13h"},"comp":{"t":"4h","p":8,"r":"3.5h","l":"5h"},"hltb_id":"13096"}},
-    {"number":848,"title":"Dragon Quest Builders 2","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co61vn.jpg","year":2018,"genres":["Action","Adventure","Open world","Role-playing (RPG)","Sandbox"],"platforms":["Nintendo Switch","PlayStation 4","Windows PC"],"hltb":{"ms":{"t":"55h","p":106,"r":"45h","l":"69h"},"mpe":{"t":"75h","p":167,"r":"55h","l":"119.5h"},"comp":{"t":"126h","p":34,"r":"96h","l":"215.5h"},"stores":{"steam":"https://store.steampowered.com/app/1072420/"},"hltb_id":"64365"}},
-    {"number":849,"title":"Oddworld: Abe's Oddysee","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co89fk.jpg","year":1997,"genres":["Action","Adventure","Platform","Puzzle","Stealth"],"platforms":["DOS","PlayStation","Windows PC"],"hltb":{"ms":{"t":"13h","p":76,"r":"8.5h","l":"24h"},"mpe":{"t":"14.5h","p":29,"r":"10h","l":"18h"},"comp":{"t":"14.5h","p":36,"r":"9h","l":"19h"},"stores":{"steam":"https://store.steampowered.com/app/15700/","gog":"https://www.gog.com/en/game/oddworld_abes_oddysee"},"hltb_id":"6701"}},
+    {"number":848,"title":"Dragon Quest Builders 2","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co61vn.jpg","year":2018,"genres":["Action","Adventure","Open world","Role-playing (RPG)","Sandbox"],"platforms":["Nintendo Switch","PlayStation 4","Windows PC"],"hltb":{"ms":{"t":"55h","p":106,"r":"45h","l":"69h"},"mpe":{"t":"75h","p":167,"r":"55h","l":"119.5h"},"comp":{"t":"126h","p":34,"r":"96h","l":"215.5h"},"hltb_id":"64365"}},
+    {"number":849,"title":"Oddworld: Abe's Oddysee","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co89fk.jpg","year":1997,"genres":["Action","Adventure","Platform","Puzzle","Stealth"],"platforms":["DOS","PlayStation","Windows PC"],"hltb":{"ms":{"t":"13h","p":76,"r":"8.5h","l":"24h"},"mpe":{"t":"14.5h","p":29,"r":"10h","l":"18h"},"comp":{"t":"14.5h","p":36,"r":"9h","l":"19h"},"stores":{"gog":"https://www.gog.com/en/game/oddworld_abes_oddysee"},"hltb_id":"6701"}},
     {"number":850,"title":"Sid Meier's Civilization VI","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co5r54.jpg","year":2016,"genres":["4X (explore, expand, exploit, and exterminate)","Simulator","Strategy","Turn-based strategy (TBS)"],"platforms":["Apple Macintosh","Linux","Windows PC"],"hltb":{"ms":{"t":"23.5h","p":214,"r":"15h","l":"112h"},"mpe":{"t":"95.5h","p":134,"r":"53.5h","l":"339.5h"},"comp":{"t":"363h","p":32,"r":"213.5h","l":"998.5h"},"stores":{"steam":"https://store.steampowered.com/app/289070/"},"hltb_id":"37867"}},
     {"number":851,"title":"To the Moon","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co25yv.jpg","year":2011,"genres":["Adventure","Indie","Point-and-click","Puzzle","Role-playing (RPG)"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"4h","p":1700,"r":"3h","l":"7h"},"mpe":{"t":"4.5h","p":395,"r":"3.5h","l":"8h"},"comp":{"t":"4.5h","p":1100,"r":"3.5h","l":"10h"},"stores":{"steam":"https://store.steampowered.com/app/206440/","gog":"https://www.gog.com/en/game/to_the_moon"},"hltb_id":"10387"}},
     {"number":852,"title":"Universal Paperclips","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co263i.jpg","year":2017,"genres":["Indie","Simulator","Strategy"],"platforms":["Android","Browser","iPhone"],"hltb":{"ms":{"t":"6.5h","p":76,"r":"4.5h","l":"10.5h"},"mpe":{"t":"8h","p":9,"r":"6.5h","l":"10h"},"comp":{"t":"9h","p":14,"r":"7h","l":"10.5h"},"hltb_id":"49873"}},
     {"number":853,"title":"Neverwinter Nights","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1t13.jpg","year":2002,"genres":["Adventure","Role-playing (RPG)"],"platforms":["Apple Macintosh","Linux","Windows PC"],"hltb":{"ms":{"t":"51h","p":23,"r":"39h","l":"59.5h"},"mpe":{"t":"62.5h","p":48,"r":"44h","l":"127h"},"comp":{"t":"78h","p":21,"r":"65h","l":"129h"},"hltb_id":"6515"}},
     {"number":854,"title":"R-Type Delta","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co7e8r.jpg","year":1998,"genres":["Action","Shooter"],"platforms":["PlayStation"],"hltb":{"ms":{"t":"1.5h","p":9,"r":"56m","l":"2h"},"mpe":{"t":"1.5h","p":2,"r":"1.5h","l":"1.5h"},"comp":{"t":"3h","p":1,"r":"3h","l":"3h"},"hltb_id":"7492"}},
     {"number":855,"title":"Track & Field / Hyper Olympic","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co72yl.jpg","year":1983,"genres":["Arcade","Sport"],"platforms":["Arcade","Atari 2600","Atari 8-bit","MSX"],"hltb":{"ms":{"t":"35m","p":21,"r":"23m","l":"46m"},"mpe":{"t":"36m","p":3,"r":"26m","l":"46m"},"hltb_id":"10592"}},
-    {"number":856,"title":"World in Conflict","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2cpm.jpg","year":2007,"genres":["Real Time Strategy (RTS)","Strategy"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"12h","p":35,"r":"9.5h","l":"14.5h"},"mpe":{"t":"15h","p":24,"r":"11.5h","l":"19.5h"},"comp":{"t":"18h","p":5,"r":"16.5h","l":"19.5h"},"stores":{"gog":"https://www.gog.com/en/game/world_in_conflict_complete_edition"},"hltb_id":"11281"}},
-    {"number":857,"title":"Frog Fractions","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co22hc.jpg","year":2012,"genres":["Indie","Music","Quiz/Trivia","Shooter","Simulator"],"platforms":["Browser"],"hltb":{"ms":{"t":"1.5h","p":156},"mpe":{"t":"1.5h","p":44,"r":"1h","l":"3.5h"},"comp":{"t":"2h","p":21,"r":"1h","l":"6.5h"},"stores":{"steam":"https://store.steampowered.com/app/1194840/"},"hltb_id":"3712"}},
-    {"number":858,"title":"Ni no Kuni: Wrath of the White Witch","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1rbw.jpg","year":2011,"genres":["Action","Adventure","Open world","Role-playing (RPG)"],"platforms":["PlayStation 3"],"hltb":{"ms":{"t":"44h","p":514,"r":"33h","l":"67h"},"mpe":{"t":"56h","p":941,"r":"42.5h","l":"110.5h"},"comp":{"t":"92h","p":242,"r":"67.5h","l":"131.5h"},"stores":{"steam":"https://store.steampowered.com/app/798460/"},"hltb_id":"6585"}},
-    {"number":859,"title":"The Talos Principle","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1rb5.jpg","year":2014,"genres":["Action","Adventure","Indie","Puzzle"],"platforms":["Android","Apple Macintosh","iPhone","Linux","PlayStation 4","Windows PC"],"hltb":{"ms":{"t":"15.5h","p":440,"r":"11.5h","l":"23h"},"mpe":{"t":"21h","p":649,"r":"14h","l":"40h"},"comp":{"t":"29.5h","p":400,"r":"20.5h","l":"61h"},"stores":{"steam":"https://store.steampowered.com/app/257510/","gog":"https://www.gog.com/en/game/the_talos_principle_gold_edition"},"hltb_id":"22530"}},
+    {"number":856,"title":"World in Conflict","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2cpm.jpg","year":2007,"genres":["Real Time Strategy (RTS)","Strategy"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"12h","p":35,"r":"9.5h","l":"14.5h"},"mpe":{"t":"15h","p":24,"r":"11.5h","l":"19.5h"},"comp":{"t":"18h","p":5,"r":"16.5h","l":"19.5h"},"hltb_id":"11281"}},
+    {"number":857,"title":"Frog Fractions","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co22hc.jpg","year":2012,"genres":["Indie","Music","Quiz/Trivia","Shooter","Simulator"],"platforms":["Browser"],"hltb":{"ms":{"t":"1.5h","p":156},"mpe":{"t":"1.5h","p":44,"r":"1h","l":"3.5h"},"comp":{"t":"2h","p":21,"r":"1h","l":"6.5h"},"hltb_id":"3712"}},
+    {"number":858,"title":"Ni no Kuni: Wrath of the White Witch","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1rbw.jpg","year":2011,"genres":["Action","Adventure","Open world","Role-playing (RPG)"],"platforms":["PlayStation 3"],"hltb":{"ms":{"t":"44h","p":514,"r":"33h","l":"67h"},"mpe":{"t":"56h","p":941,"r":"42.5h","l":"110.5h"},"comp":{"t":"92h","p":242,"r":"67.5h","l":"131.5h"},"hltb_id":"6585"}},
+    {"number":859,"title":"The Talos Principle","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1rb5.jpg","year":2014,"genres":["Action","Adventure","Indie","Puzzle"],"platforms":["Android","Apple Macintosh","iPhone","Linux","PlayStation 4","Windows PC"],"hltb":{"ms":{"t":"15.5h","p":440,"r":"11.5h","l":"23h"},"mpe":{"t":"21h","p":649,"r":"14h","l":"40h"},"comp":{"t":"29.5h","p":400,"r":"20.5h","l":"61h"},"hltb_id":"22530"}},
     {"number":860,"title":"Puyo Pop Fever","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co85z9.jpg","year":2003,"genres":["Action","Music","Puzzle","Strategy"],"platforms":["Apple Macintosh","Arcade","Game Boy Advance","Nintendo DS","Nintendo GameCube","PlayStation 2","PlayStation Portable","Sega Dreamcast","Windows PC","Xbox"],"hltb":{"ms":{"t":"1h","p":12,"r":"46m","l":"1.5h"},"mpe":{"t":"3h","p":3,"r":"3h","l":"3.5h"},"comp":{"t":"1.5h","p":1,"r":"1.5h","l":"1.5h"},"hltb_id":"7408"}},
-    {"number":861,"title":"Anno 1800","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1r67.jpg","year":2019,"genres":["Real Time Strategy (RTS)","Simulator","Strategy"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"15h","p":102,"r":"11h","l":"28.5h"},"mpe":{"t":"44h","p":50,"r":"26h","l":"147h"},"comp":{"t":"140.5h","p":12,"r":"84h","l":"470h"},"stores":{"steam":"https://store.steampowered.com/app/916440/"},"hltb_id":"61650"}},
+    {"number":861,"title":"Anno 1800","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1r67.jpg","year":2019,"genres":["Real Time Strategy (RTS)","Simulator","Strategy"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"15h","p":102,"r":"11h","l":"28.5h"},"mpe":{"t":"44h","p":50,"r":"26h","l":"147h"},"comp":{"t":"140.5h","p":12,"r":"84h","l":"470h"},"hltb_id":"61650"}},
     {"number":862,"title":"Black & White","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1u2x.jpg","year":2001,"genres":["Open world","Puzzle","Real Time Strategy (RTS)","Sandbox","Simulator","Strategy"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"15.5h","p":17,"r":"14h","l":"25.5h"},"mpe":{"t":"19h","p":12,"r":"17.5h","l":"28h"},"comp":{"t":"18.5h","p":10,"r":"15h","l":"24h"},"hltb_id":"1089"}},
-    {"number":863,"title":"Neva","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co8x5c.jpg","year":2024,"genres":["Action","Adventure","Indie","Platform","Puzzle"],"platforms":["Apple Macintosh","Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox Series X/S"],"hltb":{"ms":{"t":"4h","p":205,"r":"3h","l":"6h"},"mpe":{"t":"4.5h","p":170,"r":"3.5h","l":"7h"},"comp":{"t":"6h","p":112,"r":"5h","l":"9h"},"stores":{"steam":"https://store.steampowered.com/app/2420660/"},"hltb_id":"129246"}},
+    {"number":863,"title":"Neva","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co8x5c.jpg","year":2024,"genres":["Action","Adventure","Indie","Platform","Puzzle"],"platforms":["Apple Macintosh","Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox Series X/S"],"hltb":{"ms":{"t":"4h","p":205,"r":"3h","l":"6h"},"mpe":{"t":"4.5h","p":170,"r":"3.5h","l":"7h"},"comp":{"t":"6h","p":112,"r":"5h","l":"9h"},"hltb_id":"129246"}},
     {"number":864,"title":"Resident Evil","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2vz8.jpg","year":2002,"genres":["Action","Adventure","Horror","Puzzle","Survival"],"platforms":["Nintendo GameCube","Nintendo Wii"],"hltb":{"ms":{"t":"11.5h","p":270,"r":"7.5h","l":"15.5h"},"mpe":{"t":"14h","p":167,"r":"9.5h","l":"23h"},"comp":{"t":"23.5h","p":40,"r":"17h","l":"41h"},"hltb_id":"7717"}},
     {"number":865,"title":"Madden NFL 2005","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co30ut.jpg","year":2004,"genres":["Simulator","Sport"],"platforms":["Nintendo GameCube","PlayStation 2","Windows PC","Xbox"],"hltb":{"ms":{"t":"15h","p":6,"r":"8.5h","l":"22.5h"},"hltb_id":"12275"}},
     {"number":866,"title":"International Track & Field","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co9680.jpg","year":1996,"genres":["Sport"],"platforms":["Arcade","PlayStation"],"hltb":{"ms":{"t":"49m","p":8,"r":"40m","l":"57m"},"mpe":{"t":"3h","p":5,"r":"2h","l":"7.5h"},"comp":{"t":"45m","p":1,"r":"45m","l":"45m"},"hltb_id":"4713"}},
     {"number":867,"title":"Forza Motorsport 2","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co39yh.jpg","year":2007,"genres":["Racing","Simulator","Sport"],"platforms":["Xbox 360"],"hltb":{"ms":{"t":"49.5h","p":25,"r":"32.5h","l":"55h"},"mpe":{"t":"57.5h","p":14,"r":"48.5h","l":"64.5h"},"comp":{"t":"75h","p":19,"r":"62.5h","l":"89h"},"hltb_id":"3663"}},
     {"number":868,"title":"Galaxian","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co27k5.jpg","year":1979,"genres":["Arcade","Shooter"],"platforms":["Arcade"],"hltb":{"ms":{"t":"23m","p":20,"r":"11m","l":"1h"},"mpe":{"t":"20m","p":1,"r":"20m","l":"20m"},"comp":{"t":"13m","p":2,"r":"10m","l":"16m"},"hltb_id":"3811"}},
     {"number":869,"title":"Uncharted: Drake's Fortune","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1tp7.jpg","year":2007,"genres":["Action","Adventure","Platform","Shooter"],"platforms":["PlayStation 3"],"hltb":{"ms":{"t":"8h","p":2700,"r":"6h","l":"16.5h"},"mpe":{"t":"9.5h","p":1000,"r":"7.5h","l":"20h"},"comp":{"t":"18h","p":302,"r":"12.5h","l":"37.5h"},"hltb_id":"10799"}},
-    {"number":870,"title":"Panzer Dragoon II Zwei","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co8ixu.jpg","year":1996,"genres":["Action","Shooter"],"platforms":["Sega Saturn"],"hltb":{"ms":{"t":"1.5h","p":52,"r":"1.5h","l":"3.5h"},"mpe":{"t":"1.5h","p":4,"r":"1h","l":"1.5h"},"comp":{"t":"4h","p":3,"r":"3.5h","l":"6h"},"hltb_id":"6901"}},
+    {"number":870,"title":"Panzer Dragoon II Zwei","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co8ixu.jpg","year":1996,"genres":["Action","Shooter"],"platforms":["Sega Saturn"],"hltb":{"ms":{"t":"1.5h","p":52,"r":"1h","l":"3h"},"mpe":{"t":"1.5h","p":4,"r":"1h","l":"1.5h"},"comp":{"t":"5h","p":3,"r":"3.5h","l":"6h"},"hltb_id":"6901"}},
     {"number":871,"title":"Aliens Versus Predator","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4l1t.jpg","year":1999,"genres":["Action","Horror","Shooter"],"platforms":["Apple Macintosh","Windows PC"],"hltb":{"ms":{"t":"6h","p":3,"r":"4.5h","l":"8h"},"mpe":{"t":"7h","p":3,"r":"6.5h","l":"7.5h"},"comp":{"t":"14.5h","p":3,"r":"14h","l":"15h"},"hltb_id":"22916"}},
     {"number":872,"title":"Dragon Quest V: Hand of the Heavenly Bride","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co7tre.jpg","year":1992,"genres":["Action","Adventure","Role-playing (RPG)"],"platforms":["Nintendo Entertainment System"],"hltb":{"ms":{"t":"30.5h","p":211,"r":"23.5h","l":"41h"},"mpe":{"t":"38.5h","p":239,"r":"30h","l":"62h"},"comp":{"t":"50.5h","p":26,"r":"42h","l":"70h"},"hltb_id":"2822"}},
     {"number":873,"title":"Microsoft Flight Simulator 1.0","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co67xh.jpg","year":1982,"genres":["Simulator"],"platforms":["DOS"],"hltb":{"hltb_id":"115712"}},
     {"number":874,"title":"Metro 2033","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1rd6.jpg","year":2010,"genres":["Action","Horror","Role-playing (RPG)","Shooter","Stealth","Survival"],"platforms":["Windows PC","Xbox 360"],"hltb":{"ms":{"t":"9.5h","p":1000,"r":"7h","l":"15.5h"},"mpe":{"t":"12h","p":418,"r":"9h","l":"24h"},"comp":{"t":"20.5h","p":105,"r":"14h","l":"39h"},"hltb_id":"5946"}},
     {"number":875,"title":"Downwell","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co284e.jpg","year":2015,"genres":["Action","Adventure","Arcade","Indie","Platform","Shooter"],"platforms":["Android","iPhone","PlayStation Vita","Windows PC"],"hltb":{"ms":{"t":"6.5h","p":110,"r":"4h","l":"14h"},"mpe":{"t":"12h","p":39,"r":"7.5h","l":"21h"},"comp":{"t":"14.5h","p":54,"r":"10h","l":"33h"},"stores":{"steam":"https://store.steampowered.com/app/360740/","gog":"https://www.gog.com/en/game/downwell"},"hltb_id":"31178"}},
     {"number":876,"title":"Sonic Adventure","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co5jac.jpg","year":1998,"genres":["Action","Adventure","Platform"],"platforms":["Sega Dreamcast"],"hltb":{"ms":{"t":"9h","p":162,"r":"6h","l":"13h"},"mpe":{"t":"13h","p":94,"r":"8.5h","l":"24h"},"comp":{"t":"25.5h","p":48,"r":"16.5h","l":"57.5h"},"hltb_id":"8748"}},
-    {"number":877,"title":"Ratchet & Clank 3: Up Your Arsenal","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1oyn.jpg","year":2004,"genres":["Action","Adventure","Platform","Shooter"],"platforms":["PlayStation 2"],"hltb":{"ms":{"t":"11.5h","p":184,"r":"8h","l":"20.5h"},"mpe":{"t":"15h","p":188,"r":"11h","l":"20.5h"},"comp":{"t":"27h","p":130,"r":"21.5h","l":"43.5h"},"hltb_id":"7596"}},
+    {"number":877,"title":"Ratchet & Clank 3: Up Your Arsenal","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1oyn.jpg","year":2004,"genres":["Action","Adventure","Platform","Shooter"],"platforms":["PlayStation 2"],"hltb":{"ms":{"t":"11.5h","p":183,"r":"8h","l":"20.5h"},"mpe":{"t":"15h","p":188,"r":"11h","l":"20.5h"},"comp":{"t":"27h","p":130,"r":"21.5h","l":"43.5h"},"hltb_id":"7596"}},
     {"number":878,"title":"ISS Pro Evolution","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co9682.jpg","year":1999,"genres":["Sport"],"platforms":["PlayStation"],"hltb":{"ms":{"t":"45h","p":5,"r":"24h","l":"47.5h"},"coop":{"t":"120h","p":2,"min":"80h","max":"160h"},"vs":{"t":"40h","p":2,"min":"35h","max":"45h"},"mpe":{"t":"66h","p":4,"r":"36.5h","l":"83h"},"comp":{"t":"50h","p":1,"r":"50h","l":"50h"},"hltb_id":"13879"}},
     {"number":879,"title":"Knight Lore","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co8vp1.jpg","year":1984,"genres":["Action","Arcade","Platform","Puzzle"],"platforms":["Amstrad CPC","BBC Micro","MSX","ZX Spectrum"],"hltb":{"ms":{"t":"1.5h","p":5,"r":"1.5h","l":"1.5h"},"mpe":{"t":"2.5h","p":1,"r":"2.5h","l":"2.5h"},"comp":{"t":"3h","p":3,"r":"2.5h","l":"3h"},"hltb_id":"19337"}},
-    {"number":880,"title":"Xenoblade Chronicles 3","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4ocq.jpg","year":2022,"genres":["Action","Adventure","Open world","Role-playing (RPG)"],"platforms":["Nintendo Switch"],"hltb":{"ms":{"t":"62.5h","p":351,"r":"47h","l":"87.5h"},"mpe":{"t":"102.5h","p":1200,"r":"64.5h","l":"187.5h"},"comp":{"t":"173.5h","p":226,"r":"132h","l":"321h"},"hltb_id":"103825"}},
+    {"number":880,"title":"Xenoblade Chronicles 3","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4ocq.jpg","year":2022,"genres":["Action","Adventure","Open world","Role-playing (RPG)"],"platforms":["Nintendo Switch"],"hltb":{"ms":{"t":"62.5h","p":350,"r":"47h","l":"87.5h"},"mpe":{"t":"102.5h","p":1200,"r":"64.5h","l":"187.5h"},"comp":{"t":"173.5h","p":226,"r":"132h","l":"321h"},"hltb_id":"103825"}},
     {"number":881,"title":"Call of Duty: Black Ops 6","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co8zis.jpg","year":2024,"genres":["Action","Shooter"],"platforms":["PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"8.5h","p":381,"r":"6.5h","l":"11.5h"},"mpe":{"t":"11h","p":317,"r":"8.5h","l":"21.5h"},"comp":{"t":"39.5h","p":39,"r":"23.5h","l":"223h"},"coop":{"t":"29h","min":"9h","max":"109h"},"vs":{"t":"66h","p":39,"min":"26h","max":"189h"},"stores":{"steam":"https://store.steampowered.com/app/2933620/"},"hltb_id":"151245"}},
     {"number":882,"title":"Gauntlet II","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co5fnt.jpg","year":1986,"genres":["Action","Adventure","Arcade","Hack and slash/Beat 'em up"],"platforms":["Amstrad CPC","Arcade","Atari ST/STE","Commodore 64/128","DOS"],"hltb":{"ms":{"t":"4.5h","p":4,"r":"3.5h","l":"6h"},"hltb_id":"12910"}},
     {"number":883,"title":"Donkey Kong Country 2: Diddy's Kong Quest","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co217m.jpg","year":1995,"genres":["Action","Adventure","Platform"],"platforms":["Super Nintendo Entertainment System"],"hltb":{"ms":{"t":"5h","p":393,"r":"3.5h","l":"9h"},"mpe":{"t":"7h","p":145,"r":"5h","l":"13.5h"},"comp":{"t":"10h","p":181,"r":"6.5h","l":"23.5h"},"hltb_id":"2687"}},
     {"number":884,"title":"Assassin's Creed Valhalla","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2ed3.jpg","year":2020,"genres":["Action","Adventure","Open world","Role-playing (RPG)","Stealth"],"platforms":["PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"61h","p":596,"r":"45.5h","l":"91h"},"mpe":{"t":"99h","p":1500,"r":"69.5h","l":"308.5h"},"comp":{"t":"149h","p":876,"r":"115.5h","l":"330h"},"stores":{"steam":"https://store.steampowered.com/app/2208920/"},"hltb_id":"77729"}},
     {"number":885,"title":"Prey","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co9aoh.jpg","year":2017,"genres":["Action","Adventure","Horror","Puzzle","Role-playing (RPG)","Shooter","Stealth","Survival"],"platforms":["PlayStation 4","Windows PC","Xbox One"],"hltb":{"ms":{"t":"16h","p":578,"r":"11.5h","l":"22h"},"mpe":{"t":"28h","p":2100,"r":"18h","l":"57h"},"comp":{"t":"47h","p":282,"r":"35.5h","l":"83.5h"},"stores":{"steam":"https://store.steampowered.com/app/480490/","gog":"https://www.gog.com/en/game/prey"},"hltb_id":"44590"}},
     {"number":886,"title":"Formula One Grand Prix / World Circuit","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co98rz.jpg","year":1991,"genres":["Racing","Sport"],"platforms":["Amiga","Atari ST/STE","DOS"],"hltb":{"ms":{"t":"15h","p":1,"r":"15h","l":"15h"},"mpe":{"t":"134h","p":1,"r":"134.5h","l":"134.5h"},"hltb_id":"49090"}},
-    {"number":887,"title":"Dead Space","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co5esn.jpg","year":2023,"genres":["Action","Adventure","Horror","Role-playing (RPG)","Shooter","Survival"],"platforms":["PlayStation 5","Windows PC","Xbox Series X/S"],"hltb":{"ms":{"t":"12h","p":635,"r":"10h","l":"15.5h"},"mpe":{"t":"16h","p":1200,"r":"12h","l":"35h"},"comp":{"t":"30h","p":153,"r":"22h","l":"49h"},"hltb_id":"95927"}},
+    {"number":887,"title":"Dead Space","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co5esn.jpg","year":2023,"genres":["Action","Adventure","Horror","Role-playing (RPG)","Shooter","Survival"],"platforms":["PlayStation 5","Windows PC","Xbox Series X/S"],"hltb":{"ms":{"t":"12h","p":635,"r":"10h","l":"15.5h"},"mpe":{"t":"16h","p":1200,"r":"12h","l":"35h"},"comp":{"t":"30h","p":153,"r":"22h","l":"49h"},"stores":{"steam":"https://store.steampowered.com/app/1693980/"},"hltb_id":"95927"}},
     {"number":888,"title":"Halo 4","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1xhf.jpg","year":2012,"genres":["Action","Shooter"],"platforms":["Xbox 360"],"hltb":{"ms":{"t":"7.5h","p":918,"r":"5.5h","l":"13h"},"mpe":{"t":"10.5h","p":184,"r":"7.5h","l":"21h"},"comp":{"t":"27.5h","p":33,"r":"17.5h","l":"59h"},"coop":{"t":"8.5h","p":85,"min":"4h","max":"32h"},"vs":{"t":"45.5h","p":67,"min":"23h","max":"323h"},"stores":{"steam":"https://store.steampowered.com/app/1064273/"},"hltb_id":"4265"}},
     {"number":889,"title":"That Dragon, Cancer","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1lls.jpg","year":2016,"genres":["Adventure","Indie","Puzzle","Simulator"],"platforms":["Apple Macintosh","iPhone","Windows PC"],"hltb":{"ms":{"t":"2h","p":93,"r":"1.5h","l":"3h"},"mpe":{"t":"2h","p":22,"r":"1.5h","l":"2.5h"},"comp":{"t":"2h","p":27,"r":"2h","l":"3h"},"stores":{"steam":"https://store.steampowered.com/app/419460/"},"hltb_id":"33549"}},
     {"number":890,"title":"Diablo IV","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co69sm.jpg","year":2023,"genres":["Action","Hack and slash/Beat 'em up","Horror","Role-playing (RPG)"],"platforms":["PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"26h","p":493,"r":"19h","l":"46.5h"},"mpe":{"t":"49h","p":670,"r":"31h","l":"179h"},"comp":{"t":"192.5h","p":81,"r":"120.5h","l":"1346h"},"coop":{"t":"78.5h","p":31,"min":"40h","max":"289h"},"vs":{"t":"43.5h","p":3,"min":"22h","max":"52h"},"stores":{"steam":"https://store.steampowered.com/app/2344520/"},"hltb_id":"71960"}},
@@ -4302,14 +4313,14 @@ const gamesList = [
     {"number":895,"title":"SOMA","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2a20.jpg","year":2015,"genres":["Action","Adventure","Horror","Indie","Puzzle","Stealth"],"platforms":["Apple Macintosh","Linux","PlayStation 4","Windows PC"],"hltb":{"ms":{"t":"9h","p":872,"r":"6.5h","l":"12.5h"},"mpe":{"t":"11h","p":407,"r":"8.5h","l":"18.5h"},"comp":{"t":"11h","p":653,"r":"8.5h","l":"19h"},"stores":{"steam":"https://store.steampowered.com/app/282140/","gog":"https://www.gog.com/en/game/soma"},"hltb_id":"22549"}},
     {"number":896,"title":"Garou: Mark of the Wolves","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2eya.jpg","year":1999,"genres":["Action","Arcade","Fighting"],"platforms":["Arcade","SNK Neo Geo"],"hltb":{"ms":{"t":"1.5h","p":61},"mpe":{"t":"4.5h","p":9,"r":"2.5h","l":"9h"},"comp":{"t":"12h","p":6,"r":"8.5h","l":"23h"},"stores":{"steam":"https://store.steampowered.com/app/366240/","gog":"https://www.gog.com/en/game/garou_mark_of_the_wolves"},"hltb_id":"3846"}},
     {"number":897,"title":"Metal Gear Solid: The Twin Snakes","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1v8c.jpg","year":2004,"genres":["Action","Adventure","Stealth"],"platforms":["Nintendo GameCube"],"hltb":{"ms":{"t":"10h","p":246,"r":"8h","l":"16h"},"mpe":{"t":"11.5h","p":70,"r":"9.5h","l":"15.5h"},"comp":{"t":"18.5h","p":7,"r":"17h","l":"20.5h"},"hltb_id":"5922"}},
-    {"number":898,"title":"Castlevania: Aria of Sorrow","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1nh5.jpg","year":2003,"genres":["Action","Adventure","Horror","Platform","Role-playing (RPG)"],"platforms":["Game Boy Advance"],"hltb":{"ms":{"t":"7h","p":362,"r":"4h","l":"11h"},"mpe":{"t":"8h","p":456,"r":"5.5h","l":"19h"},"comp":{"t":"14h","p":109,"r":"9.5h","l":"24.5h"},"hltb_id":"1576"}},
+    {"number":898,"title":"Castlevania: Aria of Sorrow","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1nh5.jpg","year":2003,"genres":["Action","Adventure","Horror","Platform","Role-playing (RPG)"],"platforms":["Game Boy Advance"],"hltb":{"ms":{"t":"7h","p":361,"r":"4h","l":"11h"},"mpe":{"t":"8h","p":456,"r":"5.5h","l":"19h"},"comp":{"t":"14h","p":109,"r":"9.5h","l":"24.5h"},"hltb_id":"1576"}},
     {"number":899,"title":"Metroid Prime 2: Echoes","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1w7n.jpg","year":2004,"genres":["Action","Adventure","Platform","Puzzle","Shooter"],"platforms":["Nintendo GameCube"],"hltb":{"ms":{"t":"16.5h","p":161,"r":"11h","l":"21.5h"},"mpe":{"t":"19h","p":244,"r":"14.5h","l":"30.5h"},"comp":{"t":"21.5h","p":81,"r":"17.5h","l":"34.5h"},"hltb_id":"5954"}},
     {"number":900,"title":"Streets of Rage","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co49sf.jpg","year":1991,"genres":["Action","Hack and slash/Beat 'em up"],"platforms":["Sega Mega Drive / Genesis"],"hltb":{"ms":{"t":"1.5h","p":256,"r":"1h","l":"5.5h"},"mpe":{"t":"2.5h","p":36,"r":"1.5h","l":"6h"},"comp":{"t":"2.5h","p":22,"r":"1.5h","l":"7h"},"hltb_id":"9257"}},
     {"number":901,"title":"Crash Bandicoot","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co555l.jpg","year":1996,"genres":["Action","Platform"],"platforms":["PlayStation"],"hltb":{"ms":{"t":"6h","p":515,"r":"4h","l":"15.5h"},"mpe":{"t":"8.5h","p":164,"r":"6h","l":"19h"},"comp":{"t":"13.5h","p":140,"r":"9h","l":"55.5h"},"hltb_id":"1969"}},
     {"number":902,"title":"Elite Dangerous","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co8jkn.jpg","year":2014,"genres":["Action","Adventure","Open world","Role-playing (RPG)","Sandbox","Shooter","Simulator","Strategy"],"platforms":["Apple Macintosh","Windows PC","Xbox One"],"hltb":{"ms":{"t":"117h","p":17,"r":"71.5h","l":"333h"},"mpe":{"t":"250h","p":31,"r":"165h","l":"975h"},"comp":{"t":"677h","p":11,"r":"417h","l":"1651h"},"stores":{"steam":"https://store.steampowered.com/app/359320/"},"hltb_id":"3088"}},
     {"number":903,"title":"Space Channel 5","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1p13.jpg","year":1999,"genres":["Action","Adventure","Music"],"platforms":["PlayStation 2","Sega Dreamcast"],"hltb":{"ms":{"t":"1.5h","p":30,"r":"1h","l":"3h"},"mpe":{"t":"4.5h","p":6,"r":"3h","l":"10h"},"comp":{"t":"6h","p":2,"r":"3.5h","l":"8h"},"hltb_id":"8840"}},
     {"number":904,"title":"Punch-Out!!","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2f72.jpg","year":2009,"genres":["Action","Adventure","Fighting","Sport"],"platforms":["Nintendo Wii"],"hltb":{"ms":{"t":"5h","p":80,"r":"3.5h","l":"8.5h"},"mpe":{"t":"11h","p":32,"r":"7h","l":"19.5h"},"comp":{"t":"31h","p":5,"r":"26h","l":"35.5h"},"hltb_id":"7390"}},
-    {"number":905,"title":"Dragon Quest IV: Chapters of the Chosen / Dragon Warrior IV","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co7trb.jpg","year":1990,"genres":["Adventure","Party","Role-playing (RPG)"],"platforms":["Nintendo Entertainment System"],"hltb":{"ms":{"t":"27h","p":232,"r":"19h","l":"38.5h"},"mpe":{"t":"33.5h","p":235,"r":"24.5h","l":"55h"},"comp":{"t":"43h","p":62,"r":"35.5h","l":"55.5h"},"hltb_id":"2839"}},
+    {"number":905,"title":"Dragon Quest IV: Chapters of the Chosen / Dragon Warrior IV","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co7trb.jpg","year":1990,"genres":["Adventure","Party","Role-playing (RPG)"],"platforms":["Nintendo Entertainment System"],"hltb":{"ms":{"t":"27h","p":232,"r":"19h","l":"38.5h"},"mpe":{"t":"33.5h","p":234,"r":"24.5h","l":"55h"},"comp":{"t":"43h","p":61,"r":"35.5h","l":"55.5h"},"hltb_id":"2839"}},
     {"number":906,"title":"WWF No Mercy","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co5072.jpg","year":2000,"genres":["Action","Fighting","Sport"],"platforms":["Nintendo 64"],"hltb":{"ms":{"t":"6h","p":10,"r":"4h","l":"8h"},"mpe":{"t":"22.5h","p":4,"r":"15.5h","l":"51.5h"},"comp":{"t":"30.5h","p":9,"r":"19h","l":"45.5h"},"hltb_id":"11347"}},
     {"number":907,"title":"Death's Door","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co45xc.jpg","year":2021,"genres":["Action","Adventure","Hack and slash/Beat 'em up","Indie","Role-playing (RPG)"],"platforms":["Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox Series X/S"],"hltb":{"ms":{"t":"9h","p":756,"r":"7h","l":"12.5h"},"mpe":{"t":"12h","p":1000,"r":"9h","l":"19h"},"comp":{"t":"16h","p":844,"r":"12h","l":"33h"},"stores":{"steam":"https://store.steampowered.com/app/894020/","gog":"https://www.gog.com/en/game/deaths_door"},"hltb_id":"90590"}},
     {"number":908,"title":"Path of Exile","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1n6w.jpg","year":2013,"genres":["Action","Adventure","Hack and slash/Beat 'em up","Horror","Role-playing (RPG)"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"29.5h","p":154,"r":"19h","l":"139.5h"},"mpe":{"t":"113.5h","p":154,"r":"62.5h","l":"696h"},"comp":{"t":"791h","p":32,"r":"443h","l":"1506.5h"},"coop":{"t":"367h","p":29,"min":"118h","max":"1558h"},"vs":{"t":"2795h","p":1,"min":"2795h","max":"2795h"},"stores":{"steam":"https://store.steampowered.com/app/238960/"},"hltb_id":"6938"}},
@@ -4345,9 +4356,9 @@ const gamesList = [
     {"number":938,"title":"Prince of Persia 2: The Shadow and the Flame","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2ek1.jpg","year":1993,"genres":["Action","Adventure","Platform"],"platforms":["Apple Macintosh","DOS","FM Towns"],"hltb":{"ms":{"t":"5h","p":12,"r":"3.5h","l":"15h"},"mpe":{"t":"5h","p":5,"r":"4h","l":"5.5h"},"comp":{"t":"1h","p":1,"r":"1h","l":"1h"},"hltb_id":"7290"}},
     {"number":939,"title":"Tokyo Jungle","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4ajh.jpg","year":2012,"genres":["Action","Adventure","Role-playing (RPG)","Sandbox","Simulator","Stealth","Strategy","Survival"],"platforms":["PlayStation 3"],"hltb":{"ms":{"t":"15.5h","p":17,"r":"11h","l":"17.5h"},"mpe":{"t":"21.5h","p":15,"r":"13.5h","l":"40.5h"},"comp":{"t":"22h","p":8,"r":"18.5h","l":"26h"},"hltb_id":"10415"}},
     {"number":940,"title":"Magic Carpet","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2jm0.jpg","year":1994,"genres":["Action","Shooter"],"platforms":["DOS","PlayStation","Sega Saturn"],"hltb":{"ms":{"t":"10h","p":2,"r":"8.5h","l":"12h"},"mpe":{"t":"7h","p":1,"r":"7h","l":"7h"},"comp":{"t":"9h","p":1,"r":"9h","l":"9h"},"stores":{"gog":"https://www.gog.com/en/game/magic_carpet"},"hltb_id":"5523"}},
-    {"number":941,"title":"This War of Mine","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co3ans.jpg","year":2014,"genres":["Action","Adventure","Horror","Indie","Simulator","Stealth","Strategy","Survival"],"platforms":["Android","Apple Macintosh","iPhone","Linux","Nintendo Switch","PlayStation 4","Windows PC","Xbox One"],"hltb":{"ms":{"t":"11h","p":260,"r":"7.5h","l":"18h"},"mpe":{"t":"20h","p":169,"r":"13.5h","l":"57.5h"},"comp":{"t":"43h","p":52,"r":"26.5h","l":"100h"},"stores":{"steam":"https://store.steampowered.com/app/282070/","gog":"https://www.gog.com/en/game/this_war_of_mine"},"hltb_id":"22658"}},
+    {"number":941,"title":"This War of Mine","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co3ans.jpg","year":2014,"genres":["Action","Adventure","Horror","Indie","Simulator","Stealth","Strategy","Survival"],"platforms":["Android","Apple Macintosh","iPhone","Linux","Nintendo Switch","PlayStation 4","Windows PC","Xbox One"],"hltb":{"ms":{"t":"11h","p":259,"r":"7.5h","l":"18h"},"mpe":{"t":"20h","p":169,"r":"13.5h","l":"57.5h"},"comp":{"t":"43h","p":52,"r":"26.5h","l":"100h"},"stores":{"steam":"https://store.steampowered.com/app/282070/","gog":"https://www.gog.com/en/game/this_war_of_mine"},"hltb_id":"22658"}},
     {"number":942,"title":"Hitman: Codename 47","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co4bkw.jpg","year":2000,"genres":["Action","Adventure","Shooter","Stealth","Tactical"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"11h","p":183,"r":"8h","l":"18h"},"mpe":{"t":"14h","p":50,"r":"10.5h","l":"19h"},"comp":{"t":"15h","p":59,"r":"11.5h","l":"27h"},"stores":{"steam":"https://store.steampowered.com/app/6900/","gog":"https://www.gog.com/en/game/hitman_codename_47"},"hltb_id":"4478"}},
-    {"number":943,"title":"Pyre","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co24r3.jpg","year":2017,"genres":["Action","Adventure","Indie","Role-playing (RPG)","Visual Novel"],"platforms":["Linux","PlayStation 4","Windows PC"],"hltb":{"ms":{"t":"11h","p":293,"r":"8h","l":"16h"},"mpe":{"t":"14.5h","p":402,"r":"10.5h","l":"23h"},"comp":{"t":"21h","p":88,"r":"16h","l":"50.5h"},"stores":{"steam":"https://store.steampowered.com/app/462770/","gog":"https://www.gog.com/en/game/pyre"},"hltb_id":"40340"}},
+    {"number":943,"title":"Pyre","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co24r3.jpg","year":2017,"genres":["Action","Adventure","Indie","Role-playing (RPG)","Visual Novel"],"platforms":["Linux","PlayStation 4","Windows PC"],"hltb":{"ms":{"t":"11h","p":293,"r":"8h","l":"16h"},"mpe":{"t":"14.5h","p":401,"r":"10.5h","l":"23h"},"comp":{"t":"21h","p":88,"r":"16h","l":"50.5h"},"stores":{"steam":"https://store.steampowered.com/app/462770/","gog":"https://www.gog.com/en/game/pyre"},"hltb_id":"40340"}},
     {"number":944,"title":"Virtua Cop 2","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co25zw.jpg","year":1995,"genres":["Action","Shooter"],"platforms":["Arcade","Sega Saturn","Windows PC"],"hltb":{"ms":{"t":"50m","p":32,"r":"36m","l":"1.5h"},"mpe":{"t":"3h","p":5,"r":"2h","l":"5.5h"},"comp":{"t":"2h","p":8,"r":"1.5h","l":"2.5h"},"hltb_id":"10946"}},
     {"number":945,"title":"Sid Meier's Civilization III","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2jvj.jpg","year":2001,"genres":["4X (explore, expand, exploit, and exterminate)","Simulator","Strategy","Turn-based strategy (TBS)"],"platforms":["Apple Macintosh","Windows PC"],"hltb":{"ms":{"t":"25h","p":9,"r":"18h","l":"32.5h"},"mpe":{"t":"37h","p":5,"r":"28.5h","l":"48.5h"},"comp":{"t":"69h","p":2,"r":"63.5h","l":"74.5h"},"hltb_id":"8501"}},
     {"number":946,"title":"Tunic","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/td1t8kb33gyo8mvhl2pc.jpg","year":2022,"genres":["Action","Adventure","Indie","Puzzle","Role-playing (RPG)"],"platforms":["Apple Macintosh","Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"12.5h","p":528,"r":"8.5h","l":"18h"},"mpe":{"t":"16.5h","p":1100,"r":"12h","l":"33.5h"},"comp":{"t":"21.5h","p":529,"r":"16h","l":"42.5h"},"stores":{"steam":"https://store.steampowered.com/app/553420/","gog":"https://www.gog.com/en/game/tunic"},"hltb_id":"52546"}},
@@ -4390,7 +4401,7 @@ const gamesList = [
     {"number":983,"title":"Final Fantasy XV","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6nz1.jpg","year":2016,"genres":["Action","Adventure","Hack and slash/Beat 'em up","Open world","Role-playing (RPG)","Sandbox","Survival"],"platforms":["PlayStation 4","Xbox One"],"hltb":{"ms":{"t":"28h","p":887,"r":"19.5h","l":"44.5h"},"mpe":{"t":"53.5h","p":1500,"r":"35.5h","l":"125h"},"comp":{"t":"95h","p":497,"r":"70h","l":"206.5h"},"hltb_id":"3537"}},
     {"number":984,"title":"Paperboy","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co5yma.jpg","year":1985,"genres":["Action","Arcade","Racing","Simulator"],"platforms":["Amstrad CPC","Apple II","Arcade","BBC Micro","Commodore 64/128","Nintendo Entertainment System","TRS-80 Micro Computer System","ZX Spectrum"],"hltb":{"ms":{"t":"1.5h","p":27,"r":"42m","l":"4h"},"mpe":{"t":"1h","p":1,"r":"1h","l":"1h"},"comp":{"t":"4.5h","p":7,"r":"3h","l":"7h"},"hltb_id":"6913"}},
     {"number":985,"title":"Planet Zoo","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co8zii.jpg","year":2019,"genres":["Sandbox","Simulator","Strategy"],"platforms":["Windows PC"],"hltb":{"ms":{"t":"34h","p":24,"r":"27h","l":"62h"},"mpe":{"t":"58h","p":21,"r":"39h","l":"94h"},"comp":{"t":"93h","p":22,"r":"70h","l":"174h"},"stores":{"steam":"https://store.steampowered.com/app/703080/"},"hltb_id":"68032"}},
-    {"number":986,"title":"Venba","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6vn4.jpg","year":2023,"genres":["Adventure","Indie","Puzzle","Simulator","Visual Novel"],"platforms":["Nintendo Switch","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"1.5h","p":593,"r":"1h","l":"2.5h"},"mpe":{"t":"1.5h","p":154,"r":"1.5h","l":"3.5h"},"comp":{"t":"2.5h","p":256,"r":"1.5h","l":"4h"},"stores":{"steam":"https://store.steampowered.com/app/1491670/","gog":"https://www.gog.com/en/game/venba"},"hltb_id":"112959"}},
+    {"number":986,"title":"Venba","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6vn4.jpg","year":2023,"genres":["Adventure","Indie","Puzzle","Simulator","Visual Novel"],"platforms":["Nintendo Switch","PlayStation 5","Windows PC","Xbox One","Xbox Series X/S"],"hltb":{"ms":{"t":"1.5h","p":592,"r":"1h","l":"2.5h"},"mpe":{"t":"1.5h","p":154,"r":"1.5h","l":"3.5h"},"comp":{"t":"2.5h","p":256,"r":"1.5h","l":"4h"},"stores":{"steam":"https://store.steampowered.com/app/1491670/","gog":"https://www.gog.com/en/game/venba"},"hltb_id":"112959"}},
     {"number":987,"title":"Super Sprint","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co37az.jpg","year":1986,"genres":["Action","Arcade","Racing"],"platforms":["Amstrad CPC","Arcade","Atari ST/STE","Commodore 64/128","ZX Spectrum"],"hltb":{"ms":{"t":"21m","p":4,"r":"16m","l":"26m"},"mpe":{"t":"46m","p":2,"r":"32m","l":"1h"},"comp":{"t":"1.5h","p":1,"r":"1.5h","l":"1.5h"},"hltb_id":"9449"}},
     {"number":988,"title":"Far Cry 3: Blood Dragon","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1vpp.jpg","year":2013,"genres":["Action","Adventure","Open world","Sandbox","Shooter","Stealth"],"platforms":["PlayStation 3","Windows PC","Xbox 360"],"hltb":{"ms":{"t":"4.5h","p":685,"r":"3h","l":"12h"},"mpe":{"t":"7h","p":605,"r":"4.5h","l":"16h"},"comp":{"t":"8.5h","p":650,"r":"6.5h","l":"20h"},"stores":{"steam":"https://store.steampowered.com/app/233270/"},"hltb_id":"3379"}},
     {"number":989,"title":"Tom Clancy's Splinter Cell: Pandora Tomorrow","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co95rk.jpg","year":2004,"genres":["Action","Shooter","Stealth","Tactical"],"platforms":["Nintendo GameCube","PlayStation 2","Windows PC","Xbox"],"hltb":{"ms":{"t":"10h","p":152,"r":"6.5h","l":"15h"},"mpe":{"t":"12.5h","p":51,"r":"9h","l":"16h"},"comp":{"t":"15h","p":34,"r":"11h","l":"17.5h"},"hltb_id":"10465"}},
@@ -4404,7 +4415,7 @@ const gamesList = [
     {"number":997,"title":"International Superstar Soccer 64","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co7rup.jpg","year":1996,"genres":["Sport"],"platforms":["Nintendo 64"],"hltb":{"ms":{"t":"19.5h","p":4,"r":"18h","l":"20h"},"vs":{"t":"5h"},"mpe":{"t":"15h","p":1,"r":"15h","l":"15h"},"hltb_id":"4711"}},
     {"number":998,"title":"Neon White","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2tgh.jpg","year":2022,"genres":["Action","Indie","Platform","Shooter","Visual Novel"],"platforms":["Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC"],"hltb":{"ms":{"t":"10.5h","p":286,"r":"7.5h","l":"23h"},"mpe":{"t":"18.5h","p":575,"r":"11.5h","l":"43.5h"},"comp":{"t":"24.5h","p":366,"r":"18h","l":"59h"},"stores":{"steam":"https://store.steampowered.com/app/1533420/"},"hltb_id":"88760"}},
     {"number":999,"title":"Red Faction: Guerrilla","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2h9b.jpg","year":2009,"genres":["Action","Adventure","Open world","Shooter"],"platforms":["PlayStation 3","Windows PC","Xbox 360"],"hltb":{"ms":{"t":"13.5h","p":170,"r":"9.5h","l":"19.5h"},"mpe":{"t":"20.5h","p":208,"r":"13.5h","l":"37.5h"},"comp":{"t":"43h","p":19,"r":"31.5h","l":"96h"},"hltb_id":"7689"}},
-    {"number":1000,"title":"Valiant Hearts: The Great War","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co25zo.jpg","year":2014,"genres":["Adventure","Platform","Puzzle"],"platforms":["Android","iPhone","PlayStation 3","PlayStation 4","Windows PC","Xbox 360","Xbox One"],"hltb":{"ms":{"t":"6.5h","p":633,"r":"5h","l":"9h"},"mpe":{"t":"7.5h","p":478,"r":"6h","l":"14.5h"},"comp":{"t":"9h","p":273,"r":"7h","l":"17h"},"stores":{"steam":"https://store.steampowered.com/app/260230/"},"hltb_id":"19503"}}
+    {"number":1000,"title":"Valiant Hearts: The Great War","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co25zo.jpg","year":2014,"genres":["Adventure","Platform","Puzzle"],"platforms":["Android","iPhone","PlayStation 3","PlayStation 4","Windows PC","Xbox 360","Xbox One"],"hltb":{"ms":{"t":"6.5h","p":632,"r":"5h","l":"9h"},"mpe":{"t":"7.5h","p":478,"r":"6h","l":"14.5h"},"comp":{"t":"9h","p":273,"r":"7h","l":"17h"},"stores":{"steam":"https://store.steampowered.com/app/260230/"},"hltb_id":"19503"}}
 ];
 
 const ROMAN_NUMERAL_REGEX = /\b(i{1,3}|iv|v|vi{1,3}|ix|x|xi{1,3}|xiv|xv|xvi{1,3}|xix|xx|xxi{1,3})\b/gi;
@@ -6139,7 +6150,6 @@ function calculateRelevance(gameName, searchTerm) {
     let relevance = 0;
         const normalizedTermLower = normalizeText(termLower);
         
-        // Базовое совпадение
         if (termWords.length === 1) {
             if (gameNameLower === normalizedTermLower) {
             relevance += 1000;
@@ -6173,11 +6183,9 @@ function calculateRelevance(gameName, searchTerm) {
             }
         }
 
-        // Штраф за разницу в длине
         const lengthDifference = Math.abs(gameNameLower.length - normalizedTermLower.length);
     relevance -= lengthDifference;
 
-        // Бонус за точные совпадения слов
     const gameWords = gameNameLower.split(/\s+/);
         for (const queryWord of termWords) {
         if (gameWords.includes(normalizeText(queryWord))) {
@@ -6185,7 +6193,6 @@ function calculateRelevance(gameName, searchTerm) {
         }
     }
 
-        // Логика для серий игр
         const seriesInfoCalc = getSeriesInfo(gameNameLower);
         const gamePartNorm = seriesInfoCalc.noNumber ? 1 : seriesInfoCalc.part;
         const termPart = extractPartNumber(normalizedTermLower);
@@ -6205,35 +6212,30 @@ function calculateRelevance(gameName, searchTerm) {
             relevance -= 100;
         }
 
-        // Новая логика приоритизации версий
         const editionKeywords = new Set(['definitive','remaster','remastered','bundle','premium','online','ultimate','deluxe','special','collector','collection','complete','anniversary','director','intergrade','intermission','twin','pack','story','enhanced']);
         const titleTokens = gameNameLower.split(/[^a-z0-9]+/).filter(Boolean);
         const hasEdition = titleTokens.some(t => editionKeywords.has(t));
         
-        // Исключаем Premium Edition и Collector's Edition из поиска
         const isExcludedEdition = titleTokens.some(t => ['premium', 'collector'].includes(t));
         if (isExcludedEdition) {
-            return -10000; // Полностью исключаем из результатов
+            return -10000;
         }
         
-        // Определяем тип игры для приоритизации
         const isOriginal = !hasEdition && !titleTokens.some(t => ['remake', 'remaster', 'remastered'].includes(t));
         const isRemakeRemaster = titleTokens.some(t => ['remake', 'remaster', 'remastered'].includes(t));
         const isSpecialEdition = titleTokens.some(t => ['bundle'].includes(t));
         const isRegularEdition = hasEdition && !isSpecialEdition && !isRemakeRemaster;
         
-        // Приоритизация по типам
         if (isOriginal) {
-            relevance += 500; // Оригинальные игры - высший приоритет
+            relevance += 500;
         } else if (isRemakeRemaster) {
-            relevance += 300; // Ремейки/ремастеры - второй приоритет
+            relevance += 300;
         } else if (isRegularEdition) {
-            relevance += 100; // Обычные издания - третий приоритет
+            relevance += 100;
         } else if (isSpecialEdition) {
-            relevance -= 200; // Bundle - низший приоритет
+            relevance -= 200;
         }
         
-        // Дополнительный штраф для издания без номера при поиске без номера
         if (termPart == null && hasEdition) {
             relevance -= 200;
         }
@@ -7286,7 +7288,7 @@ function updateAllCellSizesOptimized() {
             
             const buttons = cell.querySelectorAll('.cell-button');
             buttons.forEach(button => {
-                if (size < 50) {
+                if (size < 42) {
                     button.style.display = 'none';
                 } else {
                     button.style.display = 'flex';
@@ -7331,7 +7333,7 @@ function updateCellSizeOptimized(cell, isInProgress) {
 
     const buttons = cell.querySelectorAll('.cell-button');
     buttons.forEach(button => {
-        if (size < 44) {
+        if (size < 42) {
             button.style.display = 'none';
         } else {
             button.style.display = 'flex';
@@ -7464,11 +7466,8 @@ function toggleHideCompleted() {
     }
 
     state.filters.hideCompleted = !state.filters.hideCompleted;
-
     hideCompletedButton.classList.toggle('active', state.filters.hideCompleted);
-
     localStorage.setItem('hideCompleted', state.filters.hideCompleted);
-
     completedFilter.classList.toggle('button-disabled', state.filters.hideCompleted);
 
     updateVisibleGames();
@@ -7490,13 +7489,9 @@ function resetProgress() {
         });
 
         saveGames();
-
         updateVisibleGames();
-
         searchInput.value = '';
-
         updateCounter();
-
         saturationSlider.value = currentSaturation;
         updateSaturation();
         saveGames();
@@ -7518,7 +7513,6 @@ function handleSearch() {
     }
 
     state.search = searchTerm;
-
     updateVisibleGames();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -7773,9 +7767,7 @@ function updateVisibleGames() {
     }
 
     updateCounterDisplay(visibleGames.length, false);
-
     updateSaturation();
-
     preloadVisibleImages();
 }
 
@@ -7870,9 +7862,7 @@ function updatePlatformFilters(platforms) {
         label.style.wordWrap = 'break-word';
         label.style.whiteSpace = 'normal';
         label.style.flex = '1';
-
         container.appendChild(label);
-
         platformsList.appendChild(container);
     });
 }
@@ -7912,7 +7902,6 @@ function updateGenreFilters(genres) {
         label.style.flex = '1';
 
         container.appendChild(label);
-
         genresList.appendChild(container);
     });
 }
@@ -8027,7 +8016,6 @@ function updateYearSliderVisuals() {
 
 function updateYearValue() {
     updateYearSliderVisuals();
-
     saveYearFiltersToStorage();
 }
 
@@ -8138,7 +8126,6 @@ function fullRenderGrid(visibleGames, inProgressGames) {
     grid.appendChild(gridFragment);
 
     updateGridSize();
-
     updateCounter();
     document.querySelectorAll('.cell').forEach(cell => {
         const id = cell.getAttribute('data-game-id');
@@ -8216,7 +8203,6 @@ function updateVisibleGames() {
     const desiredInProg = hasSearch ? inProgressGames.filter(g => matchesQuery(g.name, state.search)).sort(cmp)
                                     : inProgressGames.slice();
     const desiredRegular = hasSearch ? regularGames.slice().sort(cmp) : regularGames.slice();
-
     const desiredInProgIds = new Set(desiredInProg.map(g => g.id.toString()));
     const desiredRegularIds = new Set(desiredRegular.map(g => g.id.toString()));
 
@@ -8349,11 +8335,8 @@ function optimizedRenderGrid(visibleGames, inProgressGames) {
         }
     });
 
-
     updateGridSize();
-
     updateCounter();
-
     updateSaturation();
 
     if (newCellsCreated > 0) {
@@ -8438,19 +8421,15 @@ function toggleCompletedFilter() {
     }
 
     state.filters.completedOnly = !state.filters.completedOnly;
-
     completedFilter.classList.toggle('active', state.filters.completedOnly);
-
     localStorage.setItem('completedFilterActive', state.filters.completedOnly);
-
     hideCompletedButton.classList.toggle('button-disabled', state.filters.completedOnly);
-
     updateVisibleGames();
 }
 
 let currentRandomGame = null;
 
-function selectRandomGame() {
+function selectRandomGame(preservedWidth = null, preservedHeight = null) {
     const availableGames = state.games.filter(game => !game.completed && !game.inProgress);
     if (availableGames.length === 0) {
         alert('Нет доступных игр для выбора');
@@ -8458,7 +8437,7 @@ function selectRandomGame() {
     }
     const randomGame = availableGames[Math.floor(Math.random() * availableGames.length)];
     currentRandomGame = randomGame;
-    showRandomSelection(randomGame);
+    showRandomSelection(randomGame, preservedWidth, preservedHeight);
 }
 
 document.getElementById('wantToPlayButton').onclick = function() {
@@ -8470,7 +8449,7 @@ document.getElementById('wantToPlayButton').onclick = function() {
     }
 };
 
-function showRandomSelection(game) {
+function showRandomSelection(game, preservedWidth = null, preservedHeight = null) {
     const randomCell = document.querySelector(`.cell[data-game-id="${game.id}"]`);
 
     document.querySelectorAll('.cell').forEach(cell => {
@@ -8479,14 +8458,18 @@ function showRandomSelection(game) {
 
     let imgSrc = game.imageUrl || game.image_url;
     let content;
+    
+    const imgWidth = preservedWidth || '200px';
+    const imgHeight = preservedHeight || 'auto';
+    
     if (!imgSrc) {
-        content = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}" style="filter: saturate(${state.saturation}%); width: 200px; height: auto; border-radius: 8px;">`;
+        content = `<img src="${DEFAULT_GAME_IMAGE}" alt="${game.name}" style="filter: saturate(${state.saturation}%); width: ${imgWidth}; height: ${imgHeight}; border-radius: 8px;">`;
     } else {
         const cachedImage = loadImageFromCache(imgSrc);
         if (cachedImage) {
-            content = `<img src="${cachedImage}" alt="${game.name}" style="filter: saturate(${state.saturation}%); width: 200px; height: auto; border-radius: 8px;">`;
-    } else {
-        content = `<img src="${imgSrc}" alt="${game.name}" style="filter: saturate(${state.saturation}%); width: 200px; height: auto; border-radius: 8px;">`;
+            content = `<img src="${cachedImage}" alt="${game.name}" style="filter: saturate(${state.saturation}%); width: ${imgWidth}; height: ${imgHeight}; border-radius: 8px;">`;
+        } else {
+            content = `<img src="${imgSrc}" alt="${game.name}" style="filter: saturate(${state.saturation}%); width: ${imgWidth}; height: ${imgHeight}; border-radius: 8px;">`;
         }
     }
 
@@ -8526,6 +8509,13 @@ function showRandomSelection(game) {
                     saveImageToCache(img.src);
                 }
             }
+            
+            if (preservedWidth && preservedHeight) {
+                img.style.width = 'auto';
+                img.style.height = 'auto';
+                img.style.maxWidth = '100%';
+                img.style.maxHeight = '70vh';
+            }
         };
         
         img.onerror = function() {
@@ -8546,10 +8536,8 @@ function showRandomSelection(game) {
     document.getElementById('dontWantButton').textContent = isLastOfUs2 ? 'Да ну нафиг' : 'Не хочу';
     document.getElementById('wantToPlayButton').textContent = isLastOfUs2 ? 'Ну, с богом' : 'Хочу пройти';
     document.getElementById('anotherRandomButton').textContent = isLastOfUs2 ? 'Давай может другую, а?' : 'Давай другую';
-
     document.getElementById('topButtons').style.display = 'flex';
     document.getElementById('anotherRandomButton').style.display = 'block';
-
     document.getElementById('wantToPlayButton').onclick = () => {
         game.inProgress = true;
         if (randomCell) {
@@ -8573,7 +8561,18 @@ function showRandomSelection(game) {
 
     document.getElementById('anotherRandomButton').onclick = () => {
         currentRandomGame = null;
-        selectRandomGame();
+        
+        const currentImg = randomSelected.querySelector('img');
+        let preservedWidth = '200px';
+        let preservedHeight = 'auto';
+        
+        if (currentImg) {
+            const rect = currentImg.getBoundingClientRect();
+            preservedWidth = rect.width + 'px';
+            preservedHeight = rect.height + 'px';
+        }
+        
+        selectRandomGame(preservedWidth, preservedHeight);
     };
 
     setTimeout(() => {
@@ -9225,7 +9224,6 @@ function createButtonsForCell(cell, game) {
             const game = state.games.find(g => g.id && g.id.toString() === gameId.toString());
             
             if (game) {
-                // Для добавленных игр используем их собственные данные
                 if (game.isCustom) {
                     if (selectedGameId) {
                         replaceGameInfoModal(game, e);
@@ -9233,7 +9231,6 @@ function createButtonsForCell(cell, game) {
                         showGameInfoModal(game, e);
                     }
                 } else {
-                    // Для обычных игр ищем HLTB данные в gamesList
                     const originalGame = gamesList.find(g => g.number && g.number.toString() === gameId.toString());
                     if (originalGame) {
                 const gameWithHLTB = {
@@ -9503,7 +9500,6 @@ function updateGameCell(game) {
                 const game = state.games.find(g => g.id && g.id.toString() === gameId.toString());
                 
                 if (game) {
-                    // Для добавленных игр используем их собственные данные
                     if (game.isCustom) {
                         if (selectedGameId) {
                             replaceGameInfoModal(game, e);
@@ -9511,7 +9507,6 @@ function updateGameCell(game) {
                             showGameInfoModal(game, e);
                         }
                     } else {
-                        // Для обычных игр ищем HLTB данные в gamesList
                         const originalGame = gamesList.find(g => g.number && g.number.toString() === gameId.toString());
                         if (originalGame) {
                     const gameWithHLTB = {
@@ -9592,10 +9587,8 @@ function normalizeGameName(name) {
         .replace(/^(the|a|an)\s+/, '')
         .trim();
     
-    // Конвертируем римские цифры в арабские
     const words = normalized.split(/\s+/);
     const convertedWords = words.map(word => {
-        // Проверяем, является ли слово римской цифрой
         if (/^[ivxlcdm]+$/i.test(word)) {
             const arabicNum = romanToInt(word);
             return arabicNum ? arabicNum.toString() : word;
@@ -9606,13 +9599,11 @@ function normalizeGameName(name) {
     return convertedWords.join(' ');
 }
 function getGameNumber(name) {
-    // Сначала ищем арабские цифры в конце
     const arabicMatch = name.match(/\d+$/);
     if (arabicMatch) {
         return parseInt(arabicMatch[0]);
     }
     
-    // Затем ищем римские цифры в конце
     const romanMatch = name.match(/[ivxlcdm]+$/i);
     if (romanMatch) {
         const romanNum = romanToInt(romanMatch[0]);
