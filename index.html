@@ -56,7 +56,7 @@ body {
     display: flex;
     align-items: center;
 }
-#togglePreview, #resetButton, #inProgressButton, #filtersButton, #clearSearchButton, #resetFiltersButton, #randomButton, #importFromApiButton, #addGameButton, #codeButton {
+#togglePreview, #resetButton, #inProgressButton, #filtersButton, #clearSearchButton, #resetFiltersButton, #randomButton, #importFromApiButton, #addGameButton, #codeButton, #clearImageCacheButton {
     border: none;
     color: white;
     padding: 5px 10px;
@@ -86,6 +86,14 @@ body {
 }
 #resetButton {
     background-color: #b61111;
+}
+#clearImageCacheButton {
+    background-color: #ff6b35;
+}
+#clearImageCacheButton:hover {
+    background-color: #ff8c5a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(255, 107, 53, 0.3);
 }
 #inProgressButton {
     background-color: transparent;
@@ -2449,13 +2457,14 @@ button:hover,
 <div id="counterContainer">
     <div id="counter">Пройдено: 0 из 0</div>
 </div>
-<div id="rightGroup">
-    <button id="randomButton">Random</button>
-    <button id="codeButton">КОД</button>
-    <button id="inProgressButton">В очередь</button>
-    <button id="addGameButton">Добавить игру</button>
-    <button id="resetButton">Сброс</button>
-</div>
+        <div id="rightGroup">
+            <button id="randomButton">Random</button>
+            <button id="codeButton">КОД</button>
+            <button id="inProgressButton">В очередь</button>
+            <button id="addGameButton">Добавить игру</button>
+            <button id="clearImageCacheButton" onclick="clearImageCacheAndRefresh()" title="Очистить кэш изображений">Очистить кэш</button>
+            <button id="resetButton">Сброс</button>
+        </div>
 </div>
 <div id="mainContent">
 <div id="inProgressRow"></div>
@@ -4221,7 +4230,7 @@ const gamesList = [
     {"number":803,"title":"A Way Out","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1vca.jpg","year":2018,"genres":["Action","Adventure"],"platforms":["PlayStation 4","Windows PC","Xbox One"],"hltb":{"ms":{"t":"6h","p":1600,"r":"4.5h","l":"8h"},"mpe":{"t":"6.5h","p":722,"r":"5.5h","l":"13h"},"comp":{"t":"7.5h","p":520,"r":"6h","l":"14.5h"},"coop":{"t":"6.5h","p":593,"min":"4h","max":"23h"},"vs":{"t":"30m","p":6},"stores":{"steam":"https://store.steampowered.com/app/1222700/"},"hltb_id":"46386"}},
     {"number":804,"title":"Spy Hunter","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6owb.jpg","year":1984,"genres":["Action","Arcade","Racing","Shooter"],"platforms":["Amstrad CPC","Apple II","Arcade","Atari 2600","Atari 8-bit","BBC Micro","ColecoVision","Commodore 64/128","DOS","Nintendo Entertainment System","ZX Spectrum"],"hltb":{"ms":{"t":"23m","p":7,"r":"13m","l":"28m"},"comp":{"t":"40m","p":1,"r":"40m","l":"40m"},"hltb_id":"8997"}},
     {"number":805,"title":"Final Fantasy III","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2127.jpg","year":1990,"genres":["Role-playing (RPG)"],"platforms":["Nintendo Entertainment System"],"hltb":{"ms":{"t":"16h","p":191,"r":"12h","l":"32.5h"},"mpe":{"t":"19h","p":206,"r":"13.5h","l":"37h"},"comp":{"t":"18.5h","p":253,"r":"14.5h","l":"47.5h"},"hltb_id":"94537"}},
-    {"number":806,"title":"Unpacking","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2879.jpg","year":2021,"genres":["Indie","Simulator"],"platforms":["Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One"],"hltb":{"ms":{"t":"3.5h","p":1100,"r":"2.5h","l":"6.5h"},"mpe":{"t":"4h","p":397,"r":"3h","l":"6h"},"comp":{"t":"4.5h","p":1300,"r":"2.5h","l":"12h"},"hltb_id":"69666"}},
+    {"number":806,"title":"Unpacking","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1t45.jpg","year":2021,"genres":["Indie","Simulator"],"platforms":["Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One"],"hltb":{"ms":{"t":"3.5h","p":1100,"r":"2.5h","l":"6.5h"},"mpe":{"t":"4h","p":397,"r":"3h","l":"6h"},"comp":{"t":"4.5h","p":1300,"r":"2.5h","l":"12h"},"hltb_id":"69666"}},
     {"number":807,"title":"Nier","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2z64.jpg","year":2010,"genres":["Action","Adventure","Open world","Role-playing (RPG)","Shooter","Simulator","Strategy"],"platforms":["PlayStation 3","Xbox 360"],"hltb":{"ms":{"t":"20.5h","p":220,"r":"15h","l":"32.5h"},"mpe":{"t":"35h","p":295,"r":"25.5h","l":"71h"},"comp":{"t":"66.5h","p":72,"r":"48.5h","l":"90h"},"hltb_id":"6591"}},
     {"number":808,"title":"LittleBigPlanet 2","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2ijw.jpg","year":2011,"genres":["Action","Adventure","Platform","Puzzle","Sandbox"],"platforms":["PlayStation 3"],"hltb":{"ms":{"t":"7h","p":144,"r":"5.5h","l":"9.5h"},"mpe":{"t":"15h","p":77,"r":"10.5h","l":"57.5h"},"comp":{"t":"40.5h","p":20,"r":"27.5h","l":"60h"},"coop":{"t":"39.5h","p":19,"min":"23h","max":"520h"},"vs":{"t":"18h","p":4,"min":"7h","max":"32h"},"hltb_id":"5336"}},
     {"number":809,"title":"Vib-Ribbon","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6xgh.jpg","year":1999,"genres":["Action","Music"],"platforms":["PlayStation"],"hltb":{"ms":{"t":"42m","p":32,"r":"28m","l":"1.5h"},"mpe":{"t":"1h","p":6,"r":"42m","l":"1.5h"},"comp":{"t":"4h","p":2,"r":"3.5h","l":"4.5h"},"hltb_id":"10922"}},
@@ -7127,6 +7136,82 @@ function loadImageFromCache(url) {
 
 
 
+function clearImageCache() {
+    try {
+        const keys = Object.keys(localStorage);
+        const imageKeys = keys.filter(key => key.startsWith(IMAGE_CACHE_PREFIX));
+        
+        imageKeys.forEach(key => {
+            localStorage.removeItem(key);
+        });
+        
+        localStorage.removeItem('imageCacheMetadata');
+        console.log('Кэш изображений очищен');
+        return true;
+    } catch (error) {
+        console.error('Ошибка при очистке кэша изображений:', error);
+        return false;
+    }
+}
+
+function clearImageCacheForUrl(url) {
+    try {
+        const cacheKey = IMAGE_CACHE_PREFIX + url;
+        localStorage.removeItem(cacheKey);
+        
+        const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
+        if (cacheMetadata[cacheKey]) {
+            delete cacheMetadata[cacheKey];
+            localStorage.setItem('imageCacheMetadata', JSON.stringify(cacheMetadata));
+        }
+        
+        console.log(`Кэш для изображения ${url} очищен`);
+        return true;
+    } catch (error) {
+        console.error('Ошибка при очистке кэша для изображения:', error);
+        return false;
+    }
+}
+
+function clearImageCacheAndRefresh() {
+    if (confirm('Очистить кэш изображений? Это заставит перезагрузить все изображения.')) {
+        if (clearImageCache()) {
+            const inProgressGames = state.games.filter(game => game.inProgress);
+            const regularGames = state.games.filter(game => !game.inProgress);
+            fullRenderGrid(regularGames, inProgressGames);
+            alert('Кэш изображений очищен. Изображения будут перезагружены.');
+        } else {
+            alert('Ошибка при очистке кэша изображений.');
+        }
+    }
+}
+
+function forceRefreshGameImage(gameId) {
+    const game = state.games.find(g => g.id.toString() === gameId.toString());
+    if (!game) return;
+    
+    let imageUrl;
+    if (game.imageUrl) {
+        imageUrl = game.imageUrl;
+    } else if (game.image_url) {
+        imageUrl = game.image_url;
+    } else {
+        return;
+    }
+    
+    clearImageCacheForUrl(imageUrl);
+    
+    const cells = document.querySelectorAll(`[data-game-id="${gameId}"]`);
+    cells.forEach(cell => {
+        const img = cell.querySelector('img');
+        if (img) {
+            img.src = imageUrl + '?t=' + Date.now();
+        }
+    });
+    
+    console.log(`Изображение для игры "${game.name}" принудительно обновлено`);
+}
+
 function clearOldestImagesFromCache(requiredSpace) {
     try {
         const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
@@ -9313,7 +9398,6 @@ function createCell(game) {
         imageUrl = DEFAULT_GAME_IMAGE;
     }
 
-    img.src = imageUrl;
     const cachedImage = loadImageFromCache(imageUrl);
     if (cachedImage) {
         img.src = cachedImage;
@@ -9321,6 +9405,7 @@ function createCell(game) {
             img.classList.add('loaded');
         }, 10);
     } else {
+        img.src = imageUrl;
         queueImageLoad(img, imageUrl);
     }
 
