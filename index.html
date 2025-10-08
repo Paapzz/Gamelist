@@ -426,7 +426,7 @@ body {
 #grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    grid-auto-rows: min-content; /* Строки только нужной высоты */
+    grid-auto-rows: min-content;
     gap: 5px;
     padding: 40px 10px 50px;
     overflow-x: hidden;
@@ -435,7 +435,6 @@ body {
     min-height: 100vh; 
     justify-items: start; 
     justify-content: start;
-    /* CSS оптимизации для производительности */
     contain: layout;
 }
 .cell {
@@ -447,7 +446,6 @@ body {
     border-radius: 10%;
     margin: 0;
     background-color: transparent;
-    /* CSS оптимизации для производительности */
     contain: layout;
 }
 
@@ -512,10 +510,11 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: none;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 28%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.65) 75%) !important;
     pointer-events: none;
     border-radius: 10%;
     transition: transform 0.2s ease;
+    z-index: 1; 
 }
 
 .cell img,
@@ -1104,7 +1103,6 @@ body {
     width: calc(var(--cell-size, 70px) * 1.2);
     height: calc(var(--cell-size, 70px) * 1.2 * 1.33);
     border: none;
-    /* CSS оптимизации для производительности */
     contain: layout;
 }
 #mainContent {
@@ -1471,7 +1469,7 @@ body {
     font-size: 16px;
     font-weight: bold;
     text-transform: uppercase;
-    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, opacity 0.3s ease; /* Update transition */
+    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, opacity 0.3s ease;
 }
 #dontWantButton, #wantToPlayButton {
     flex: 1;
@@ -1833,7 +1831,7 @@ body {
     font-size: 28px;
     font-weight: bold;
     cursor: pointer;
-    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, color 0.3s ease; /* Add transition */
+    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, color 0.3s ease;
 }
 .close:focus {
     color: #fff;
@@ -2022,7 +2020,7 @@ body {
     border-radius: 5px;
     cursor: pointer;
     font-size: 16px;
-    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, opacity 0.3s ease; /* Update transition */
+    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, opacity 0.3s ease; 
 }
 #addGameForm button {
     background-color: #4CAF50;
@@ -2103,7 +2101,7 @@ body {
     border-radius: 4px;
     cursor: pointer;
     font-size: 14px;
-    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Update transition */
+    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     transform: translateY(-5px);
 }
@@ -2126,7 +2124,7 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
+    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
 }
 #addGameModal #customGameListButton { min-width: 0; text-transform: none; font-weight: 400; }
 #buttonContainer {
@@ -2275,7 +2273,7 @@ body {
     padding: 10px 20px;
     border-radius: 5px;
     cursor: pointer;
-    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease; /* Add transition */
+    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
 }
 #customGameSearchInput {
     width: 100%;
@@ -4221,7 +4219,7 @@ const gamesList = [
     {"number":803,"title":"A Way Out","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1vca.jpg","year":2018,"genres":["Action","Adventure"],"platforms":["PlayStation 4","Windows PC","Xbox One"],"hltb":{"ms":{"t":"6h","p":1600,"r":"4.5h","l":"8h"},"mpe":{"t":"6.5h","p":722,"r":"5.5h","l":"13h"},"comp":{"t":"7.5h","p":520,"r":"6h","l":"14.5h"},"coop":{"t":"6.5h","p":593,"min":"4h","max":"23h"},"vs":{"t":"30m","p":6},"stores":{"steam":"https://store.steampowered.com/app/1222700/"},"hltb_id":"46386"}},
     {"number":804,"title":"Spy Hunter","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6owb.jpg","year":1984,"genres":["Action","Arcade","Racing","Shooter"],"platforms":["Amstrad CPC","Apple II","Arcade","Atari 2600","Atari 8-bit","BBC Micro","ColecoVision","Commodore 64/128","DOS","Nintendo Entertainment System","ZX Spectrum"],"hltb":{"ms":{"t":"23m","p":7,"r":"13m","l":"28m"},"comp":{"t":"40m","p":1,"r":"40m","l":"40m"},"hltb_id":"8997"}},
     {"number":805,"title":"Final Fantasy III","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2127.jpg","year":1990,"genres":["Role-playing (RPG)"],"platforms":["Nintendo Entertainment System"],"hltb":{"ms":{"t":"16h","p":191,"r":"12h","l":"32.5h"},"mpe":{"t":"19h","p":206,"r":"13.5h","l":"37h"},"comp":{"t":"18.5h","p":253,"r":"14.5h","l":"47.5h"},"hltb_id":"94537"}},
-    {"number":806,"title":"Unpacking","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2879.jpg","year":2021,"genres":["Indie","Simulator"],"platforms":["Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One"],"hltb":{"ms":{"t":"3.5h","p":1100,"r":"2.5h","l":"6.5h"},"mpe":{"t":"4h","p":397,"r":"3h","l":"6h"},"comp":{"t":"4.5h","p":1300,"r":"2.5h","l":"12h"},"hltb_id":"69666"}},
+    {"number":806,"title":"Unpacking","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co1t45.jpg","year":2021,"genres":["Indie","Simulator"],"platforms":["Nintendo Switch","PlayStation 4","PlayStation 5","Windows PC","Xbox One"],"hltb":{"ms":{"t":"3.5h","p":1100,"r":"2.5h","l":"6.5h"},"mpe":{"t":"4h","p":397,"r":"3h","l":"6h"},"comp":{"t":"4.5h","p":1300,"r":"2.5h","l":"12h"},"hltb_id":"69666"}},
     {"number":807,"title":"Nier","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2z64.jpg","year":2010,"genres":["Action","Adventure","Open world","Role-playing (RPG)","Shooter","Simulator","Strategy"],"platforms":["PlayStation 3","Xbox 360"],"hltb":{"ms":{"t":"20.5h","p":220,"r":"15h","l":"32.5h"},"mpe":{"t":"35h","p":295,"r":"25.5h","l":"71h"},"comp":{"t":"66.5h","p":72,"r":"48.5h","l":"90h"},"hltb_id":"6591"}},
     {"number":808,"title":"LittleBigPlanet 2","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co2ijw.jpg","year":2011,"genres":["Action","Adventure","Platform","Puzzle","Sandbox"],"platforms":["PlayStation 3"],"hltb":{"ms":{"t":"7h","p":144,"r":"5.5h","l":"9.5h"},"mpe":{"t":"15h","p":77,"r":"10.5h","l":"57.5h"},"comp":{"t":"40.5h","p":20,"r":"27.5h","l":"60h"},"coop":{"t":"39.5h","p":19,"min":"23h","max":"520h"},"vs":{"t":"18h","p":4,"min":"7h","max":"32h"},"hltb_id":"5336"}},
     {"number":809,"title":"Vib-Ribbon","image_url":"https://images.igdb.com/igdb/image/upload/t_cover_big/co6xgh.jpg","year":1999,"genres":["Action","Music"],"platforms":["PlayStation"],"hltb":{"ms":{"t":"42m","p":32,"r":"28m","l":"1.5h"},"mpe":{"t":"1h","p":6,"r":"42m","l":"1.5h"},"comp":{"t":"4h","p":2,"r":"3.5h","l":"4.5h"},"hltb_id":"10922"}},
@@ -10663,7 +10661,7 @@ function buildSafeCharset() {
       try {
         const ch = String.fromCodePoint(cp);
         if (isLetterOrNumber(ch)) out.push(ch);
-      } catch (err) { /* skip invalid */ }
+      } catch (err) { /* skip */ }
     }
   }
   return Array.from(new Set(out)).join('');
