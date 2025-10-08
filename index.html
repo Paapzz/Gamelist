@@ -56,7 +56,7 @@ body {
     display: flex;
     align-items: center;
 }
-#togglePreview, #resetButton, #inProgressButton, #filtersButton, #clearSearchButton, #resetFiltersButton, #randomButton, #importFromApiButton, #addGameButton, #codeButton, #clearImageCacheButton {
+#togglePreview, #resetButton, #inProgressButton, #filtersButton, #clearSearchButton, #resetFiltersButton, #randomButton, #importFromApiButton, #addGameButton, #codeButton {
     border: none;
     color: white;
     padding: 5px 10px;
@@ -86,14 +86,6 @@ body {
 }
 #resetButton {
     background-color: #b61111;
-}
-#clearImageCacheButton {
-    background-color: #ff6b35;
-}
-#clearImageCacheButton:hover {
-    background-color: #ff8c5a;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(255, 107, 53, 0.3);
 }
 #inProgressButton {
     background-color: transparent;
@@ -2457,14 +2449,13 @@ button:hover,
 <div id="counterContainer">
     <div id="counter">Пройдено: 0 из 0</div>
 </div>
-        <div id="rightGroup">
-            <button id="randomButton">Random</button>
-            <button id="codeButton">КОД</button>
-            <button id="inProgressButton">В очередь</button>
-            <button id="addGameButton">Добавить игру</button>
-            <button id="clearImageCacheButton" onclick="clearImageCacheAndRefresh()" title="Очистить кэш изображений">Очистить кэш</button>
-            <button id="resetButton">Сброс</button>
-        </div>
+<div id="rightGroup">
+    <button id="randomButton">Random</button>
+    <button id="codeButton">КОД</button>
+    <button id="inProgressButton">В очередь</button>
+    <button id="addGameButton">Добавить игру</button>
+    <button id="resetButton">Сброс</button>
+</div>
 </div>
 <div id="mainContent">
 <div id="inProgressRow"></div>
@@ -7136,82 +7127,6 @@ function loadImageFromCache(url) {
 
 
 
-function clearImageCache() {
-    try {
-        const keys = Object.keys(localStorage);
-        const imageKeys = keys.filter(key => key.startsWith(IMAGE_CACHE_PREFIX));
-        
-        imageKeys.forEach(key => {
-            localStorage.removeItem(key);
-        });
-        
-        localStorage.removeItem('imageCacheMetadata');
-        console.log('Кэш изображений очищен');
-        return true;
-    } catch (error) {
-        console.error('Ошибка при очистке кэша изображений:', error);
-        return false;
-    }
-}
-
-function clearImageCacheForUrl(url) {
-    try {
-        const cacheKey = IMAGE_CACHE_PREFIX + url;
-        localStorage.removeItem(cacheKey);
-        
-        const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
-        if (cacheMetadata[cacheKey]) {
-            delete cacheMetadata[cacheKey];
-            localStorage.setItem('imageCacheMetadata', JSON.stringify(cacheMetadata));
-        }
-        
-        console.log(`Кэш для изображения ${url} очищен`);
-        return true;
-    } catch (error) {
-        console.error('Ошибка при очистке кэша для изображения:', error);
-        return false;
-    }
-}
-
-function clearImageCacheAndRefresh() {
-    if (confirm('Очистить кэш изображений? Это заставит перезагрузить все изображения.')) {
-        if (clearImageCache()) {
-            const inProgressGames = state.games.filter(game => game.inProgress);
-            const regularGames = state.games.filter(game => !game.inProgress);
-            fullRenderGrid(regularGames, inProgressGames);
-            alert('Кэш изображений очищен. Изображения будут перезагружены.');
-        } else {
-            alert('Ошибка при очистке кэша изображений.');
-        }
-    }
-}
-
-function forceRefreshGameImage(gameId) {
-    const game = state.games.find(g => g.id.toString() === gameId.toString());
-    if (!game) return;
-    
-    let imageUrl;
-    if (game.imageUrl) {
-        imageUrl = game.imageUrl;
-    } else if (game.image_url) {
-        imageUrl = game.image_url;
-    } else {
-        return;
-    }
-    
-    clearImageCacheForUrl(imageUrl);
-    
-    const cells = document.querySelectorAll(`[data-game-id="${gameId}"]`);
-    cells.forEach(cell => {
-        const img = cell.querySelector('img');
-        if (img) {
-            img.src = imageUrl + '?t=' + Date.now();
-        }
-    });
-    
-    console.log(`Изображение для игры "${game.name}" принудительно обновлено`);
-}
-
 function clearOldestImagesFromCache(requiredSpace) {
     try {
         const cacheMetadata = JSON.parse(localStorage.getItem('imageCacheMetadata') || '{}');
@@ -9398,6 +9313,7 @@ function createCell(game) {
         imageUrl = DEFAULT_GAME_IMAGE;
     }
 
+    img.src = imageUrl;
     const cachedImage = loadImageFromCache(imageUrl);
     if (cachedImage) {
         img.src = cachedImage;
@@ -9405,7 +9321,6 @@ function createCell(game) {
             img.classList.add('loaded');
         }, 10);
     } else {
-        img.src = imageUrl;
         queueImageLoad(img, imageUrl);
     }
 
@@ -11322,7 +11237,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
 
     replaceButton.onclick = function() {
-        if (confirm('Вы уверены, что хотите заменить свой список? Это действие нельзя отменить.')) {
+        if (confirm('Вы уверены, что хотите заменить свой список?')) {
             saveGames();
             originalGamesState = null;
             isViewingOtherTop = false;
