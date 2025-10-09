@@ -11300,7 +11300,7 @@ document.addEventListener('DOMContentLoaded', function() {
    height: 30px;
    border-radius: 50%;
    border: 1px solid rgba(255,255,255,0.25);
-   background: rgba(39, 39, 39, 0.6);
+   background: rgba(39, 39, 39, 0.85);
    color: #ffffff;
    display: flex;
    align-items: center;
@@ -11309,15 +11309,14 @@ document.addEventListener('DOMContentLoaded', function() {
    font-size: 22px;
    cursor: pointer;
    z-index: 11111;
-   box-shadow: 0 16px 18px rgba(0,0,0,0.8);
-   backdrop-filter: blur(22px);
+   box-shadow: 0 2px 25px rgba(0,0,0,1);
+   backdrop-filter: blur(10px);
    -webkit-backdrop-filter: blur(33px);
    transition: transform 0.15s ease, background 0.15s ease;
    user-select: none;
  }
  .info-btn:hover { background: rgba(10,10,10,0.8); transform: translateY(-1px); }
  .info-btn:active { transform: translateY(0); }
-
  .info-popup {
    position: fixed;
    right: 16px;
@@ -11366,10 +11365,74 @@ document.addEventListener('DOMContentLoaded', function() {
    z-index: 11100;
    display: none;
  }
+ .info-live {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  width: 30px;
+  height: 30px;
+  z-index: 11112;
+  display: none; 
+  pointer-events: none;
+ }
+ .info-live a {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.25);
+  box-shadow: 0 10px 16px rgba(0,0,0,0.5);
+  opacity: 0;
+  transform: translateX(0) scale(0.9);
+  transition: transform 450ms cubic-bezier(.22,1,.36,1), opacity 300ms ease;
+  background: #18181b;
+  pointer-events: none;
+ }
+ .info-live a.show {
+  opacity: 1;
+  transform: translateX(-40px) scale(1);
+  pointer-events: auto;
+  box-shadow:
+    0 0 0 2px #ff2d2d,
+    0 10px 16px rgba(0,0,0,0.5);
+  animation: liveDrop 700ms cubic-bezier(.2, .8, .2, 1) 60ms both;
+}
+ .info-live a img {
+  width: 100%;
+  height: 100%;
+  display: block;
+ }
+ @keyframes liveDrop {
+  0% {
+    transform: translateX(-40px) scale(0.96, 1.06);
+    border-radius: 54% 46% 52% 48% / 62% 58% 42% 38%;
+    filter: saturate(105%);
+  }
+  40% {
+    transform: translateX(-40px) scale(1.08, 0.92);
+    border-radius: 48% 52% 46% 54% / 40% 60% 48% 52%;
+  }
+  70% {
+    transform: translateX(-40px) scale(0.98, 1.03);
+    border-radius: 50%;
+  }
+  100% {
+    transform: translateX(-40px) scale(1);
+    border-radius: 50%;
+    filter: none;
+  }
+ }
+
  </style>
 
  <div id="infoBackdrop" class="info-backdrop" aria-hidden="true"></div>
  <div id="infoFloatingBtn" class="info-btn" title="Информация" aria-label="Информация">?</div>
+ <div id="infoLive" class="info-live" aria-hidden="true" style="display:none;">
+    <a id="infoLiveLink" href="https://www.twitch.tv/onty" target="_blank" rel="noopener noreferrer" title="Onty онлайн">
+      <img id="infoLiveImg" src="https://static-cdn.jtvnw.net/jtv_user_pictures/c74236f4-d7c9-4f76-83f9-153bcc09b8f1-profile_image-70x70.png" alt="Onty Twitch" />
+    </a>
+  </div>
  <div id="infoPopup" class="info-popup" role="dialog" aria-modal="false" aria-hidden="true">
    <div>
      <strong>Это ТОП‑1000 самых высокооценённых игр всех времён.</strong>
@@ -11395,6 +11458,83 @@ document.addEventListener('DOMContentLoaded', function() {
     const btn = document.getElementById('infoFloatingBtn');
     const popup = document.getElementById('infoPopup');
     const backdrop = document.getElementById('infoBackdrop');
+    const liveWrap = document.getElementById('infoLive');
+    const liveLink = document.getElementById('infoLiveLink');
+    const liveImg = document.getElementById('infoLiveImg');
+
+    const TWITCH_LOGIN = 'onty';
+
+    const LIVE_CHECK_INTERVAL_MS = 60_000; // 60s
+    const LIVE_SHOW_EVERY_MS = 30_000;     
+    const LIVE_SHOW_DURATION_MS = 15_000;  // 15s
+
+    let isLive = false;
+    let livePollTimer = null;
+    let liveShowTimer = null;
+    let hideTimeout = null;
+
+    function setLiveVisible(visible) {
+      if (!liveWrap) return;
+      if (visible) {
+        liveWrap.style.display = 'block';
+        liveLink.classList.add('show');
+        liveLink.classList.add('drop');
+        setTimeout(() => liveLink.classList.remove('drop'), 800);
+      } else {
+        liveLink.classList.remove('show');
+        setTimeout(() => { if (!liveLink.classList.contains('show')) liveWrap.style.display = 'none'; }, 320);
+      }
+    }
+
+    function showLiveOnce() {
+      if (!isLive) return;
+      clearTimeout(hideTimeout);
+      setLiveVisible(true);
+      hideTimeout = setTimeout(() => setLiveVisible(false), LIVE_SHOW_DURATION_MS);
+    }
+
+    function startShowLoop() {
+      if (liveShowTimer) clearInterval(liveShowTimer);
+      liveShowTimer = setInterval(() => {
+        if (isLive) showLiveOnce();
+      }, LIVE_SHOW_EVERY_MS);
+    }
+
+    function stopShowLoop() {
+        if (liveShowTimer) clearInterval(liveShowTimer);
+        liveShowTimer = null;
+        clearTimeout(hideTimeout);
+        setLiveVisible(false);
+    }
+
+    async function fetchLiveStatusDecapi() {
+      try {
+        const res = await fetch(`https://decapi.me/twitch/uptime/onty`, { cache: 'no-store' });
+        if (!res.ok) return false;
+        const text = (await res.text() || '').toLowerCase();
+        return !text.includes('offline');
+      } catch (_) {
+        return false;
+      }
+    }
+
+    async function checkAndUpdateLive() {
+      const live = await fetchLiveStatusDecapi();
+      if (live && !isLive) {
+        isLive = true;
+        startShowLoop();
+        showLiveOnce();
+      } else if (!live && isLive) {
+        isLive = false;
+        stopShowLoop();
+      }
+    }
+
+    function startLivePolling() {
+      if (livePollTimer) clearInterval(livePollTimer);
+      checkAndUpdateLive();
+      livePollTimer = setInterval(checkAndUpdateLive, LIVE_CHECK_INTERVAL_MS);
+    }
 
     const isOpen = () => popup.style.display === 'block';
     const open = () => {
@@ -11434,5 +11574,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && isOpen()) close();
     });
+    if (document.readyState === 'complete') {
+      startLivePolling();
+    } else {
+      window.addEventListener('load', startLivePolling, { once: true });
+    }
   })();
 </script>
