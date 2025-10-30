@@ -2661,6 +2661,25 @@ function normalizeText(text) {
     return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+function normalizeForSearch(text) {
+    if (!text) return '';
+    let s = normalizeText(text.toLowerCase());
+    s = s
+        .replace(/[’'`´]/g, "'")
+        .replace(/[‐‑‒–—―]/g, '-')
+        .replace(/[®©™]/g, '')
+        .replace(/[^\p{L}\p{N}\s\-']/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return s;
+}
+
+function expandAbbreviations(term) {
+    const t = (term || '').toLowerCase();
+    if (t === 'civ') return 'civilization';
+    return term;
+}
+
 const state = {
     games: [], 
     filters: {
@@ -6116,9 +6135,12 @@ function extractPartNumber(text) {
 }
 
 function matchesQuery(name, term) {
-    const nameLower = normalizeText(name.toLowerCase());
-    const termLower = normalizeText(term.toLowerCase());
-    const termConv = convertKeyboardLayout(termLower);
+    const nameLower = normalizeForSearch(name);
+    const termRaw = (term || '').toLowerCase();
+    const termLower = normalizeForSearch(expandAbbreviations(termRaw));
+    const termConv = normalizeForSearch(convertKeyboardLayout(termRaw));
+    if (termLower && nameLower.includes(termLower)) return true;
+    if (termConv && nameLower.includes(termConv)) return true;
     const splitWords = s => s.split(/\s+/).filter(w => w.length > 0);
     const sets = [splitWords(termLower), splitWords(termConv)];
     const nameTokens = nameLower.split(/[^a-z0-9]+/i).filter(Boolean);
@@ -6137,7 +6159,7 @@ function matchesQuery(name, term) {
             if (n == null) return false;
             return nameNums.includes(n);
         }
-        return nameLower.includes(normalizeText(w));
+        return nameLower.includes(normalizeForSearch(w));
     };
     for (const words of sets) {
         if (words.every(wordMatches)) return true;
@@ -6173,11 +6195,11 @@ function getSeriesInfo(name) {
 
 
 function calculateRelevance(gameName, searchTerm) {
-    const gameNameLower = normalizeText(gameName.toLowerCase());
+    const gameNameLower = normalizeForSearch(gameName);
 
     function calc(termLower, termWords) {
     let relevance = 0;
-        const normalizedTermLower = normalizeText(termLower);
+        const normalizedTermLower = normalizeForSearch(expandAbbreviations(termLower));
         
         if (termWords.length === 1) {
             if (gameNameLower === normalizedTermLower) {
@@ -6200,9 +6222,9 @@ function calculateRelevance(gameName, searchTerm) {
 
             const gameWords = gameNameLower.split(/\s+/);
                 for (const queryWord of termWords) {
-                if (gameNameLower.includes(normalizeText(queryWord))) {
+                if (gameNameLower.includes(normalizeForSearch(queryWord))) {
                     matchedWords++;
-                    if (gameWords.some(word => word.startsWith(normalizeText(queryWord)))) {
+                    if (gameWords.some(word => word.startsWith(normalizeForSearch(queryWord)))) {
                         matchedAtStart++;
                     }
                 }
@@ -6217,7 +6239,7 @@ function calculateRelevance(gameName, searchTerm) {
 
     const gameWords = gameNameLower.split(/\s+/);
         for (const queryWord of termWords) {
-        if (gameWords.includes(normalizeText(queryWord))) {
+        if (gameWords.includes(normalizeForSearch(queryWord))) {
             relevance += 50;
         }
     }
@@ -6232,7 +6254,7 @@ function calculateRelevance(gameName, searchTerm) {
                 relevance -= Math.min(600, 200 * Math.abs(gamePartNorm - termPart));
             }
         } else if (termPart == null && gamePartNorm != null) {
-            const seriesMatch = termWords.some(w => gameNameLower.includes(normalizeText(w)));
+            const seriesMatch = termWords.some(w => gameNameLower.includes(normalizeForSearch(w)));
             if (seriesMatch) {
                 const bonus = Math.max(0, 400 - 50 * (gamePartNorm - 1));
                 relevance += bonus;
@@ -7591,12 +7613,7 @@ function shouldShowGame(game) {
     }
 
     if (state.search && state.search !== '') {
-        const gameName = game.name.toLowerCase();
-        const searchTermLower = state.search.toLowerCase();
-
-        const queryWords = searchTermLower.split(/\s+/).filter(word => word.length > 0);
-
-        return queryWords.every(word => gameName.includes(word));
+        return matchesQuery(game.name, state.search);
     }
 
     return true;
