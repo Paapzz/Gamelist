@@ -2660,7 +2660,6 @@ function normalizeText(text) {
     if (!text) return '';
     return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
-
 function normalizeForSearch(text) {
     if (!text) return '';
     let s = normalizeText(text.toLowerCase());
@@ -2673,9 +2672,8 @@ function normalizeForSearch(text) {
         .trim();
     return s;
 }
-
 function expandAbbreviations(term) {
-    const t = (term || '').toLowerCase();
+    const t = term.toLowerCase();
     if (t === 'civ') return 'civilization';
     return term;
 }
@@ -3088,7 +3086,7 @@ function filterAndSearchGames(games, filters, search) {
 
     return games.filter(game => {
         if (game.inProgress) {
-            if (search && !normalizeText(game.name.toLowerCase()).includes(normalizeText(search.toLowerCase()))) {
+            if (search && !matchesQuery(game.name, search)) {
                 return false;
             }
             return true;
@@ -3114,7 +3112,7 @@ function filterAndSearchGames(games, filters, search) {
         if (filters.yearMax !== null && game.year > filters.yearMax) {
             return false;
         }
-        if (search && !normalizeText(game.name.toLowerCase()).includes(normalizeText(search.toLowerCase()))) {
+        if (search && !matchesQuery(game.name, search)) {
             return false;
         }
         return true;
@@ -4766,6 +4764,9 @@ function getBaseKey(title) {
 
 function loadSavedGames() {
     const savedGames = localStorage.getItem('games');
+    try {
+        const savedLen = savedGames ? (function(){ try { return JSON.parse(savedGames).length || 0; } catch(_){ return -1; } })() : 0;
+    } catch(_){ }
     
     const gamesSynchronized = localStorage.getItem('gamesSynchronized');
     const forceSync = location.search.includes('sync_games=true');
@@ -6136,7 +6137,7 @@ function extractPartNumber(text) {
 
 function matchesQuery(name, term) {
     const nameLower = normalizeForSearch(name);
-    const termRaw = (term || '').toLowerCase();
+    const termRaw = term.toLowerCase();
     const termLower = normalizeForSearch(expandAbbreviations(termRaw));
     const termConv = normalizeForSearch(convertKeyboardLayout(termRaw));
     if (termLower && nameLower.includes(termLower)) return true;
@@ -7613,7 +7614,12 @@ function shouldShowGame(game) {
     }
 
     if (state.search && state.search !== '') {
-        return matchesQuery(game.name, state.search);
+        const gameName = game.name.toLowerCase();
+        const searchTermLower = state.search.toLowerCase();
+
+        const queryWords = searchTermLower.split(/\s+/).filter(word => word.length > 0);
+
+        return queryWords.every(word => gameName.includes(word));
     }
 
     return true;
@@ -10664,9 +10670,7 @@ function buildSafeCharset() {
     [0x0180,0x024F],
     [0x0250,0x02AF],
     [0x0370,0x03FF],
-    [0x1F00,0x1FFF],
     [0x0400,0x04FF],
-    [0x0500,0x052F],
     [0x0530,0x058F],
     [0x10A0,0x10FF],
     [0x1E00,0x1EFF],
@@ -10676,32 +10680,31 @@ function buildSafeCharset() {
     [0x30A0,0x30FF],
     [0xAC00,0xD7AF],
   ];
+  const forbiddenRanges = [
+    [0x0590,0x08FF],
+    [0x2000,0x206F],
+    [0xFE00,0xFEFF],
+    [0xE000,0xF8FF],
+  ];
+  const inForbidden = cp => forbiddenRanges.some(([s,e]) => cp >= s && cp <= e);
 
-  const isLetterOrNumber = (ch) => /\p{L}/u.test(ch) || /\p{Nd}/u.test(ch);
-
-  const out = ['-', '_'];
+  const out = new Set(['-','_']);
   for (const [s,e] of ranges) {
     for (let cp = s; cp <= e; cp++) {
-      try {
-        const ch = String.fromCodePoint(cp);
-        if (isLetterOrNumber(ch)) out.push(ch);
-      } catch (err) { /* skip */ }
+      if (cp > 0xFFFF || inForbidden(cp)) continue;
+      try { out.add(String.fromCodePoint(cp).normalize('NFC')); } catch {}
     }
   }
-  return Array.from(new Set(out)).join('');
+  return Array.from(out).sort((a,b)=>a.codePointAt(0)-b.codePointAt(0)).join('');
 }
 
 const CHARSET = buildSafeCharset();
 
 function toBaseNInt(n, alphabet=CHARSET) {
-  if (!Number.isFinite(n) || n < 0) throw new Error('toBaseNInt: n must be nonnegative integer');
   const base = alphabet.length;
   if (n === 0) return alphabet[0];
   let s = '';
-  while (n > 0) {
-    s = alphabet[n % base] + s;
-    n = Math.floor(n / base);
-  }
+  while (n > 0) { s = alphabet[n % base] + s; n = Math.floor(n / base); }
   return s;
 }
 function fromBaseNInt(s, alphabet=CHARSET) {
@@ -10716,271 +10719,108 @@ function fromBaseNInt(s, alphabet=CHARSET) {
 }
 
 function bytesToBaseN(bytes, alphabet=CHARSET) {
-  
   if (!(bytes instanceof Uint8Array)) bytes = new Uint8Array(bytes);
   const base = alphabet.length;
   let input = Array.from(bytes);
-  if (input.length === 0) {
-    return '';
-  }
-  
-  
+  if (input.length === 0) return '';
   const digits = [];
-  let iteration = 0;
-  
   while (input.length > 0 && !(input.length === 1 && input[0] === 0)) {
     const quotient = [];
     let carry = 0;
-    for (let i = 0; i < input.length; i++) {
+    for (let i=0; i<input.length; i++) {
       const val = (carry << 8) + input[i];
       const q = Math.floor(val / base);
       carry = val % base;
       if (quotient.length > 0 || q !== 0) quotient.push(q);
     }
     digits.push(alphabet[carry]);
-    
-    if (iteration < 5) {
-    }
-    
     input = quotient;
-    iteration++;
   }
-  
-  const result = digits.reverse().join('') || alphabet[0];
-  
-  return result;
+  return digits.reverse().join('') || alphabet[0];
 }
 
 function baseNToBytes(str, alphabet=CHARSET, expectedSize=null) {
   const base = alphabet.length;
-  if (!str) {
-    return new Uint8Array(expectedSize || 0);
-  }
-  
+  if (!str) return new Uint8Array(expectedSize || 0);
   let bytes = [0];
-  let charIndex = 0;
-  
   for (let ch of str) {
     const digit = alphabet.indexOf(ch);
-    if (digit < 0) {
-      throw new Error('char not in alphabet: ' + ch);
-    }
-    
-    if (charIndex < 10) {
-    }
-    
+    if (digit < 0) throw new Error('char not in alphabet: ' + ch);
     let carry = digit;
-    for (let i = bytes.length - 1; i >= 0; i--) {
-      const val = bytes[i] * base + carry;
+    for (let i=bytes.length-1; i>=0; i--) {
+      const val = bytes[i]*base + carry;
       bytes[i] = val & 0xFF;
       carry = val >> 8;
     }
-    while (carry > 0) {
-      bytes.unshift(carry & 0xFF);
-      carry >>= 8;
-    }
-    
-    charIndex++;
+    while (carry > 0) { bytes.unshift(carry & 0xFF); carry >>= 8; }
   }
-  
   let result = new Uint8Array(bytes);
-  
   if (expectedSize && result.length !== expectedSize) {
     const normalized = new Uint8Array(expectedSize);
-    
-    if (result.length <= expectedSize) {
+    if (result.length <= expectedSize)
       normalized.set(result, expectedSize - result.length);
-    } else {
-      normalized.set(result.slice(-expectedSize));
-    }
-    
+    else normalized.set(result.slice(-expectedSize));
     result = normalized;
   }
-  
-  
   return result;
 }
 
-const uniqSorted = arr => Array.from(new Set((arr||[]).filter(x=>Number.isFinite(x) && x>0).sort((a,b)=>a-b)));
-function toRanges(arr){
-  const r=[]; for(let i=0;i<arr.length;i++){
-    let s=arr[i], len=1;
-    while(i+1<arr.length && arr[i+1]===arr[i]+1){ len++; i++; }
-    r.push([s,len]);
-  } return r;
+const uniqSorted = arr => Array.from(new Set((arr||[]).filter(x=>Number.isFinite(x)&&x>0).sort((a,b)=>a-b)));
+function toRanges(arr){const r=[];for(let i=0;i<arr.length;i++){let s=arr[i],len=1;while(i+1<arr.length&&arr[i+1]===arr[i]+1){len++;i++;}r.push([s,len]);}return r;}
+function rangesToStr(ranges,alphabet=CHARSET){return ranges.map(([s,len])=>toBaseNInt(s,alphabet)+'.'+toBaseNInt(len,alphabet)).join(',');}
+function strToRanges(str,alphabet=CHARSET){if(!str)return[];return str.split(',').map(p=>{const[a,b]=p.split('.');return[fromBaseNInt(a,alphabet),fromBaseNInt(b,alphabet)];});}
+function rangesExpand(ranges){const out=[];for(const[s,len]of ranges)for(let i=0;i<len;i++)out.push(s+i);return out;}
+function deltasFromArray(arr){if(!arr.length)return[];const out=[arr[0]];for(let i=1;i<arr.length;i++)out.push(arr[i]-arr[i-1]);return out;}
+function deltasToStr(d,alphabet=CHARSET){return d.map(n=>toBaseNInt(n,alphabet)).join(',');}
+function strToDeltas(s,alphabet=CHARSET){if(!s)return[];return s.split(',').map(x=>fromBaseNInt(x,alphabet));}
+function deltasExpand(d){if(!d.length)return[];const out=[d[0]];for(let i=1;i<d.length;i++)out.push(out[out.length-1]+d[i]);return out;}
+function sum16(s){let sum=0;for(let i=0;i<s.length;i++)sum=(sum+s.charCodeAt(i))&0xFFFF;return sum.toString(16).toUpperCase();}
+function bytesToIds(bytes,total){const out=[];for(let i=0;i<total;i++){const bi=Math.floor(i/8),b=i%8;if(bytes[bi]&(1<<b))out.push(i+1);}return out;}
+
+function encodeSetsAdaptive({completed=[],inProgress=[]},opts={totalIds:1000,alphabet:CHARSET}){
+  const total=opts.totalIds||1000;
+  const alphabet=opts.alphabet||CHARSET;
+  const C=uniqSorted(completed),I=uniqSorted(inProgress);
+  const rPayload='R|C:'+rangesToStr(toRanges(C),alphabet)+'|I:'+rangesToStr(toRanges(I),alphabet);
+  const dPayload='D|C:'+deltasToStr(deltasFromArray(C),alphabet)+'|I:'+deltasToStr(deltasFromArray(I),alphabet);
+  const bytesFor=arr=>{const bytes=new Uint8Array(Math.ceil(total/8));for(const id of arr){const i=id-1;bytes[Math.floor(i/8)]|=(1<<(i%8));}return bytes;};
+  const bPayload='B|C:'+bytesToBaseN(bytesFor(C),alphabet)+'|I:'+bytesToBaseN(bytesFor(I),alphabet);
+  const variants=[rPayload,dPayload,bPayload];
+  const best=variants.reduce((a,b)=>a.length<=b.length?a:b);
+  const payload='v1|'+best;
+  const chk=sum16(payload);
+  return (payload+'|cs:'+chk).normalize('NFC');
 }
-function rangesToStr(ranges, alphabet=CHARSET){
-  return ranges.map(([s,len]) => toBaseNInt(s,alphabet) + '.' + toBaseNInt(len,alphabet)).join(',');
-}
-function strToRanges(str, alphabet=CHARSET){
-  if(!str) return [];
-  return str.split(',').map(p=>{
-    const [a,b] = p.split('.');
-    return [ fromBaseNInt(a,alphabet), fromBaseNInt(b,alphabet) ];
-  });
-}
-function rangesExpand(ranges){
-  const out=[];
-  for(const [s,len] of ranges) for(let i=0;i<len;i++) out.push(s+i);
-  return out;
-}
-function deltasFromArray(arr){ if(!arr.length) return []; const out=[arr[0]]; for(let i=1;i<arr.length;i++) out.push(arr[i]-arr[i-1]); return out; }
-function deltasToStr(d, alphabet=CHARSET){ return d.map(n=>toBaseNInt(n, alphabet)).join(','); }
-function strToDeltas(s, alphabet=CHARSET){ if(!s) return []; return s.split(',').map(x=>fromBaseNInt(x, alphabet)); }
-function deltasExpand(d){ if(!d.length) return []; const out=[d[0]]; for(let i=1;i<d.length;i++) out.push(out[out.length-1] + d[i]); return out; }
 
-function sum16(s){ let sum=0; for(let i=0;i<s.length;i++) sum=(sum + s.charCodeAt(i)) & 0xFFFF; return sum.toString(16).toUpperCase(); }
-
-  function encodeSetsAdaptive({completed=[], inProgress=[]}, opts={totalIds:1000, alphabet:CHARSET}) {
-    
-    const total = opts.totalIds || 1000;
-    const alphabet = opts.alphabet || CHARSET;
-    const C = uniqSorted(completed), I = uniqSorted(inProgress);
-    
-
-    const rC = toRanges(C), rI = toRanges(I);
-    
-    const rPayload = 'R|C:' + rangesToStr(rC,alphabet) + '|I:' + rangesToStr(rI,alphabet);
-
-    const dC = deltasFromArray(C), dI = deltasFromArray(I);
-    
-    const dPayload = 'D|C:' + deltasToStr(dC,alphabet) + '|I:' + deltasToStr(dI,alphabet);
-
-    const bytesFor = (arr, total) => {
-      
-      const bytes = new Uint8Array(Math.ceil(total/8));
-      let processedCount = 0;
-      
-      for (const id of arr) { 
-        const i = id - 1; 
-        const bi = Math.floor(i/8), b = i%8; 
-        bytes[bi] |= (1<<b);
-        
-        if (processedCount < 10) {
-        }
-        processedCount++;
-      }
-      
-      
-      return bytes;
-    };
-    
-    const bC = bytesToBaseN(bytesFor(C,total), alphabet);
-    const bI = bytesToBaseN(bytesFor(I,total), alphabet);
-    
-    const bPayload = 'B|C:' + bC + '|I:' + bI;
-
-    const variants = [rPayload, dPayload, bPayload];
-    
-    let best = variants.reduce((a,b)=> a.length <= b.length ? a : b);
-    
-    const payload = 'v1|' + best;
-    const chk = sum16(payload);
-    const result = payload + '|cs:' + chk;
-    
-    
-    return result;
+function decodeAdaptive(code,opts={totalIds:1000,alphabet:CHARSET}){
+  if(!code)return{completed:[],inProgress:[]};
+  code=String(code).normalize('NFC');
+  const total=opts.totalIds||1000;
+  const alphabet=opts.alphabet||CHARSET;
+  const parts=code.split('|');
+  if(parts[0]!=='v1')throw new Error('Unsupported version');
+  const tail=parts.slice(1).join('|');
+  const csIndex=tail.lastIndexOf('|cs:');
+  const payload=csIndex===-1?tail:tail.slice(0,csIndex);
+  const chk=csIndex===-1?null:tail.slice(csIndex+4);
+  if(chk){const exp=sum16('v1|'+payload);if(exp!==chk)throw new Error('Checksum mismatch');}
+  const fmt=payload[0];
+  const rest=payload.slice(2);
+  const mC=rest.match(/C:([^|]*)/);
+  const mI=rest.match(/I:([^|]*)/);
+  const rawC=mC?mC[1]:'';
+  const rawI=mI?mI[1]:'';
+  if(fmt==='R')return{completed:rangesExpand(strToRanges(rawC,alphabet)),inProgress:rangesExpand(strToRanges(rawI,alphabet))};
+  if(fmt==='D')return{completed:deltasExpand(strToDeltas(rawC,alphabet)),inProgress:deltasExpand(strToDeltas(rawI,alphabet))};
+  if(fmt==='B'){
+    const expectedSize=Math.ceil(total/8);
+    const cBytes=baseNToBytes(rawC,alphabet,expectedSize);
+    const iBytes=baseNToBytes(rawI,alphabet,expectedSize);
+    return{completed:bytesToIds(cBytes,total),inProgress:bytesToIds(iBytes,total)};
   }
-
-function decodeAdaptive(code, opts={totalIds:1000, alphabet:CHARSET}) {
-  if(!code) {
-    return {completed:[], inProgress:[]};
-  }
-  
-  const total = opts.totalIds || 1000;
-  const alphabet = opts.alphabet || CHARSET;
-  const parts = code.split('|');
-  if(parts[0] !== 'v1') {
-    throw new Error('Unsupported version');
-  }
-  
-  const tail = parts.slice(1).join('|');
-  
-  const csIndex = tail.lastIndexOf('|cs:');
-  const payload = csIndex === -1 ? tail : tail.slice(0, csIndex);
-  const chk = csIndex === -1 ? null : tail.slice(csIndex + 4);
-  
-  
-  if(chk) {
-    const expectedChecksum = sum16('v1|' + payload);
-    
-    if(expectedChecksum !== chk) {
-      throw new Error('Checksum mismatch');
-    } else {
-    }
-  }
-  
-  const fmt = payload[0];
-  const rest = payload.slice(2);
-  
-  
-  const mC = rest.match(/C:([^|]*)/);
-  const mI = rest.match(/I:([^|]*)/);
-  const rawC = mC ? mC[1] : '';
-  const rawI = mI ? mI[1] : '';
-  
-  if(fmt === 'R') {
-    const cRanges = strToRanges(rawC, alphabet);
-    const iRanges = strToRanges(rawI, alphabet);
-    
-    const result = { 
-      completed: rangesExpand(cRanges), 
-      inProgress: rangesExpand(iRanges) 
-    };
-    return result;
-  }
-  
-  if(fmt === 'D') {
-    const cDeltas = strToDeltas(rawC, alphabet);
-    const iDeltas = strToDeltas(rawI, alphabet);
-    const result = { 
-      completed: deltasExpand(cDeltas), 
-      inProgress: deltasExpand(iDeltas) 
-    };
-    return result;
-  }
-  
-  if(fmt === 'B') {
-    const expectedSize = Math.ceil(total/8);
-    const cBytes = baseNToBytes(rawC, alphabet, expectedSize);
-    const iBytes = baseNToBytes(rawI, alphabet, expectedSize);
-    
-    const result = { 
-      completed: bytesToIds(cBytes, total), 
-      inProgress: bytesToIds(iBytes, total) 
-    };
-    
-    const intersection = result.completed.filter(id => result.inProgress.includes(id));
-    const invalidCompleted = result.completed.filter(id => id < 1 || id > total);
-    const invalidInProgress = result.inProgress.filter(id => id < 1 || id > total);
-    
-    return result;
-  }
-  
   throw new Error('Unknown format');
 }
 
-function bytesToIds(bytes, total) {
-  
-  const out = [];
-  let bitCount = 0;
-  
-  for (let i=0;i<total;i++) {
-    const byteIdx = Math.floor(i/8), bit = i%8;
-    const hasBit = bytes[byteIdx] & (1 << bit);
-    
-    if (hasBit) {
-      out.push(i+1);
-      bitCount++;
-      
-      if (bitCount <= 10) {
-      }
-    }
-  }
-  
-  
-  return out;
-}
 
 
 let isViewingOtherTop = false;
@@ -11216,8 +11056,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const codeDisplay = document.getElementById('generatedCodeDisplay');
             codeDisplay.innerHTML = `
                 <div style="margin-bottom: 8px; font-size: 14px; color: #ccc; font-weight: 500;">Ваш код:</div>
-                <div class="code-text" style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; padding: 4px; border-radius: 3px; color: #ccc;">${code}</div>
+                <pre class="code-text" style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; padding: 4px; border-radius: 3px; color: #ccc; white-space: pre-wrap; word-break: break-all; margin: 0;"></pre>
             `;
+            const pre = codeDisplay.querySelector('.code-text');
+            if (pre) pre.textContent = code;
             codeDisplay.style.display = 'block';
             addCodeEventListeners();
             
@@ -11241,9 +11083,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         try {
+            try {
+                const savedGamesStr = localStorage.getItem('games');
+                const savedLen = savedGamesStr ? (function(){ try { return JSON.parse(savedGamesStr).length || 0; } catch(_){ return -1; } })() : 0;
+            } catch(_){ }
             const decoded = decodeAdaptive(code, {totalIds: 1000, alphabet: CHARSET});
             
             const intersection = decoded.completed.filter(id => decoded.inProgress.includes(id));
+            try {
+                const cHeadIds = decoded.completed.slice(0,10);
+                const iHeadIds = decoded.inProgress.slice(0,10);
+                const idToName = (id) => {
+                    const g = state.games.find(x=>x.id===id);
+                    return g ? `${id}:${g.name}` : `${id}:?`;
+                };
+            } catch(_){ }
     
             if (!isViewingOtherTop) {
                 originalGamesState = JSON.parse(JSON.stringify(state.games));
@@ -11266,7 +11120,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
             });
-            
+           
             updateCounter();
             renderGames();
             
