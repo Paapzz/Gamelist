@@ -7262,12 +7262,6 @@ function initializeCacheClearing() {
 
 function clearCache() {
     try {
-        const savedGames = localStorage.getItem('games');
-        if (savedGames) {
-            localStorage.removeItem('games');
-            
-        }
-
         clearImageCache();
     } catch (e) {
     }
