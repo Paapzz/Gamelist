@@ -4661,8 +4661,92 @@ function synchronizeWithUpdatedGamesList() {
     const _inProgressGames = state.games.filter(game => game.inProgress);
     const _regularGames = state.games.filter(game => !game.inProgress);
     fullRenderGrid(_regularGames, _inProgressGames);
-    if (removedFromTop.length > 0) {
-        showSyncNotice(removedFromTop);
+
+    try {
+        const getBaseKey = (title) => {
+            const norm = formatGameTitle(title || '').toLowerCase();
+            return norm.replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+        };
+        const makeCustomId = () => 2000000000 + Math.floor(Math.random() * 1000000000);
+        const findStateByNameOrBase = (title) => {
+            const nameKey = formatGameTitle(title || '').toLowerCase();
+            const baseKey = getBaseKey(title || '');
+            return state.games.find(x => {
+                const xName = formatGameTitle(x.name || '').toLowerCase();
+                const xBase = getBaseKey(x.name || '');
+                return xName === nameKey || xBase === baseKey;
+            }) || null;
+        };
+
+        const newTopNameMap = new Map();
+        gamesList.forEach(g => newTopNameMap.set(formatGameTitle(g.title).toLowerCase(), g));
+        const newTopBaseKeySet = new Set(gamesList.map(g => getBaseKey(g.title)));
+
+        const previouslyTop = currentGames.filter(g => !g.isCustom && !g.importedFromApi && typeof g.id === 'number' && g.id > 0 && g.id <= 1000);
+        const removedOnly = [];
+        for (const g of previouslyTop) {
+            const nameKey = formatGameTitle(g.name || '').toLowerCase();
+            const baseKey = getBaseKey(g.name || '');
+            const stillByNameOrBase = newTopNameMap.has(nameKey) || newTopBaseKeySet.has(baseKey);
+            if (!stillByNameOrBase) removedOnly.push(g); 
+        }
+
+        for (const g of removedOnly) {
+            const found = findStateByNameOrBase(g.name);
+            const origNum = (typeof g.id === 'number' && g.id > 0 && g.id <= 1000) ? g.id : undefined;
+            if (found) {
+                if (!found.isCustom) {
+                    found.isCustom = true;
+                    found.importedFromApi = false;
+                }
+                if (origNum && (found.originalTopNumber == null)) found.originalTopNumber = origNum;
+            } else {
+                const newCustom = {
+                    id: makeCustomId(),
+                    name: g.name,
+                    imageUrl: g.imageUrl || '',
+                    completed: !!g.completed,
+                    inProgress: !!g.inProgress,
+                    isCustom: true,
+                    importedFromApi: false,
+                    platforms: g.platforms || [],
+                    year: g.year,
+                    originalTopNumber: origNum
+                };
+                state.games.push(newCustom);
+            }
+        }
+        localStorage.setItem('games', JSON.stringify(state.games));
+
+        const combined = [];
+        const seen = new Map();
+        const pushOrMerge = (x) => {
+            if (!x) return;
+            const baseKey = getBaseKey(x.name || '');
+            if (seen.has(baseKey)) {
+                const i = seen.get(baseKey);
+                if (!combined[i].completed && x.completed) combined[i] = x;
+                return;
+            }
+            seen.set(baseKey, combined.length);
+            combined.push(x);
+        };
+        const isStillInNewTop = (game) => {
+            const nameKey = formatGameTitle(game.name || '').toLowerCase();
+            const baseKey = getBaseKey(game.name || '');
+            return newTopNameMap.has(nameKey) || newTopBaseKeySet.has(baseKey);
+        };
+
+        removedFromTop.forEach(g => { if (!isStillInNewTop(g)) pushOrMerge(g); });
+        removedOnly.forEach(pushOrMerge);
+
+        if (combined.length > 0) {
+            showSyncNotice(combined);
+        }
+    } catch (_) {
+        if (removedFromTop.length > 0) {
+            showSyncNotice(removedFromTop);
+        }
     }
     Object.entries(filterSnapshot).forEach(([k, v]) => {
         if (v === null || v === undefined) {
@@ -4697,14 +4781,48 @@ function showSyncNotice(removedGames) {
     const keepBtn = document.getElementById('syncKeepBtn');
     const delBtn = document.getElementById('syncDeleteBtn');
 
-    header.textContent = `Топ-1000 обновлён. Эти игры больше в него не входят или были заменены на такие же. Возможно вам придётся заново отметить пройденные.`;
+    header.textContent = `Топ-1000 обновлён. Эти игры больше в него не входят. Возможно вам придётся заново отметить пройденные.`;
     list.innerHTML = '';
-    removedGames.forEach(g => {
+    const getBaseKey = (title) => {
+        const norm = formatGameTitle(title || '').toLowerCase();
+        return norm.replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    };
+    const uniqueByBase = new Map();
+    for (const g of removedGames) {
+        const bk = getBaseKey(g.name || '');
+        if (!uniqueByBase.has(bk)) {
+            uniqueByBase.set(bk, g);
+        } else {
+            const cur = uniqueByBase.get(bk);
+            if (!cur.completed && g.completed) uniqueByBase.set(bk, g);
+        }
+    }
+    const deduped = Array.from(uniqueByBase.values());
+    const coll = new Intl.Collator(undefined, { sensitivity: 'base' });
+    deduped.sort((a, b) => coll.compare((a.name || ''), (b.name || '')));
+    const completed = deduped.filter(g => g.completed);
+    const notCompleted = deduped.filter(g => !g.completed);
+
+    const renderRow = (g) => {
         const row = document.createElement('div');
         row.style.display = 'flex';
         row.style.alignItems = 'center';
         row.style.gap = '8px';
         row.style.padding = '4px 0';
+        const origNum = (g.originalTopNumber && Number.isFinite(g.originalTopNumber)) ? g.originalTopNumber
+                       : ((typeof g.id === 'number' && g.id > 0 && g.id <= 1000) ? g.id : null);
+        if (origNum) {
+            const num = document.createElement('div');
+            num.textContent = String(origNum);
+            num.style.minWidth = '34px';
+            num.style.textAlign = 'right';
+            num.style.opacity = '0.8';
+            row.appendChild(num);
+        } else {
+            const pad = document.createElement('div');
+            pad.style.minWidth = '34px';
+            row.appendChild(pad);
+        }
         const img = document.createElement('img');
         img.src = g.imageUrl || '';
         img.style.width = '36px';
@@ -4712,19 +4830,76 @@ function showSyncNotice(removedGames) {
         img.style.objectFit = 'cover';
         img.style.borderRadius = '6px';
         const span = document.createElement('span');
-        span.textContent = g.name;
+        span.textContent = g.name || '';
         row.appendChild(img);
         row.appendChild(span);
-        list.appendChild(row);
-    });
+        return row;
+    };
 
+    if (completed.length > 0) {
+        const title = document.createElement('div');
+        title.style.fontWeight = '600';
+        title.style.marginTop = '6px';
+        title.textContent = 'Пройденные';
+        list.appendChild(title);
+        completed.forEach(g => list.appendChild(renderRow(g)));
+    }
+
+    if (notCompleted.length > 0) {
+        const title = document.createElement('div');
+        title.style.fontWeight = '600';
+        title.style.marginTop = completed.length > 0 ? '12px' : '6px';
+        title.textContent = 'Непройденные';
+        list.appendChild(title);
+        notCompleted.forEach(g => list.appendChild(renderRow(g)));
+    }
+
+    keepBtn.textContent = 'Оставить все';
     keepBtn.onclick = () => {
         modal.style.display = 'none';
     };
 
+    let keepCompletedBtn = document.getElementById('syncKeepCompletedBtn');
+    if (!keepCompletedBtn) {
+        keepCompletedBtn = document.createElement('button');
+        keepCompletedBtn.id = 'syncKeepCompletedBtn';
+        keepCompletedBtn.type = 'button';
+        keepCompletedBtn.textContent = 'Оставить пройденные';
+        delBtn.parentElement.insertBefore(keepCompletedBtn, delBtn);
+    } else {
+        keepCompletedBtn.textContent = 'Оставить пройденные';
+    }
+    try {
+        keepCompletedBtn.className = keepBtn.className;
+        const styles = keepBtn.getAttribute('style');
+        if (styles) keepCompletedBtn.setAttribute('style', styles);
+    } catch (_) {}
+
+    keepCompletedBtn.onclick = () => {
+        const getBaseKey = (title) => {
+            const norm = formatGameTitle(title || '').toLowerCase();
+            return norm.replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+        };
+        const baseKeysToRemove = new Set(notCompleted.map(g => getBaseKey(g.name || '')));
+        state.games = state.games.filter(g => {
+            if (!g.isCustom) return true;
+            const bk = getBaseKey(g.name || '');
+            return !baseKeysToRemove.has(bk);
+        });
+        games = state.games;
+        localStorage.setItem('games', JSON.stringify(state.games));
+        modal.style.display = 'none';
+        updateVisibleGames();
+        updateCounter();
+    };
+
     delBtn.onclick = () => {
-        const removedIds = new Set(removedGames.map(g => g.id.toString()));
-        state.games = state.games.filter(g => !(g.isCustom && removedIds.has(g.id.toString())));
+        const baseKeysToRemove = new Set(deduped.map(g => getBaseKey(g.name || '')));
+        state.games = state.games.filter(g => {
+            if (!g.isCustom) return true;
+            const bk = getBaseKey(g.name || '');
+            return !baseKeysToRemove.has(bk);
+        });
         games = state.games;
         localStorage.setItem('games', JSON.stringify(state.games));
         modal.style.display = 'none';
@@ -4746,6 +4921,11 @@ function simpleHash(str) {
 function computeTailHash(list) {
     const tail = list.slice(-50);
     const combined = tail.map(g => `${g.number}|${g.title}|${g.year || ''}`).join('|');
+    return simpleHash(combined);
+}
+
+function computeFullHash(list) {
+    const combined = list.map(g => `${g.number}|${(g.title || '').toLowerCase()}|${g.year || ''}`).join('|');
     return simpleHash(combined);
 }
 
@@ -4772,21 +4952,44 @@ function loadSavedGames() {
     const forceSync = location.search.includes('sync_games=true');
     const prevHash = localStorage.getItem('gamesListTailHash');
     const currentHash = computeTailHash(gamesList);
+    const prevFullHash = localStorage.getItem('gamesListFullHashV1');
+    const currentFullHash = computeFullHash(gamesList);
     const oneTimeForced = !localStorage.getItem('initialSyncDone');
+    const baseKey = (t) => (formatGameTitle(t || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim());
+    let mismatchDetected = false;
+    try {
+        const saved = localStorage.getItem('games');
+        if (saved) {
+            const sg = JSON.parse(saved);
+            const sample = sg.filter(x => !x.isCustom && typeof x.id === 'number' && x.id > 0 && x.id <= 1000).slice(0, 50);
+            let mismatches = 0;
+            for (const x of sample) {
+                const inNew = gamesList.find(g => g.number === x.id || baseKey(g.title) === baseKey(x.name));
+                if (!inNew) mismatches++;
+            }
+            mismatchDetected = mismatches >= Math.ceil(sample.length * 0.1);
+        }
+    } catch (_) {}
     const hashChanged = prevHash && prevHash !== currentHash;
+    const fullHashChanged = prevFullHash && prevFullHash !== currentFullHash;
+    const hashMissing = (!prevHash || !prevFullHash);
     
     
     
-    if (savedGames && (!gamesSynchronized || forceSync || oneTimeForced || hashChanged)) {
+    if (savedGames && (!gamesSynchronized || forceSync || oneTimeForced || hashChanged || fullHashChanged || hashMissing || mismatchDetected)) {
         
         if (synchronizeWithUpdatedGamesList()) {
             localStorage.setItem('initialSyncDone', 'true');
             localStorage.setItem('gamesListTailHash', currentHash);
+            localStorage.setItem('gamesListFullHashV1', currentFullHash);
             updateCounter();
             return;
         } else {
         }
     } else {
+        // No sync required (or possible) — ensure hashes are initialized to current so future changes are detectable
+        localStorage.setItem('gamesListTailHash', currentHash);
+        localStorage.setItem('gamesListFullHashV1', currentFullHash);
     }
     const romanNumeralsFormatted = localStorage.getItem('romanNumeralsFormatted');
     let titlesReformatted = localStorage.getItem('titlesReformatted');
@@ -4887,6 +5090,8 @@ function loadSavedGames() {
             }, 500);
         }
     } else {
+        localStorage.setItem('gamesListTailHash', currentHash);
+        localStorage.setItem('gamesListFullHashV1', currentFullHash);
         updateVisibleGames();
         updateCounter();
     }
@@ -5085,6 +5290,7 @@ function toggleCell(cell, gameId) {
 
     updateVisibleGames();
     updateInProgressRow();
+
     updateCounter();
 
     saveGames();
@@ -10748,7 +10954,7 @@ function baseNToBytes(str, alphabet=CHARSET, expectedSize=null) {
       carry = val >> 8;
     }
     while (carry > 0) { bytes.unshift(carry & 0xFF); carry >>= 8; }
-    }
+  }
   let result = new Uint8Array(bytes);
   if (expectedSize && result.length !== expectedSize) {
     const normalized = new Uint8Array(expectedSize);
@@ -10785,7 +10991,7 @@ function encodeSetsAdaptive({completed=[],inProgress=[]},opts={totalIds:1000,alp
   const payload='v1|'+best;
   const chk=sum16(payload);
   return (payload+'|cs:'+chk).normalize('NFC');
-  }
+}
 
 function decodeAdaptive(code,opts={totalIds:1000,alphabet:CHARSET}){
   if(!code)return{completed:[],inProgress:[]};
@@ -11051,8 +11257,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const codeDisplay = document.getElementById('generatedCodeDisplay');
             codeDisplay.innerHTML = `
                 <div style="margin-bottom: 8px; font-size: 14px; color: #ccc; font-weight: 500;">Ваш код:</div>
-                <pre class="code-text" style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; padding: 4px; border-radius: 3px; color: #ccc; white-space: pre-wrap; word-break: break-all; margin: 0;"></pre>
-            `;
+                <pre class="code-text" style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; padding: 4px; border-radius: 3px; color: #ccc; white-space: pre-wrap; word-break: break-all; margin: 0; z-index: 11002;"></pre>`;
             const pre = codeDisplay.querySelector('.code-text');
             if (pre) pre.textContent = code;
             codeDisplay.style.display = 'block';
@@ -11115,7 +11320,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
             });
-            
+           
             updateCounter();
             renderGames();
             
@@ -11339,7 +11544,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const LIVE_CHECK_INTERVAL_MS = 60_000; // 60s
     const LIVE_SHOW_EVERY_MS = 30_000;     
-    const LIVE_SHOW_DURATION_MS = 15_000;  // 15s
+    const LIVE_SHOW_DURATION_MS = 15_000;
 
     let isLive = false;
     let livePollTimer = null;
