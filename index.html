@@ -4589,7 +4589,7 @@ function synchronizeWithUpdatedGamesList() {
     let processedCount = 0;
     let customGamesCount = 0;
     let regularGamesCount = 0;
-    
+
     for (const savedGame of currentGames) {
         processedCount++;
         if (savedGame.isCustom || savedGame.importedFromApi || typeof savedGame.id !== 'number' || savedGame.id <= 0 || savedGame.id > 1000) {
@@ -4633,15 +4633,15 @@ function synchronizeWithUpdatedGamesList() {
         }
     }
     
-    
+        
     for (const [gameId, newGame] of newGamesMap) {
         updatedGames.push(newGame);
     }
     
 
+    
 
-    
-    
+
     const byIdMap = new Map();
     for (const g of updatedGames) {
         const key = (g.id != null ? `id:${g.id}` : `name:${g.name.toLowerCase()}|custom:${g.isCustom ? 1 : 0}`);
@@ -4682,13 +4682,7 @@ function synchronizeWithUpdatedGamesList() {
         gamesList.forEach(g => newTopNameMap.set(formatGameTitle(g.title).toLowerCase(), g));
         const newTopBaseKeySet = new Set(gamesList.map(g => getBaseKey(g.title)));
 
-        const wasInOfficialTop = (g) => {
-            if (typeof g.originalTopNumber === 'number' && g.originalTopNumber > 0 && g.originalTopNumber <= 1000) return true;
-            if (typeof g.id === 'number' && g.id > 0 && g.id <= 1000) return true;
-            return false;
-        };
-
-        const previouslyTop = currentGames.filter(g => !g.importedFromApi && wasInOfficialTop(g));
+        const previouslyTop = currentGames.filter(g => !g.isCustom && !g.importedFromApi && typeof g.id === 'number' && g.id > 0 && g.id <= 1000);
         const removedOnly = [];
         for (const g of previouslyTop) {
             const nameKey = formatGameTitle(g.name || '').toLowerCase();
@@ -4699,9 +4693,7 @@ function synchronizeWithUpdatedGamesList() {
 
         for (const g of removedOnly) {
             const found = findStateByNameOrBase(g.name);
-            const origNum = (typeof g.originalTopNumber === 'number' && g.originalTopNumber > 0 && g.originalTopNumber <= 1000)
-                ? g.originalTopNumber
-                : ((typeof g.id === 'number' && g.id > 0 && g.id <= 1000) ? g.id : undefined);
+            const origNum = (typeof g.id === 'number' && g.id > 0 && g.id <= 1000) ? g.id : undefined;
             if (found) {
                 if (!found.isCustom) {
                     found.isCustom = true;
@@ -4752,8 +4744,8 @@ function synchronizeWithUpdatedGamesList() {
             showSyncNotice(combined);
         }
     } catch (_) {
-        if (removedFromTop.length > 0) {
-            showSyncNotice(removedFromTop);
+    if (removedFromTop.length > 0) {
+        showSyncNotice(removedFromTop);
         }
     }
     Object.entries(filterSnapshot).forEach(([k, v]) => {
@@ -4791,10 +4783,25 @@ function showSyncNotice(removedGames) {
 
     header.textContent = `Топ-1000 обновлён. Эти игры больше в него не входят. Возможно вам придётся заново отметить пройденные.`;
     list.innerHTML = '';
+    const getBaseKey = (title) => {
+        const norm = formatGameTitle(title || '').toLowerCase();
+        return norm.replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    };
+    const uniqueByBase = new Map();
+    for (const g of removedGames) {
+        const bk = getBaseKey(g.name || '');
+        if (!uniqueByBase.has(bk)) {
+            uniqueByBase.set(bk, g);
+        } else {
+            const cur = uniqueByBase.get(bk);
+            if (!cur.completed && g.completed) uniqueByBase.set(bk, g);
+        }
+    }
+    const deduped = Array.from(uniqueByBase.values());
     const coll = new Intl.Collator(undefined, { sensitivity: 'base' });
-    const sorted = [...removedGames].sort((a, b) => coll.compare((a.name || ''), (b.name || '')));
-    const completed = sorted.filter(g => g.completed);
-    const notCompleted = sorted.filter(g => !g.completed);
+    deduped.sort((a, b) => coll.compare((a.name || ''), (b.name || '')));
+    const completed = deduped.filter(g => g.completed);
+    const notCompleted = deduped.filter(g => !g.completed);
 
     const renderRow = (g) => {
         const row = document.createElement('div');
@@ -4967,8 +4974,8 @@ function loadSavedGames() {
     const fullHashChanged = prevFullHash && prevFullHash !== currentFullHash;
     const hashMissing = (!prevHash || !prevFullHash);
     
-    
-    
+        
+        
     if (savedGames && (!gamesSynchronized || forceSync || oneTimeForced || hashChanged || fullHashChanged || hashMissing || mismatchDetected)) {
         
         if (synchronizeWithUpdatedGamesList()) {
@@ -10947,7 +10954,7 @@ function baseNToBytes(str, alphabet=CHARSET, expectedSize=null) {
       carry = val >> 8;
     }
     while (carry > 0) { bytes.unshift(carry & 0xFF); carry >>= 8; }
-  }
+    }
   let result = new Uint8Array(bytes);
   if (expectedSize && result.length !== expectedSize) {
     const normalized = new Uint8Array(expectedSize);
@@ -11313,7 +11320,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
             });
-           
+            
             updateCounter();
             renderGames();
             
