@@ -3,7 +3,7 @@ name: Update Metacritic Ratings
 on:
   schedule:
    #- cron: '0 3 * * *'   Каждые день в 6 утра
-    - cron: '40 5 * * *'  # 05:40 UTC, через 30 минут после окончания Update Games List
+    - cron: '40 5 1 * *'  # 05:40 UTC, ~ через 30 минут после окончания Update Games List
   workflow_dispatch:
 
 jobs:
