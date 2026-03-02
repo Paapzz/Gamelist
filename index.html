@@ -7799,7 +7799,8 @@ function shouldShowGame(game) {
     }
 
     if (state.filters.platforms.length > 0) {
-        if (!game.platforms || !game.platforms.some(platform => state.filters.platforms.includes(platform))) {
+        const gamePlatforms = normalizePlatforms(game.platforms);
+        if (!gamePlatforms || !gamePlatforms.some(platform => state.filters.platforms.includes(platform))) {
             return false;
         }
     }
@@ -7846,7 +7847,8 @@ function filterAndSearchGames(games, filters, searchTerm) {
         }
 
         if (filters.platforms.length > 0) {
-            if (!game.platforms || !game.platforms.some(platform => filters.platforms.includes(platform))) {
+            const gamePlatforms = normalizePlatforms(game.platforms);
+            if (!gamePlatforms || !gamePlatforms.some(platform => filters.platforms.includes(platform))) {
                 return false;
             }
         }
@@ -8066,7 +8068,8 @@ function updateVisibleGamesYearOnlyDuringDrag() {
                 if (game.year < minYear || game.year > maxYear) visible = false;
             }
             if (visible && selectedPlatforms.length > 0) {
-                if (!game.platforms || !game.platforms.some(p => selectedPlatforms.includes(p))) visible = false;
+                const gamePlatforms = normalizePlatforms(game.platforms);
+                if (!gamePlatforms || !gamePlatforms.some(p => selectedPlatforms.includes(p))) visible = false;
             }
             if (visible && selectedGenres.length > 0) {
                 if (!game.genres || !game.genres.some(g => selectedGenres.includes(g))) visible = false;
@@ -8124,6 +8127,14 @@ function updatePlatformFilters(platforms) {
     });
 }
 
+function normalizePlatforms(platforms) {
+    if (!Array.isArray(platforms)) return [];
+    return platforms
+        .flatMap(p => typeof p === 'string' ? p.split(',') : [])
+        .map(p => p.trim())
+        .filter(Boolean);
+}
+
 function updateGenreFilters(genres) {
     genresList.innerHTML = '';
 
@@ -8166,7 +8177,7 @@ function updateGenreFilters(genres) {
 function populateFilters() {
     updateYearsCache();
 
-    const platforms = [...new Set(state.games.flatMap(game => game.platforms))].sort();
+    const platforms = [...new Set(state.games.flatMap(game => normalizePlatforms(game.platforms)))].sort();
     const genres = [...new Set(state.games.flatMap(game => game.genres))].sort();
 
     const minGameYear = gameCache.years.min;
