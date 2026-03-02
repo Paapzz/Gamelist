@@ -7806,7 +7806,8 @@ function shouldShowGame(game) {
     }
 
     if (state.filters.genres.length > 0) {
-        if (!game.genres || !game.genres.some(genre => state.filters.genres.includes(genre))) {
+        const gameGenres = normalizeGenres(game.genres);
+        if (!gameGenres || !gameGenres.some(genre => state.filters.genres.includes(genre))) {
             return false;
         }
     }
@@ -7854,7 +7855,8 @@ function filterAndSearchGames(games, filters, searchTerm) {
         }
 
         if (filters.genres.length > 0) {
-            if (!game.genres || !game.genres.some(genre => filters.genres.includes(genre))) {
+            const gameGenres = normalizeGenres(game.genres);
+            if (!gameGenres || !gameGenres.some(genre => filters.genres.includes(genre))) {
                 return false;
             }
         }
@@ -8135,6 +8137,14 @@ function normalizePlatforms(platforms) {
         .filter(Boolean);
 }
 
+function normalizeGenres(genres) {
+    if (!Array.isArray(genres)) return [];
+    return genres
+        .flatMap(g => typeof g === 'string' ? g.split(',') : [])
+        .map(g => g.trim())
+        .filter(g => g && g !== '/');
+}
+
 function updateGenreFilters(genres) {
     genresList.innerHTML = '';
 
@@ -8178,7 +8188,7 @@ function populateFilters() {
     updateYearsCache();
 
     const platforms = [...new Set(state.games.flatMap(game => normalizePlatforms(game.platforms)))].sort();
-    const genres = [...new Set(state.games.flatMap(game => game.genres))].sort();
+    const genres = [...new Set(state.games.flatMap(game => normalizeGenres(game.genres)))].sort();
 
     const minGameYear = gameCache.years.min;
     const maxGameYear = gameCache.years.max;
@@ -8186,7 +8196,7 @@ function populateFilters() {
     const savedMinYear = localStorage.getItem('minYear');
     const savedMaxYear = localStorage.getItem('maxYear');
     const savedPlatforms = JSON.parse(localStorage.getItem('selectedPlatforms') || '[]');
-    const savedGenres = JSON.parse(localStorage.getItem('selectedGenres') || '[]');
+    const savedGenres = normalizeGenres(JSON.parse(localStorage.getItem('selectedGenres') || '[]'));
     const savedCompletedOnly = localStorage.getItem('completedFilterActive') === 'true';
     const savedHideCompleted = localStorage.getItem('hideCompleted') === 'true';
     const savedSaturation = parseInt(localStorage.getItem('saturation') || '100');
