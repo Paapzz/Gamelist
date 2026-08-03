@@ -2801,11 +2801,7 @@ window.addEventListener('error', function(e) {
     }
 }, true);
 
-let isPanelOpen = false;
-
 function adjustFiltersPanelHeight() {
-    if (!isPanelOpen) return;
-    
     const headerHeight = 40;
     const verticalPadding = 45;
     const panel = document.getElementById('filtersPanel');
@@ -2842,14 +2838,14 @@ function adjustFiltersPanelHeight() {
         const availableForLists = maxHeightFor10Items * 2;
         const totalPanelHeight = topReserve + availableForLists + bottomReserve;
         
-        const maxH = Math.min(maxPanelHeight, Math.max(300, totalPanelHeight));
+        const maxH = totalPanelHeight > maxPanelHeight ? maxPanelHeight : totalPanelHeight;
         panel.style.maxHeight = maxH + 'px';
 
         const innerH = panel.clientHeight;
         const available = Math.max(0, innerH - topReserve - bottomReserve);
         const perList = Math.max(minListH, Math.floor(available / 2));
         
-        const maxListHeight = Math.min(perList, maxHeightFor10Items);
+        const maxListHeight = totalPanelHeight > maxPanelHeight ? Math.min(perList, maxHeightFor10Items) : maxHeightFor10Items;
         
         platforms.style.maxHeight = maxListHeight + 'px';
         genres.style.maxHeight = maxListHeight + 'px';
@@ -9625,24 +9621,18 @@ filtersButton.addEventListener('click', (event) => {
 
     if (filtersPanel.style.display === 'none' || filtersPanel.style.display === '') {
         filtersPanel.style.display = 'block';
-        isPanelOpen = false; 
 
         if (typeof setListsHeight === 'function') {
             setTimeout(setListsHeight, 10);
         }
         if (typeof adjustFiltersPanelHeight === 'function') {
-            setTimeout(() => {
-                isPanelOpen = true;
-                adjustFiltersPanelHeight();
-            }, 500);
-            window.addEventListener('resize', adjustFiltersPanelHeight);
+            setTimeout(adjustFiltersPanelHeight, 0);
+            const ro = new ResizeObserver(() => adjustFiltersPanelHeight());
+            const panelEl = document.getElementById('filtersPanel');
+            if (panelEl) ro.observe(panelEl);
         }
     } else {
         filtersPanel.style.display = 'none';
-        isPanelOpen = false;
-        if (typeof adjustFiltersPanelHeight === 'function') {
-            window.removeEventListener('resize', adjustFiltersPanelHeight);
-        }
     }
 });
 resetFiltersButton.addEventListener('click', resetFilters);
