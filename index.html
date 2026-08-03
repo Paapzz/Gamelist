@@ -8389,11 +8389,9 @@ function updateVisibleGamesYearOnlyDuringDrag() {
             }
             if (visible && game.hltb && game.hltb.ms && game.hltb.ms.t) {
                 const timeStr = game.hltb.ms.t;
-                const timeValue = parseFloat(timeStr.replace('h', ''));
-                if (!isNaN(timeValue)) {
-                    const decimal = timeValue - Math.floor(timeValue);
-                    const roundedTime = decimal >= 0.3 ? Math.ceil(timeValue) : Math.floor(timeValue);
-                    if (roundedTime < minTime || (roundedTime > maxTime && maxTime !== 150)) visible = false;
+                const timeValue = parseTimeToHours(timeStr);
+                if (timeValue !== null && !isNaN(timeValue)) {
+                    if (timeValue < minTime || (timeValue > maxTime && maxTime !== 150)) visible = false;
                 }
             } else if (visible && (minTime > 0 || maxTime < 150)) {
                 visible = false;
