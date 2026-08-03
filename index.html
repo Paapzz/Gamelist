@@ -4997,6 +4997,8 @@ function synchronizeWithUpdatedGamesList() {
     populateFilters();
     updateVisibleGames();
     
+    restoreHltbData();
+    
     return true;
 }
 
@@ -5181,6 +5183,42 @@ function getBaseKey(title) {
     return base.replace(/[^a-z0-9а-яё]+/gi, ' ').trim().replace(/\s+/g, ' ');
 }
 
+function restoreHltbData() {
+    const alreadyRestored = localStorage.getItem('hltbDataRestored');
+    if (alreadyRestored) {
+        return false;
+    }
+    
+    const savedGames = localStorage.getItem('games');
+    if (!savedGames) {
+        console.log('Нет сохраненных игр в localStorage');
+        return false;
+    }
+    
+    const parsedGames = JSON.parse(savedGames);
+    let updatedCount = 0;
+    
+    parsedGames.forEach(savedGame => {
+        if (!savedGame.hltb && typeof savedGame.id === 'number' && savedGame.id > 0 && savedGame.id <= 1000) {
+            const gameFromList = gamesList.find(g => g.number === savedGame.id);
+            if (gameFromList && gameFromList.hltb) {
+                savedGame.hltb = gameFromList.hltb;
+                updatedCount++;
+            }
+        }
+    });
+    
+    if (updatedCount > 0) {
+        localStorage.setItem('games', JSON.stringify(parsedGames));
+        localStorage.setItem('hltbDataRestored', 'true');
+        console.log(`Восстановлено hltb данных для ${updatedCount} игр`);
+    } else {
+        localStorage.setItem('hltbDataRestored', 'true');
+    }
+    
+    return updatedCount > 0;
+}
+
 function loadSavedGames() {
     const savedGames = localStorage.getItem('games');
     try {
@@ -5228,6 +5266,7 @@ function loadSavedGames() {
     } else {
         localStorage.setItem('gamesListTailHash', currentHash);
         localStorage.setItem('gamesListFullHashV1', currentFullHash);
+        restoreHltbData();
     }
     const romanNumeralsFormatted = localStorage.getItem('romanNumeralsFormatted');
     let titlesReformatted = localStorage.getItem('titlesReformatted');
