@@ -8826,13 +8826,19 @@ function parseTimeToHours(timeString) {
     
     const parts = timeString.split(' ');
     let hours = 0;
+    let hasHours = false;
     
     for (const part of parts) {
         if (part.endsWith('h')) {
             hours += parseFloat(part.replace('h', ''));
+            hasHours = true;
         } else if (part.endsWith('m')) {
             hours += parseFloat(part.replace('m', '')) / 60;
         }
+    }
+    
+    if (!hasHours && hours > 0 && hours < 1) {
+        return 1;
     }
     
     const decimal = hours - Math.floor(hours);
