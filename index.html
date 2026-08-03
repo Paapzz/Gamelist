@@ -2841,8 +2841,7 @@ function adjustFiltersPanelHeight() {
         const maxH = Math.min(maxPanelHeight, totalPanelHeight);
         panel.style.maxHeight = maxH + 'px';
 
-        const innerH = panel.clientHeight;
-        const available = Math.max(0, innerH - topReserve - bottomReserve);
+        const available = Math.max(0, maxH - topReserve - bottomReserve);
         const perList = Math.max(minListH, Math.floor(available / 2));
         
         const maxListHeight = Math.min(perList, maxHeightFor10Items);
