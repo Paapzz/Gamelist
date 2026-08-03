@@ -8154,11 +8154,9 @@ function filterAndSearchGames(games, filters, searchTerm) {
 
         if (game.hltb && game.hltb.ms && game.hltb.ms.t) {
             const timeStr = game.hltb.ms.t;
-            const timeValue = parseFloat(timeStr.replace('h', ''));
-            if (!isNaN(timeValue)) {
-                const decimal = timeValue - Math.floor(timeValue);
-                const roundedTime = decimal >= 0.3 ? Math.ceil(timeValue) : Math.floor(timeValue);
-                if (roundedTime < filters.timeMin || (roundedTime > filters.timeMax && filters.timeMax !== 150)) {
+            const timeValue = parseTimeToHours(timeStr);
+            if (timeValue !== null && !isNaN(timeValue)) {
+                if (timeValue < filters.timeMin || (timeValue > filters.timeMax && filters.timeMax !== 150)) {
                     return false;
                 }
             }
@@ -8826,23 +8824,23 @@ function parseTimeToHours(timeString) {
     
     const parts = timeString.split(' ');
     let hours = 0;
-    let hasHours = false;
+    let hasMinutes = false;
     
     for (const part of parts) {
         if (part.endsWith('h')) {
             hours += parseFloat(part.replace('h', ''));
-            hasHours = true;
         } else if (part.endsWith('m')) {
+            hasMinutes = true;
             hours += parseFloat(part.replace('m', '')) / 60;
         }
     }
     
-    if (!hasHours && hours > 0 && hours < 1) {
-        return 1;
-    }
-    
     const decimal = hours - Math.floor(hours);
     const roundedHours = decimal >= 0.3 ? Math.ceil(hours) : Math.floor(hours);
+    
+    if (hasMinutes && hours < 1) {
+        return 1;
+    }
     
     return roundedHours;
 }
