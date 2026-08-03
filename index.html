@@ -802,7 +802,6 @@ body {
     position: fixed;
     top: 40px;
     left: 10px;
-    bottom: 5px;
     background-color: #333;
     padding: 15px; 
     border-radius: 12px;
@@ -2814,6 +2813,7 @@ function adjustFiltersPanelHeight() {
         const baseFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
         const minListH = 1.2 * baseFont + 14;
         const yearBlock = panel.querySelector('.year-slider-container');
+        const timeBlock = panel.querySelector('.time-slider-container');
         const h4s = Array.from(panel.querySelectorAll('h4'));
         const filterButtonsBlock = document.getElementById('filterButtons');
         const resetBtn = document.getElementById('resetFiltersButton');
@@ -2826,8 +2826,11 @@ function adjustFiltersPanelHeight() {
             return el.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
         };
 
-        const topReserve = getOuter(yearBlock) + h4s.reduce((sum, h) => sum + getOuter(h), 0);
+        const topReserve = getOuter(yearBlock) + getOuter(timeBlock) + h4s.reduce((sum, h) => sum + getOuter(h), 0);
         const bottomReserve = getOuter(filterButtonsBlock) + (resetWrapper ? getOuter(resetWrapper) : getOuter(resetBtn)) + getOuter(saturationBlock) + 40;
+        
+        const viewportHeight = window.innerHeight;
+        const maxPanelHeight = viewportHeight - 100;
         
         const maxItems = 10;
         const maxHeightFor10Items = 280;
@@ -2835,7 +2838,7 @@ function adjustFiltersPanelHeight() {
         const availableForLists = maxHeightFor10Items * 2;
         const totalPanelHeight = topReserve + availableForLists + bottomReserve;
         
-        const maxH = Math.max(300, totalPanelHeight);
+        const maxH = Math.min(maxPanelHeight, Math.max(300, totalPanelHeight));
         panel.style.maxHeight = maxH + 'px';
 
         const innerH = panel.clientHeight;
