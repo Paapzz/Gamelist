@@ -2848,7 +2848,9 @@ function adjustFiltersPanelHeight() {
         const maxListHeight = Math.min(perList, maxHeightFor10Items);
         
         platforms.style.maxHeight = maxListHeight + 'px';
+        platforms.style.minHeight = minListH + 'px';
         genres.style.maxHeight = maxListHeight + 'px';
+        genres.style.minHeight = minListH + 'px';
     }
 }
 
