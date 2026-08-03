@@ -2684,8 +2684,8 @@ button:hover,
         <div class="slider-track">
             <div class="time-slider-track-highlight"></div>
         </div>
-        <input type="range" id="timeSliderMin" min="0" max="150" value="0">
-        <input type="range" id="timeSliderMax" min="0" max="150" value="150">
+        <input type="range" id="timeSliderMin" min="0" max="100" value="0">
+        <input type="range" id="timeSliderMax" min="0" max="100" value="100">
         <div class="slider-tooltip time-min-tooltip"></div>
         <div class="slider-tooltip time-max-tooltip"></div>
     </div>
@@ -2877,7 +2877,7 @@ const state = {
         yearMin: null,
         yearMax: null,
         timeMin: 0,
-        timeMax: 150,
+        timeMax: 100,
         platforms: [],
         genres: [],
         completedOnly: false,
@@ -4997,7 +4997,7 @@ function synchronizeWithUpdatedGamesList() {
     populateFilters();
     updateVisibleGames();
     
-    restoreHltbData();
+    restoreHltbData(true);
     
     return true;
 }
@@ -5183,9 +5183,9 @@ function getBaseKey(title) {
     return base.replace(/[^a-z0-9а-яё]+/gi, ' ').trim().replace(/\s+/g, ' ');
 }
 
-function restoreHltbData() {
+function restoreHltbData(force = false) {
     const alreadyRestored = localStorage.getItem('hltbDataRestored');
-    if (alreadyRestored) {
+    if (!force && alreadyRestored) {
         return false;
     }
     
@@ -5210,9 +5210,13 @@ function restoreHltbData() {
     
     if (updatedCount > 0) {
         localStorage.setItem('games', JSON.stringify(parsedGames));
-        localStorage.setItem('hltbDataRestored', 'true');
         console.log(`Восстановлено hltb данных для ${updatedCount} игр`);
-    } else {
+        state.games = parsedGames;
+        games = state.games;
+        updateVisibleGames();
+    }
+    
+    if (!force) {
         localStorage.setItem('hltbDataRestored', 'true');
     }
     
@@ -8195,12 +8199,12 @@ function filterAndSearchGames(games, filters, searchTerm) {
             const timeStr = game.hltb.ms.t;
             const timeValue = parseTimeToHours(timeStr);
             if (timeValue !== null && !isNaN(timeValue)) {
-                if (timeValue < filters.timeMin || (timeValue > filters.timeMax && filters.timeMax !== 150)) {
+                if (timeValue < filters.timeMin || (timeValue > filters.timeMax && filters.timeMax !== 100)) {
                     return false;
                 }
             }
         } else {
-            if (filters.timeMin > 0 || filters.timeMax < 150) {
+            if (filters.timeMin > 0 || filters.timeMax < 100) {
                 return false;
             }
         }
@@ -8602,10 +8606,10 @@ function populateFilters() {
         }
     }
 
-    if (savedMaxTime && parseInt(savedMaxTime) < 150) {
+    if (savedMaxTime && parseInt(savedMaxTime) <= 100) {
         state.filters.timeMax = parseInt(savedMaxTime);
     } else {
-        state.filters.timeMax = 150;
+        state.filters.timeMax = 100;
         if (savedMaxTime) {
             localStorage.removeItem('maxTime');
         }
@@ -8892,7 +8896,7 @@ function shouldShowGame(game) {
     }
 
     const gameTime = getGameTime(game);
-    const timeInRange = gameTime === null || (gameTime >= state.filters.timeMin && (gameTime <= state.filters.timeMax || state.filters.timeMax === 150));
+    const timeInRange = gameTime === null || (gameTime >= state.filters.timeMin && (gameTime <= state.filters.timeMax || state.filters.timeMax === 100));
 
     return (
         (!state.filters.hideCompleted || !game.completed) &&
@@ -9508,7 +9512,7 @@ function resetFilters() {
     state.filters.yearMin = parseInt(yearSliderMin.min);
     state.filters.yearMax = parseInt(yearSliderMax.max);
     state.filters.timeMin = 0;
-    state.filters.timeMax = 150;
+    state.filters.timeMax = 100;
     state.filters.platforms = [];
     state.filters.genres = [];
     state.filters.completedOnly = false;
