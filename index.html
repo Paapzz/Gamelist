@@ -874,6 +874,15 @@ body {
     border: 1px solid rgba(255,255,255,0.05);
 }
 
+.time-slider-container {
+    background-color: rgba(0,0,0,0.15);
+    border-radius: 10px;
+    padding: 10px;
+    margin: 8px 0 15px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
 .year-slider-header {
     display: flex;
     justify-content: space-between;
@@ -982,6 +991,94 @@ body {
     box-shadow: 0 0 0 2px #fff, 0 0 15px rgba(76, 175, 80, 0.5);
 }
 
+.time-double-slider {
+    position: relative;
+    width: 100%;
+    height: 30px;
+    margin: 0 0 4px;
+}
+#timeSliderMin {
+    z-index: 5;
+}
+
+#timeSliderMin::-webkit-slider-thumb {
+    z-index: 6;
+}
+
+#timeSliderMin::-moz-range-thumb {
+    z-index: 6;
+}
+
+.time-double-slider input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    background: none;
+    pointer-events: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 3;
+    appearance: none;
+}
+
+.time-double-slider input[type="range"]::-webkit-slider-thumb,
+.time-double-slider input[type="range"]::-moz-range-thumb {
+    pointer-events: auto;
+}
+
+
+
+.time-double-slider input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #4CAF50;
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 0 0 3px #fff, 0 0 0 6px rgba(76, 175, 80, 0.1);
+    border: none;
+    z-index: 4;
+    transition: all 0.2s ease;
+    margin-top: -6px;
+}
+
+#timeSliderMax {
+    z-index: 4;
+}
+
+#timeSliderMax::-webkit-slider-thumb {
+    z-index: 5;
+}
+
+#timeSliderMax::-moz-range-thumb {
+    z-index: 5;
+}
+
+.time-double-slider input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px #fff, 0 0 15px rgba(76, 175, 80, 0.5);
+}
+
+.time-double-slider input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #4CAF50;
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 0 0 3px #fff, 0 0 0 6px rgba(76, 175, 80, 0.1);
+    border: none;
+    z-index: 4;
+    transition: all 0.2s ease;
+}
+
+.time-double-slider input[type="range"]::-moz-range-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px #fff, 0 0 15px rgba(76, 175, 80, 0.5);
+}
+
 .slider-track {
     width: 100%;
     height: 6px;
@@ -995,6 +1092,15 @@ body {
 }
 
 .slider-track-highlight {
+    position: absolute;
+    height: 100%;
+    background: linear-gradient(to right, #388E3C, #4CAF50, #81C784);
+    border-radius: 3px;
+    z-index: 2;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.time-slider-track-highlight {
     position: absolute;
     height: 100%;
     background: linear-gradient(to right, #388E3C, #4CAF50, #81C784);
@@ -1025,6 +1131,33 @@ body {
 }
 
 .year-slider-labels span:last-child {
+    right: 0;
+    left: auto;
+    transform: translateX(0);
+}
+
+.time-slider-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2px;
+    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+    font-weight: 600;
+    position: relative;
+    height: 15px;
+}
+
+.time-slider-labels span {
+    position: absolute;
+    transform: translateX(-50%);
+}
+
+.time-slider-labels span:first-child {
+    left: 0;
+    transform: translateX(0);
+}
+
+.time-slider-labels span:last-child {
     right: 0;
     left: auto;
     transform: translateX(0);
@@ -1543,6 +1676,41 @@ body {
 .game-info-close:hover {
     background: rgba(255, 255, 255, 1);
     transform: scale(1.1);
+}
+
+.game-info-rank-badge-container {
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1004;
+}
+
+.game-info-rank-badge {
+    position: relative;
+    background: rgba(0, 0, 0, 0.9);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 6px;
+    border-radius: 0 0 10px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-top: none;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    letter-spacing: 0.3px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    white-space: nowrap;
+}
+
+.game-info-rank-badge-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: transparent;
 }
 
 .game-info-body {
@@ -2473,6 +2641,10 @@ button:hover,
 <div class="game-info-modal" id="gameInfoModal">
     <div class="game-info-content">
         <button class="game-info-close" id="gameInfoClose">&times;</button>
+        <div class="game-info-rank-badge-container">
+            <div class="game-info-rank-badge" style="display: none;"></div>
+            <div class="game-info-rank-badge-overlay"></div>
+        </div>
         <div class="game-info-body">
         </div>
     </div>
@@ -2499,6 +2671,27 @@ button:hover,
     <div class="year-slider-labels">
         <span id="minYearLabel"></span>
         <span id="maxYearLabel"></span>
+    </div>
+</div>
+<div class="time-slider-container">
+    <div class="year-slider-header">
+        <label for="timeSliderMin">Время прохождения(ч):</label>
+        <div class="year-value-container">
+            <span id="timeValue"></span>
+        </div>
+    </div>
+    <div class="time-double-slider">
+        <div class="slider-track">
+            <div class="time-slider-track-highlight"></div>
+        </div>
+        <input type="range" id="timeSliderMin" min="0" max="150" value="0">
+        <input type="range" id="timeSliderMax" min="0" max="150" value="150">
+        <div class="slider-tooltip time-min-tooltip"></div>
+        <div class="slider-tooltip time-max-tooltip"></div>
+    </div>
+    <div class="time-slider-labels">
+        <span id="minTimeLabel"></span>
+        <span id="maxTimeLabel"></span>
     </div>
 </div>
 <h4>Платформы:</h4>
@@ -2683,6 +2876,8 @@ const state = {
     filters: {
         yearMin: null,
         yearMax: null,
+        timeMin: 0,
+        timeMax: 150,
         platforms: [],
         genres: [],
         completedOnly: false,
@@ -2739,7 +2934,7 @@ function debounce(func, wait) {
 window.throttle = throttle;
 
 const filterCache = new Map();
-const cacheKey = (minYear, maxYear) => `${minYear}-${maxYear}`;
+const cacheKey = (minYear, maxYear, minTime, maxTime) => `${minYear}-${maxYear}-${minTime}-${maxTime}`;
 
 const cellSizeCache = new Map();
 function getCachedCellSize(size, isInProgress) {
@@ -2774,12 +2969,12 @@ function getImageUrl(originalUrl, quality) {
     }
 }
 
-function getCachedFilter(minYear, maxYear) {
-    return filterCache.get(cacheKey(minYear, maxYear));
+function getCachedFilter(minYear, maxYear, minTime, maxTime) {
+    return filterCache.get(cacheKey(minYear, maxYear, minTime, maxTime));
 }
 
-function setCachedFilter(minYear, maxYear, result) {
-    filterCache.set(cacheKey(minYear, maxYear), result);
+function setCachedFilter(minYear, maxYear, minTime, maxTime, result) {
+    filterCache.set(cacheKey(minYear, maxYear, minTime, maxTime), result);
 }
 
 function clearFilterCache() {
@@ -2789,12 +2984,14 @@ function clearFilterCache() {
 const debouncedUpdateVisibleGames = debounce(() => {
     updateVisibleGames();
     saveYearFiltersToStorage();
-}, 50); 
+    saveTimeFiltersToStorage();
+}, 50);
 let allowFilterDuringDrag = false;
 const debouncedUpdateVisibleGamesDuringDrag = debounce(() => {
     allowFilterDuringDrag = true;
     updateVisibleGamesYearOnlyDuringDrag();
     saveYearFiltersToStorage();
+    saveTimeFiltersToStorage();
     allowFilterDuringDrag = false;
 }, 50);
 
@@ -2804,23 +3001,24 @@ let sliderMovementTimer = null;
 
 const virtualUpdateDuringSliderMovement = throttle(() => {
     isSliderMoving = true;
-    
+
     if (sliderMovementTimer) {
         clearTimeout(sliderMovementTimer);
     }
-    
+
     updateYearSliderVisuals();
-    
+    updateTimeSliderVisuals();
+
     const currentMin = state.filters.yearMin;
     const currentMax = state.filters.yearMax;
-    
+
     if (lastVirtualUpdate.yearMin !== currentMin || lastVirtualUpdate.yearMax !== currentMax) {
         const estimatedCount = ultraFastEstimateCount(currentMin, currentMax);
         lastVirtualUpdate.yearMin = currentMin;
         lastVirtualUpdate.yearMax = currentMax;
         lastVirtualUpdate.count = estimatedCount;
     }
-    
+
     sliderMovementTimer = setTimeout(() => {
         isSliderMoving = false;
         updateCounter();
@@ -3403,6 +3601,9 @@ const filtersPanel = document.getElementById('filtersPanel');
 const yearSliderMin = document.getElementById('yearSliderMin');
 const yearSliderMax = document.getElementById('yearSliderMax');
 const yearValue = document.getElementById('yearValue');
+const timeSliderMin = document.getElementById('timeSliderMin');
+const timeSliderMax = document.getElementById('timeSliderMax');
+const timeValue = document.getElementById('timeValue');
 const platformsList = document.getElementById('platformsList');
 const genresList = document.getElementById('genresList');
 const resetFiltersButton = document.getElementById('resetFiltersButton');
@@ -3429,6 +3630,8 @@ let selectedGameId = null;
 
 let savedMinYear = localStorage.getItem('minYear');
 let savedMaxYear = localStorage.getItem('maxYear');
+let savedMinTime = localStorage.getItem('minTime');
+let savedMaxTime = localStorage.getItem('maxTime');
 let selectedPlatforms = JSON.parse(localStorage.getItem('selectedPlatforms')) || [];
 let selectedGenres = JSON.parse(localStorage.getItem('selectedGenres')) || [];
 const gamesList = [
@@ -4545,6 +4748,8 @@ function synchronizeWithUpdatedGamesList() {
     const filterSnapshot = {
         minYear: localStorage.getItem('minYear'),
         maxYear: localStorage.getItem('maxYear'),
+        minTime: localStorage.getItem('minTime'),
+        maxTime: localStorage.getItem('maxTime'),
         selectedPlatforms: localStorage.getItem('selectedPlatforms'),
         selectedGenres: localStorage.getItem('selectedGenres'),
         completedFilterActive: localStorage.getItem('completedFilterActive'),
@@ -6645,7 +6850,7 @@ function showPreview(e, game) {
     
     const cell = Array.from(document.querySelectorAll('.cell')).find(cell => {
         const img = cell.querySelector('img');
-        return img && img.alt === game.name;
+        return img && img.alt === game.name && cell.dataset.gameYear === String(game.year);
     });
     
     if (cell && !cell.classList.contains('custom-game')) {
@@ -6917,14 +7122,23 @@ function setupModalSizes() {
         if (previewImg) {
             const imgRect = previewImg.getBoundingClientRect();
             
-            gameInfoModal.style.position = 'fixed';
-            gameInfoModal.style.left = `${imgRect.left}px`;
-            gameInfoModal.style.top = `${imgRect.top - 5}px`;
-            gameInfoModal.style.right = 'auto';
-            gameInfoModal.style.transform = 'none';
-            
-            gameInfoModal.style.width = `${imgRect.width * 0.980}px`;
-            gameInfoModal.style.height = `${imgRect.height}px`;
+            if (imgRect.width > 0 && imgRect.height > 0) {
+                gameInfoModal.style.position = 'fixed';
+                gameInfoModal.style.left = `${imgRect.left}px`;
+                gameInfoModal.style.top = `${imgRect.top - 5}px`;
+                gameInfoModal.style.right = 'auto';
+                gameInfoModal.style.transform = 'none';
+                
+                gameInfoModal.style.width = `${imgRect.width * 0.980}px`;
+                gameInfoModal.style.height = `${imgRect.height}px`;
+            } else {
+                gameInfoModal.style.left = preview.style.left;
+                gameInfoModal.style.right = preview.style.right;
+                gameInfoModal.style.top = preview.style.top;
+                gameInfoModal.style.transform = preview.style.transform;
+                gameInfoModal.style.width = '300px';
+                gameInfoModal.style.height = '600px';
+            }
             
         } else {
             gameInfoModal.style.left = preview.style.left;
@@ -6967,6 +7181,22 @@ function showGameInfoModal(game, event = null) {
         });
     } else {
         setupModalSizes();
+    }
+    
+    const gameInfoRankBadge = gameInfoModal.querySelector('.game-info-rank-badge');
+    if (game.number) {
+        gameInfoRankBadge.textContent = `#${game.number}`;
+        gameInfoRankBadge.style.display = 'block';
+    } else if (game.id) {
+        const gameIndex = state.games.findIndex(g => g.id.toString() === game.id.toString());
+        if (gameIndex >= 0) {
+            gameInfoRankBadge.textContent = `#${gameIndex + 1}`;
+            gameInfoRankBadge.style.display = 'block';
+        } else {
+            gameInfoRankBadge.style.display = 'none';
+        }
+    } else {
+        gameInfoRankBadge.style.display = 'none';
     }
     
     const gameInfoBody = gameInfoModal.querySelector('.game-info-body');
@@ -7144,9 +7374,21 @@ function showPreviewForGame(game, event = null, callback) {
         };
         
         if (game && (game.imageUrl || game.image_url)) {
-            img.onload = () => {
+            if (img.complete) {
                 executePositioning();
-            };
+            } else {
+                img.onload = () => {
+                    executePositioning();
+                };
+                img.onerror = () => {
+                    executePositioning();
+                };
+                setTimeout(() => {
+                    if (!img.complete) {
+                        executePositioning();
+                    }
+                }, 3000);
+            }
         } else {
             executePositioning();
         }
@@ -7162,9 +7404,21 @@ function showPreviewForGame(game, event = null, callback) {
         };
         
         if (game && (game.imageUrl || game.image_url)) {
-            img.onload = () => {
+            if (img.complete) {
                 executeFallback();
-            };
+            } else {
+                img.onload = () => {
+                    executeFallback();
+                };
+                img.onerror = () => {
+                    executeFallback();
+                };
+                setTimeout(() => {
+                    if (!img.complete) {
+                        executeFallback();
+                    }
+                }, 3000);
+            }
         } else {
             executeFallback();
         }
@@ -7869,6 +8123,22 @@ function filterAndSearchGames(games, filters, searchTerm) {
             return false;
         }
 
+        if (game.hltb && game.hltb.ms && game.hltb.ms.t) {
+            const timeStr = game.hltb.ms.t;
+            const timeValue = parseFloat(timeStr.replace('h', ''));
+            if (!isNaN(timeValue)) {
+                const decimal = timeValue - Math.floor(timeValue);
+                const roundedTime = decimal >= 0.3 ? Math.ceil(timeValue) : Math.floor(timeValue);
+                if (roundedTime < filters.timeMin || (roundedTime > filters.timeMax && filters.timeMax !== 150)) {
+                    return false;
+                }
+            }
+        } else {
+            if (filters.timeMin > 0 || filters.timeMax < 150) {
+                return false;
+            }
+        }
+
         if (searchTerm && searchTerm !== '') {
             return matchesQuery(game.name, searchTerm);
         }
@@ -7892,6 +8162,25 @@ function updateYearFilter(min, max) {
         localStorage.removeItem('maxYear');
     } else {
         localStorage.setItem('maxYear', max);
+    }
+
+    updateVisibleGames();
+}
+
+function updateTimeFilter(min, max) {
+    state.filters.timeMin = min;
+    state.filters.timeMax = max;
+
+    if (min <= 0) {
+        localStorage.removeItem('minTime');
+    } else {
+        localStorage.setItem('minTime', min);
+    }
+
+    if (max >= 500) {
+        localStorage.removeItem('maxTime');
+    } else {
+        localStorage.setItem('maxTime', max);
     }
 
     updateVisibleGames();
@@ -8035,6 +8324,8 @@ function updateVisibleGames() {
 function updateVisibleGamesYearOnlyDuringDrag() {
     const minYear = state.filters.yearMin;
     const maxYear = state.filters.yearMax;
+    const minTime = state.filters.timeMin;
+    const maxTime = state.filters.timeMax;
     const searchTerm = state.search || '';
     const searchActive = searchTerm.trim() !== '';
     const selectedGenres = state.filters.genres;
@@ -8068,6 +8359,17 @@ function updateVisibleGamesYearOnlyDuringDrag() {
         } else {
             if (game.year !== null) {
                 if (game.year < minYear || game.year > maxYear) visible = false;
+            }
+            if (visible && game.hltb && game.hltb.ms && game.hltb.ms.t) {
+                const timeStr = game.hltb.ms.t;
+                const timeValue = parseFloat(timeStr.replace('h', ''));
+                if (!isNaN(timeValue)) {
+                    const decimal = timeValue - Math.floor(timeValue);
+                    const roundedTime = decimal >= 0.3 ? Math.ceil(timeValue) : Math.floor(timeValue);
+                    if (roundedTime < minTime || (roundedTime > maxTime && maxTime !== 150)) visible = false;
+                }
+            } else if (visible && (minTime > 0 || maxTime < 150)) {
+                visible = false;
             }
             if (visible && selectedPlatforms.length > 0) {
                 const gamePlatforms = normalizePlatforms(game.platforms);
@@ -8195,6 +8497,8 @@ function populateFilters() {
 
     const savedMinYear = localStorage.getItem('minYear');
     const savedMaxYear = localStorage.getItem('maxYear');
+    const savedMinTime = localStorage.getItem('minTime');
+    const savedMaxTime = localStorage.getItem('maxTime');
     const savedPlatforms = JSON.parse(localStorage.getItem('selectedPlatforms') || '[]');
     const savedGenres = normalizeGenres(JSON.parse(localStorage.getItem('selectedGenres') || '[]'));
     const savedCompletedOnly = localStorage.getItem('completedFilterActive') === 'true';
@@ -8225,6 +8529,24 @@ function populateFilters() {
         }
     }
 
+    if (savedMinTime && parseInt(savedMinTime) > 0) {
+        state.filters.timeMin = parseInt(savedMinTime);
+    } else {
+        state.filters.timeMin = 0;
+        if (savedMinTime) {
+            localStorage.removeItem('minTime');
+        }
+    }
+
+    if (savedMaxTime && parseInt(savedMaxTime) < 150) {
+        state.filters.timeMax = parseInt(savedMaxTime);
+    } else {
+        state.filters.timeMax = 150;
+        if (savedMaxTime) {
+            localStorage.removeItem('maxTime');
+        }
+    }
+
     yearSliderMin.min = minGameYear;
     yearSliderMin.max = maxGameYear;
     yearSliderMin.value = state.filters.yearMin;
@@ -8235,9 +8557,20 @@ function populateFilters() {
     document.getElementById('minYearLabel').textContent = minGameYear;
     document.getElementById('maxYearLabel').textContent = maxGameYear;
 
+    timeSliderMin.min = 0;
+    timeSliderMin.max = 150;
+    timeSliderMin.value = state.filters.timeMin;
+    timeSliderMax.min = 0;
+    timeSliderMax.max = 150;
+    timeSliderMax.value = state.filters.timeMax;
+
+    document.getElementById('minTimeLabel').textContent = '0';
+    document.getElementById('maxTimeLabel').textContent = '150+';
+
     saturationSlider.value = state.saturation;
 
     updateYearValue();
+    updateTimeValue();
     updatePlatformFilters(platforms);
     updateGenreFilters(genres);
 
@@ -8279,6 +8612,27 @@ function saveYearFiltersToStorage() {
     }, 500);
 }
 
+function saveTimeFiltersToStorage() {
+    clearTimeout(gameCache.timers.localStorage);
+
+    gameCache.timers.localStorage = setTimeout(() => {
+        const minVal = state.filters.timeMin;
+        const maxVal = state.filters.timeMax;
+
+        if (minVal <= 0) {
+            localStorage.removeItem('minTime');
+        } else {
+            localStorage.setItem('minTime', minVal);
+        }
+
+        if (maxVal >= 150) {
+            localStorage.removeItem('maxTime');
+        } else {
+            localStorage.setItem('maxTime', maxVal);
+        }
+    }, 500);
+}
+
 function updateYearSliderVisuals() {
     const minVal = state.filters.yearMin;
     const maxVal = state.filters.yearMax;
@@ -8292,6 +8646,20 @@ function updateYearSliderVisuals() {
     updateTooltips();
 }
 
+function updateTimeSliderVisuals() {
+    const minVal = state.filters.timeMin;
+    const maxVal = state.filters.timeMax;
+
+    timeSliderMin.value = minVal;
+    timeSliderMax.value = maxVal;
+
+    const maxDisplay = maxVal === 150 ? '150+' : maxVal;
+    timeValue.textContent = minVal === maxVal ? `${minVal}` : `${minVal} - ${maxDisplay}`;
+
+    updateTimeSliderTrack();
+    updateTimeTooltips();
+}
+
 function updateYearValue() {
     updateYearSliderVisuals();
     saveYearFiltersToStorage();
@@ -8299,6 +8667,15 @@ function updateYearValue() {
 
 function updateYearValueWithoutStorage() {
     updateYearSliderVisuals();
+}
+
+function updateTimeValue() {
+    updateTimeSliderVisuals();
+    saveTimeFiltersToStorage();
+}
+
+function updateTimeValueWithoutStorage() {
+    updateTimeSliderVisuals();
 }
 
 function updateSliderTrack() {
@@ -8330,6 +8707,35 @@ function updateTooltips() {
     yearValue.textContent = minVal === maxVal ? `${minVal}` : `${minVal} - ${maxVal}`;
 }
 
+function updateTimeSliderTrack() {
+    const minVal = parseInt(timeSliderMin.value);
+    const maxVal = parseInt(timeSliderMax.value);
+    const minPos = (minVal - timeSliderMin.min) / (timeSliderMin.max - timeSliderMin.min) * 100;
+    const maxPos = (maxVal - timeSliderMax.min) / (timeSliderMax.max - timeSliderMax.min) * 100;
+    const trackHighlight = document.querySelector('.time-slider-track-highlight');
+    trackHighlight.style.left = `${minPos}%`;
+    trackHighlight.style.width = `${maxPos - minPos}%`;
+}
+
+function updateTimeTooltips() {
+    const minVal = parseInt(timeSliderMin.value);
+    const maxVal = parseInt(timeSliderMax.value);
+    const minTooltip = document.querySelector('.time-min-tooltip');
+    const maxTooltip = document.querySelector('.time-max-tooltip');
+    const container = document.querySelector('.time-double-slider');
+    const containerWidth = container.clientWidth;
+    const thumbWidth = 18;
+    const trackWidth = timeSliderMin.clientWidth - thumbWidth;
+    const minPx = ((minVal - timeSliderMin.min) / (timeSliderMin.max - timeSliderMin.min)) * trackWidth + thumbWidth / 2;
+    const maxPx = ((maxVal - timeSliderMax.min) / (timeSliderMax.max - timeSliderMax.min)) * trackWidth + thumbWidth / 2;
+    minTooltip.textContent = minVal;
+    maxTooltip.textContent = maxVal === 150 ? '150+' : maxVal;
+    minTooltip.style.left = `${Math.max(0, Math.min(minPx, containerWidth))}px`;
+    maxTooltip.style.left = `${Math.max(0, Math.min(maxPx, containerWidth))}px`;
+
+    timeValue.textContent = minVal === maxVal ? `${minVal}ч` : `${minVal} - ${maxVal === 150 ? '150+' : maxVal}`;
+}
+
 let isYearSliderActive = false;
 let yearRafId = null;
 function yearRafStep() {
@@ -8340,6 +8746,19 @@ function yearRafStep() {
     } else if (yearRafId != null) {
         cancelAnimationFrame(yearRafId);
         yearRafId = null;
+    }
+}
+
+let isTimeSliderActive = false;
+let timeRafId = null;
+function timeRafStep() {
+    updateTimeSliderTrack();
+    updateTimeTooltips();
+    if (isTimeSliderActive) {
+        timeRafId = requestAnimationFrame(timeRafStep);
+    } else if (timeRafId != null) {
+        cancelAnimationFrame(timeRafId);
+        timeRafId = null;
     }
 }
 
@@ -8359,6 +8778,40 @@ function updateYearsCache() {
     return gameCache.years;
 }
 
+function getGameTime(game) {
+    if (!game.hltb) return null;
+    
+    const mainStory = game.hltb.ms && game.hltb.ms.t ? parseTimeToHours(game.hltb.ms.t) : null;
+    const mainExtras = game.hltb.mpe && game.hltb.mpe.t ? parseTimeToHours(game.hltb.mpe.t) : null;
+    const completionist = game.hltb.comp && game.hltb.comp.t ? parseTimeToHours(game.hltb.comp.t) : null;
+    
+    if (mainExtras !== null) return mainExtras;
+    if (mainStory !== null) return mainStory;
+    if (completionist !== null) return completionist;
+    
+    return null;
+}
+
+function parseTimeToHours(timeString) {
+    if (!timeString) return null;
+    
+    const parts = timeString.split(' ');
+    let hours = 0;
+    
+    for (const part of parts) {
+        if (part.endsWith('h')) {
+            hours += parseFloat(part.replace('h', ''));
+        } else if (part.endsWith('m')) {
+            hours += parseFloat(part.replace('m', '')) / 60;
+        }
+    }
+    
+    const decimal = hours - Math.floor(hours);
+    const roundedHours = decimal >= 0.3 ? Math.ceil(hours) : Math.floor(hours);
+    
+    return roundedHours;
+}
+
 function shouldShowGame(game) {
     if (!gameCache.years.initialized) {
         updateYearsCache();
@@ -8368,12 +8821,16 @@ function shouldShowGame(game) {
         return true;
     }
 
+    const gameTime = getGameTime(game);
+    const timeInRange = gameTime === null || (gameTime >= state.filters.timeMin && (gameTime <= state.filters.timeMax || state.filters.timeMax === 150));
+
     return (
         (!state.filters.hideCompleted || !game.completed) &&
         (state.filters.completedOnly ? game.completed : true) &&
         (state.filters.genres.length === 0 || game.genres.some(genre => state.filters.genres.includes(genre))) &&
         (state.filters.platforms.length === 0 || game.platforms.some(platform => state.filters.platforms.includes(platform))) &&
-        (game.year === null || (game.year >= state.filters.yearMin && game.year <= state.filters.yearMax))
+        (game.year === null || (game.year >= state.filters.yearMin && game.year <= state.filters.yearMax)) &&
+        timeInRange
     );
 }
 
@@ -8687,6 +9144,7 @@ function applyFiltersComplete(forceIdSort = false) {
 function applyFilters(forceIdSort = false) {
     if (sizeSliderMoving) {
         updateYearSliderVisuals();
+        updateTimeSliderVisuals();
         return;
     }
 
@@ -8882,39 +9340,71 @@ function showRandomGameInfo(game) {
     const randomRect = randomContainer.getBoundingClientRect();
     
     const img = randomSelected.querySelector('img');
-    const imgRect = img ? img.getBoundingClientRect() : null;
     
-    if (imgRect) {
-        gameInfoModal.style.position = 'fixed';
-        gameInfoModal.style.left = `${imgRect.left}px`;
-        gameInfoModal.style.top = `${imgRect.top - 5}px`;
-        gameInfoModal.style.right = 'auto';
-        gameInfoModal.style.transform = 'none';
-        gameInfoModal.style.width = `${imgRect.width * 0.980}px`;
-        gameInfoModal.style.height = `${imgRect.height}px`;
+    const setModalSize = () => {
+        const imgRect = img ? img.getBoundingClientRect() : null;
+        
+        if (imgRect && imgRect.width > 0 && imgRect.height > 0) {
+            gameInfoModal.style.position = 'fixed';
+            gameInfoModal.style.left = `${imgRect.left}px`;
+            gameInfoModal.style.top = `${imgRect.top - 5}px`;
+            gameInfoModal.style.right = 'auto';
+            gameInfoModal.style.transform = 'none';
+            gameInfoModal.style.width = `${imgRect.width * 0.980}px`;
+            gameInfoModal.style.height = `${imgRect.height}px`;
+        } else {
+            gameInfoModal.style.position = 'fixed';
+            gameInfoModal.style.left = `${randomRect.left + 20}px`;
+            gameInfoModal.style.top = `${randomRect.top + 20}px`;
+            gameInfoModal.style.right = 'auto';
+            gameInfoModal.style.transform = 'none';
+            gameInfoModal.style.width = '300px';
+            gameInfoModal.style.height = '600px';
+        }
+        
+        gameInfoModal.style.zIndex = '10001';
+        gameInfoModal.style.display = 'block';
+        gameInfoModal.style.opacity = '1';
+        
+        const gameInfoBody = gameInfoModal.querySelector('.game-info-body');
+        if (game.isCustom && !game.hltb) {
+            gameInfoBody.innerHTML = generateCustomGameTable(game);
+        } else {
+            gameInfoBody.innerHTML = generateHLTBTable(game);
+        }
+        
+        const gameInfoRankBadge = gameInfoModal.querySelector('.game-info-rank-badge');
+        if (game.number) {
+            gameInfoRankBadge.textContent = `#${game.number}`;
+            gameInfoRankBadge.style.display = 'block';
+        } else if (game.id) {
+            const gameIndex = state.games.findIndex(g => g.id.toString() === game.id.toString());
+            if (gameIndex >= 0) {
+                gameInfoRankBadge.textContent = `#${gameIndex + 1}`;
+                gameInfoRankBadge.style.display = 'block';
+            } else {
+                gameInfoRankBadge.style.display = 'none';
+            }
+        } else {
+            gameInfoRankBadge.style.display = 'none';
+        }
+        
+        selectedGameId = game.id;
+    };
+    
+    if (img && img.complete && img.naturalWidth > 0) {
+        setModalSize();
+    } else if (img) {
+        img.onload = setModalSize;
+        img.onerror = setModalSize;
+        setTimeout(() => {
+            if (!img.complete) {
+                setModalSize();
+            }
+        }, 3000);
     } else {
-        gameInfoModal.style.position = 'fixed';
-        gameInfoModal.style.left = `${randomRect.left + 20}px`;
-        gameInfoModal.style.top = `${randomRect.top + 20}px`;
-        gameInfoModal.style.right = 'auto';
-        gameInfoModal.style.transform = 'none';
-        gameInfoModal.style.width = '300px';
-        gameInfoModal.style.height = '600px';
+        setModalSize();
     }
-    
-    gameInfoModal.style.zIndex = '10001';
-    
-    gameInfoModal.style.display = 'block';
-    gameInfoModal.style.opacity = '1';
-    
-    const gameInfoBody = gameInfoModal.querySelector('.game-info-body');
-    if (game.isCustom && !game.hltb) {
-        gameInfoBody.innerHTML = generateCustomGameTable(game);
-    } else {
-        gameInfoBody.innerHTML = generateHLTBTable(game);
-    }
-    
-    selectedGameId = game.id;
 }
 
 function hideRandomSelection() {
@@ -8947,6 +9437,8 @@ function resetFilters() {
 
     state.filters.yearMin = parseInt(yearSliderMin.min);
     state.filters.yearMax = parseInt(yearSliderMax.max);
+    state.filters.timeMin = 0;
+    state.filters.timeMax = 150;
     state.filters.platforms = [];
     state.filters.genres = [];
     state.filters.completedOnly = false;
@@ -8955,6 +9447,10 @@ function resetFilters() {
     yearSliderMin.value = yearSliderMin.min;
     yearSliderMax.value = yearSliderMax.max;
     updateYearValue();
+
+    timeSliderMin.value = 0;
+    timeSliderMax.value = 150;
+    updateTimeValue();
 
     platformsList.querySelectorAll('input').forEach(input => {
         input.checked = false;
@@ -8973,6 +9469,8 @@ function resetFilters() {
     localStorage.removeItem('selectedGenres');
     localStorage.removeItem('minYear');
     localStorage.removeItem('maxYear');
+    localStorage.removeItem('minTime');
+    localStorage.removeItem('maxTime');
     localStorage.removeItem('hideCompleted');
     localStorage.removeItem('completedFilterActive');
 
@@ -9355,6 +9853,7 @@ function addNewGame(gameData) {
     if (savedMaxYear) localStorage.setItem('maxYear', savedMaxYear);
 
     updateYearValueWithoutStorage();
+    updateTimeValueWithoutStorage();
 
     updateVisibleGames();
     updateGridSize();
@@ -10083,6 +10582,8 @@ document.addEventListener('click', (event) => {
 let isImporting = false;
 let savedYearFilterMin = null;
 let savedYearFilterMax = null;
+let savedTimeFilterMin = null;
+let savedTimeFilterMax = null;
 let isMessageVisible = false;
 let importButtonsDisabled = false;
 
@@ -10144,6 +10645,8 @@ async function importFromIGDB(count = 100) {
 
     savedYearFilterMin = yearSliderMin.value;
     savedYearFilterMax = yearSliderMax.value;
+    savedTimeFilterMin = timeSliderMin.value;
+    savedTimeFilterMax = timeSliderMax.value;
 
     importButtonsDisabled = true;
     disableImportButtons();
@@ -10253,8 +10756,11 @@ async function importFromIGDB(count = 100) {
 
             yearSliderMin.value = savedYearFilterMin;
             yearSliderMax.value = savedYearFilterMax;
+            timeSliderMin.value = savedTimeFilterMin;
+            timeSliderMax.value = savedTimeFilterMax;
 
             updateYearValue();
+            updateTimeValue();
 
             applyFilters();
         }
@@ -10269,7 +10775,10 @@ async function importFromIGDB(count = 100) {
         if (savedYearFilterMin !== null && savedYearFilterMax !== null) {
             yearSliderMin.value = savedYearFilterMin;
             yearSliderMax.value = savedYearFilterMax;
+            timeSliderMin.value = savedTimeFilterMin;
+            timeSliderMax.value = savedTimeFilterMax;
             updateYearValue();
+            updateTimeValue();
             applyFilters();
         }
     } finally {
@@ -10281,6 +10790,8 @@ async function importFromIGDB(count = 100) {
 
         savedYearFilterMin = null;
         savedYearFilterMax = null;
+        savedTimeFilterMin = null;
+        savedTimeFilterMax = null;
     }
 }
 
@@ -10805,6 +11316,116 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateSliderTrack();
     updateTooltips();
+
+    let isTimeSliderActive = false;
+    let timeRafId = null;
+    function timeRafStep() {
+        updateTimeSliderTrack();
+        updateTimeTooltips();
+        if (isTimeSliderActive) {
+            timeRafId = requestAnimationFrame(timeRafStep);
+        } else if (timeRafId != null) {
+            cancelAnimationFrame(timeRafId);
+            timeRafId = null;
+        }
+    }
+
+    function setActiveTimeSlider(which) {
+        if (which === 'min') {
+            timeSliderMin.style.zIndex = '6';
+            timeSliderMax.style.zIndex = '5';
+        } else if (which === 'max') {
+            timeSliderMin.style.zIndex = '5';
+            timeSliderMax.style.zIndex = '6';
+        }
+    }
+
+    const onTimeInputMin = () => {
+        const minVal = parseInt(timeSliderMin.value);
+        const maxVal = parseInt(timeSliderMax.value);
+
+        if (minVal > maxVal) {
+            timeSliderMin.value = maxVal;
+        }
+
+        state.filters.timeMin = parseInt(timeSliderMin.value);
+
+        virtualUpdateDuringSliderMovement();
+        if (!isTimeSliderActive) {
+            isTimeSliderActive = true;
+            timeRafStep();
+        }
+        debouncedUpdateVisibleGamesDuringDrag();
+    };
+    timeSliderMin.addEventListener('input', onTimeInputMin);
+    timeSliderMin.addEventListener('pointerdown', () => setActiveTimeSlider('min'));
+    timeSliderMin.addEventListener('mouseenter', () => setActiveTimeSlider('min'));
+
+    timeSliderMin.addEventListener('change', () => {
+        isSliderMoving = false;
+        isTimeSliderActive = false;
+        if (sliderMovementTimer) {
+            clearTimeout(sliderMovementTimer);
+        }
+
+        updateVisibleGames();
+        saveTimeFiltersToStorage();
+        clearFilterCache();
+    });
+
+    timeSliderMin.addEventListener('mouseover', () => {
+        document.querySelector('.time-min-tooltip').style.opacity = '1';
+        updateTimeTooltips();
+    });
+
+    timeSliderMin.addEventListener('mouseout', () => {
+        document.querySelector('.time-min-tooltip').style.opacity = '0';
+    });
+
+    const onTimeInputMax = () => {
+        const minVal = parseInt(timeSliderMin.value);
+        const maxVal = parseInt(timeSliderMax.value);
+
+        if (maxVal < minVal) {
+            timeSliderMax.value = minVal;
+        }
+
+        state.filters.timeMax = parseInt(timeSliderMax.value);
+
+        virtualUpdateDuringSliderMovement();
+        if (!isTimeSliderActive) {
+            isTimeSliderActive = true;
+            timeRafStep();
+        }
+        debouncedUpdateVisibleGamesDuringDrag();
+    };
+    timeSliderMax.addEventListener('input', onTimeInputMax);
+    timeSliderMax.addEventListener('pointerdown', () => setActiveTimeSlider('max'));
+    timeSliderMax.addEventListener('mouseenter', () => setActiveTimeSlider('max'));
+
+    timeSliderMax.addEventListener('change', () => {
+        isSliderMoving = false;
+        isTimeSliderActive = false;
+        if (sliderMovementTimer) {
+            clearTimeout(sliderMovementTimer);
+        }
+
+        updateVisibleGames();
+        saveTimeFiltersToStorage();
+        clearFilterCache();
+    });
+
+    timeSliderMax.addEventListener('mouseover', () => {
+        document.querySelector('.time-max-tooltip').style.opacity = '1';
+        updateTimeTooltips();
+    });
+
+    timeSliderMax.addEventListener('mouseout', () => {
+        document.querySelector('.time-max-tooltip').style.opacity = '0';
+    });
+
+    updateTimeSliderTrack();
+    updateTimeTooltips();
     
     sizeSlider.addEventListener('mousedown', () => {
         sizeSliderMoving = true;
