@@ -2838,14 +2838,14 @@ function adjustFiltersPanelHeight() {
         const availableForLists = maxHeightFor10Items * 2;
         const totalPanelHeight = topReserve + availableForLists + bottomReserve;
         
-        const maxH = totalPanelHeight > maxPanelHeight ? maxPanelHeight : totalPanelHeight;
+        const maxH = Math.min(maxPanelHeight, totalPanelHeight);
         panel.style.maxHeight = maxH + 'px';
 
         const innerH = panel.clientHeight;
         const available = Math.max(0, innerH - topReserve - bottomReserve);
         const perList = Math.max(minListH, Math.floor(available / 2));
         
-        const maxListHeight = totalPanelHeight > maxPanelHeight ? Math.min(perList, maxHeightFor10Items) : maxHeightFor10Items;
+        const maxListHeight = Math.min(perList, maxHeightFor10Items);
         
         platforms.style.maxHeight = maxListHeight + 'px';
         genres.style.maxHeight = maxListHeight + 'px';
@@ -9627,12 +9627,13 @@ filtersButton.addEventListener('click', (event) => {
         }
         if (typeof adjustFiltersPanelHeight === 'function') {
             setTimeout(adjustFiltersPanelHeight, 0);
-            const ro = new ResizeObserver(() => adjustFiltersPanelHeight());
-            const panelEl = document.getElementById('filtersPanel');
-            if (panelEl) ro.observe(panelEl);
+            window.addEventListener('resize', adjustFiltersPanelHeight);
         }
     } else {
         filtersPanel.style.display = 'none';
+        if (typeof adjustFiltersPanelHeight === 'function') {
+            window.removeEventListener('resize', adjustFiltersPanelHeight);
+        }
     }
 });
 resetFiltersButton.addEventListener('click', resetFilters);
