@@ -8406,6 +8406,7 @@ function updateVisibleGamesYearOnlyDuringDrag() {
     const cells = document.querySelectorAll('.cell');
     const inProgressRowEl = document.getElementById('inProgressRow');
     const inProgressVisible = inProgressRowEl && inProgressRowEl.children.length > 0;
+    
     for (let i = 0; i < cells.length; i++) {
         const cell = cells[i];
         const gameId = cell.getAttribute('data-game-id');
@@ -8434,9 +8435,9 @@ function updateVisibleGamesYearOnlyDuringDrag() {
                 const timeStr = game.hltb.ms.t;
                 const timeValue = parseTimeToHours(timeStr);
                 if (timeValue !== null && !isNaN(timeValue)) {
-                    if (timeValue < minTime || (timeValue > maxTime && maxTime !== 150)) visible = false;
+                    if (timeValue < minTime || (timeValue > maxTime && maxTime !== 100)) visible = false;
                 }
-            } else if (visible && (minTime > 0 || maxTime < 150)) {
+            } else if (visible && (minTime > 0 || maxTime < 100)) {
                 visible = false;
             }
             if (visible && selectedPlatforms.length > 0) {
@@ -8629,11 +8630,11 @@ function populateFilters() {
     timeSliderMin.max = 150;
     timeSliderMin.value = state.filters.timeMin;
     timeSliderMax.min = 0;
-    timeSliderMax.max = 150;
+    timeSliderMax.max = 100;
     timeSliderMax.value = state.filters.timeMax;
 
     document.getElementById('minTimeLabel').textContent = '0';
-    document.getElementById('maxTimeLabel').textContent = '150+';
+    document.getElementById('maxTimeLabel').textContent = '100+';
 
     saturationSlider.value = state.saturation;
 
@@ -8721,7 +8722,7 @@ function updateTimeSliderVisuals() {
     timeSliderMin.value = minVal;
     timeSliderMax.value = maxVal;
 
-    const maxDisplay = maxVal === 150 ? '150+' : maxVal;
+    const maxDisplay = maxVal === 100 ? '100+' : maxVal;
     timeValue.textContent = minVal === maxVal ? `${minVal}` : `${minVal} - ${maxDisplay}`;
 
     updateTimeSliderTrack();
@@ -8797,11 +8798,11 @@ function updateTimeTooltips() {
     const minPx = ((minVal - timeSliderMin.min) / (timeSliderMin.max - timeSliderMin.min)) * trackWidth + thumbWidth / 2;
     const maxPx = ((maxVal - timeSliderMax.min) / (timeSliderMax.max - timeSliderMax.min)) * trackWidth + thumbWidth / 2;
     minTooltip.textContent = minVal;
-    maxTooltip.textContent = maxVal === 150 ? '150+' : maxVal;
+    maxTooltip.textContent = maxVal === 100 ? '100+' : maxVal;
     minTooltip.style.left = `${Math.max(0, Math.min(minPx, containerWidth))}px`;
     maxTooltip.style.left = `${Math.max(0, Math.min(maxPx, containerWidth))}px`;
 
-    timeValue.textContent = minVal === maxVal ? `${minVal}ч` : `${minVal} - ${maxVal === 150 ? '150+' : maxVal}`;
+    timeValue.textContent = minVal === maxVal ? `${minVal}ч` : `${minVal} - ${maxVal === 100 ? '100+' : maxVal}`;
 }
 
 let isYearSliderActive = false;
