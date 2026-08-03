@@ -2848,9 +2848,7 @@ function adjustFiltersPanelHeight() {
         const maxListHeight = Math.min(perList, maxHeightFor10Items);
         
         platforms.style.maxHeight = maxListHeight + 'px';
-        platforms.style.minHeight = minListH + 'px';
         genres.style.maxHeight = maxListHeight + 'px';
-        genres.style.minHeight = minListH + 'px';
     }
 }
 
@@ -9628,7 +9626,9 @@ filtersButton.addEventListener('click', (event) => {
             setTimeout(setListsHeight, 10);
         }
         if (typeof adjustFiltersPanelHeight === 'function') {
-            setTimeout(adjustFiltersPanelHeight, 0);
+            setTimeout(adjustFiltersPanelHeight, 50);
+            setTimeout(adjustFiltersPanelHeight, 100);
+            setTimeout(adjustFiltersPanelHeight, 200);
             window.addEventListener('resize', adjustFiltersPanelHeight);
         }
     } else {
