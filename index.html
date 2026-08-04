@@ -708,7 +708,7 @@ body {
     border-radius: 2px;
     z-index: 1001;
     pointer-events: none;
-    transition: opacity 1s ease-out;
+    transition: opacity 0.5s ease-out;
     transform: translate(0, -50%);
     top: 50%;
 }
@@ -1638,7 +1638,7 @@ body {
     border-radius: 2px;
     z-index: 1002;
     pointer-events: auto;
-    transition: opacity 1s ease-out;
+    transition: opacity 0.3s ease-out;
     transform: translate(0, -50%);
     top: 50%;
 }
@@ -3624,6 +3624,7 @@ let completedGames = 0;
 let games = [];
 let gamesUpdated = false;
 let previewTimeout;
+let previewHideTimeout = null;
 let previewEnabled = localStorage.getItem('previewEnabled') !== 'false';
 let inProgressMode = false;
 let hideCompleted = JSON.parse(localStorage.getItem('hideCompleted')) || false;
@@ -7000,13 +7001,18 @@ function hidePreviewAndTitle() {
 
 function hidePreview() {
     clearTimeout(previewTimeout);
+    if (previewHideTimeout) {
+        clearTimeout(previewHideTimeout);
+        previewHideTimeout = null;
+    }
     
     preview.style.opacity = '0';
     
-    setTimeout(() => {
+    previewHideTimeout = setTimeout(() => {
         if (preview.style.opacity === '0') {
             preview.style.display = 'none';
         }
+        previewHideTimeout = null;
     }, 1000);
 }
 
@@ -7197,14 +7203,18 @@ function setupModalSizes() {
             const imgRect = previewImg.getBoundingClientRect();
             
             if (imgRect.width > 0 && imgRect.height > 0) {
+                const modalLeft = Math.round(imgRect.left);
+                const modalTop = Math.round(imgRect.top - 5);
+                const modalWidth = previewImg.offsetWidth - 8;
+                const modalHeight = previewImg.offsetHeight;
                 gameInfoModal.style.position = 'fixed';
-                gameInfoModal.style.left = `${imgRect.left}px`;
-                gameInfoModal.style.top = `${imgRect.top - 5}px`;
+                gameInfoModal.style.left = `${modalLeft}px`;
+                gameInfoModal.style.top = `${modalTop}px`;
                 gameInfoModal.style.right = 'auto';
                 gameInfoModal.style.transform = 'none';
                 
-                gameInfoModal.style.width = `${imgRect.width * 0.980}px`;
-                gameInfoModal.style.height = `${imgRect.height}px`;
+                gameInfoModal.style.width = `${modalWidth}px`;
+                gameInfoModal.style.height = `${modalHeight}px`;
             } else {
                 gameInfoModal.style.left = preview.style.left;
                 gameInfoModal.style.right = preview.style.right;
@@ -7234,7 +7244,11 @@ function setupModalSizes() {
     }
     
     gameInfoModal.style.display = 'block';
-    gameInfoModal.style.opacity = '1';
+    gameInfoModal.style.opacity = '0';
+    void gameInfoModal.offsetHeight;
+    requestAnimationFrame(() => {
+        gameInfoModal.style.opacity = '1';
+    });
 }
 
 function showGameInfoModal(game, event = null) {
@@ -7252,7 +7266,7 @@ function showGameInfoModal(game, event = null) {
     if (preview.style.display !== 'block' || preview.style.opacity === '0') {
         showPreviewForGame(game, event, () => {
             setupModalSizes();
-        });
+        }, true);
     } else {
         setupModalSizes();
     }
@@ -7285,6 +7299,7 @@ function showGameInfoModal(game, event = null) {
 function hideGameInfoModal(forceInstant = false) {
     const isRandomMode = forceInstant || (randomSelectedContainer && randomSelectedContainer.style.display !== 'none');
     
+    gameInfoModal.style.transform = '';
     if (isRandomMode) {
         gameInfoModal.style.display = 'none';
         gameInfoModal.style.opacity = '0';
@@ -7292,23 +7307,32 @@ function hideGameInfoModal(forceInstant = false) {
     gameInfoModal.style.opacity = '0';
     preview.style.opacity = '0';
     
-    setTimeout(() => {
+    previewHideTimeout = setTimeout(() => {
         if (gameInfoModal.style.opacity === '0') {
             gameInfoModal.style.display = 'none';
         }
         if (preview.style.opacity === '0') {
             preview.style.display = 'none';
         }
+        previewHideTimeout = null;
     }, 1000);
     }
     
     if (forceInstant) {
         preview.style.display = 'none';
         preview.style.opacity = '0';
+        if (previewHideTimeout) {
+            clearTimeout(previewHideTimeout);
+            previewHideTimeout = null;
+        }
     } else if (!isRandomMode) {
     } else {
         preview.style.display = 'none';
         preview.style.opacity = '0';
+        if (previewHideTimeout) {
+            clearTimeout(previewHideTimeout);
+            previewHideTimeout = null;
+        }
     }
     
     if (selectedGameId) {
@@ -7336,23 +7360,24 @@ function hideGameInfoModal(forceInstant = false) {
     }
 }
 
-function showPreviewForGame(game, event = null, callback) {
+function showPreviewForGame(game, event = null, callback, isInfoModal = false) {
     clearTimeout(previewTimeout);
+    if (previewHideTimeout) {
+        clearTimeout(previewHideTimeout);
+        previewHideTimeout = null;
+    }
     
     const needsSmoothAppearance = preview.style.display !== 'block' || preview.style.opacity === '0';
     
     if (needsSmoothAppearance) {
-        preview.style.opacity = '0';
         preview.style.display = 'block';
-        
-        setTimeout(() => {
-            preview.style.transition = 'opacity 0.1s ease-in-out';
+        if (isInfoModal) {
+            preview.style.transition = 'none';
+            preview.style.opacity = '0';
+        } else {
+            preview.style.transition = 'none';
             preview.style.opacity = '1';
-            
-            setTimeout(() => {
-                preview.style.transition = '';
-            }, 500);
-        }, 10);
+        }
     } else {
         preview.style.opacity = '1';
         preview.style.display = 'block';
@@ -7404,6 +7429,8 @@ function showPreviewForGame(game, event = null, callback) {
                 width = height * aspectRatio;
             }
             
+            width = Math.round(width);
+            height = Math.round(height);
             img.style.width = `${width}px`;
             img.style.height = `${height}px`;
             const content = preview.querySelector('.preview-content');
@@ -7444,6 +7471,13 @@ function showPreviewForGame(game, event = null, callback) {
         const executePositioning = () => {
             setupImageSizes();
             updatePreviewPosition();
+            img.style.display = 'none';
+            void img.offsetHeight;
+            img.style.display = 'block';
+            if (isInfoModal) {
+                preview.style.transition = 'opacity 0.5s ease-out';
+                requestAnimationFrame(() => { preview.style.opacity = '1'; });
+            }
             if (callback) callback();
         };
         
@@ -7474,6 +7508,13 @@ function showPreviewForGame(game, event = null, callback) {
         
         const executeFallback = () => {
             setupImageSizes();
+            img.style.display = 'none';
+            void img.offsetHeight;
+            img.style.display = 'block';
+            if (isInfoModal) {
+                preview.style.transition = 'opacity 0.5s ease-out';
+                requestAnimationFrame(() => { preview.style.opacity = '1'; });
+            }
             if (callback) callback();
         };
         
@@ -7512,7 +7553,7 @@ function replaceGameInfoModal(game, event = null) {
     
     showPreviewForGame(game, event, () => {
         setupModalSizes();
-    });
+    }, true);
     
     const newGameCells = document.querySelectorAll(`.cell[data-game-id="${game.id}"]`);
     newGameCells.forEach(cell => {
@@ -8197,13 +8238,18 @@ function filterAndSearchGames(games, filters, searchTerm) {
             return false;
         }
 
+        let gameTime = null;
         if (game.hltb && game.hltb.ms && game.hltb.ms.t) {
-            const timeStr = game.hltb.ms.t;
-            const timeValue = parseTimeToHours(timeStr);
-            if (timeValue !== null && !isNaN(timeValue)) {
-                if (timeValue < filters.timeMin || (timeValue > filters.timeMax && filters.timeMax !== 100)) {
-                    return false;
-                }
+            gameTime = parseTimeToHours(game.hltb.ms.t);
+        } else if (game.hltb && game.hltb.coop && game.hltb.coop.t) {
+            gameTime = parseTimeToHours(game.hltb.coop.t);
+        } else if (game.hltb && game.hltb.vs && game.hltb.vs.t) {
+            gameTime = parseTimeToHours(game.hltb.vs.t);
+        }
+        
+        if (gameTime !== null && !isNaN(gameTime)) {
+            if (gameTime < filters.timeMin || (gameTime > filters.timeMax && filters.timeMax !== 100)) {
+                return false;
             }
         } else {
             if (filters.timeMin > 0 || filters.timeMax < 100) {
@@ -12218,7 +12264,7 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
  <div id="infoPopup" class="info-popup" role="dialog" aria-modal="false" aria-hidden="true">
    <div>
-     <strong>Это ТОП‑1000 самых высокооценённых игр всех времён.</strong>
+     <strong>Это ТОП‑1000 самых высоко оценённых игр всех времён.</strong>
      <ul style="list-style: disc; padding-left: 20px; margin: 12px 0 25px;">
        <li>Отмечайте пройденные игры</li>
        <li>Добавляйте в очередь то, что хотите пройти</li>
